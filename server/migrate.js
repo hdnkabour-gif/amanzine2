@@ -210,6 +210,9 @@ async function migrate() {
       `CREATE INDEX IF NOT EXISTS idx_logs_user_id         ON audit_logs(user_id)`,
       `CREATE INDEX IF NOT EXISTS idx_delivery_user_id     ON delivery_providers(user_id)`,
       `CREATE INDEX IF NOT EXISTS idx_loyalty_user_id      ON loyalty_points(user_id)`,
+      // Discover/Explore hot paths (Super App)
+      `CREATE INDEX IF NOT EXISTS idx_products_status_views ON products(status, views DESC)`,
+      `CREATE INDEX IF NOT EXISTS idx_products_category     ON products(category)`,
     ];
     for (const sql of indexes) await client.query(sql);
 

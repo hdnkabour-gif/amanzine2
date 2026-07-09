@@ -102,6 +102,7 @@ app.use('/api/coupons/public/spin', rateLimit({ windowMs: 60 * 60 * 1000, max: 1
 app.use('/api/orders/public',       rateLimit({ windowMs: 60 * 60 * 1000, max: 15, message: { error: 'طلبات كثيرة من هذا الجهاز — حاول بعد قليل' } }));
 app.use('/api/ai/public-reply',     rateLimit({ windowMs: 10 * 60 * 1000, max: 30, message: { error: 'رسائل كثيرة — انتظر قليلاً ثم أعد المحاولة' } }));
 app.use('/api/coupons/validate',    rateLimit({ windowMs: 10 * 60 * 1000, max: 40, message: { error: 'محاولات تحقق كثيرة — انتظر قليلاً' } }));
+app.use('/api/track',               rateLimit({ windowMs: 5 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false })); // أحداث view/click متكرّرة
 app.use('/api/bookings/public',     rateLimit({ windowMs: 60 * 60 * 1000, max: 20, message: { error: 'محاولات حجز كثيرة — حاول بعد قليل' } })); // alloservix
 app.use('/api/search',              rateLimit({ windowMs: 10 * 60 * 1000, max: 150, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // المحرّك الموحّد
 app.use('/api/recommend',           rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Recommendation Engine
@@ -128,6 +129,7 @@ app.use('/api/analytics',     require('./routes/analytics'));
 app.use('/api/media',         require('./routes/media'));
 app.use('/api/loyalty', require('./routes/loyalty'));
 app.use('/api/coupons',       require('./routes/coupons'));
+app.use('/api/ai',            require('./routes/ai-search'));   // AI Engine: /ask (عام) — قبل مسارات ai المصادَقة
 app.use('/api/ai',            require('./routes/ai'));
 app.use('/api/delivery-auto', require('./routes/delivery-auto'));
 app.use('/api/push',          require('./routes/push'));
@@ -138,6 +140,7 @@ app.use('/api/search',        require('./routes/search'));      // المحرّ�
 app.use('/api/recommend',     require('./routes/recommend'));   // Recommendation Engine (فوق Business Graph)
 app.use('/api/feed',          require('./routes/feed'));        // Activity Feed (timelines فوق Activity Engine)
 app.use('/api/insights',      require('./routes/insights'));    // Analytics Engine (لوحات من تدفّق الأحداث)
+app.use('/api/track',         require('./routes/track'));       // استقبال view/click → Activity events
 
 // المحرّكات المعتمدة على الأحداث: Analytics + Rules→Notification كمشتركين على الـBus
 try {

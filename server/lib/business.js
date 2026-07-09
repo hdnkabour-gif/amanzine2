@@ -14,6 +14,7 @@
 // ============================================================
 const { db } = require('../database');
 const presentation = require('./engines/presentation');
+const { computeStatus, smartAvailability } = require('./engines/status');
 
 const num = (x) => (x != null && !isNaN(+x)) ? +x : null;
 
@@ -55,7 +56,7 @@ function baseBusiness(over) {
     image: '', gallery: [],
     verified: false, rating: { avg: 0, count: 0 },
     contact: { phone: '', whatsapp: '' },
-    categories: [], capabilities: capabilities(), href: '',
+    categories: [], capabilities: capabilities(), status: null, availability: null, href: '',
     ...over,
   };
 }
@@ -75,6 +76,7 @@ const StoreAdapter = {
       verified: !!s.verified, rating: { avg: +s.ratingAvg || 0, count: +s.ratingCount || 0 },
       contact: { phone: brand.phone || '', whatsapp: brand.whatsapp || brand.phone || '' },
       capabilities: capabilities({ products: true, offers: true, chat: true }),
+      status: computeStatus({ workStart: s.workStart || brand.workStart, workEnd: s.workEnd || brand.workEnd, override: s.statusOverride || brand.statusOverride }),
       productCount: +s.productCount || 0,
       href: `/business/store/${s.storeId}`,
     });
@@ -88,7 +90,7 @@ const StoreAdapter = {
       db.getProviders(id, { status: 'approved' }).catch(() => []),
     ]);
     const hasDelivery = !!(settings.deliveryCosts && Object.keys(settings.deliveryCosts).length) || !!settings.delivery?.enabled;
-    const business = this.normalize({ storeId: id, brand, name: brand.name, description: brand.description, city: brand.city, logo: brand.logo });
+    const business = this.normalize({ storeId: id, brand, name: brand.name, description: brand.description, city: brand.city, logo: brand.logo, workStart: brand.workStart, workEnd: brand.workEnd, statusOverride: brand.statusOverride });
     business.capabilities = capabilities({
       products: products.length > 0,
       services: products.some(p => p.type === 'service') || providers.length > 0,
@@ -134,6 +136,7 @@ const ProviderAdapter = {
       db.getAvailabilityTemplates(id).catch(() => []),
     ]);
     const business = this.normalize({ ...p, services });
+    business.availability = smartAvailability(availability); // متاح اليوم/غداً/هذا الأسبوع
     return { business, sections: sectionsFor(business), data: { services, availability } };
   },
 };

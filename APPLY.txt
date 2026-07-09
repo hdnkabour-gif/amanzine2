@@ -1,10 +1,9 @@
-AMANZINE (saharshop2026) — كل تغييرات الجلسة (19 commits)
+AMANZINE (saharshop2026) — كل تغييرات الجلسة (24 commits)
 ==========================================================
-Backend كامل + واجهات:
-  /explore  — بحث موحّد + فلاتر + رائج + قد يعجبك + قائمة/خريطة
-  /feed     — نشاط الأعمال (trending/local/following)
-  /business/:s/:id — صفحة نشاط ديناميكية (+ ذات صلة + آخر النشاط)
-  الخريطة   — Leaflet + OSM (مضمّنة، lazy، بلا CDN، آمنة CSP)
+الملخص الكامل: CHANGELOG_SESSION.md · الرؤية: AMANZINE_OVERVIEW.md · ما قبل الإطلاق: PRELAUNCH_CHECKLIST.md
+يشمل: الأمن · alloservix · Business Engine + محرّكات · Event backbone ·
+      واجهات (Explore/Feed/BusinessProfile/Map/Dashboard) ·
+      Live Status + Smart Availability · AI Engine · فهارس + اختبارات (23/23)
 
-ملاحظة تثبيت: leaflet@1.9.4 أُضيف. بعد git am:
-  npm i --legacy-peer-deps && npx tsc --noEmit && npm run build && (cd server && npm test)
+git am amanzine-all-changes.patch   (أُضيف leaflet — شغّل npm i --legacy-peer-deps)
+تحقق: npx tsc --noEmit && npm run build && (cd server && npm test)  # 23/23

@@ -8,8 +8,9 @@ const DEFAULT_WEIGHTS = {
   distance:     0.30,
   rating:       0.20,
   verified:     0.15,
-  availability: 0.15,
-  popularity:   0.10,
+  availability: 0.10,
+  openNow:      0.10, // الحالة الحيّة: المفتوح الآن يتقدّم
+  popularity:   0.05,
   relevance:    0.10,
 };
 
@@ -25,6 +26,8 @@ function signals(b, ctx) {
     verified:     b.verified ? 1 : 0,
     // التوفّر: قابلية الحجز/المواعيد إشارة أولية (تُدقَّق لاحقاً بجدول التوفّر الفعلي)
     availability: (b.capabilities && (b.capabilities.booking || b.capabilities.appointments)) ? 1 : 0.5,
+    // الحالة الحيّة: مفتوح=1 · غير معروف=0.5 (لا نعاقب) · مغلق=0.15
+    openNow:      b.status ? (b.status.code === 'open' ? 1 : (['busy', 'quick', 'delivery', 'appointment'].includes(b.status.code) ? 0.6 : 0.15)) : 0.5,
     popularity:   clamp01((+b.rating?.count || 0) / 50),
     relevance:    b.__relevance != null ? clamp01(b.__relevance) : 0.5,
   };

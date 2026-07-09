@@ -15,4 +15,10 @@ router.get('/', auth, (req, res) => {
   } catch (e) { console.error('[insights]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
+// لوحة التاجر: مقاييس متجره فقط (businessId = store:<userId>)
+router.get('/me', auth, (req, res) => {
+  try { res.json(analytics.forBusiness(`store:${req.user.id}`)); }
+  catch (e) { console.error('[insights/me]', e.message); res.status(500).json({ error: 'Server error' }); }
+});
+
 module.exports = router;

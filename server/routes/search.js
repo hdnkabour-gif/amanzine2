@@ -15,6 +15,8 @@ function parseFilters(qs) {
   if (qs.delivery === 'true' || qs.delivery === '1') f.delivery = true;
   if (qs.booking === 'true' || qs.booking === '1') f.booking = true;
   if (qs.offers === 'true' || qs.offers === '1') f.offers = true;
+  if (qs.openNow === 'true' || qs.openNow === '1') f.openNow = true;
+  if (qs.availableToday === 'true' || qs.availableToday === '1') f.availableToday = true;
   if (qs.priceMin != null && qs.priceMin !== '') f.priceMin = +qs.priceMin || 0;
   if (qs.priceMax != null && qs.priceMax !== '') f.priceMax = +qs.priceMax || 0;
   return f;

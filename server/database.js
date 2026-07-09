@@ -1034,6 +1034,9 @@ db.discoverStores = async ({ city, q, limit = 24 } = {}) => {
             s.data->'brand'->>'logo' AS logo,
             s.data->'brand'->>'city' AS city,
             s.data->'brand'->>'description' AS description,
+            s.data->'brand'->>'workStart' AS work_start,
+            s.data->'brand'->>'workEnd'   AS work_end,
+            s.data->'brand'->>'statusOverride' AS status_override,
             (SELECT COUNT(*) FROM products p WHERE p.user_id = s.user_id AND p.status = 'published') AS product_count
      FROM settings s
      WHERE ${conds.join(' AND ')}
@@ -1042,6 +1045,7 @@ db.discoverStores = async ({ city, q, limit = 24 } = {}) => {
   return rows.map(r => ({
     storeId: r.user_id, name: r.name || 'متجر', logo: r.logo || '', city: r.city || '',
     description: r.description || '', productCount: +r.product_count || 0,
+    workStart: r.work_start || '', workEnd: r.work_end || '', statusOverride: r.status_override || '',
   }));
 };
 

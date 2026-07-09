@@ -14,11 +14,16 @@ const top = (m, n = 10) => [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0,
 // ── الحالة (تجميعات) ─────────────────────────────────────────
 const S = {
   search:      { terms: new Map(), zeroResult: new Map(), total: 0 },
-  business:    { views: new Map(), clicks: new Map(), contacts: new Map() },
+  business:    { views: new Map(), clicks: new Map(), contacts: new Map(), itemViews: new Map() }, // itemViews: businessId → Map(label→count)
   marketplace: { productViews: new Map(), categories: new Map() },
   provider:    { bookings: new Map(), cancellations: new Map() },
-  platform:    { byCategory: new Map(), byCity: new Map(), byType: new Map(), total: 0, days: new Set() },
+  platform:    { byCategory: new Map(), byCity: new Map(), byType: new Map(), source: new Map(), total: 0, days: new Set() },
 };
+function incNested(outer, bid, label) {
+  if (!bid || !label) return;
+  if (!outer.has(bid)) outer.set(bid, new Map());
+  const inner = outer.get(bid); inner.set(label, (inner.get(label) || 0) + 1);
+}
 
 // ── الوحدات: كل وحدة تشترك في نمطها فقط ──────────────────────
 function registerSearchAnalytics() {
@@ -33,9 +38,12 @@ function registerBusinessAnalytics() {
   bus.subscribe('business.viewed',  e => e.businessId && inc(S.business.views, e.businessId));
   bus.subscribe('business.clicked', e => e.businessId && inc(S.business.clicks, e.businessId));
   bus.subscribe('business.contact', e => e.businessId && inc(S.business.contacts, e.businessId));
+  // مشاهدات المنتجات/الخدمات لكل نشاط (للوحة التاجر: الأكثر مشاهدة)
+  bus.subscribe('product.viewed', e => incNested(S.business.itemViews, e.businessId, e.payload?.name || e.payload?.productId));
+  bus.subscribe('service.viewed', e => incNested(S.business.itemViews, e.businessId, e.payload?.name || e.payload?.serviceId));
 }
 function registerMarketplaceAnalytics() {
-  bus.subscribe('product.viewed', e => { if (e.payload?.productId) inc(S.marketplace.productViews, e.payload.productId); });
+  bus.subscribe('product.viewed', e => { if (e.payload?.productId) inc(S.marketplace.productViews, e.payload.name || e.payload.productId); });
   bus.subscribe('listing.*',      e => { if (e.payload?.type) inc(S.marketplace.categories, e.payload.type); });
 }
 function registerProviderAnalytics() {
@@ -48,6 +56,7 @@ function registerPlatformAnalytics() {
     inc(S.platform.byCategory, e.category);
     inc(S.platform.byType, e.type);
     if (e.city) inc(S.platform.byCity, e.city);
+    if (e.payload?.source) inc(S.platform.source, e.payload.source); // مصدر الزيارة
     S.platform.days.add(String(e.createdAt || '').slice(0, 10));
   });
 }
@@ -70,6 +79,7 @@ function snapshot(scope) {
     topCategories: top(S.platform.byCategory),
     topCities: top(S.platform.byCity),
     topTypes: top(S.platform.byType),
+    topSources: top(S.platform.source),
   };
   const search = {
     totalSearches: S.search.total,
@@ -89,4 +99,20 @@ function snapshot(scope) {
   return scope && all[scope] ? { [scope]: all[scope] } : all;
 }
 
-module.exports = { init, snapshot, _state: S };
+// لوحة تاجر واحد (Shopify-like): مقاييس نشاطه مع CTR ومعدّل الحجز
+function forBusiness(businessId) {
+  const views    = S.business.views.get(businessId) || 0;
+  const clicks   = S.business.clicks.get(businessId) || 0;
+  const contacts = S.business.contacts.get(businessId) || 0;
+  const bookings = S.provider.bookings.get(businessId) || 0;
+  const items    = S.business.itemViews.get(businessId);
+  return {
+    businessId,
+    views, clicks, contacts, bookings,
+    ctr: views ? +(clicks / views).toFixed(3) : 0,
+    contactRate: views ? +(contacts / views).toFixed(3) : 0,
+    topItems: items ? top(items, 8) : [],
+  };
+}
+
+module.exports = { init, snapshot, forBusiness, _state: S };

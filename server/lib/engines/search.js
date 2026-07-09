@@ -57,6 +57,8 @@ function applyFilters(list, f = {}) {
     if (f.delivery && !(b.capabilities && b.capabilities.delivery)) return false;
     if (f.booking  && !(b.capabilities && (b.capabilities.booking || b.capabilities.appointments))) return false;
     if (f.offers   && !(b.capabilities && b.capabilities.offers)) return false;
+    if (f.openNow  && !(b.status && b.status.code === 'open')) return false;
+    if (f.availableToday && !(b.availability && (b.availability.code === 'today'))) return false;
     if (f.priceMax != null && b.price != null && +b.price > +f.priceMax) return false;
     if (f.priceMin != null && b.price != null && +b.price < +f.priceMin) return false;
     return true;
