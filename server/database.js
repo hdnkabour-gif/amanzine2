@@ -968,6 +968,45 @@ db.getListingRating = async (listingId) => {
   return { avg: +r.avg || 0, count: +r.count || 0 };
 };
 
+// ── Wallet & Payments ─────────────────────────────────────────
+db.getWallet = async (userId) => {
+  const { rows } = await pool.query('SELECT * FROM wallets WHERE user_id = $1', [userId]);
+  if (rows[0]) return { userId, balance: +rows[0].balance || 0, currency: rows[0].currency || 'MAD' };
+  return { userId, balance: 0, currency: 'MAD' };
+};
+db.getWalletTx = async (userId, limit = 50) => {
+  const { rows } = await pool.query('SELECT * FROM wallet_transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2', [userId, Math.min(+limit || 50, 200)]);
+  return rows.map(t => ({ id: t.id, type: t.type, amount: +t.amount, ref: t.ref || '', note: t.note || '', createdAt: t.created_at ? new Date(t.created_at).toISOString() : now() }));
+};
+// معاملة ذرّية: تحديث الرصيد + تسجيل الحركة (يمنع الرصيد السالب على الخصم)
+db.walletApply = async (userId, { type, amount, ref = '', note = '' }) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`INSERT INTO wallets (user_id, balance) VALUES ($1, 0) ON CONFLICT (user_id) DO NOTHING`, [userId]);
+    const { rows } = await client.query('SELECT balance FROM wallets WHERE user_id = $1 FOR UPDATE', [userId]);
+    const bal = +rows[0].balance || 0;
+    const next = bal + (+amount);
+    if (next < 0) { await client.query('ROLLBACK'); return { ok: false, error: 'رصيد غير كافٍ', balance: bal }; }
+    await client.query('UPDATE wallets SET balance = $1, updated_at = NOW() WHERE user_id = $2', [next, userId]);
+    await client.query('INSERT INTO wallet_transactions (id,user_id,type,amount,ref,note) VALUES ($1,$2,$3,$4,$5,$6)', [uid(), userId, type, +amount, ref, note]);
+    await client.query('COMMIT');
+    return { ok: true, balance: next };
+  } catch (e) { await client.query('ROLLBACK'); throw e; }
+  finally { client.release(); }
+};
+db.createPayment = async (p) => {
+  const id = uid();
+  await pool.query(
+    'INSERT INTO payments (id,user_id,order_id,provider,amount,currency,status,ref) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    [id, p.userId || null, p.orderId || null, p.provider, p.amount || 0, p.currency || 'MAD', p.status || 'pending', p.ref || '']
+  );
+  return { id, ...p };
+};
+db.updatePaymentStatus = async (id, status) => {
+  await pool.query('UPDATE payments SET status = $1 WHERE id = $2', [status, id]);
+};
+
 // مقدّم خدمة عام بمعرّفه (للملف الموحّد) — معتمَد فقط
 db.getProviderById = async (id) => {
   const { rows } = await pool.query("SELECT * FROM providers WHERE id = $1 AND status = 'approved'", [id]);

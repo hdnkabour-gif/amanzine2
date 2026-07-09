@@ -141,6 +141,8 @@ app.use('/api/recommend',     require('./routes/recommend'));   // Recommendatio
 app.use('/api/feed',          require('./routes/feed'));        // Activity Feed (timelines فوق Activity Engine)
 app.use('/api/insights',      require('./routes/insights'));    // Analytics Engine (لوحات من تدفّق الأحداث)
 app.use('/api/track',         require('./routes/track'));       // استقبال view/click → Activity events
+app.use('/api/wallet',        require('./routes/wallet'));      // Wallet Engine
+app.use('/api/payment',       require('./routes/payment'));     // Payment Engine
 
 // المحرّكات المعتمدة على الأحداث: Analytics + Rules→Notification كمشتركين على الـBus
 try {

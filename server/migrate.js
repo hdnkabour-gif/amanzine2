@@ -375,6 +375,39 @@ async function migrate() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_bookings_provider ON bookings(provider_id, scheduled_at)`);
 
+    // ── Wallet (محفظة لكل مستخدم: رصيد + معاملات) ────────────────
+    await client.query(`CREATE TABLE IF NOT EXISTS wallets (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      balance NUMERIC NOT NULL DEFAULT 0,
+      currency TEXT NOT NULL DEFAULT 'MAD',
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE TABLE IF NOT EXISTS wallet_transactions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,            -- cashback | refund | credit | debit | payment | commission
+      amount NUMERIC NOT NULL,       -- موجب=إضافة، سالب=خصم
+      ref TEXT DEFAULT '',
+      note TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_wallet_tx_user ON wallet_transactions(user_id, created_at DESC)`);
+
+    // سجلّ المدفوعات
+    await client.query(`CREATE TABLE IF NOT EXISTS payments (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      order_id TEXT,
+      provider TEXT NOT NULL,        -- cod | wallet | cmi | stripe | transfer
+      amount NUMERIC NOT NULL DEFAULT 0,
+      currency TEXT NOT NULL DEFAULT 'MAD',
+      status TEXT NOT NULL DEFAULT 'pending', -- pending | paid | failed | refunded
+      ref TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id, created_at DESC)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id)`);
+
     // FK fixes: loyalty_points.customer_id → customers(id) ON DELETE CASCADE
     await client.query(`
       DO $$ BEGIN
