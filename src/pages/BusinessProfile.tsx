@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactElement } from 'react';
 import { useParams } from 'react-router-dom';
-import { businessAPI, bookingsAPI, recommendAPI, feedAPI, type Business, type BusinessProfileData, type BusinessSource, type Activity } from '../services/api';
+import { businessAPI, bookingsAPI, recommendAPI, feedAPI, trackAPI, type Business, type BusinessProfileData, type BusinessSource, type Activity } from '../services/api';
 import { BadgeCheck, Star, MapPin, Phone, MessageCircle, Calendar, X, Clock, ArrowLeft } from 'lucide-react';
 
 // ============================================================
@@ -31,7 +31,11 @@ export default function BusinessProfile() {
     if (!source || !id) return;
     setLoading(true);
     businessAPI.getProfile(source, id)
-      .then(p => { setProfile(p); setTab(visibleSections(p)[0] || 'about'); })
+      .then(p => {
+        setProfile(p); setTab(visibleSections(p)[0] || 'about');
+        // تتبّع مشاهدة النشاط (لوحة التاجر + التوصيات)
+        trackAPI.event({ kind: 'business', action: 'viewed', businessId: `${source}:${id}`, name: p.business.name, city: p.business.city, source: 'profile' });
+      })
       .catch(e => setError(e.message || 'تعذّر تحميل النشاط'))
       .finally(() => setLoading(false));
   }, [source, id]);
@@ -56,7 +60,9 @@ export default function BusinessProfile() {
               <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>{business.name}</h1>
               {business.verified && <BadgeCheck size={18} color={PURPLE} />}
             </div>
-            <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 12.5, color: MUTED, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 12.5, color: MUTED, flexWrap: 'wrap', alignItems: 'center' }}>
+              {business.status && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: business.status.color, fontWeight: 800 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: business.status.color, display: 'inline-block' }} />{business.status.label}</span>}
+              {business.availability && <span style={{ color: '#22c55e', fontWeight: 700 }}>{business.availability.label}</span>}
               {business.city && <span><MapPin size={12} style={{ verticalAlign: 'middle' }} /> {business.city}</span>}
               {!!business.rating.count && <span><Star size={12} style={{ verticalAlign: 'middle', color: '#fbbf24' }} /> {business.rating.avg} ({business.rating.count})</span>}
               {business.categories.slice(0, 2).map((c, i) => <span key={i} style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 9px', borderRadius: 99 }}>{c}</span>)}

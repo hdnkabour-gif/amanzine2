@@ -328,6 +328,21 @@ export default function SettingsPage() {
                 {['الدار البيضاء','الرباط','مراكش','فاس','طنجة','أكادير','مكناس','وجدة','سلا','تطوان','القنيطرة','الجديدة'].map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </Field>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <Field label="ساعة الفتح"><input className="input" type="time" value={(s.brand as any).workStart || ''} onChange={e => updateSettings('brand', { ...s.brand, workStart: e.target.value } as any)} /></Field>
+              <Field label="ساعة الإغلاق"><input className="input" type="time" value={(s.brand as any).workEnd || ''} onChange={e => updateSettings('brand', { ...s.brand, workEnd: e.target.value } as any)} /></Field>
+            </div>
+            <Field label="الحالة المباشرة — تؤثّر على ترتيب متجرك في البحث">
+              <select className="input" value={(s.brand as any).statusOverride || ''} onChange={e => updateSettings('brand', { ...s.brand, statusOverride: e.target.value } as any)}>
+                <option value="">تلقائي (حسب ساعات العمل)</option>
+                <option value="busy">🟠 مشغول</option>
+                <option value="appointment">🟣 بموعد مسبق</option>
+                <option value="delivery">🔵 توصيل فقط</option>
+                <option value="quick">🟡 ردّ سريع</option>
+                <option value="vacation">🔴 في إجازة</option>
+                <option value="offline">⚫ غير متصل</option>
+              </select>
+            </Field>
             <button onClick={() => notify('success', '✅ محفوظ — إعداداتك تُحفظ تلقائياً عند كل تغيير')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
           </Section>
 

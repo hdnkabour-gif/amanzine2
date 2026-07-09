@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { businessAPI, feedAPI, recommendAPI, type Business, type SearchFilters, type SearchResult } from '../services/api';
+import { businessAPI, feedAPI, recommendAPI, trackAPI, aiSearchAPI, type Business, type SearchFilters, type SearchResult } from '../services/api';
 const MapView = lazy(() => import('../components/MapView')); // Leaflet يُحمَّل فقط عند فتح الخريطة
 import { Search, MapPin, Star, BadgeCheck, SlidersHorizontal, X, Store, List, Map as MapIcon } from 'lucide-react';
 
@@ -14,8 +14,9 @@ const BG = '#0a0a0f', CARD = 'rgba(255,255,255,0.04)', BORDER = '1px solid rgba(
 const PURPLE = '#8b5cf6', MUTED = 'rgba(255,255,255,0.55)', INK = '#f5f5f7';
 
 const TOGGLES: { key: keyof SearchFilters; label: string }[] = [
-  { key: 'verified', label: '✔ موثّق' }, { key: 'delivery', label: '🚚 توصيل' },
-  { key: 'booking', label: '📅 حجز' }, { key: 'offers', label: '🎁 عروض' },
+  { key: 'openNow', label: '🟢 مفتوح الآن' }, { key: 'verified', label: '✔ موثّق' },
+  { key: 'delivery', label: '🚚 توصيل' }, { key: 'booking', label: '📅 حجز' },
+  { key: 'offers', label: '🎁 عروض' },
 ];
 
 export default function Explore() {
@@ -56,6 +57,20 @@ export default function Explore() {
     );
   };
 
+  const [aiNote, setAiNote] = useState('');
+  const askAI = async () => {
+    if (!q.trim()) return;
+    setAiNote('… أفهم طلبك');
+    try {
+      const r = await aiSearchAPI.ask(q.trim(), coords || undefined);
+      const u = r.understood || {};
+      // طبّق ما فهمه المحرّك على الفلاتر (فتتحدّث النتائج عبر نفس المسار)
+      setFilters(f => ({ ...f, city: r.filters.city || f.city, type: r.filters.type, openNow: r.filters.openNow, availableToday: r.filters.availableToday, verified: r.filters.verified, ratingMin: r.filters.ratingMin }));
+      if (r.filters.q) setQ(r.filters.q);
+      const parts = [u.category && `الفئة: ${u.category}`, u.city && `المدينة: ${u.city}`, u.availableToday && 'متاح اليوم', u.wantTrust && 'الأعلى تقييماً'].filter(Boolean);
+      setAiNote(parts.length ? `✨ فهمت — ${parts.join(' · ')}` : '');
+    } catch { setAiNote(''); }
+  };
   const setF = (k: keyof SearchFilters, v: any) => setFilters(f => ({ ...f, [k]: v || undefined }));
   const activeCount = Object.values(filters).filter(v => v !== undefined && v !== '' && v !== false).length;
 
@@ -75,13 +90,15 @@ export default function Explore() {
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: CARD, border: BORDER, borderRadius: 12, padding: '0 12px' }}>
             <Search size={16} color={MUTED} />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="ابحث: منتج، سباك، مطعم، متجر…" style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: INK, fontSize: 14, padding: '11px 0', fontFamily: 'inherit' }} />
-            {q && <button onClick={() => setQ('')} style={iconBtn}><X size={15} /></button>}
+            <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') askAI(); }} placeholder="اكتب بطبيعتك: أريد نجار اليوم في الرباط…" style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: INK, fontSize: 14, padding: '11px 0', fontFamily: 'inherit' }} />
+            {q && <button onClick={askAI} title="اسأل بالذكاء" style={{ ...iconBtn, color: PURPLE, fontWeight: 800 }}>✨</button>}
+            {q && <button onClick={() => { setQ(''); setAiNote(''); }} style={iconBtn}><X size={15} /></button>}
           </div>
           <button onClick={() => setShowFilters(s => !s)} style={{ ...iconBtn, background: activeCount ? PURPLE : CARD, border: BORDER, borderRadius: 12, padding: '0 12px', color: '#fff', position: 'relative' }}>
             <SlidersHorizontal size={16} />{activeCount > 0 && <span style={{ position: 'absolute', top: 4, insetInlineEnd: 4, background: '#fff', color: PURPLE, borderRadius: 99, fontSize: 9, fontWeight: 800, width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{activeCount}</span>}
           </button>
         </div>
+        {aiNote && <div style={{ marginTop: 8, fontSize: 12, color: PURPLE, background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 10, padding: '7px 11px' }}>{aiNote}</div>}
         {/* شريط سريع: مدينة + toggles + عرض */}
         <div style={{ display: 'flex', gap: 6, marginTop: 10, overflowX: 'auto', scrollbarWidth: 'none', alignItems: 'center' }}>
           <select value={filters.city || ''} onChange={e => setF('city', e.target.value)} style={selStyle}>
@@ -192,8 +209,9 @@ export default function Explore() {
 }
 
 function BizCard({ b }: { b: Business }) {
+  const onClick = () => trackAPI.event({ kind: 'business', action: 'clicked', businessId: `${b.source}:${b.id}`, name: b.name, city: b.city, source: 'explore' });
   return (
-    <a href={b.href || `/business/${b.source}/${b.id}`} style={{ ...CARDS, padding: 13, textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', gap: 7 }}>
+    <a href={b.href || `/business/${b.source}/${b.id}`} onClick={onClick} style={{ ...CARDS, padding: 13, textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', gap: 7 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(139,92,246,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
           {b.image ? <img src={b.image} alt={b.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>{b.source === 'provider' ? '👨‍🔧' : '🏬'}</span>}
@@ -203,7 +221,9 @@ function BizCard({ b }: { b: Business }) {
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
             {b.verified && <BadgeCheck size={14} color={PURPLE} style={{ flexShrink: 0 }} />}
           </div>
-          <div style={{ fontSize: 10.5, color: MUTED, display: 'flex', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 10.5, color: MUTED, display: 'flex', gap: 8, marginTop: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            {b.status && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: b.status.color, fontWeight: 700 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: b.status.color, display: 'inline-block' }} />{b.status.label}</span>}
+            {b.availability && <span style={{ color: '#22c55e' }}>{b.availability.label}</span>}
             {b.city && <span><MapPin size={9} style={{ verticalAlign: 'middle' }} /> {b.city}</span>}
             {!!b.rating.count && <span><Star size={9} style={{ verticalAlign: 'middle', color: '#fbbf24' }} /> {b.rating.avg}</span>}
             {b.distanceKm != null && <span>{b.distanceKm} كم</span>}

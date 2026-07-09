@@ -1,10 +1,54 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import {
   ShoppingBag, MessageCircle, Users, TrendingUp,
   ChevronRight, AlertTriangle, ChevronDown, ChevronUp, Bell,
+  Eye, MousePointerClick, Percent, Calendar,
 } from 'lucide-react';
 import { isPushSupported, getPushPermission, subscribeToPush } from '../lib/pushNotifications';
+import { insightsAPI, type MerchantInsights } from '../services/api';
+
+// ── نبض حيّ (Shopify-like): مقاييس المتجر من Analytics Engine ──
+function LivePulse() {
+  const [d, setD] = useState<MerchantInsights | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => insightsAPI.me().then(x => { if (alive) setD(x); }).catch(() => {});
+    load(); const t = setInterval(load, 60000); // تحديث كل دقيقة
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  if (!d) return null;
+  const cards = [
+    { icon: <Eye size={16} />, label: 'مشاهدات', value: d.views, color: '#3b82f6' },
+    { icon: <MousePointerClick size={16} />, label: 'نقرات', value: d.clicks, color: '#8b5cf6' },
+    { icon: <Percent size={16} />, label: 'نسبة النقر', value: `${Math.round((d.ctr || 0) * 100)}%`, color: '#22c55e' },
+    { icon: <Calendar size={16} />, label: 'حجوزات', value: d.bookings, color: '#f97316' },
+  ];
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+        {cards.map((c, i) => (
+          <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '12px 10px', textAlign: 'center' }}>
+            <div style={{ color: c.color, display: 'flex', justifyContent: 'center', marginBottom: 5 }}>{c.icon}</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: '#FAFAFA' }}>{c.value}</div>
+            <div style={{ fontSize: 10, color: '#888' }}>{c.label}</div>
+          </div>
+        ))}
+      </div>
+      {d.topItems.length > 0 && (
+        <div style={{ marginTop: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '10px 14px' }}>
+          <div style={{ fontSize: 11, color: '#888', fontWeight: 700, marginBottom: 6 }}>🔥 الأكثر مشاهدة</div>
+          {d.topItems.slice(0, 4).map((it, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '3px 0', color: '#CFCFCF' }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.key}</span>
+              <span style={{ color: '#888', flexShrink: 0 }}>{it.count} 👁️</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const STATUS_AR: Record<string,string> = {
   pending:'بانتظار', approved:'موافقة', processing:'جارٍ',
@@ -146,6 +190,9 @@ export default function DashboardPage() {
 
       {/* AI Greeting */}
       <AIGreeting />
+
+      {/* لوحة النبض الحيّة — من Analytics Engine (Event Stream) */}
+      <LivePulse />
 
       {/* Revenue Hero */}
       <div style={{ background: 'linear-gradient(135deg, rgba(255,106,0,0.12), rgba(255,106,0,0.04))', border: '1px solid rgba(255,106,0,0.15)', borderRadius: 20, padding: '24px 20px', position: 'relative', overflow: 'hidden' }}>

@@ -346,6 +346,8 @@ export interface Business {
   contact: { phone: string; whatsapp: string };
   categories: string[];
   capabilities: Record<Capability, boolean>;
+  status: { code: string; label: string; color: string } | null;       // Live Status
+  availability: { code: string; label: string } | null;                 // Smart Availability
   href: string;
   productCount?: number; price?: number; distanceKm?: number;
 }
@@ -365,7 +367,7 @@ export interface BusinessProfileData {
 export interface SearchFilters {
   city?: string; q?: string; type?: 'store' | 'service'; category?: string;
   verified?: boolean; ratingMin?: number; delivery?: boolean; booking?: boolean;
-  offers?: boolean; priceMin?: number; priceMax?: number;
+  offers?: boolean; openNow?: boolean; availableToday?: boolean; priceMin?: number; priceMax?: number;
   lat?: number; lng?: number; radiusKm?: number; view?: 'list' | 'map'; limit?: number;
 }
 export interface SearchResult {
@@ -409,6 +411,27 @@ export const recommendAPI = {
     request<{ businesses: Business[]; edges?: any }>('GET', `/recommend?source=${source}&id=${encodeURIComponent(id)}`),
   forQuery: (q: string, city?: string) =>
     request<{ basedOn?: any[]; businesses: Business[] }>('GET', `/recommend?q=${encodeURIComponent(q)}${city ? '&city=' + encodeURIComponent(city) : ''}`),
+};
+
+// Tracking — أحداث view/click (fire-and-forget، لا تعطّل الواجهة أبداً)
+export const trackAPI = {
+  event: (data: { kind: 'business' | 'product' | 'service'; action: 'viewed' | 'clicked' | 'contact'; businessId?: string; name?: string; productId?: string; serviceId?: string; source?: string; city?: string }) => {
+    try {
+      fetch(`${BASE_URL}/track`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), keepalive: true }).catch(() => {});
+    } catch {}
+  },
+};
+
+// AI Engine — بحث بلغة طبيعية → نيّة + نتائج
+export const aiSearchAPI = {
+  ask: (q: string, coords?: { lat: number; lng: number }) =>
+    request<{ understood: any; filters: SearchFilters; businesses: Business[]; products: any[] }>('POST', '/ai/ask', { q, ...(coords || {}) }),
+};
+
+// Merchant insights (لوحة التاجر)
+export interface MerchantInsights { businessId: string; views: number; clicks: number; contacts: number; bookings: number; ctr: number; contactRate: number; topItems: { key: string; count: number }[]; }
+export const insightsAPI = {
+  me: () => request<MerchantInsights>('GET', '/insights/me'),
 };
 
 // Activity Feed
