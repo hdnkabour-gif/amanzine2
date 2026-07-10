@@ -8,6 +8,7 @@
 const business = require('../business');
 const ranking = require('./ranking');
 const mapEngine = require('./map');
+const knowledge = require('./knowledge');
 
 // إشارات نيّة الخدمة (عربي/دارجة/فرنسي) — تحدّد أن الاستعلام خدمة لا منتج
 const SERVICE_TERMS = [
@@ -95,6 +96,12 @@ async function execute({ q, city, lat, lng, type, radiusKm, limit = 24, weights,
   if (userFilters.priceMin != null) products = products.filter(p => +p.price >= +userFilters.priceMin);
 
   const out = { intent, filters, weights: weights || ranking.DEFAULT_WEIGHTS, businesses: ranked, products };
+
+  // Knowledge layer (DR-0002/0003): سجّل كل بحث نصّي حقيقي بنتيجته →
+  // جودة البحث المجهّلة + التقاط الفشل في search_misses. fire-and-forget.
+  if (q && String(q).trim().length >= 2) {
+    knowledge.recordSearch({ raw: q, city, resultCount: ranked.length + products.length });
+  }
 
   // عرض الخريطة: عقد خريطة ثابت (viewport/markers/clusters/legend) من Map Engine
   if (view === 'map') {

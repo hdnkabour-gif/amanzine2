@@ -423,9 +423,11 @@ export const trackAPI = {
 };
 
 // AI Engine — بحث بلغة طبيعية → نيّة + نتائج
+export interface AskUnderstood { category?: string | null; city?: string | null; availableToday?: boolean; wantTrust?: boolean; kind?: string; nearby?: boolean; }
+export interface AskResult { understood: AskUnderstood; filters: SearchFilters; businesses: Business[]; products: any[]; suggestions: string[]; }
 export const aiSearchAPI = {
   ask: (q: string, coords?: { lat: number; lng: number }) =>
-    request<{ understood: any; filters: SearchFilters; businesses: Business[]; products: any[] }>('POST', '/ai/ask', { q, ...(coords || {}) }),
+    request<AskResult>('POST', '/ai/ask', { q, ...(coords || {}) }),
 };
 
 // Merchant insights (لوحة التاجر)

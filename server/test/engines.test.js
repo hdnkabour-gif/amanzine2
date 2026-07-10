@@ -89,3 +89,66 @@ test('ai: NL → structured (problem hints)', () => {
   const b = ai.ruleAdapter('عندي صنبور كيقطر');
   assert.strictEqual(b.understood.category, 'سباك');
 });
+
+// ── Knowledge layer: search misses (DR-0002) ─────────────────
+const knowledge = require('../lib/engines/knowledge');
+const { db } = require('../database');
+
+test('knowledge: norm lowercases + collapses spaces', () => {
+  assert.strictEqual(knowledge.norm('  الباب   كيضرب '), 'الباب كيضرب');
+  assert.strictEqual(knowledge.norm('Plombier  ABC'), 'plombier abc');
+});
+
+test('knowledge: recordMiss ignores tiny input, normalizes real query', async () => {
+  const calls = [];
+  const orig = db.recordSearchMiss;
+  db.recordSearchMiss = async (a) => { calls.push(a); };
+  try {
+    await knowledge.recordMiss({ raw: 'a' });                    // قصير جدًا → يُتجاهَل
+    await knowledge.recordMiss({ raw: '  الباب كيضرب ', city: 'فاس' });
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(calls[0].normalized, 'الباب كيضرب');
+    assert.strictEqual(calls[0].city, 'فاس');
+  } finally { db.recordSearchMiss = orig; }
+});
+
+test('knowledge: recordSearch counts quality + records miss only on zero (DR-0003)', async () => {
+  const days = [], misses = [];
+  const od = db.recordSearchDay, om = db.recordSearchMiss;
+  db.recordSearchDay = async (a) => { days.push(a); };
+  db.recordSearchMiss = async (a) => { misses.push(a); };
+  try {
+    await knowledge.recordSearch({ raw: 'سباك', city: 'الرباط', resultCount: 5 });  // hit
+    await knowledge.recordSearch({ raw: 'الباب كيضرب', resultCount: 0 });            // miss
+    await knowledge.recordSearch({ raw: 'x', resultCount: 0 });                      // قصير → يُتجاهَل
+    assert.strictEqual(days.length, 2);            // عمليتان حقيقيتان
+    assert.strictEqual(days[0].hit, true);
+    assert.strictEqual(days[1].hit, false);
+    assert.strictEqual(misses.length, 1);          // الفشل فقط
+    assert.strictEqual(misses[0].raw, 'الباب كيضرب');
+  } finally { db.recordSearchDay = od; db.recordSearchMiss = om; }
+});
+
+// ── Learning Loop (DR-0004) ──────────────────────────────────
+const learning = require('../lib/engines/learning');
+
+test('learning: maps funnel events to stages, ignores non-funnel', () => {
+  assert.strictEqual(learning.stageOf('business.viewed'), 'view');
+  assert.strictEqual(learning.stageOf('booking.created'), 'booking');
+  assert.strictEqual(learning.stageOf('order.created'), 'order');
+  assert.strictEqual(learning.stageOf('hub.mode'), null);
+});
+
+test('learning: subscribes to bus and records mapped stages only', async () => {
+  const stages = [];
+  const orig = db.recordLearningStage;
+  db.recordLearningStage = async (s) => { stages.push(s); };
+  try {
+    learning.init(bus);
+    bus.publish({ type: 'business.viewed', category: 'business' });
+    bus.publish({ type: 'booking.created', category: 'booking' });
+    bus.publish({ type: 'hub.mode', category: 'hub' });           // غير قمع → يُتجاهَل
+    await new Promise((r) => setImmediate(r));                    // microtask للـ handlers
+    assert.deepStrictEqual(stages, ['view', 'booking']);
+  } finally { db.recordLearningStage = orig; }
+});

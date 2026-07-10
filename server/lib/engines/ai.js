@@ -63,7 +63,7 @@ function setAdapter(fn) { if (typeof fn === 'function') _adapter = fn; }
 
 // نيّة → استعلام → نتائج (عبر Search Engine الموحّد)
 async function ask({ q, lat, lng, radiusKm } = {}) {
-  if (!q || !String(q).trim()) return { understood: {}, filters: {}, businesses: [], products: [] };
+  if (!q || !String(q).trim()) return { understood: {}, filters: {}, businesses: [], products: [], suggestions: [] };
   const { understood, filters } = await _adapter(q);
   const result = await search.execute({
     q: filters.q || q, city: filters.city, type: filters.type,
@@ -71,7 +71,12 @@ async function ask({ q, lat, lng, radiusKm } = {}) {
     filters: { availableToday: filters.availableToday, openNow: filters.openNow, verified: filters.verified, ratingMin: filters.ratingMin },
     limit: 20,
   });
-  return { understood, filters, intent: result.intent, businesses: result.businesses, products: result.products };
+  // Next Best Action: فئات ذات صلة من شبكة المعرفة (يستهلك معرفة قائمة — قانون ١١).
+  // تساعد المستخدم على خطوته التالية، وتُنقذ حالة «لا نتيجة» من الطريق المسدود.
+  const suggestions = understood.category
+    ? graph.relatedCategoriesWeighted([understood.category]).slice(0, 4).map(s => s.category)
+    : [];
+  return { understood, filters, intent: result.intent, businesses: result.businesses, products: result.products, suggestions };
 }
 
 module.exports = { ask, setAdapter, ruleAdapter };

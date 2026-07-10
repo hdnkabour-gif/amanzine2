@@ -1239,4 +1239,80 @@ db.updateBookingStatus = async (userId, id, status) => {
   return _mapBooking(rows[0]);
 };
 
+// ── Knowledge layer: search misses (DR-0002) ──────────────────
+// تسجيل جملة بحث بلا نتيجة، مع تجميع التكرار على (normalized, city).
+db.recordSearchMiss = async ({ raw, normalized, city }) => {
+  await pool.query(
+    `INSERT INTO search_misses (id, raw, normalized, city, count)
+       VALUES ($1, $2, $3, $4, 1)
+     ON CONFLICT (normalized, COALESCE(city, '')) DO UPDATE
+       SET count = search_misses.count + 1, last_seen = NOW(), raw = EXCLUDED.raw`,
+    [uid(), raw, normalized, city || null]
+  );
+};
+db.listSearchMisses = async ({ status = 'open', limit = 100 } = {}) => {
+  const { rows } = await pool.query(
+    `SELECT * FROM search_misses
+      WHERE ($1 = 'all' OR status = $1)
+      ORDER BY count DESC, last_seen DESC
+      LIMIT $2`,
+    [status, limit]
+  );
+  return rows;
+};
+db.resolveSearchMiss = async (id, { category, adminId, status = 'resolved' } = {}) => {
+  const { rows } = await pool.query(
+    `UPDATE search_misses
+        SET status = $2, resolved_category = $3, resolved_by = $4, resolved_at = NOW()
+      WHERE id = $1 RETURNING *`,
+    [id, status, category || null, adminId || null]
+  );
+  return rows[0] || null;
+};
+
+// جودة البحث اليومية المجهّلة (DR-0003 §6.b) — عدّاد hit/miss بلا هوية.
+db.recordSearchDay = async ({ city, hit }) => {
+  await pool.query(
+    `INSERT INTO search_daily (day, city, total, hits, misses)
+       VALUES (CURRENT_DATE, $1, 1, $2, $3)
+     ON CONFLICT (day, COALESCE(city, '')) DO UPDATE
+       SET total  = search_daily.total  + 1,
+           hits   = search_daily.hits   + $2,
+           misses = search_daily.misses + $3`,
+    [city || null, hit ? 1 : 0, hit ? 0 : 1]
+  );
+};
+db.getSearchQuality = async ({ days = 30 } = {}) => {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(SUM(total),0)::int  AS total,
+            COALESCE(SUM(hits),0)::int   AS hits,
+            COALESCE(SUM(misses),0)::int AS misses
+       FROM search_daily
+      WHERE day >= CURRENT_DATE - (($1::int - 1) || ' days')::interval`,
+    [days]
+  );
+  const r = rows[0] || { total: 0, hits: 0, misses: 0 };
+  const successRate = r.total ? Math.round((r.hits / r.total) * 1000) / 1000 : 0;
+  return { ...r, successRate, days };
+};
+
+// Learning Loop (DR-0004) — عدّاد مرحلة قمع يومي مجهّل (بلا هوية مستخدم).
+db.recordLearningStage = async (stage) => {
+  await pool.query(
+    `INSERT INTO learning_daily (day, stage, count) VALUES (CURRENT_DATE, $1, 1)
+     ON CONFLICT (day, stage) DO UPDATE SET count = learning_daily.count + 1`,
+    [stage]
+  );
+};
+db.getLearningStages = async ({ days = 30 } = {}) => {
+  const { rows } = await pool.query(
+    `SELECT stage, COALESCE(SUM(count),0)::int AS count
+       FROM learning_daily
+      WHERE day >= CURRENT_DATE - (($1::int - 1) || ' days')::interval
+      GROUP BY stage`,
+    [days]
+  );
+  const m = {}; for (const r of rows) m[r.stage] = r.count; return m;
+};
+
 module.exports = { db };

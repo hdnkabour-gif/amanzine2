@@ -408,6 +408,43 @@ async function migrate() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id, created_at DESC)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id)`);
 
+    // Knowledge layer — عمليات بحث بلا نتيجة (تنمية القاموس من الاستعمال الحقيقي)
+    // DR-0002. لا كتابة مباشرة للقاموس: هذه مادة خام تُراجَع وتُربَط بفئة يدويًا.
+    await client.query(`CREATE TABLE IF NOT EXISTS search_misses (
+      id TEXT PRIMARY KEY,
+      raw TEXT NOT NULL,                 -- جملة المستخدم كما كتبها
+      normalized TEXT NOT NULL,          -- بعد التطبيع (lowercase + مسافات)
+      city TEXT,
+      count INTEGER NOT NULL DEFAULT 1,  -- كم مرة تكرّرت
+      first_seen TIMESTAMPTZ DEFAULT NOW(),
+      last_seen TIMESTAMPTZ DEFAULT NOW(),
+      status TEXT NOT NULL DEFAULT 'open',   -- open | clustered | resolved | ignored
+      resolved_category TEXT,            -- الفئة التي ربطها المشرف
+      resolved_by TEXT,
+      resolved_at TIMESTAMPTZ
+    )`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_search_misses_norm ON search_misses(normalized, COALESCE(city, ''))`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_search_misses_status ON search_misses(status, count DESC)`);
+
+    // جودة البحث — تجميع يومي مجهّل (DR-0003 §6.b). لا هوية مستخدم: عدّادات فقط.
+    await client.query(`CREATE TABLE IF NOT EXISTS search_daily (
+      day DATE NOT NULL DEFAULT CURRENT_DATE,
+      city TEXT,
+      total INTEGER NOT NULL DEFAULT 0,   -- كل عمليات البحث الحقيقية
+      hits INTEGER NOT NULL DEFAULT 0,    -- أعادت نتائج
+      misses INTEGER NOT NULL DEFAULT 0   -- بلا نتيجة
+    )`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_search_daily_day_city ON search_daily(day, COALESCE(city, ''))`);
+
+    // Learning Loop — تجميع يومي مجهّل لمراحل القمع (DR-0004). لا هوية مستخدم.
+    // شكل طويل (day, stage) → إضافة مرحلة جديدة بلا هجرة (القانون ٩).
+    await client.query(`CREATE TABLE IF NOT EXISTS learning_daily (
+      day DATE NOT NULL DEFAULT CURRENT_DATE,
+      stage TEXT NOT NULL,               -- view | click | contact | booking | order | review
+      count INTEGER NOT NULL DEFAULT 0
+    )`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_learning_daily ON learning_daily(day, stage)`);
+
     // FK fixes: loyalty_points.customer_id → customers(id) ON DELETE CASCADE
     await client.query(`
       DO $$ BEGIN
