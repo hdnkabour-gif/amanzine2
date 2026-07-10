@@ -29,6 +29,7 @@
 | [DR-0002](./decisions/DR-0002-search-misses.md) | تسجيل عمليات البحث بلا نتيجة (`search_misses`) لتنمية القاموس | ✅ معتمَد |
 | [DR-0003](./decisions/DR-0003-continuous-learning-platform.md) | تثبيت هوية «التعلّم المستمر» + خارطة طبقة التعلّم + بوابة خصوصية لتاريخ النيّة | ✅ معتمَد |
 | [DR-0004](./decisions/DR-0004-learning-loop.md) | حلقة التعلّم كفلسفة (مشترك على Event Bus) + قانون ١١ اختبار المعرفة + Learning Score | ✅ معتمَد |
+| [DR-0005](./decisions/DR-0005-progressive-platform.md) | المنصّة تنمو مع المستخدم + قانون ١٢ + زون «الخطوة التالية» | ✅ معتمَد |
 
 ## المراحل الثلاث (من `01_CONSTITUTION`)
 

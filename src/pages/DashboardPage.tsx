@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { isPushSupported, getPushPermission, subscribeToPush } from '../lib/pushNotifications';
 import { insightsAPI, type MerchantInsights } from '../services/api';
+import CommandCenter, { type Nudge } from '../components/CommandCenter';
 
 // ── نبض حيّ (Shopify-like): مقاييس المتجر من Analytics Engine ──
 function LivePulse() {
@@ -54,30 +55,6 @@ const STATUS_AR: Record<string,string> = {
   pending:'بانتظار', approved:'موافقة', processing:'جارٍ',
   shipped:'شُحن', delivered:'وُصّل', cancelled:'ملغي',
 };
-
-function AIGreeting() {
-  const { settings, orders, conversations } = useStore();
-  const pending = orders.filter(o => o.status === 'pending').length;
-  const unread = conversations.reduce((s, c) => s + c.unread, 0);
-  const hour = new Date().getHours();
-  const greet = hour < 12 ? 'صباح النور' : hour < 18 ? 'مرحباً' : 'مساء الخير';
-  let msg = `${greet}! `;
-  if (pending > 0 && unread > 0) msg += `عندك ${pending} طلب جديد و${unread} رسالة تنتظر ردك`;
-  else if (pending > 0) msg += `عندك ${pending} طلب جديد يحتاج موافقتك`;
-  else if (unread > 0) msg += `عندك ${unread} رسالة غير مقروءة`;
-  else msg += 'كل شيء على ما يرام اليوم 👌';
-  return (
-    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-      <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 8px #22C55E' }} />
-      <span style={{ fontSize: 13, color: '#999', flex: 1, lineHeight: 1.4 }}>
-        <strong style={{ color: '#FAFAFA' }}>{msg.split('!')[0]}!</strong>{msg.split('!').slice(1).join('!')}
-      </span>
-      {settings.ai.humanSimulation && (
-        <span style={{ fontSize: 10, background: 'rgba(0,200,150,0.08)', color: '#22C55E', border: '1px solid rgba(0,200,150,0.15)', borderRadius: 8, padding: '3px 10px', fontWeight: 700, whiteSpace: 'nowrap' }}>AI نشط</span>
-      )}
-    </div>
-  );
-}
 
 function DashboardSkeleton() {
   const pulse: React.CSSProperties = { borderRadius: 12, background: 'rgba(255,255,255,0.03)', animation: 'skeletonPulse 1.6s ease-in-out infinite' };
@@ -143,6 +120,13 @@ export default function DashboardPage() {
   const lowStockProducts = products.filter(p => p.stock >= 0 && p.stock <= settings.products.lowStockAlert);
   const isCloudConfigured = !!(settings as any).supabaseUrl || !!(settings as any).cloudinaryCloudName;
 
+  // «الخطوة التالية» — الميزة تجيء إلى المستخدم حسب حالته (Progressive Platform, DR-0005)
+  const nudges: Nudge[] = [];
+  if (products.length === 0) nudges.push({ id: 'first-product', text: 'ابدأ بإضافة أوّل منتج أو خدمة — فضاؤك يبدأ من هنا.', cta: 'أضف الآن', page: 'products' });
+  else if (published === 0) nudges.push({ id: 'publish', text: 'لديك منتجات غير منشورة — انشرها لتظهر للزبائن في البحث.', cta: 'انشر', page: 'products' });
+  if (!settings.brand.phone) nudges.push({ id: 'phone', text: 'أضف رقم هاتفك ليتواصل معك الزبائن مباشرة.', cta: 'أضف', page: 'settings' });
+  if (published > 0 && orders.length === 0) nudges.push({ id: 'share', text: 'متجرك جاهز — شارك رابطه لتصلك أوّل طلباتك.', cta: 'شارك', page: 'settings' });
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Cloud Banner */}
@@ -188,8 +172,18 @@ export default function DashboardPage() {
         <button onClick={() => setPage('orders')} style={{ padding: '14px', borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#FAFAFA', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>🛒 الطلبات</button>
       </div>
 
-      {/* AI Greeting */}
-      <AIGreeting />
+      {/* My Space — «اليوم / ما يحتاج انتباهك» (مبنيّ على البيانات) */}
+      <CommandCenter
+        name={settings.brand.name}
+        pending={pending}
+        unread={unread}
+        todayRevenue={todayRev}
+        currency={currency}
+        lowStock={low}
+        aiActive={settings.ai.humanSimulation}
+        nudges={nudges}
+        onGo={setPage}
+      />
 
       {/* لوحة النبض الحيّة — من Analytics Engine (Event Stream) */}
       <LivePulse />
