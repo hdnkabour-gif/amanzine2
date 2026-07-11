@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { businessAPI, feedAPI, recommendAPI, trackAPI, aiSearchAPI, type Business, type SearchFilters, type SearchResult } from '../services/api';
 const MapView = lazy(() => import('../components/MapView')); // Leaflet يُحمَّل فقط عند فتح الخريطة
-import { Search, MapPin, Star, BadgeCheck, SlidersHorizontal, X, Store, List, Map as MapIcon } from 'lucide-react';
+import { Search, MapPin, Star, BadgeCheck, SlidersHorizontal, X, Store, List, Map as MapIcon, Mic } from 'lucide-react';
 
 // ============================================================
 // Explore — الواجهة الموحّدة للبحث والاكتشاف (تُلغي فكرة صفحة "سوق" منفصلة)
@@ -19,6 +19,18 @@ const TOGGLES: { key: keyof SearchFilters; label: string }[] = [
   { key: 'offers', label: '🎁 عروض' },
 ];
 
+// نيّات سريعة للدقيقة الأولى — كلٌّ يملأ خانة النيّة ويشغّل الـAI
+const INTENTS: { icon: string; label: string; q: string }[] = [
+  { icon: '🛠️', label: 'إصلاح', q: 'أحتاج من يصلح' },
+  { icon: '🛍️', label: 'شراء', q: 'أريد شراء' },
+  { icon: '📅', label: 'حجز', q: 'أريد حجز موعد' },
+  { icon: '🍽️', label: 'مطعم', q: 'مطعم قريب' },
+  { icon: '👨‍🔧', label: 'حرفي', q: 'أحتاج حرفي' },
+  { icon: '🏬', label: 'متجر', q: 'متجر قريب' },
+  { icon: '🚚', label: 'توصيل', q: 'خدمة توصيل' },
+  { icon: '💊', label: 'صيدلية', q: 'صيدلية قريبة' },
+];
+
 export default function Explore() {
   const [q, setQ] = useState('');
   const [filters, setFilters] = useState<SearchFilters>({});
@@ -29,6 +41,7 @@ export default function Explore() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [trending, setTrending] = useState<{ category: string; count: number }[]>([]);
   const [recs, setRecs] = useState<Business[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]); // Next Best Action (شبكة المعرفة)
 
   // شريط الرائج (من Activity Engine) — يُحمّل مرّة
   useEffect(() => { feedAPI.get({ type: 'trending' }).then(r => setTrending((r.trending || []).map(t => ({ category: t.category, count: t.count })))).catch(() => {}); }, []);
@@ -58,19 +71,35 @@ export default function Explore() {
   };
 
   const [aiNote, setAiNote] = useState('');
-  const askAI = async () => {
-    if (!q.trim()) return;
+  const askAI = async (override?: string) => {
+    const query = (override ?? q).trim();
+    if (!query) return;
+    if (override) setQ(override);
     setAiNote('… أفهم طلبك');
     try {
-      const r = await aiSearchAPI.ask(q.trim(), coords || undefined);
+      const r = await aiSearchAPI.ask(query, coords || undefined);
       const u = r.understood || {};
       // طبّق ما فهمه المحرّك على الفلاتر (فتتحدّث النتائج عبر نفس المسار)
       setFilters(f => ({ ...f, city: r.filters.city || f.city, type: r.filters.type, openNow: r.filters.openNow, availableToday: r.filters.availableToday, verified: r.filters.verified, ratingMin: r.filters.ratingMin }));
       if (r.filters.q) setQ(r.filters.q);
       const parts = [u.category && `الفئة: ${u.category}`, u.city && `المدينة: ${u.city}`, u.availableToday && 'متاح اليوم', u.wantTrust && 'الأعلى تقييماً'].filter(Boolean);
       setAiNote(parts.length ? `✨ فهمت — ${parts.join(' · ')}` : '');
-    } catch { setAiNote(''); }
+      setSuggestions(r.suggestions || []); // Next Best Action (يبقى يساعد حتى بلا نتيجة)
+    } catch { setAiNote(''); setSuggestions([]); }
   };
+  // إدخال صوتي (Web Speech API) — يعمل حيث يتوفّر، وإلا يُخفى الزرّ بهدوء
+  const [listening, setListening] = useState(false);
+  const voiceSupported = typeof window !== 'undefined' && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+  const startVoice = () => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR(); rec.lang = 'ar-MA'; rec.interimResults = false; rec.maxAlternatives = 1;
+    rec.onresult = (e: any) => { const t = e.results[0][0].transcript; askAI(t); };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    setListening(true); rec.start();
+  };
+  const pickIntent = (intentQ: string) => askAI(intentQ);
   const setF = (k: keyof SearchFilters, v: any) => setFilters(f => ({ ...f, [k]: v || undefined }));
   const activeCount = Object.values(filters).filter(v => v !== undefined && v !== '' && v !== false).length;
 
@@ -91,8 +120,9 @@ export default function Explore() {
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: CARD, border: BORDER, borderRadius: 12, padding: '0 12px' }}>
             <Search size={16} color={MUTED} />
             <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') askAI(); }} placeholder="اكتب بطبيعتك: أريد نجار اليوم في الرباط…" style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: INK, fontSize: 14, padding: '11px 0', fontFamily: 'inherit' }} />
-            {q && <button onClick={askAI} title="اسأل بالذكاء" style={{ ...iconBtn, color: PURPLE, fontWeight: 800 }}>✨</button>}
-            {q && <button onClick={() => { setQ(''); setAiNote(''); }} style={iconBtn}><X size={15} /></button>}
+            {voiceSupported && <button onClick={startVoice} title="بحث صوتي" style={{ ...iconBtn, color: listening ? '#ef4444' : MUTED }}><Mic size={16} /></button>}
+            {q && <button onClick={() => askAI()} title="اسأل بالذكاء" style={{ ...iconBtn, color: PURPLE, fontWeight: 800 }}>✨</button>}
+            {q && <button onClick={() => { setQ(''); setAiNote(''); setSuggestions([]); }} style={iconBtn}><X size={15} /></button>}
           </div>
           <button onClick={() => setShowFilters(s => !s)} style={{ ...iconBtn, background: activeCount ? PURPLE : CARD, border: BORDER, borderRadius: 12, padding: '0 12px', color: '#fff', position: 'relative' }}>
             <SlidersHorizontal size={16} />{activeCount > 0 && <span style={{ position: 'absolute', top: 4, insetInlineEnd: 4, background: '#fff', color: PURPLE, borderRadius: 99, fontSize: 9, fontWeight: 800, width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{activeCount}</span>}
@@ -137,6 +167,20 @@ export default function Explore() {
 
       {/* النتائج */}
       <div style={{ padding: '16px' }}>
+        {/* ✦ الدقيقة الأولى: نيّة واحدة — يظهر فقط بلا بحث */}
+        {!q.trim() && (
+          <div style={{ textAlign: 'center', padding: '18px 4px 26px' }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: INK, marginBottom: 4 }}>ماذا تحتاج اليوم؟</div>
+            <div style={{ fontSize: 12, color: MUTED, marginBottom: 16 }}>اكتب أو قل ما تريد — نتكفّل بالباقي</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+              {INTENTS.map(it => (
+                <button key={it.label} onClick={() => pickIntent(it.q)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 12, border: BORDER, background: CARD, color: INK, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <span style={{ fontSize: 16 }}>{it.icon}</span>{it.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {/* 🔥 رائج الآن (من Activity Engine) — يظهر بلا بحث */}
         {!q.trim() && trending.length > 0 && (
           <div style={{ marginBottom: 22 }}>
@@ -165,7 +209,28 @@ export default function Explore() {
               </div>
             )}
             {businesses.length === 0 && products.length === 0 && (
-              <Center>لا نتائج. جرّب كلمة أخرى أو وسّع الفلاتر.</Center>
+              <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <div style={{ fontSize: 30, marginBottom: 8 }}>🧭</div>
+                <div style={{ fontSize: 14.5, fontWeight: 800, color: INK, marginBottom: 4 }}>لم نجد ما يطابق طلبك تمامًا بعد</div>
+                <div style={{ fontSize: 12, color: MUTED, marginBottom: suggestions.length ? 18 : 4 }}>
+                  {q.trim() ? 'سجّلنا طلبك ونتعلّم منه — وهذه أقرب المسارات المفيدة:' : 'جرّب كلمة أخرى أو وسّع الفلاتر.'}
+                </div>
+                {suggestions.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                    {suggestions.map(s => <button key={s} onClick={() => askAI(s)} style={{ ...chip(false), fontSize: 12.5, padding: '9px 14px' }}>{s} ←</button>)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ✦ الخطوة التالية الأفضل — يبقى التطبيق يساعدك (شبكة المعرفة) */}
+            {q.trim() && suggestions.length > 0 && (businesses.length > 0 || products.length > 0) && (
+              <div style={{ marginBottom: 22 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: MUTED, marginBottom: 8 }}>✦ قد تحتاج أيضًا</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {suggestions.map(s => <button key={s} onClick={() => askAI(s)} style={chip(false)}>{s} ←</button>)}
+                </div>
+              </div>
             )}
 
             {businesses.length > 0 && (
