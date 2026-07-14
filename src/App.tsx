@@ -15,6 +15,7 @@ import TourGuide             from './components/TourGuide';
 import { isRtlLang } from './i18n';
 
 const PAGE_URLS: Record<string, string> = {
+  home:          '/home',
   dashboard:     '/dashboard',
   products:      '/products',
   services:      '/services',
@@ -42,6 +43,7 @@ const URL_PAGES: Record<string, string> = Object.fromEntries(
 
 // رسائل تحميل سياقية — كل صفحة تشرح ماذا يجري فعلاً أثناء جلب بياناتها
 const LOADING_MSGS: Record<string, [string, string]> = {
+  home:          ['مرحباً بعودتك 👋', 'نجهّز صفحتك الرئيسية...'],
   dashboard:     ['مرحباً بعودتك 👋', 'نجلب طلباتك وإحصائياتك الحية...'],
   products:      ['جاري تحميل منتجاتك وخدماتك...', 'نجهّز الكتالوج والمخزون والحجوزات'],
   services:      ['جاري تحميل خدماتك...', 'نجهّز قائمة الخدمات وتقويم الحجوزات'],
@@ -84,12 +86,12 @@ function SplashScreen() {
   }, [phase]);
   if (phase === 'done') return null;
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#0A0A0F', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, opacity: phase === 'fade' ? 0 : 1, transition: 'opacity 0.7s ease', pointerEvents: phase === 'fade' ? 'none' : 'auto' }}>
-      <style>{`@keyframes splashLogo{0%{transform:scale(.55);opacity:0}55%{transform:scale(1.07);opacity:1}100%{transform:scale(1)}}@keyframes splashGlow{0%,100%{box-shadow:0 0 36px rgba(255,106,0,.25)}50%{box-shadow:0 0 90px rgba(255,106,0,.55)}}@keyframes splashText{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}`}</style>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#0A0A0F', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, opacity: phase === 'fade' ? 0 : 1, transition: 'opacity 0.7s ease', pointerEvents: 'none' }}>
+      <style>{`@keyframes splashLogo{0%{transform:scale(.55);opacity:0}55%{transform:scale(1.07);opacity:1}100%{transform:scale(1)}}@keyframes splashGlow{0%,100%{box-shadow:0 0 36px rgba(255,106,0,.18)}50%{box-shadow:0 0 54px rgba(255,106,0,.36)}}@keyframes splashText{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}`}</style>
       <BrandLogo size={108} radius={28} style={{ border: '2px solid rgba(255,106,0,0.4)', animation: 'splashLogo 1.1s cubic-bezier(.16,1,.3,1) both, splashGlow 2.2s ease infinite' }} />
       <div style={{ textAlign: 'center', animation: 'splashText .8s .45s ease both' }}>
         <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.02em', color: '#FAFAFA', fontFamily: 'Tajawal, system-ui, sans-serif' }}><span style={{ color: '#FF6A00' }}>AMANZINE</span></div>
-        <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.5)', marginTop: 7, fontWeight: 600, fontFamily: 'Tajawal, system-ui, sans-serif' }}>منصة المغرب الذكية للبيع والخدمات والحجوزات</div>
+        <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.5)', marginTop: 7, fontWeight: 600, fontFamily: 'Tajawal, system-ui, sans-serif' }}>منصة المغرب الذكية للبيع والشراء</div>
       </div>
     </div>
   );
@@ -158,7 +160,7 @@ function AppShell() {
   const isDemoMode = token === 'demo-token-local';
   const isAuthed   = !!token || isDemoMode;
   // الصفحات العامة (واجهة الزبون) لا تتأثر ببوابة التحميل أو الإعداد الأولي
-  const isPublicRoute = location.pathname.startsWith('/store') || location.pathname.startsWith('/market') || location.pathname.startsWith('/explore') || location.pathname.startsWith('/feed') || location.pathname.startsWith('/business') || location.pathname.startsWith('/landing');
+  const isPublicRoute = location.pathname.startsWith('/store') || location.pathname.startsWith('/market') || location.pathname.startsWith('/explore') || location.pathname.startsWith('/feed') || location.pathname.startsWith('/business') || location.pathname.startsWith('/landing') || location.pathname === '/';
 
   // أثناء أول تحميل للبيانات لا نقرر شيئاً — لا نعرض Onboarding قبل وصول
   // الإعدادات الحقيقية من الخادم، حتى لا يُعاد الإعداد الأولي على جهاز جديد
@@ -212,14 +214,14 @@ function AppShell() {
 
         {/* ── PUBLIC: Landing page (choose: merchant or customer) ── */}
         <Route path="/landing" element={<LandingPage />} />
-        <Route path="/auth"    element={isAuthed ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
-        <Route path="/login"   element={isAuthed ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
-        <Route path="/register"element={isAuthed ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
+        <Route path="/auth"    element={isAuthed ? <Navigate to="/home" replace /> : <AuthPage />} />
+        <Route path="/login"   element={isAuthed ? <Navigate to="/home" replace /> : <AuthPage />} />
+        <Route path="/register"element={isAuthed ? <Navigate to="/home" replace /> : <AuthPage />} />
 
         {/* ── PROTECTED: Merchant dashboard ── */}
-        {['/dashboard','/products','/services','/orders','/messages','/customers',
+        {['/home','/dashboard','/products','/services','/orders','/messages','/customers',
           '/analytics','/insights','/connections','/delivery','/notifications',
-          '/settings','/studio','/editor','/import','/coupons','/guide','/moderation'].map(path => (
+          '/settings','/studio','/editor','/import','/coupons','/guide','/moderation','/bookings'].map(path => (
           <Route key={path} path={path}
             element={isAuthed ? <MainLayout /> : <Navigate to="/login" replace />} />
         ))}
@@ -227,13 +229,13 @@ function AppShell() {
         {/* ── ROOT: Show landing page always at / ── */}
         <Route path="/" element={
           isAuthed
-            ? <Navigate to="/dashboard" replace />
+            ? <Navigate to="/home" replace />
             : <LandingPage />
         } />
 
         {/* ── FALLBACK ── */}
         <Route path="*" element={
-          isAuthed ? <Navigate to="/dashboard" replace /> : <LandingPage />
+          isAuthed ? <Navigate to="/home" replace /> : <LandingPage />
         } />
       </Routes>
     </>
