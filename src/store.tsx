@@ -117,15 +117,18 @@ const nowStr = () => {
 
 // URL → Page mapping for initial load
 const URL_TO_PAGE: Record<string, string> = {
+  '/home': 'home',
   '/dashboard': 'dashboard', '/products': 'products', '/orders': 'orders',
   '/messages': 'conversations', '/customers': 'customers', '/analytics': 'analytics',
   '/connections': 'connections', '/delivery': 'delivery', '/notifications': 'notifications',
   '/settings': 'settings', '/studio': 'banner', '/editor': 'editor',
+  '/knowledge-studio': 'knowledge',
+  '/wallet': 'wallet', '/profile': 'profile', '/assistant': 'assistant', '/publish': 'publish',
 };
 
 function getInitialPage(): Page {
   const path = window.location.pathname;
-  return (URL_TO_PAGE[path] as Page) || 'dashboard';
+  return (URL_TO_PAGE[path] as Page) || 'home';
 }
 
 // C-3 (مكتمل): التوكن يعيش في كوكي HttpOnly + ذاكرة التبويب — لا localStorage.
@@ -159,7 +162,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     conversations: isDemo ? seedConversations : [] as typeof seedConversations,
     auditLogs:     isDemo ? seedAuditLogs     : [] as typeof seedAuditLogs,
     notifications: [] as AppNotification[],
-    currentPage: (storedToken ? getInitialPage() : 'dashboard') as Page,
+    currentPage: (storedToken ? getInitialPage() : 'home') as Page,
     currentRole: 'admin' as UserRole,
     isOnline: false,
     isLoading: !!storedToken && !isDemo, // true only for real logged-in users pending first fetch
@@ -362,11 +365,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     api.setRefreshToken(refreshToken);
     try { localStorage.setItem('ai_commerce_user', JSON.stringify(user)); } catch {}
     // isLoading حتى وصول الإعدادات — يمنع وميض Onboarding على جهاز جديد
-    setState(s => ({ ...s, token, user, currentPage: 'dashboard', isLoading: true }));
+    setState(s => ({ ...s, token, user, currentPage: 'home', isLoading: true }));
     setTimeout(() => refreshData(), 100);
-    // Redirect to dashboard
+    // Redirect to the new home (Need Screen)
     if (window.location.pathname === '/' || window.location.pathname === '/login' || window.location.pathname === '/register') {
-      window.history.pushState({}, '', '/dashboard');
+      window.history.pushState({}, '', '/home');
     }
   };
 
@@ -375,10 +378,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     api.setToken(token);
     api.setRefreshToken(refreshToken);
     try { localStorage.setItem('ai_commerce_user', JSON.stringify(user)); } catch {}
-    setState(s => ({ ...s, token, user, currentPage: 'dashboard', settings: { ...s.settings, onboardingDone: false as any }, onboardingCompleted: false }));
+    setState(s => ({ ...s, token, user, currentPage: 'home', settings: { ...s.settings, onboardingDone: false as any }, onboardingCompleted: false }));
     setTimeout(() => refreshData(), 100);
     if (window.location.pathname === '/' || window.location.pathname === '/login' || window.location.pathname === '/register') {
-      window.history.pushState({}, '', '/dashboard');
+      window.history.pushState({}, '', '/home');
     }
   };
 

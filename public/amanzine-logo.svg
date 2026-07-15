@@ -1,42 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="AMANZINE">
   <defs>
-    <linearGradient id="amzBg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FCF8F0"/>
-      <stop offset="1" stop-color="#F1E7D6"/>
-    </linearGradient>
-    <linearGradient id="amzG" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0A7D45"/>
-      <stop offset="1" stop-color="#006233"/>
-    </linearGradient>
-    <linearGradient id="amzR" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#C1272D"/>
-      <stop offset="1" stop-color="#9E1F24"/>
-    </linearGradient>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1a7a48"/><stop offset="1" stop-color="#073c22"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d67e"/><stop offset=".5" stop-color="#d4af37"/><stop offset="1" stop-color="#a9781a"/></linearGradient>
+    <linearGradient id="cr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fcf8ee"/><stop offset="1" stop-color="#efe4cd"/></linearGradient>
+    <linearGradient id="r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d43a2c"/><stop offset="1" stop-color="#9d1c15"/></linearGradient>
   </defs>
 
-  <!-- بلاطة كريمية (خلفية الأيقونة) -->
-  <rect width="128" height="128" rx="30" fill="url(#amzBg)"/>
+  <!-- الحقل الكريميّ داخل البوّابة -->
+  <path d="M64 18 C44 27 32 43 32 66 L32 110 L96 110 L96 66 C96 43 84 27 64 18 Z" fill="url(#cr)"/>
 
-  <!-- زخرفة زليج خفيفة في الزاوية -->
-  <g fill="none" stroke="#006233" stroke-width="2" opacity=".10">
-    <rect x="92" y="92" width="22" height="22" transform="rotate(45 103 103)"/>
+  <!-- البوّابة = قوس أخضر بحدّ ذهبيّ مزدوج (حرف A) -->
+  <path d="M32 110 L32 66 C32 43 44 27 64 18 C84 27 96 43 96 66 L96 110"
+        fill="none" stroke="url(#gold)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M32 110 L32 66 C32 43 44 27 64 18 C84 27 96 43 96 66 L96 110"
+        fill="none" stroke="url(#g)" stroke-width="10.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- نجمة ثمانية (خاتم) — أحمر بحدّ ذهبي -->
+  <g>
+    <rect x="57" y="33" width="14" height="14" rx="1.7" fill="#c1272d" stroke="#d4af37" stroke-width="1.8"/>
+    <rect x="57" y="33" width="14" height="14" rx="1.7" fill="#c1272d" stroke="#d4af37" stroke-width="1.8" transform="rotate(45 64 40)"/>
   </g>
 
-  <!-- نجمة ثمانية خضراء (قبة/تاج البوابة) -->
-  <g fill="url(#amzG)">
-    <rect x="58" y="8" width="12" height="12" rx="2"/>
-    <rect x="58" y="8" width="12" height="12" rx="2" transform="rotate(45 64 14)"/>
-  </g>
-
-  <!-- البوابة = حرف A (قوس مغربي مدبّب) أخضر -->
-  <path d="M36 104 L36 62 C36 41 47 30 64 23 C81 30 92 41 92 62 L92 104"
-        fill="none" stroke="url(#amzG)" stroke-width="11"
-        stroke-linecap="round" stroke-linejoin="round"/>
-
-  <!-- الصفقة = حرف Z (شريط) أحمر داخل البوابة -->
-  <g fill="none" stroke="url(#amzR)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M47 60 H81"/>
-    <path d="M81 60 L47 90"/>
-    <path d="M47 90 H81"/>
+  <!-- حرف Z (الصفقة) — أحمر بحدّ ذهبيّ (ألوان صلبة: الخطوط الأفقيّة لا تدعم التدرّج) -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#d4af37" stroke-width="14"><path d="M48 62 H80"/><path d="M80 62 L48 92"/><path d="M48 92 H80"/></g>
+    <g stroke="#c1272d" stroke-width="9.5"><path d="M48 62 H80"/><path d="M80 62 L48 92"/><path d="M48 92 H80"/></g>
   </g>
 </svg>

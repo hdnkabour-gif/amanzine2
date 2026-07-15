@@ -107,7 +107,7 @@ export default function Explore() {
   const products = result?.products || [];
 
   return (
-    <div dir="rtl" style={{ minHeight: '100dvh', background: BG, color: INK, fontFamily: 'Tajawal,system-ui,sans-serif', paddingBottom: 60 }}>
+    <div dir="rtl" style={{ minHeight: '100dvh', background: 'radial-gradient(130% 80% at 50% -5%, #0d3a2e 0%, #0a2a22 45%, #071B17 100%)', backgroundAttachment: 'fixed', color: INK, fontFamily: 'Tajawal,system-ui,sans-serif', paddingBottom: 60 }}>
       {/* Header + بحث */}
       <header style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(10,10,15,0.92)', backdropFilter: 'blur(14px)', borderBottom: BORDER, padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>

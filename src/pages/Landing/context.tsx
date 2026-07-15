@@ -42,7 +42,7 @@ export function LandingProvider({ children }: { children: ReactNode }) {
   const Arrow = isRtl ? ArrowLeft : ArrowRight;
 
   const setLang = (code: Lang) => { setLangState(code); updateSettings('brand', { ...(settings.brand as any), language: code }); };
-  const startDemo = () => { try { localStorage.setItem('ai_commerce_token', 'demo-token-local'); } catch {} window.location.href = '/dashboard'; };
+  const startDemo = () => { try { localStorage.setItem('ai_commerce_token', 'demo-token-local'); } catch {} window.location.href = '/home'; };
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 
   // جلب البيانات الحقيقية + تحديث حيّ آمن كل 30 ثانية

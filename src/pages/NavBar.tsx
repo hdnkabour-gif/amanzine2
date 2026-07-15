@@ -4,8 +4,9 @@ import {
   LayoutDashboard, BarChart3, Settings, Tag,
   Search, LogOut, ExternalLink, Sun, Moon, Plus,
   Users, Bell, Download, Layers,
-  Package, Wrench, UserPlus, X as XIcon, HelpCircle,
-  Image as ImageIcon, Wand2, Calendar as CalendarIcon,
+  Package, UserPlus, X as XIcon, HelpCircle,
+  Image as ImageIcon, Wand2, Calendar as CalendarIcon, Home, Brain,
+  Wallet as WalletIcon, UserCircle, Sparkles, Rocket,
 } from 'lucide-react';
 import { NavIconCart, NavIconTruck, NavIconBrain, NavIconPackage, NavIconMessage } from '../components/icons';
 import React from 'react';
@@ -83,7 +84,8 @@ function LangSwitcher({ compact = false }: { compact?: boolean }) {
 }
 
 const MAIN_NAV: { page: Page; icon: any; label: string }[] = [
-  { page: 'dashboard',   icon: LayoutDashboard, label: 'الرئيسية'   },
+  { page: 'home',        icon: Home,            label: 'الرئيسية'   },
+  { page: 'dashboard',   icon: LayoutDashboard, label: 'فضائي'      },
   { page: 'products',    icon: NavIconPackage,  label: 'المنتجات'   },
   { page: 'orders',      icon: NavIconCart,     label: 'الطلبات'    },
   { page: 'insights',    icon: BarChart3,       label: 'الأداء'     },
@@ -97,7 +99,10 @@ const MAIN_NAV: { page: Page; icon: any; label: string }[] = [
 type NavItem = { page: Page; icon: any; label: string; desc: string };
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   { label: 'التجارة', items: [
-    { page: 'dashboard', icon: LayoutDashboard, label: 'الرئيسية',  desc: 'نظرة عامة على متجرك' },
+    { page: 'home',      icon: Home,            label: 'الرئيسية',  desc: 'شنو محتاج اليوم؟ — ابدأ من حاجتك' },
+    { page: 'assistant', icon: Sparkles,        label: 'المساعد الذكيّ', desc: 'اسأل بالدارجة، يوجّهك لحاجتك' },
+    { page: 'publish',   icon: Rocket,          label: 'النشر الموحّد', desc: 'بيع أيّ شيء من جملة وحدة' },
+    { page: 'dashboard', icon: LayoutDashboard, label: 'فضائي',     desc: 'مساحتك: اليوم، نشاطك، وأعمالك' },
     { page: 'products',  icon: NavIconPackage,  label: 'المنتجات',  desc: 'التحكم في جميع المنتجات' },
     { page: 'services',  icon: Layers,          label: 'الخدمات',   desc: 'التحكم في جميع الخدمات' },
     { page: 'bookings',  icon: CalendarIcon,    label: 'الحجوزات',  desc: 'مقدّمو الخدمات والمواعيد' },
@@ -112,12 +117,15 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     { page: 'import',        icon: Download,       label: 'الاستيراد والتصدير', desc: 'استيراد المحادثات واستخراج المعلومات' },
   ]},
   { label: 'العمليات', items: [
+    { page: 'wallet',        icon: WalletIcon,   label: 'المحفظة',   desc: 'رصيدك، طرق الدفع، والمعاملات' },
     { page: 'delivery',      icon: NavIconTruck, label: 'التوصيل',   desc: 'شركات الشحن وسجل الشحنات' },
     { page: 'notifications', icon: Bell,         label: 'الإشعارات', desc: 'كل تنبيهات متجرك' },
     { page: 'connections',   icon: NavIconBrain, label: 'الاتصالات', desc: 'ربط واتساب والذكاء والمنصات' },
     { page: 'insights',      icon: BarChart3,    label: 'الأداء',    desc: 'تحليلات الزيارات والمبيعات' },
   ]},
   { label: 'النظام', items: [
+    { page: 'profile',    icon: UserCircle, label: 'ملفّي',            desc: 'حسابي، الثقة، ومفضّلتي' },
+    { page: 'knowledge',  icon: Brain,      label: 'مركز المعرفة',     desc: 'عقل التطبيق: ما تعلّمه وما لم يفهمه' },
     { page: 'moderation', icon: Tag,        label: 'مراجعة الإعلانات', desc: 'موافقة إعلانات السوق' },
     { page: 'guide',      icon: HelpCircle, label: 'شرح التطبيق',      desc: 'دليل تفاعلي لكل ميزات التطبيق' },
     { page: 'settings',   icon: Settings,   label: 'الإعدادات',        desc: 'التحكم في كل إعدادات المتجر' },
@@ -188,7 +196,8 @@ export default function NavBar() {
   const userId = user?.id || (() => {
     try { const u = localStorage.getItem('ai_commerce_user'); return u ? JSON.parse(u)?.id : null; } catch { return null; }
   })();
-  const storeLink = userId ? `/store/${userId}` : null;
+  // «عرض متجري» متاح دائمًا — التاجر يرى واجهته كما يراها الزبون (حتى في الديمو).
+  const storeLink = `/store/${userId || 'me'}`;
 
   const totalAlerts = pending + unreadMsg;
 
@@ -440,8 +449,8 @@ export default function NavBar() {
         padding: '0 24px 8px',
       }}>
         {[
-          { icon: Package,  label: 'إضافة منتج',  action: 'addProduct',  page: 'products'  as Page },
-          { icon: Wrench,   label: 'إضافة خدمة',  action: 'addService',  page: 'products'  as Page },
+          { icon: Rocket,   label: 'نشر منتج أو خدمة', action: 'publish', page: 'publish'   as Page },
+          { icon: Package,  label: 'نموذج يدويّ (متقدّم)', action: 'addProduct', page: 'products' as Page },
           { icon: UserPlus, label: 'إضافة زبون',  action: 'addCustomer', page: 'customers' as Page },
         ].map((item, i) => (
           <button
@@ -482,10 +491,10 @@ export default function NavBar() {
       }}>
         {/* Left 2: الرئيسية + منتجات */}
         {[
-          { page: 'dashboard' as Page, icon: LayoutDashboard, label: 'الرئيسية' },
-          { page: 'products'  as Page, icon: NavIconPackage,  label: 'منتجات'   },
+          { page: 'home'      as Page, icon: Home,            label: 'الرئيسية' },
+          { page: 'dashboard' as Page, icon: LayoutDashboard, label: 'فضائي'    },
         ].map(item => {
-          const active = currentPage === item.page || (item.page === 'products' && currentPage === 'services');
+          const active = currentPage === item.page;
           const b = badge(item.page);
           return (
             <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}

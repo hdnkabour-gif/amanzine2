@@ -9,8 +9,10 @@
 const router = require('express').Router();
 const activity = require('../lib/engines/activity');
 
-const KINDS = ['business', 'product', 'service'];
-const ACTIONS = ['viewed', 'clicked', 'contact'];
+// 'need' = تجربة نيّة من «شنو محتاج اليوم؟» (توحيد عقل الواجهة مع الخادم):
+//   { kind:'need', action:'resolved'|'satisfied'|'unsatisfied', name:<العبارة>, source:<النيّة>, city }
+const KINDS = ['business', 'product', 'service', 'need'];
+const ACTIONS = ['viewed', 'clicked', 'contact', 'searched', 'resolved', 'satisfied', 'unsatisfied'];
 
 router.post('/', (req, res) => {
   const { kind, action, businessId, name, productId, serviceId, source, city } = req.body || {};

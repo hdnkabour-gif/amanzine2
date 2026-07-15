@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { useStore } from '../store';
 import NavBar from './NavBar';
 import GlobalSearch from '../components/GlobalSearch';
+import MasterBackground from '../components/MasterBackground';
 
 // ── Skeleton fallback ─────────────────────────────
 function PageSkeleton() {
@@ -18,6 +19,7 @@ function PageSkeleton() {
 }
 
 // ── Lazy pages ────────────────────────────────────
+const LivingHome        = lazy(() => import('./LivingHome'));
 const DashboardPage     = lazy(() => import('./DashboardPage'));
 const ProductsPage      = lazy(() => import('./ProductsPage'));
 const OrdersPage        = lazy(() => import('./OrdersPage'));
@@ -35,10 +37,16 @@ const CouponsPage       = lazy(() => import('./CouponsPage'));
 const GuidePage         = lazy(() => import('./GuidePage'));
 const ModerationPage    = lazy(() => import('./ModerationPage'));
 const BookingsPage      = lazy(() => import('./BookingsPage'));
+const KnowledgeStudio   = lazy(() => import('./KnowledgeStudio'));
+const WalletPage        = lazy(() => import('./WalletPage'));
+const ProfilePage       = lazy(() => import('./ProfilePage'));
+const AssistantPage     = lazy(() => import('./AssistantPage'));
+const UniversalPublish  = lazy(() => import('./UniversalPublish'));
 
 function PageContent() {
   const { currentPage } = useStore();
   switch (currentPage) {
+    case 'home':          return <LivingHome />;
     case 'dashboard':     return <DashboardPage />;
     case 'products':      return <ProductsPage />;
     case 'orders':        return <OrdersPage />;
@@ -58,6 +66,11 @@ function PageContent() {
     case 'services':      return <ProductsPage />;
     case 'moderation':    return <ModerationPage />;
     case 'bookings':      return <BookingsPage />;
+    case 'knowledge':     return <KnowledgeStudio />;
+    case 'wallet':        return <WalletPage />;
+    case 'profile':       return <ProfilePage />;
+    case 'assistant':     return <AssistantPage />;
+    case 'publish':       return <UniversalPublish />;
     default:              return <DashboardPage />;
   }
 }
@@ -96,27 +109,32 @@ export default function MainLayout() {
   }, []);
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--void)', display: 'flex', flexDirection: 'column' }}>
-      <NavBar />
-      {showSearch && <GlobalSearch onClose={() => setShowSearch(false)} />}
-      {/* Offline banner */}
-      {!isOnline && (
-        <div style={{
-          background: 'rgba(245,158,11,.15)', borderBottom: '1px solid rgba(245,158,11,.3)',
-          padding: '8px 16px', textAlign: 'center', fontSize: 12, color: '#f59e0b',
-          fontWeight: 700, zIndex: 50,
-        }}>
-          ⚠️ وضع غير متصل — البيانات محلية فقط
-        </div>
-      )}
-      {/* Main content */}
-      <main className="main-with-sidebar" style={{ flex:1, paddingTop:56, paddingBottom:80, overflowX:'hidden', minHeight:'100dvh' }}>
-        <div style={{ maxWidth:1100, margin:'0 auto', padding:'20px 16px' }}>
-          <Suspense fallback={<PageSkeleton />}>
-            <PageContent />
-          </Suspense>
-        </div>
-      </main>
+    <div style={{ minHeight: '100dvh', background: 'var(--void)', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      {/* نظام الخلفيّات — طبقة الهوية الأمّ خلف كل المحتوى */}
+      <MasterBackground page={currentPage} />
+      {/* غلاف المحتوى فوق الخلفيّة (zIndex:1) — يحافظ على تخطيط flex */}
+      <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
+        <NavBar />
+        {showSearch && <GlobalSearch onClose={() => setShowSearch(false)} />}
+        {/* Offline banner */}
+        {!isOnline && (
+          <div style={{
+            background: 'rgba(245,158,11,.15)', borderBottom: '1px solid rgba(245,158,11,.3)',
+            padding: '8px 16px', textAlign: 'center', fontSize: 12, color: '#f59e0b',
+            fontWeight: 700, zIndex: 50,
+          }}>
+            ⚠️ وضع غير متصل — البيانات محلية فقط
+          </div>
+        )}
+        {/* Main content */}
+        <main className="main-with-sidebar" style={{ flex:1, paddingTop:56, paddingBottom:80, overflowX:'hidden', minHeight:'100dvh' }}>
+          <div style={{ maxWidth:1100, margin:'0 auto', padding:'20px 16px' }}>
+            <Suspense fallback={<PageSkeleton />}>
+              <PageContent />
+            </Suspense>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

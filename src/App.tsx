@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useStore } from './store';
 import AuthPage              from './pages/AuthPage';
@@ -15,6 +15,7 @@ import TourGuide             from './components/TourGuide';
 import { isRtlLang } from './i18n';
 
 const PAGE_URLS: Record<string, string> = {
+  home:          '/home',
   dashboard:     '/dashboard',
   products:      '/products',
   services:      '/services',
@@ -34,6 +35,7 @@ const PAGE_URLS: Record<string, string> = {
   guide:         '/guide',
   moderation:    '/moderation',
   bookings:      '/bookings',
+  knowledge:     '/knowledge-studio',
 };
 
 const URL_PAGES: Record<string, string> = Object.fromEntries(
@@ -56,41 +58,163 @@ const LOADING_MSGS: Record<string, [string, string]> = {
   settings:      ['جاري تحميل الإعدادات...', 'نجلب إعدادات متجرك المحفوظة'],
 };
 
-// شعار AMANZINE الرسمي (amanzine-logo.svg) — مع تراجع تلقائي
-// إلى حرف A إن تعذّر تحميل الصورة
+// شعار AMANZINE — يفضّل صورة الشعار الرسميّة إن وُضعت (/brand/amanzine-logo.png)
+// ثمّ يتراجع إلى الشعار المتّجه (/amanzine-logo.svg) ثمّ إلى حرف A.
+// هكذا: ضع ملفّ شعارك المصقول في public/brand/amanzine-logo.png ويُستعمل تلقائيًّا في كلّ مكان.
 function BrandLogo({ size = 46, radius = 14, style }: { size?: number; radius?: number; style?: React.CSSProperties }) {
   return (
     <div style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, ...style }}>
-      <img src="/amanzine-logo.svg" alt="AMANZINE"
+      <img src="/brand/amanzine-logo.png" alt="AMANZINE" data-step="0"
         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         onError={e => {
           const img = e.currentTarget as HTMLImageElement;
+          const step = img.getAttribute('data-step');
+          if (step === '0') { img.setAttribute('data-step', '1'); img.src = '/brand/amanzine-logo.jpg'; return; } // جرّب JPG
+          if (step === '1') { img.setAttribute('data-step', '2'); img.src = '/amanzine-logo.svg'; return; }      // ثمّ المتّجه
           img.style.display = 'none'; (img.parentElement as HTMLElement).innerHTML = `<span style="font-size:${Math.round(size * 0.42)}px;font-weight:900;color:#006233">A</span>`;
         }} />
     </div>
   );
 }
 
-// سبلاش الشعار — يظهر مرة واحدة في الجلسة ثم يختفي ويكشف التطبيق
+// كلمات الخدمات التي تظهر أسفل الشعار في اللقطة الأخيرة (لا ازدحام — بالتتابع)
+const GATE_WORDS = ['خدمات', 'متاجر', 'حرفيون', 'مطاعم', 'توصيل', 'طلبات', 'سيارات', 'عقارات', 'وظائف', 'سياحة', 'صحة', 'تعليم', 'ذكاء اصطناعي', 'دفع آمن'];
+
+// المشهد الافتتاحي «البوّابة» — سرد سينمائيّ من ٣ لقطات (≈٧ ثوانٍ):
+//   ① فيديو «الظهور من الظلام» — القوس المغربي يتشكّل   (amanzine-portal.mp4)
+//   ② فيديو «انفتاح البوّابة» — البوّابة تُفتح ويتشكّل الشعار  (amanzine-gate.mp4)
+//   ③ الصورة النهائية — لوحة الشعار الكاملة + الشعار النصّي + كلمات الخدمات
+// يُعرض مرّة كلّ جلسة. آمن دائمًا: يتخطّى نفسه، يحترم reduced-motion،
+// مؤقّت صارم يكشف التطبيق مهما حدث، ولا يحبس المستخدم أبدًا.
+// الصورة النهائيّة الرسميّة (إن وُضعت في public/brand/amanzine-final.jpg) تُعرض كما هي؛
+// وإلّا تُركَّب لوحة مكافئة من الشعار + النصوص فوق لقطة البوّابة.
 function SplashScreen() {
+  const reduce = (() => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } })();
   const [phase, setPhase] = useState<'show' | 'fade' | 'done'>(() => {
     try { return sessionStorage.getItem('amanzine_splash') ? 'done' : 'show'; } catch { return 'show'; }
   });
+  // اللقطة: 0=الظهور، 1=الانفتاح+الشعار، 2=الصورة النهائية
+  const [beat, setBeat] = useState(0);
+  const [wordIdx, setWordIdx] = useState(0);
+  const [finalImg, setFinalImg] = useState<boolean | null>(null); // هل توجد صورة نهائيّة رسميّة؟
+  const portalRef = useRef<HTMLVideoElement>(null);
+  const gateRef = useRef<HTMLVideoElement>(null);
+
   useEffect(() => {
     if (phase !== 'show') return;
-    const t1 = setTimeout(() => setPhase('fade'), 2400);
-    const t2 = setTimeout(() => { try { sessionStorage.setItem('amanzine_splash', '1'); } catch {} setPhase('done'); }, 3100);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [phase]);
+    const finish = () => { try { sessionStorage.setItem('amanzine_splash', '1'); } catch { /* noop */ } setPhase('done'); };
+    const fadeOut = () => setPhase('fade');
+
+    // تقليل الحركة: لقطة شعار ثابتة قصيرة ثمّ كشف التطبيق.
+    if (reduce) {
+      setBeat(1);
+      const a = setTimeout(fadeOut, 1500);
+      const b = setTimeout(finish, 2200);
+      return () => { clearTimeout(a); clearTimeout(b); };
+    }
+
+    // ① شغّل فيديو الظهور؛ إن رُفض التشغيل ننتقل فورًا (لا حبس).
+    const pv = portalRef.current;
+    if (pv) { const p = pv.play?.(); if (p && typeof p.catch === 'function') p.catch(() => setBeat(1)); }
+
+    const tGate  = setTimeout(() => { setBeat(1); const gv = gateRef.current; if (gv) { const p = gv.play?.(); if (p && typeof p.catch === 'function') p.catch(() => {}); } }, 2400); // ② الانفتاح
+    const tFinal = setTimeout(() => setBeat(2), 4600);  // ③ الصورة النهائية
+    const tFade  = setTimeout(fadeOut, 6600);
+    const tDone  = setTimeout(finish, 7300);            // حدّ أقصى صارم
+    return () => { [tGate, tFinal, tFade, tDone].forEach(clearTimeout); };
+  }, [phase, reduce]);
+
+  // تدوير كلمات الخدمات في اللقطة ③ (فقط حين لا توجد صورة نهائيّة جاهزة بالنصوص)
+  useEffect(() => {
+    if (beat !== 2 || finalImg === true) return;
+    const id = setInterval(() => setWordIdx(i => (i + 1) % GATE_WORDS.length), 380);
+    return () => clearInterval(id);
+  }, [beat, finalImg]);
+
   if (phase === 'done') return null;
+
+  const skip = () => { setPhase('fade'); setTimeout(() => { try { sessionStorage.setItem('amanzine_splash', '1'); } catch { /* noop */ } setPhase('done'); }, 350); };
+  const showComposed = beat >= 2 && finalImg === false; // لوحة مكافئة حين لا توجد صورة رسميّة
+
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#0A0A0F', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, opacity: phase === 'fade' ? 0 : 1, transition: 'opacity 0.7s ease', pointerEvents: phase === 'fade' ? 'none' : 'auto' }}>
-      <style>{`@keyframes splashLogo{0%{transform:scale(.55);opacity:0}55%{transform:scale(1.07);opacity:1}100%{transform:scale(1)}}@keyframes splashGlow{0%,100%{box-shadow:0 0 36px rgba(255,106,0,.25)}50%{box-shadow:0 0 90px rgba(255,106,0,.55)}}@keyframes splashText{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}`}</style>
-      <BrandLogo size={108} radius={28} style={{ border: '2px solid rgba(255,106,0,0.4)', animation: 'splashLogo 1.1s cubic-bezier(.16,1,.3,1) both, splashGlow 2.2s ease infinite' }} />
-      <div style={{ textAlign: 'center', animation: 'splashText .8s .45s ease both' }}>
-        <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.02em', color: '#FAFAFA', fontFamily: 'Tajawal, system-ui, sans-serif' }}><span style={{ color: '#FF6A00' }}>AMANZINE</span></div>
-        <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.5)', marginTop: 7, fontWeight: 600, fontFamily: 'Tajawal, system-ui, sans-serif' }}>منصة المغرب الذكية للبيع والخدمات والحجوزات</div>
-      </div>
+    <div
+      onClick={skip}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 99999,
+        background: 'radial-gradient(120% 80% at 50% 12%, #0c3b28 0%, #072117 46%, #04120c 100%)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden',
+        opacity: phase === 'fade' ? 0 : 1, transition: 'opacity .7s ease',
+        pointerEvents: phase === 'fade' ? 'none' : 'auto',
+      }}
+    >
+      <style>{`
+        @keyframes gateLogoIn{0%{transform:scale(.5);opacity:0;filter:blur(6px)}60%{transform:scale(1.06);opacity:1;filter:blur(0)}100%{transform:scale(1)}}
+        @keyframes gateGlow{0%,100%{box-shadow:0 0 40px rgba(212,175,55,.28)}50%{box-shadow:0 0 96px rgba(212,175,55,.6)}}
+        @keyframes gateText{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes gateWord{0%{opacity:0;transform:translateY(8px) scale(.96)}30%,70%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-8px) scale(1.02)}}
+        @keyframes gateFade{from{opacity:0}to{opacity:1}}
+      `}</style>
+
+      {/* ① فيديو الظهور من الظلام — القوس يتشكّل */}
+      {!reduce && (
+        <video
+          ref={portalRef} autoPlay muted playsInline preload="auto"
+          onEnded={() => setBeat(b => Math.max(b, 1))}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: beat === 0 ? 1 : 0, transition: 'opacity 1s ease' }}
+        >
+          <source src="/brand/amanzine-portal.mp4" type="video/mp4" />
+        </video>
+      )}
+
+      {/* ② فيديو انفتاح البوّابة — يظهر في اللقطة ١ ثمّ يخفت في اللقطة ٣ */}
+      {!reduce && (
+        <video
+          ref={gateRef} muted playsInline preload="auto"
+          poster="/brand/amanzine-gate-poster.jpg"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: beat === 1 ? 1 : beat >= 2 ? 0.16 : 0, transition: 'opacity 1s ease' }}
+        >
+          <source src="/brand/amanzine-gate.mp4" type="video/mp4" />
+        </video>
+      )}
+
+      {/* ③ الصورة النهائيّة الرسميّة (إن وُضعت) — تُعرض كاملةً كما صُمّمت.
+          تقبل .jpg أو .png تلقائيًّا (لا حاجة للقلق حول الصيغة). */}
+      {beat >= 2 && (
+        <img
+          src="/brand/amanzine-final.jpg" alt="AMANZINE" data-fallback="0"
+          onLoad={() => setFinalImg(true)}
+          onError={e => { const im = e.currentTarget; if (im.getAttribute('data-fallback') === '0') { im.setAttribute('data-fallback', '1'); im.src = '/brand/amanzine-final.png'; return; } setFinalImg(false); }}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 2, opacity: finalImg === true ? 1 : 0, transition: 'opacity .8s ease', animation: 'gateFade .8s ease both' }}
+        />
+      )}
+
+      {/* ② الشعار يتشكّل (اللقطة ١) + لوحة مكافئة للصورة النهائيّة (اللقطة ٣ إن غابت الصورة الرسميّة) */}
+      {(beat === 1 || showComposed) && (
+        <div style={{ position: 'relative', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <BrandLogo size={124} radius={30} style={{ background: 'rgba(255,255,255,.96)', animation: 'gateLogoIn 1s cubic-bezier(.16,1,.3,1) both, gateGlow 2.4s ease infinite .6s' }} />
+          <div style={{ textAlign: 'center', animation: 'gateText .8s .35s ease both' }}>
+            <div style={{ fontSize: 29, fontWeight: 900, letterSpacing: '.05em', color: '#FAF3E0', fontFamily: 'Tajawal, system-ui, sans-serif' }}>AMANZINE</div>
+            <div style={{ fontSize: 14, color: '#D4AF37', marginTop: 6, fontWeight: 800, fontFamily: 'Tajawal, system-ui, sans-serif' }}>البوابة الذكية المغربية</div>
+            <div style={{ fontSize: 12.5, color: 'rgba(250,243,224,.66)', marginTop: 7, fontWeight: 600, fontFamily: 'Tajawal, system-ui, sans-serif' }}>كلشي اللي بغيتي… فبلاصة وحدة</div>
+          </div>
+          <div style={{ height: 24, marginTop: 2 }}>
+            {showComposed && (
+              <span key={wordIdx} style={{ display: 'inline-block', fontSize: 14, fontWeight: 800, color: '#F0C75E', fontFamily: 'Tajawal, system-ui, sans-serif', animation: 'gateWord .38s ease both' }}>
+                {GATE_WORDS[wordIdx]}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* تخطّي — لا نحبس أحدًا */}
+      <button
+        onClick={(e) => { e.stopPropagation(); skip(); }}
+        style={{ position: 'absolute', bottom: 26, insetInline: 0, margin: '0 auto', width: 'fit-content', zIndex: 4, padding: '8px 20px', borderRadius: 999, border: '1px solid rgba(212,175,55,.5)', background: 'rgba(0,0,0,.32)', backdropFilter: 'blur(6px)', color: '#F0C75E', fontSize: 13, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}
+      >
+        تخطّي ✕
+      </button>
     </div>
   );
 }
@@ -212,14 +336,15 @@ function AppShell() {
 
         {/* ── PUBLIC: Landing page (choose: merchant or customer) ── */}
         <Route path="/landing" element={<LandingPage />} />
-        <Route path="/auth"    element={isAuthed ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
-        <Route path="/login"   element={isAuthed ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
-        <Route path="/register"element={isAuthed ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
+        <Route path="/auth"    element={isAuthed ? <Navigate to="/home" replace /> : <AuthPage />} />
+        <Route path="/login"   element={isAuthed ? <Navigate to="/home" replace /> : <AuthPage />} />
+        <Route path="/register"element={isAuthed ? <Navigate to="/home" replace /> : <AuthPage />} />
 
         {/* ── PROTECTED: Merchant dashboard ── */}
-        {['/dashboard','/products','/services','/orders','/messages','/customers',
+        {['/home','/dashboard','/products','/services','/orders','/messages','/customers',
           '/analytics','/insights','/connections','/delivery','/notifications',
-          '/settings','/studio','/editor','/import','/coupons','/guide','/moderation'].map(path => (
+          '/settings','/studio','/editor','/import','/coupons','/guide','/moderation','/knowledge-studio',
+          '/wallet','/profile','/assistant','/publish'].map(path => (
           <Route key={path} path={path}
             element={isAuthed ? <MainLayout /> : <Navigate to="/login" replace />} />
         ))}
@@ -227,13 +352,13 @@ function AppShell() {
         {/* ── ROOT: Show landing page always at / ── */}
         <Route path="/" element={
           isAuthed
-            ? <Navigate to="/dashboard" replace />
+            ? <Navigate to="/home" replace />
             : <LandingPage />
         } />
 
         {/* ── FALLBACK ── */}
         <Route path="*" element={
-          isAuthed ? <Navigate to="/dashboard" replace /> : <LandingPage />
+          isAuthed ? <Navigate to="/home" replace /> : <LandingPage />
         } />
       </Routes>
     </>

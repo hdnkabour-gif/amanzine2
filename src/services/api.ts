@@ -420,6 +420,29 @@ export const trackAPI = {
       fetch(`${BASE_URL}/track`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), keepalive: true }).catch(() => {});
     } catch {}
   },
+  // تجربة نيّة → الخادم (توحيد العقلين): يُرسل الطلب/النتيجة/الرضا ليتعلّم الخادم.
+  need: (action: 'searched' | 'resolved' | 'satisfied' | 'unsatisfied', data: { raw?: string; intent?: string; city?: string }) => {
+    try {
+      fetch(`${BASE_URL}/track`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ kind: 'need', action, name: (data.raw || '').slice(0, 120), source: data.intent, city: data.city }) }).catch(() => {});
+    } catch {}
+  },
+};
+
+// المحرّك الموحّد على الخادم (/api/search) — يفهم النيّة، يبحث، ويُسجّل
+// الاستعلام/الـ miss (Experience Graph: المعرفة التي تبني نفسها). يُستدعى من
+// تدفّق «شنو محتاج اليوم؟» فيتعلّم الخادم من كل طلب حقيقيّ عبر كل المستخدمين.
+export const searchAPI = {
+  query: (q: string, opts?: { city?: string; type?: string; lat?: number; lng?: number; limit?: number }) => {
+    const p = new URLSearchParams();
+    if (q) p.set('q', q);
+    if (opts?.city) p.set('city', opts.city);
+    if (opts?.type) p.set('type', opts.type);
+    if (opts?.lat != null) p.set('lat', String(opts.lat));
+    if (opts?.lng != null) p.set('lng', String(opts.lng));
+    if (opts?.limit) p.set('limit', String(opts.limit));
+    return request<any>('GET', `/search?${p.toString()}`);
+  },
 };
 
 // AI Engine — بحث بلغة طبيعية → نيّة + نتائج
@@ -434,6 +457,17 @@ export const aiSearchAPI = {
 export interface MerchantInsights { businessId: string; views: number; clicks: number; contacts: number; bookings: number; ctr: number; contactRate: number; topItems: { key: string; count: number }[]; }
 export const insightsAPI = {
   me: () => request<MerchantInsights>('GET', '/insights/me'),
+};
+
+// Knowledge Studio (أدمن) — عقل AMANZINE: ما تعلّمه + ما لم يفهمه (misses)،
+// مع اعتماد/رفض. يوسّع القاموس من الاستخدام الحقيقيّ، لا من إدخال يدويّ.
+export interface KnowledgeMiss { id: string; raw?: string; normalized?: string; term?: string; count?: number; city?: string; }
+export interface BrainStats { days: number; searches: number; quality?: { total?: number; successRate?: number }; score?: { searchSuccess?: number }; topMisses?: KnowledgeMiss[]; }
+export const knowledgeAPI = {
+  brain:  (days = 30) => request<BrainStats>('GET', `/knowledge/brain?days=${days}`),
+  misses: (status = 'open', limit = 100) => request<{ misses: KnowledgeMiss[] }>('GET', `/knowledge/misses?status=${status}&limit=${limit}`),
+  resolve: (id: string, category: string) => request<{ miss: KnowledgeMiss }>('POST', `/knowledge/misses/${encodeURIComponent(id)}/resolve`, { category }),
+  ignore:  (id: string) => request<{ miss: KnowledgeMiss }>('POST', `/knowledge/misses/${encodeURIComponent(id)}/resolve`, { status: 'ignored' }),
 };
 
 // Activity Feed

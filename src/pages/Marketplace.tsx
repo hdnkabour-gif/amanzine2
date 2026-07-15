@@ -81,8 +81,9 @@ export default function Marketplace() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState<'all' | 'product' | 'service'>('all');
-  const [city, setCity] = useState('');
-  const [q, setQ] = useState(''); // Discover: بحث موحّد عبر كل شيء
+  // يُبذَر من رابط «شنو محتاج اليوم؟» (‎/market?q=…&city=…) فيبحث الخادم مباشرة
+  const [city, setCity] = useState(() => { try { return new URLSearchParams(window.location.search).get('city') || ''; } catch { return ''; } });
+  const [q, setQ] = useState(() => { try { return new URLSearchParams(window.location.search).get('q') || ''; } catch { return ''; } }); // Discover: بحث موحّد عبر كل شيء
   const [showSell, setShowSell] = useState(false);
   const [detail, setDetail] = useState<Listing | null>(null);
 
@@ -102,7 +103,7 @@ export default function Marketplace() {
   useEffect(() => { const t = setTimeout(load, q ? 350 : 0); return () => clearTimeout(t); }, [type, city, q]);
 
   return (
-    <div dir={rtl ? 'rtl' : 'ltr'} style={{ minHeight: '100dvh', background: C.bg, color: C.ink1, fontFamily: 'Tajawal,system-ui,sans-serif', paddingBottom: 90 }}>
+    <div dir={rtl ? 'rtl' : 'ltr'} style={{ minHeight: '100dvh', background: 'radial-gradient(130% 80% at 50% -5%, #0d3a2e 0%, #0a2a22 45%, #071B17 100%)', backgroundAttachment: 'fixed', color: C.ink1, fontFamily: 'Tajawal,system-ui,sans-serif', paddingBottom: 90 }}>
       {/* Header */}
       <header style={{ position: 'sticky', top: 0, zIndex: 30, background: 'rgba(10,10,15,0.9)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${C.border}`, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>

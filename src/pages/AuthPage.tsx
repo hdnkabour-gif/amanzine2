@@ -64,7 +64,7 @@ export default function AuthPage() {
         // C-3: الجلسة محمولة في كوكي HttpOnly ضبطه الخادم — لا توكن في localStorage.
         // نخزّن المستخدم فقط (غير سرّي) ليستعيد الإقلاع الجلسة فوراً بعد التحويل.
         localStorage.setItem('ai_commerce_user', JSON.stringify(j.user));
-        window.location.href = '/dashboard';
+        window.location.href = '/home';
       } else {
         setError(j.error || 'فشل تسجيل الدخول');
       }
@@ -393,7 +393,7 @@ export default function AuthPage() {
             {/* Demo + Home */}
             <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
               <button type="button"
-                onClick={() => { localStorage.setItem('ai_commerce_token', 'demo-token-local'); window.location.href = '/dashboard'; }}
+                onClick={() => { localStorage.setItem('ai_commerce_token', 'demo-token-local'); window.location.href = '/home'; }}
                 style={{
                   flex: 1, padding: '11px', borderRadius: DS.radiusSm,
                   background: 'rgba(255,122,0,0.06)', border: '1px solid rgba(255,122,0,0.15)',
