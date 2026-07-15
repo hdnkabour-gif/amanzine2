@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
-import { Sparkles, Camera, Mic, MessageCircle, FileText, Check, ArrowLeft, Rocket, List, SkipForward } from 'lucide-react';
+import { Sparkles, Camera, Mic, MessageCircle, FileText, Check, ArrowLeft, Rocket, List, SkipForward, Clock } from 'lucide-react';
 import { parseNeed } from '../lib/needEngine';
 import { resolveBlueprint, completeness, planNext, type BField, type Blueprint } from '../lib/blueprints';
 import { inferValues, CONF, type Inferred } from '../lib/inference';
+import { startJourney, jMeta, jStep, finishJourney, setJourneyFeedback, type Journey } from '../lib/journey';
 import { buildContext } from '../lib/core/context';
 import { playGate } from '../lib/gateTransition';
 import type { Page } from '../types';
@@ -53,6 +54,8 @@ export default function UniversalPublish() {
   const [assumptions, setAssumptions] = useState<Inferred[]>([]);
   const [showAll, setShowAll] = useState(false);
   const [done, setDone] = useState(false);
+  const [finished, setFinished] = useState<Journey | null>(null); // الرحلة المسجّلة (ثواني/twinId/feedback)
+  const [fb, setFb] = useState<string | null>(null);
 
   const build = (text: string) => {
     const q = text.trim(); if (!q) return;
@@ -67,27 +70,62 @@ export default function UniversalPublish() {
     for (const i of inferred) if (i.confidence >= CONF.confirm) vals[i.key] = i.value;
     setAssumptions(inferred.filter(i => i.confidence >= CONF.confirm));
     setScenario({ bp: blueprint, fields }); setValues(vals);
+    // Journey: بداية التسجيل (Analytics + Replay + Seconds).
+    startJourney(q); jMeta(entity, r.intent, blueprint.id); jStep('build', { note: blueprint.id });
+    for (const i of inferred) if (i.confidence >= CONF.confirm) jStep('assume', { key: i.key, value: i.value });
   };
 
   useEffect(() => {
     try { const seed = sessionStorage.getItem('amanzine_publish_seed'); if (seed) { sessionStorage.removeItem('amanzine_publish_seed'); if (seed.trim()) build(seed); } } catch { /* noop */ }
+    // إن غادر المستخدم بلا نشر → نسجّل الرحلة كمنسحبة (Analytics: نقطة الخروج).
+    return () => { finishJourney(false); };
   }, []);
+
+  const publish = () => { const j = finishJourney(true); setFinished(j); setDone(true); };
 
   const comp = useMemo(() => scenario ? completeness(scenario.fields, values) : { score: 0 }, [scenario, values]);
   const askable = useMemo(() => scenario ? scenario.fields.filter(f => !skipped.has(f.key)) : [], [scenario, skipped]);
   const next = useMemo(() => scenario ? planNext(askable, values) : null, [scenario, askable, values]);
   const gold = 'var(--amz-gold,#D4A017)'; const green = 'var(--amz-emerald,#0a8f6f)';
-  const set = (k: string, val: any) => setValues(v => ({ ...v, [k]: val }));
+  const set = (k: string, val: any) => { setValues(v => ({ ...v, [k]: val })); jStep('answer', { key: k, value: val }); };
+
+  // Journey: نسجّل السؤال المطروح (Analytics: نقطة الخروج).
+  useEffect(() => { if (next) jStep('question', { key: next.key }); }, [next?.key]);
 
   if (done && scenario) {
+    const secs = finished?.seconds;
+    const fast = secs != null && secs < 45; // KPI: ثوانٍ حتى النتيجة (هدف < 45)
     return (
-      <div style={{ maxWidth: 560, margin: '10px auto', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', paddingTop: 20 }}>
+      <div style={{ maxWidth: 560, margin: '10px auto', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 15, alignItems: 'center', paddingTop: 18 }}>
         <div style={{ width: 74, height: 74, borderRadius: 22, background: `color-mix(in srgb, ${green} 22%, transparent)`, border: `1.5px solid ${gold}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Check size={38} style={{ color: gold }} /></div>
         <h2 style={{ margin: 0, fontSize: 21, fontWeight: 900, color: 'var(--ink1)' }}>{scenario.bp.verb} «{values.title || values.profession || 'إعلانك'}» ✦</h2>
-        <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink3)' }}>اكتمل {comp.score}٪ — صار مرئيًّا للباحثين قربك.</p>
-        <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+        {/* Seconds-to-Result — المؤشّر الأوّل */}
+        {secs != null && (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 99, background: fast ? `color-mix(in srgb, ${green} 16%, transparent)` : 'var(--panel2,#132040)', border: `1px solid ${fast ? green : gold}`, fontSize: 13.5, fontWeight: 800, color: fast ? green : gold }}>
+            <Clock size={15} /> نُشِر في {secs} ثانية {fast ? '🎯' : ''}
+          </div>
+        )}
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--ink3)' }}>اكتمل {comp.score}٪ — صار مرئيًّا للباحثين قربك.{finished?.twinId ? ` · معرّف: ${finished.twinId}` : ''}</p>
+
+        {/* Feedback — أغلى من ألف تخمين */}
+        <div style={{ width: '100%', maxWidth: 340, padding: 14, borderRadius: 14, background: 'var(--panel,rgba(255,255,255,.03))', border: '1px solid var(--border,rgba(255,255,255,.08))' }}>
+          {!fb ? (
+            <>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink1)', marginBottom: 10 }}>واش كانت ساهلة؟</div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                {([['😀', 'good'], ['😐', 'ok'], ['😞', 'bad']] as const).map(([e, m]) => (
+                  <button key={m} onClick={() => { if (finished) setJourneyFeedback(finished.id, m); setFb(m); }} style={{ width: 52, height: 52, borderRadius: 14, border: '1px solid var(--border2,rgba(255,255,255,.14))', background: 'transparent', fontSize: 26, cursor: 'pointer' }}>{e}</button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 13, fontWeight: 700, color: green }}>شكرًا! 🙏 ملاحظتك كتعاوننا نحسّنو.</div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
           <button onClick={() => playGate(() => setPage('products' as Page))} style={btn(gold, true)}>عرض في متجري <ArrowLeft size={16} /></button>
-          <button onClick={() => { setDone(false); setScenario(null); setValues({}); setRaw(''); }} style={btn(gold, false)}>افعل شيئًا آخر</button>
+          <button onClick={() => { setDone(false); setScenario(null); setValues({}); setRaw(''); setFinished(null); setFb(null); }} style={btn(gold, false)}>افعل شيئًا آخر</button>
         </div>
       </div>
     );
@@ -199,7 +237,7 @@ export default function UniversalPublish() {
           {!showAll && !next && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', textAlign: 'center', padding: '6px 0' }}>
               <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink1)' }}>واجد! جمعنا كل الأساسيّ ✓</div>
-              <button onClick={() => setDone(true)} style={{ ...btn(gold, true), padding: '13px 22px', fontSize: 15 }}><Rocket size={17} /> نشر الآن</button>
+              <button onClick={publish} style={{ ...btn(gold, true), padding: '13px 22px', fontSize: 15 }}><Rocket size={17} /> نشر الآن</button>
               <button onClick={() => setShowAll(true)} style={{ background: 'transparent', border: 'none', color: gold, fontSize: 12.5, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>زيد تفاصيل ترفع نسبة الاكتمال ←</button>
             </div>
           )}
@@ -213,7 +251,7 @@ export default function UniversalPublish() {
                   {fieldControl(f)}
                 </label>
               ))}
-              <button onClick={() => setDone(true)} style={{ ...btn(gold, true), justifyContent: 'center', padding: '13px', fontSize: 15 }}><Rocket size={17} /> نشر الآن</button>
+              <button onClick={publish} style={{ ...btn(gold, true), justifyContent: 'center', padding: '13px', fontSize: 15 }}><Rocket size={17} /> نشر الآن</button>
             </>
           )}
         </div>

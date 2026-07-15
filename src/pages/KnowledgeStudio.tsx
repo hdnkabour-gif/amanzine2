@@ -3,6 +3,7 @@ import { Brain, Check, X, Cloud, HardDrive, Sparkles, Star } from 'lucide-react'
 import { knowledgeAPI, type BrainStats } from '../services/api';
 import { getInteractions, knowledgeHealth } from '../lib/experienceLog';
 import { mineCandidates, validateCandidate, kbVersion, type Candidate } from '../lib/knowledge/candidates';
+import JourneyAnalytics from '../components/JourneyAnalytics';
 
 // ============================================================
 // Knowledge Studio — «عقل AMANZINE» للأدمن: ما تعلّمه التطبيق، وما لم يفهمه
@@ -113,6 +114,9 @@ export default function KnowledgeStudio() {
           {mode === 'server' ? <Cloud size={13} /> : <HardDrive size={13} />}{mode === 'server' ? 'الخادم' : mode === 'local' ? 'محلّي' : '…'}
         </span>
       </div>
+
+      {/* Journey Analytics + Replay (بيانات البيتا) */}
+      <JourneyAnalytics />
 
       {/* stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>

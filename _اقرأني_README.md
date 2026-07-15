@@ -1,13 +1,18 @@
-# AMANZINE — حزمة التغييرات (Phase Beta)
+# AMANZINE — حزمة التغييرات (Beta Ready)
 
-## 🧠 الجديد: Inference + Confidence + Prediction Brain — «فكّر قبل أن تسأل»
-- `src/lib/inference.ts`: يستنتج من الجملة بنسبة ثقة (Golf 7 → Volkswagen 0.97؛ أولويّات
-  السوق المغربيّ → مازوط/عاديّة ~0.6). عتبات: ≥0.9 يملأ بصمت ✓ · 0.5–0.9 يملأ ويؤكّد ~ · <0.5 يسأل.
-- شريط «افترضنا» في النشر (اضغط لتصحيح). لا يسأل عمّا استنتجه أو استخرجه — فقط المجهول الحقيقيّ.
-- السلسلة: نيّة → كيان → سياق → استنتاج → Question Planner.
-- مُتحقَّق: «Golf 7 2018 130k» → يستنتج الماركة+الوقود، يستخرج السنة+الكيلومترات، يسأل المدينة فقط. صفر أخطاء.
+## 🚀 الجديد: تجهيز البيتا (٥ أشياء خفيفة — لا عقول جديدة)
+من سجلّ رحلة واحد:
+1. **Analytics** — نسجّل كل خطوة بتوقيتها (`src/lib/journey.ts`). `journeyStats`: نسبة النشر · متوسّط الثواني · الرضا · أكثر نقطة خروج.
+2. **Seconds-to-Result** — يُقاس ويُعرض على شاشة النجاح (هدف < 45ث).
+3. **twinId** — نحجز هويّة Digital Twin عند النشر (بلا دورة حياة).
+4. **Feedback** — 😀/😐/😞 بعد كل رحلة.
+5. **Replay** — الرحلة كاملة بخطواتها + لوحة «رحلات المستخدمين» في مركز المعرفة (`JourneyAnalytics`).
 
-اقرأ SCENARIO_ENGINE.md. `tsc` صفر أخطاء · build ينجح.
+مُتحقَّق: «أنا نجّار ألمنيوم» → «نُشِر في 2.5 ثانية 🎯» + twinId + feedback + رحلة مسجّلة (٥ خطوات). صفر أخطاء.
+
+خارطة الطريق: **بعد ٥٠٠–١٠٠٠ رحلة حقيقيّة** → Learning/Evolution/Market Intelligence وضبط الثقة من بيانات فعليّة.
+
+`tsc` صفر أخطاء · `npm run build` ينجح.
 
 ## 🆕 جديد
 - DESIGN_SYSTEM.md
@@ -19,6 +24,7 @@
 - public/brand/amanzine-og.jpg
 - public/brand/amanzine-portal.mp4
 - src/components/ActivityTimeline.tsx
+- src/components/JourneyAnalytics.tsx
 - src/components/MasterBackground.tsx
 - src/components/MySpaceSections.tsx
 - src/lib/blueprints.ts
@@ -29,6 +35,7 @@
 - src/lib/experienceLog.ts
 - src/lib/gateTransition.ts
 - src/lib/inference.ts
+- src/lib/journey.ts
 - src/lib/knowledge/candidates.ts
 - src/lib/knowledge/graph.ts
 - src/lib/needEngine.ts
