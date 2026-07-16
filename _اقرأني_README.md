@@ -1,18 +1,19 @@
-# AMANZINE — حزمة التغييرات (Beta Ready)
+# AMANZINE — حزمة التغييرات
 
-## 🚀 الجديد: تجهيز البيتا (٥ أشياء خفيفة — لا عقول جديدة)
-من سجلّ رحلة واحد:
-1. **Analytics** — نسجّل كل خطوة بتوقيتها (`src/lib/journey.ts`). `journeyStats`: نسبة النشر · متوسّط الثواني · الرضا · أكثر نقطة خروج.
-2. **Seconds-to-Result** — يُقاس ويُعرض على شاشة النجاح (هدف < 45ث).
-3. **twinId** — نحجز هويّة Digital Twin عند النشر (بلا دورة حياة).
-4. **Feedback** — 😀/😐/😞 بعد كل رحلة.
-5. **Replay** — الرحلة كاملة بخطواتها + لوحة «رحلات المستخدمين» في مركز المعرفة (`JourneyAnalytics`).
+## 🚂 إصلاح مشاكل النشر (Railway) — الأهمّ الآن
+- **① فشل الـ Migration + ② شهادة SSL الموقّعة ذاتيًّا**: أُصلحا في `server/db.js` —
+  الخادم يستعمل الآن TLS متسامحًا تلقائيًّا لأيّ Postgres مُدار (Railway/Supabase)، ويبقى
+  صارمًا إن زوّدتَ CA. لا تحتاج شيئًا سوى DATABASE_URL الصحيح.
+- **③ VAPID**: الكود سليم (يقرأ متغيّرات البيئة) — فقط ثبّت VAPID_PUBLIC_KEY/PRIVATE_KEY في Railway.
+- **④ SecretsUsedInArgOrEnv**: تحذير من Railway لا كودك — ضع الأسرار كـ Runtime Variables.
+- دليل كامل: **`server/DEPLOY_RAILWAY.md`** + ملاحظات TLS في `server/.env.example`.
+- مُتحقَّق: روابط Railway/Supabase → TLS متسامح؛ محلّي → بلا TLS؛ CA → صارم. اختبارات الخادم 13/13.
 
-مُتحقَّق: «أنا نجّار ألمنيوم» → «نُشِر في 2.5 ثانية 🎯» + twinId + feedback + رحلة مسجّلة (٥ خطوات). صفر أخطاء.
+## سابقًا: محرّك السيناريوهات · المحادثة · الاستنتاج بثقة · رحلات البيتا (ثوانٍ/twinId/رضا/Replay) · الصفحات · الهويّة.
 
-خارطة الطريق: **بعد ٥٠٠–١٠٠٠ رحلة حقيقيّة** → Learning/Evolution/Market Intelligence وضبط الثقة من بيانات فعليّة.
+## ⭐️ صورك في public/brand/: amanzine-logo.png · amanzine-icon.png · amanzine-final.jpg · amanzine-bg-1.jpg · amanzine-bg-2.jpg
 
-`tsc` صفر أخطاء · `npm run build` ينجح.
+`tsc` صفر أخطاء · `npm run build` ينجح · اختبارات الخادم 13/13.
 
 ## 🆕 جديد
 - DESIGN_SYSTEM.md
@@ -23,6 +24,7 @@
 - public/brand/amanzine-mark-512.png
 - public/brand/amanzine-og.jpg
 - public/brand/amanzine-portal.mp4
+- server/DEPLOY_RAILWAY.md
 - src/components/ActivityTimeline.tsx
 - src/components/JourneyAnalytics.tsx
 - src/components/MasterBackground.tsx
@@ -50,6 +52,8 @@
 - index.html
 - public/amanzine-logo.svg
 - public/manifest.json
+- server/.env.example
+- server/db.js
 - server/routes/track.js
 - src/App.tsx
 - src/pages/AuthPage.tsx
