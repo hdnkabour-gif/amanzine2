@@ -48,12 +48,41 @@ function serviceInfer(t: string): Inferred[] {
   return out;
 }
 
-// المدخل: يعطي كل الاستنتاجات مع ثقتها لكيان معيّن.
+// استخراج أساسيّ من النصّ (لكلّ الكيانات): العنوان/الثمن/السنة/الفئة/الحالة/النوع.
+// نُقل من منطق الصفحة إلى هنا حتّى تبقى الصفحة واجهة فقط — والقرار مركزيّ.
+const CATMAP: [string, string][] = [['ايفون','إلكترونيات'],['آيفون','إلكترونيات'],['تلفون','إلكترونيات'],['هاتف','إلكترونيات'],['لابطوب','إلكترونيات'],['صباط','أحذية'],['حذاء','أحذية'],['قميص','ملابس'],['لباس','ملابس'],['كنبة','أثاث'],['موبيليا','أثاث']];
+const REMAP: [string, string][] = [['شقة','شقة'],['فيلا','فيلا'],['ستوديو','ستوديو'],['دار','دار'],['ارض','أرض'],['محل','محل']];
+
+function baseInfer(raw: string): Inferred[] {
+  const t = raw.toLowerCase();
+  const out: Inferred[] = [];
+  const year = raw.match(/\b(19|20)\d{2}\b/);
+  let price: string | undefined;
+  const withCur = raw.match(/(\d[\d.,]{2,9})\s*(درهم|dh|dhs|د\.?م)/);
+  if (withCur) price = withCur[1].replace(/[.,]$/, '');
+  else { const nums = (raw.match(/\d[\d.,]{2,9}/g) || []).map(s => s.replace(/[.,]$/, '')); price = nums.find(n => !(year && n === year[0])); }
+  const title = raw.replace(/بغيت|باغي|نبيعو|نبيع|عندي|للبيع|للكراء|نكري|أنا\s/g, '')
+    .replace(/(\d[\d.,]{2,9})\s*(درهم|dh|dhs|د\.?م)?/g, '')
+    .replace(/(^|\s)(ب|بـ|في|ف)(?=\s|$)/g, ' ')   // إزالة حروف جرّ الثمن المتبقّية
+    .replace(/\s+/g, ' ').trim();
+
+  if (title) { out.push({ key: 'title', label: 'العنوان', value: title.slice(0, 60), confidence: 0.85 }); out.push({ key: 'profession', label: 'المهنة', value: title.slice(0, 40), confidence: 0.85 }); }
+  if (price) { out.push({ key: 'price', label: 'الثمن', value: price, confidence: 0.9 }); out.push({ key: 'dailyPrice', label: 'الثمن اليوميّ', value: price, confidence: 0.9 }); }
+  if (year) out.push({ key: 'year', label: 'السنة', value: year[0], confidence: 0.85 });
+  for (const [kw, c] of CATMAP) if (t.includes(kw)) { out.push({ key: 'category', label: 'الفئة', value: c, confidence: 0.8 }); break; }
+  if (/جديد/.test(t)) out.push({ key: 'condition', label: 'الحالة', value: 'جديد', confidence: 0.8 });
+  else if (/مستعمل|خدام/.test(t)) out.push({ key: 'condition', label: 'الحالة', value: 'مستعمل', confidence: 0.8 });
+  for (const [kw, c] of REMAP) if (t.includes(kw)) { out.push({ key: 'kind', label: 'النوع', value: c, confidence: 0.8 }); break; }
+  return out;
+}
+
+// المدخل: يعطي كل الاستنتاجات مع ثقتها لكيان معيّن (أساسيّ + خاصّ بالكيان).
 export function inferValues(entity: string, raw: string): Inferred[] {
   const t = raw.toLowerCase();
-  if (entity === 'vehicle') return vehicleInfer(t);
-  if (entity === 'service') return serviceInfer(t);
-  return [];
+  const out = baseInfer(raw);
+  if (entity === 'vehicle') out.push(...vehicleInfer(t));
+  else if (entity === 'service') out.push(...serviceInfer(t));
+  return out;
 }
 
 // عتبات الثقة

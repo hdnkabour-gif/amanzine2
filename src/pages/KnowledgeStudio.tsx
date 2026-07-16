@@ -4,6 +4,7 @@ import { knowledgeAPI, type BrainStats } from '../services/api';
 import { getInteractions, knowledgeHealth } from '../lib/experienceLog';
 import { mineCandidates, validateCandidate, kbVersion, type Candidate } from '../lib/knowledge/candidates';
 import JourneyAnalytics from '../components/JourneyAnalytics';
+import AppKnowledgePanel from '../components/AppKnowledgePanel';
 
 // ============================================================
 // Knowledge Studio — «عقل AMANZINE» للأدمن: ما تعلّمه التطبيق، وما لم يفهمه
@@ -117,6 +118,9 @@ export default function KnowledgeStudio() {
 
       {/* Journey Analytics + Replay (بيانات البيتا) */}
       <JourneyAnalytics />
+
+      {/* AKG — خريطة معرفة التطبيق: العقل يعرف كلّ صفحة وقدراتها */}
+      <AppKnowledgePanel />
 
       {/* stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>

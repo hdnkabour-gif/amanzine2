@@ -89,6 +89,12 @@ const RAW: Blueprint[] = [
 
 const BP = new Map(RAW.map(b => [b.id, b]));
 
+// ميتا القالب (عنوان/فعل) — لِيشتقّها Schema Registry بلا تكرار.
+export function blueprintMeta(id: string): { label: string; verb: string } | undefined {
+  const b = BP.get(id);
+  return b ? { label: b.label, verb: b.verb } : undefined;
+}
+
 // دمج حقول القالب مع أصوله (الوراثة) — الأصل أولًا ثمّ الإضافات.
 export function resolveFields(id: string): BField[] {
   const b = BP.get(id);
