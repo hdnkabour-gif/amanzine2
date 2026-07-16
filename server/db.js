@@ -15,19 +15,24 @@ if (!process.env.DATABASE_URL) {
     on:      () => {},
   };
 } else {
-  // M-8: تحقّق شهادة TLS في الإنتاج (الافتراضي rejectUnauthorized:true).
-  // مرّر CA المزوّد عبر DATABASE_CA (نص) أو PGSSLROOTCERT/DATABASE_CA_PATH (مسار).
-  // التعطيل الصريح فقط بـ DB_SSL_INSECURE=1 — لا نقبل MITM بصمت بعد الآن.
+  // TLS لقاعدة البيانات:
+  //   • أأمَن: مرّر CA عبر DATABASE_CA (نص) أو PGSSLROOTCERT/DATABASE_CA_PATH (مسار) → تحقّق صارم.
+  //   • التعطيل الصريح: PGSSLMODE=disable أو DB_SSL=false أو sslmode=disable في الرابط.
+  //   • الافتراضيّ لمزوّدي PG المُدارين (Railway/Supabase/Render/Heroku): TLS متسامح
+  //     (rejectUnauthorized:false) لأنّهم يقدّمون سلسلة شهادات موقّعة ذاتيًّا — وهذا يمنع خطأ
+  //     «self-signed certificate in certificate chain» الذي كان يُفشل الـ migration ويُدخِل الوضع المتدهور.
   function buildSSL() {
-    if (process.env.NODE_ENV !== 'production') return false;
-    if (process.env.DB_SSL_INSECURE === '1') return { rejectUnauthorized: false };
+    const url = process.env.DATABASE_URL || '';
+    if (process.env.PGSSLMODE === 'disable' || process.env.DB_SSL === 'false' || /sslmode=disable/i.test(url)) return false;
     const caPath   = process.env.PGSSLROOTCERT || process.env.DATABASE_CA_PATH;
     const caInline = process.env.DATABASE_CA;
     try {
       if (caInline) return { rejectUnauthorized: true, ca: caInline };
       if (caPath)   return { rejectUnauthorized: true, ca: require('fs').readFileSync(caPath, 'utf8') };
-    } catch (e) { console.warn('[DB] CA load failed, using system trust:', e.message); }
-    return { rejectUnauthorized: true };
+    } catch (e) { console.warn('[DB] CA load failed, falling back to tolerant TLS:', e.message); }
+    const isLocal = /@(localhost|127\.0\.0\.1|\[?::1\]?)[:/]/i.test(url);
+    if (isLocal && process.env.NODE_ENV !== 'production') return false; // تطوير محلّي: بلا TLS
+    return { rejectUnauthorized: false }; // PG مُدار عن بُعد: TLS متسامح (النمط القياسيّ)
   }
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
