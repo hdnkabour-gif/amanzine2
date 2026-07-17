@@ -17,6 +17,7 @@ export * from './widgets';
 export * from './schema';
 export * from './viewModel';
 export * from './pageRegistry';
+export * from './workflow';
 export * from './world';
 export * from './userGraph';
 export * from './capabilities';

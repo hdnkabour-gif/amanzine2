@@ -7,6 +7,8 @@
 //   قواعد فقط الآن (client)؛ لاحقًا Knowledge Graph + تعلّم من السوق (خادم).
 // ============================================================
 
+import { understand } from './akg/kb';
+
 export interface Inferred { key: string; label: string; value: any; confidence: number; }
 
 // موديل → ماركة (استنتاج الكيان الأب)
@@ -76,10 +78,25 @@ function baseInfer(raw: string): Inferred[] {
   return out;
 }
 
-// المدخل: يعطي كل الاستنتاجات مع ثقتها لكيان معيّن (أساسيّ + خاصّ بالكيان).
+// استدلال من النواة المعرفيّة (Knowledge Foundation) — بيانات لا خرائط متصلّبة.
+// «الما كيسيل» → سبّاك · «الماطور كيطق طق» → ميكانيكي · مدينة مذكورة → المدينة.
+function kbInfer(raw: string): Inferred[] {
+  const out: Inferred[] = [];
+  const u = understand(raw);
+  if (u.city) out.push({ key: 'city', label: 'المدينة', value: u.city, confidence: 0.85 });
+  if (u.profession) {
+    // المعرفة أدقّ من استخراج النصّ الخام → ثقة عالية تفوز على العنوان المستخرَج.
+    out.push({ key: 'profession', label: 'المهنة', value: u.profession.label, confidence: 0.92 });
+    if (u.problem) out.push({ key: 'specialties', label: 'التخصّص', value: u.problem.label, confidence: 0.7 });
+  }
+  return out;
+}
+
+// المدخل: يعطي كل الاستنتاجات مع ثقتها لكيان معيّن (أساسيّ + معرفيّ + خاصّ بالكيان).
 export function inferValues(entity: string, raw: string): Inferred[] {
   const t = raw.toLowerCase();
   const out = baseInfer(raw);
+  out.push(...kbInfer(raw));
   if (entity === 'vehicle') out.push(...vehicleInfer(t));
   else if (entity === 'service') out.push(...serviceInfer(t));
   return out;

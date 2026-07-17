@@ -6,10 +6,32 @@ import { buildContext } from '../lib/core/context';
 import { playGate } from '../lib/gateTransition';
 import {
   decide, buildUIStep, allUIFields, planActions, checkPolicy, setUserAttr,
+  getWorkflow, currentStageIndex, type Workflow, type Phase,
   type UIStep, type PolicyResult, type PageDef,
 } from '../lib/akg';
 import UniversalRenderer, { FullFormRenderer } from './UniversalRenderer';
 import type { Page } from '../types';
+
+// شريط المراحل (من Workflow Registry) — لا مراحل مكتوبة في الصفحة.
+function Stepper({ wf, phase, accent }: { wf: Workflow; phase: Phase; accent: string }) {
+  const cur = currentStageIndex(wf, phase);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+      {wf.stages.map((s, i) => {
+        const active = i <= cur;
+        return (
+          <span key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 800, color: active ? accent : 'var(--ink3,#7E877F)' }}>
+              <span style={{ width: 7, height: 7, borderRadius: 99, background: active ? accent : 'transparent', border: `1.5px solid ${active ? accent : 'var(--ink3,#7E877F)'}` }} />
+              {s.label}
+            </span>
+            {i < wf.stages.length - 1 && <span style={{ width: 12, height: 1.5, background: i < cur ? accent : 'var(--line,rgba(255,255,255,.12))' }} />}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 // ============================================================
 // CreateFlow — محرّك الإنشاء (renderer:'create'). يرسمه PageEngine من PageDef.
@@ -61,6 +83,10 @@ export default function CreateFlow({ def }: { def: PageDef }) {
   const fullFields = useMemo(() => (built && raw ? allUIFields(raw) : []), [built, raw]);
 
   const gold = 'var(--amz-gold,#D4A017)'; const green = 'var(--amz-emerald,#0a8f6f)';
+  // Workflow Registry: المراحل بيانات — الطور الحاليّ يُشتقّ من حالة المحرّك.
+  const wf = getWorkflow(def.id);
+  const phase: Phase = done ? 'success' : !built ? 'draft' : step?.mode === 'ready' ? 'ready' : 'collect';
+  const accent = step?.theme?.accent || gold;
   const set = (k: string, val: any) => { setValues(v => ({ ...v, [k]: val })); jStep('answer', { key: k, value: val }); };
   const correct = (k: string) => { setRejected(s => new Set(s).add(k)); setValues(v => { const n = { ...v }; delete n[k]; return n; }); };
 
@@ -95,6 +121,7 @@ export default function CreateFlow({ def }: { def: PageDef }) {
       <div style={{ maxWidth: 560, margin: '10px auto', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 15, alignItems: 'center', paddingTop: 18 }}>
         <div style={{ width: 74, height: 74, borderRadius: 22, background: `color-mix(in srgb, ${green} 22%, transparent)`, border: `1.5px solid ${gold}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Check size={38} style={{ color: gold }} /></div>
         <h2 style={{ margin: 0, fontSize: 21, fontWeight: 900, color: 'var(--ink1)' }}>{dec?.verb || 'نُشِر'} «{rec.title || rec.profession || 'إعلانك'}» ✦</h2>
+        <Stepper wf={wf} phase="success" accent={green} />
         {secs != null && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 99, background: fast ? `color-mix(in srgb, ${green} 16%, transparent)` : 'var(--panel2,#132040)', border: `1px solid ${fast ? green : gold}`, fontSize: 13.5, fontWeight: 800, color: fast ? green : gold }}>
             <Clock size={15} /> نُشِر في {secs} ثانية {fast ? '🎯' : ''}
@@ -185,6 +212,7 @@ export default function CreateFlow({ def }: { def: PageDef }) {
 
       {built && step && (
         <div style={{ border: `1.5px solid ${step.theme?.accent || gold}`, borderRadius: 16, padding: 16, background: `color-mix(in srgb, ${step.theme?.accent || green} 8%, var(--panel,rgba(255,255,255,.03)))`, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Stepper wf={wf} phase={phase} accent={accent} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 900, color: step.theme?.accent || gold }}>
             <span>{step.theme?.icon || '🚀'}</span> {step.scenarioLabel}
             <button onClick={() => setShowAll(s => !s)} style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 5, background: 'transparent', border: '1px solid var(--border2,rgba(255,255,255,.14))', borderRadius: 99, padding: '4px 10px', color: 'var(--ink3)', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
