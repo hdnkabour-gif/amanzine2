@@ -22,8 +22,8 @@ export function categoriesByPriority(p: 1 | 2 | 3): Category[] {
 
 // ── العشرة (من خارطة المجالات في الملفّ) ──
 const SEED: Category[] = [
-  { id: 'home', label: 'الخدمات المنزليّة', icon: '🏠', professions: ['plumber', 'electrician', 'painter', 'carpenter', 'ac_tech', 'cleaner', 'gardener'], entities: ['service'], priority: 1 },
-  { id: 'automotive', label: 'السيّارات', icon: '🚗', professions: ['mechanic', 'diagnostic', 'tire_tech', 'auto_painter'], entities: ['vehicle', 'service'], priority: 1 },
+  { id: 'home', label: 'الخدمات المنزليّة', icon: '🏠', professions: ['plumber', 'electrician', 'painter', 'carpenter', 'ac_tech', 'appliance_repair', 'cleaner', 'gardener'], entities: ['service'], priority: 1 },
+  { id: 'automotive', label: 'السيّارات', icon: '🚗', professions: ['mechanic', 'diagnostic', 'tire_technician', 'auto_electrician', 'auto_painter'], entities: ['vehicle', 'service'], priority: 1 },
   { id: 'realEstate', label: 'العقار', icon: '🏡', entities: ['realEstate', 'rental'], priority: 1 },
   { id: 'food', label: 'الأكل والمطاعم', icon: '🍽️', entities: ['product', 'service'], priority: 2 },
   { id: 'health', label: 'الصحّة', icon: '🏥', entities: ['service'], priority: 2 },

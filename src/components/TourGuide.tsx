@@ -95,6 +95,7 @@ export default function TourGuide() {
   const isRtl = isRtlLang(lang);
 
   const [active, setActive] = useState(false);
+  const [launcher, setLauncher] = useState(false);
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState<'fwd' | 'bwd'>('fwd');
   const [animKey, setAnimKey] = useState(0);
@@ -102,11 +103,20 @@ export default function TourGuide() {
 
   const userId = user?.id || 'guest';
 
+  // الجولة اختياريّة (opt-in): لا تُعتِّم الصفحة دون طلب. للزائر الجديد نُظهر
+  // لافتة صغيرة غير حاجبة، وهو يقرّر. هذا يُسرّع الفهم الأوّل ولا يفرض شيئًا.
   useEffect(() => {
     try {
-      if (!localStorage.getItem(TOUR_KEY(userId))) setTimeout(() => setActive(true), 1400);
+      if (!localStorage.getItem(TOUR_KEY(userId))) setLauncher(true);
     } catch {}
   }, [userId]);
+
+  const dismissLauncher = useCallback(() => {
+    setLauncher(false);
+    try { localStorage.setItem(TOUR_KEY(userId), '1'); } catch {}
+  }, [userId]);
+
+  const startTour = useCallback(() => { setLauncher(false); setActive(true); }, []);
 
   const finish = useCallback(() => {
     setExiting(true);
@@ -140,7 +150,19 @@ export default function TourGuide() {
     return () => window.removeEventListener('keydown', h);
   }, [active, step]);
 
-  if (!active) return null;
+  // لافتة الدعوة (غير حاجبة) — تظهر للزائر الجديد فقط، ويقرّر هو.
+  if (!active) {
+    if (!launcher) return null;
+    return (
+      <div dir={isRtl ? 'rtl' : 'ltr'} style={{ position: 'fixed', bottom: 'max(18px, env(safe-area-inset-bottom))', insetInlineEnd: 18, zIndex: 8000, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 10px 9px 15px', borderRadius: 99, background: 'var(--panel, #111827)', border: '1px solid rgba(255,255,255,.12)', boxShadow: '0 14px 40px rgba(0,0,0,.4)', animation: 'tourLauncherIn .4s cubic-bezier(.4,0,.2,1) both', fontFamily: 'inherit' }}>
+        <style>{`@keyframes tourLauncherIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}`}</style>
+        <button onClick={startTour} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', color: 'var(--ink1,#FAFAFA)', fontSize: 13.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <span aria-hidden="true">🧭</span> {isRtl ? 'جولة سريعة (٣٠ ثانية)' : 'Quick tour (30s)'}
+        </button>
+        <button onClick={dismissLauncher} aria-label={isRtl ? 'إغلاق' : 'Dismiss'} style={{ width: 24, height: 24, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 99, background: 'rgba(255,255,255,.06)', border: 'none', color: 'var(--ink3,#7E877F)', fontSize: 15, lineHeight: 1, cursor: 'pointer', fontFamily: 'inherit' }}>×</button>
+      </div>
+    );
+  }
 
   const cur   = STEPS[step];
   const [g1, g2] = cur.gradient;

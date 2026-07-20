@@ -1,5 +1,5 @@
 // ================================================================
-// AI Commerce OS — Custom Icon Set
+// AMANZINE — نظام تشغيل للحاجة · Custom Icon Set
 // All icons as React components (SVG-based, no external deps)
 // ================================================================
 import type { SVGProps } from 'react';

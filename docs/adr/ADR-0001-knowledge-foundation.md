@@ -75,6 +75,31 @@ Production readiness — Sentry DSN, real backups (`pg_dump` → external
 storage), image optimization (webp/sharp), health checks, rate limiting.
 These do not affect knowledge design and can proceed alongside data work.
 
+## Update — Knowledge Foundation Pack v2 (2026-07-17)
+
+Extended the pack, still data-only, still frozen architecture. The **Problem
+Registry is the center**: users start from a symptom, not a trade name.
+
+- **Problem Registry (rich):** 11 problems with per-language symptoms
+  (darija/ar/fr/en), severity (+critical), emergency, solutions
+  (profession + capabilities + tools + materials + duration + difficulty),
+  causes, related, prevention, category, requiredExperience.
+- **Capability Registry (new):** 15 capabilities (repair_leak, diagnose_
+  electrical, repair_tire…) + profession mapping — reasoning keys on
+  capabilities, not just trade names.
+- **Symptom Graph (new):** 35 speech patterns → problem + confidence;
+  exact then partial match.
+- **understand() v2:** symptom → problem → solution(profession+capabilities)
+  → geo + context(urgent/night/weekend) + confidence + **reasoning[]**
+  (explainable). Verified on "الفريكو ما بقاتش كتبرد" → فنّي أجهزة,
+  "الماطور كيدير دخان أبيض" → ميكانيكي, "باب الكراج ما كيتحلش" → نجّار —
+  all without the profession being named.
+
+**Confirmed roadmap (after v2):** 1) v2 (done) → 2) Production Readiness
+(Sentry, backups, image optimization, monitoring) → 3) Closed Beta
+(Casablanca + home maintenance + 100–150 verified providers) → 4) advanced
+engines (Semantic Search, Trust) ONLY after real usage data exists.
+
 ## Consequences
 
 - New domains/pages/components are **data**: a Schema/Page/Workflow/Component

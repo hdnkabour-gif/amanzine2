@@ -32,7 +32,7 @@ export default function Footer() {
         <span style={{ color: C.ink3 }}>📍 Casablanca, Maroc</span>
       </div>
       <div style={{ fontSize: 11, color: C.ink3, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
-        <span style={{ color: '#B07A2B', fontWeight: 700 }}>AI Commerce OS © 2026</span>
+        <span style={{ color: '#B07A2B', fontWeight: 700 }}>AMANZINE © 2026</span>
         <span style={{ opacity: 0.4 }}>·</span>
         <span>{tx('footRights')}</span>
         <span style={{ opacity: 0.4 }}>·</span>

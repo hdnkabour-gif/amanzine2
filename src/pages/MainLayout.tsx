@@ -37,7 +37,7 @@ const CouponsPage       = lazy(() => import('./CouponsPage'));
 const GuidePage         = lazy(() => import('./GuidePage'));
 const ModerationPage    = lazy(() => import('./ModerationPage'));
 const BookingsPage      = lazy(() => import('./BookingsPage'));
-const KnowledgeStudio   = lazy(() => import('./KnowledgeStudio'));
+const ControlCenter     = lazy(() => import('./ControlCenter'));
 const WalletPage        = lazy(() => import('./WalletPage'));
 const ProfilePage       = lazy(() => import('./ProfilePage'));
 const AssistantPage     = lazy(() => import('./AssistantPage'));
@@ -66,7 +66,7 @@ function PageContent() {
     case 'services':      return <ProductsPage />;
     case 'moderation':    return <ModerationPage />;
     case 'bookings':      return <BookingsPage />;
-    case 'knowledge':     return <KnowledgeStudio />;
+    case 'knowledge':     return <ControlCenter />;
     case 'wallet':        return <WalletPage />;
     case 'profile':       return <ProfilePage />;
     case 'assistant':     return <AssistantPage />;

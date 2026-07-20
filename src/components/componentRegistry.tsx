@@ -5,9 +5,30 @@
 //   والـ Factory يرسم. لاستبدال مكتبة الواجهة: نغيّر هذا الملفّ وحده.
 // ============================================================
 
+import { useState, useRef, useEffect } from 'react';
+
 const BORDER = 'var(--border2,rgba(255,255,255,.14))';
 const INK1 = 'var(--ink1)';
 const INK3 = 'var(--ink3)';
+
+// خطّاف الإدخال النصّيّ: يحتفظ بالقيمة محلّيًّا أثناء الكتابة ولا «يُثبّتها»
+// (فيتقدّم المخطّط للسؤال التالي) إلّا عند الخروج من الحقل أو Enter. بدونه كانت
+// كلّ ضغطة مفتاح تُحسَب إجابةً مكتملة فينتقل السؤال بعد حرف واحد.
+function useBufferedInput(value: any, onChange: (v: any) => void) {
+  const [local, setLocal] = useState<string>(value ?? '');
+  const focused = useRef(false);
+  useEffect(() => { if (!focused.current) setLocal(value ?? ''); }, [value]);
+  const commit = () => { if ((local ?? '') !== (value ?? '')) onChange(local); };
+  return {
+    value: local,
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => setLocal(e.target.value),
+    onFocus: () => { focused.current = true; },
+    onBlur: () => { focused.current = false; commit(); },
+    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+    },
+  };
+}
 
 export interface FieldComponentProps {
   value: any;
@@ -21,19 +42,25 @@ export interface FieldComponentProps {
 type FieldComponent = (p: FieldComponentProps) => React.ReactElement;
 
 // ── المكوّنات ──────────────────────────────────────────────
-const TextInput: FieldComponent = ({ value, onChange, props, big, mode }: any) => (
-  <input value={value || ''} onChange={e => onChange(e.target.value)} inputMode={mode} autoFocus={big}
-    placeholder={props.placeholder || ''} style={{ width: '100%', padding: big ? '13px 14px' : '10px 12px', borderRadius: 11, border: `1px solid ${BORDER}`, background: 'var(--panel,rgba(0,0,0,.15))', color: INK1, fontSize: big ? 16 : 14, fontWeight: 700, fontFamily: 'inherit', direction: 'rtl' }} />
-);
+const TextInput: FieldComponent = ({ value, onChange, props, big, mode }: any) => {
+  const b = useBufferedInput(value, onChange);
+  return (
+    <input {...b} inputMode={mode} autoFocus={big}
+      placeholder={props.placeholder || ''} style={{ width: '100%', padding: big ? '13px 14px' : '10px 12px', borderRadius: 11, border: `1px solid ${BORDER}`, background: 'var(--panel,rgba(0,0,0,.15))', color: INK1, fontSize: big ? 16 : 14, fontWeight: 700, fontFamily: 'inherit', direction: 'rtl' }} />
+  );
+};
 const NumericInput: FieldComponent = (p) => <TextInput {...p} {...{ mode: 'numeric' } as any} />;
 
-const MoneyInput: FieldComponent = ({ value, onChange, props, big }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-    <input value={value || ''} onChange={e => onChange(e.target.value)} inputMode="numeric" autoFocus={big}
-      placeholder={props.placeholder || 'بشحال؟'} style={{ flex: 1, padding: big ? '13px 14px' : '10px 12px', borderRadius: 11, border: `1px solid ${BORDER}`, background: 'var(--panel,rgba(0,0,0,.15))', color: INK1, fontSize: big ? 16 : 14, fontWeight: 700, fontFamily: 'inherit', direction: 'rtl' }} />
-    <span style={{ fontSize: 12.5, fontWeight: 800, color: INK3 }}>{props.currency || 'MAD'}</span>
-  </div>
-);
+const MoneyInput: FieldComponent = ({ value, onChange, props, big }) => {
+  const b = useBufferedInput(value, onChange);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <input {...b} inputMode="numeric" autoFocus={big}
+        placeholder={props.placeholder || 'بشحال؟'} style={{ flex: 1, padding: big ? '13px 14px' : '10px 12px', borderRadius: 11, border: `1px solid ${BORDER}`, background: 'var(--panel,rgba(0,0,0,.15))', color: INK1, fontSize: big ? 16 : 14, fontWeight: 700, fontFamily: 'inherit', direction: 'rtl' }} />
+      <span style={{ fontSize: 12.5, fontWeight: 800, color: INK3 }}>{props.currency || 'MAD'}</span>
+    </div>
+  );
+};
 
 const ChoiceCards: FieldComponent = ({ value, onChange, props, big, accent }) => (
   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>

@@ -28,6 +28,8 @@ export * from './actionPlanner';
 export * from './policies';
 export * from './uiContract';
 export * from './dna';
+export * from './systemMap';
+export * from './describe';
 export type {
   PageCapability, PageField, PageAction, FieldKind, CapMode,
 } from './registry';

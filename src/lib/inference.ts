@@ -87,7 +87,7 @@ function kbInfer(raw: string): Inferred[] {
   if (u.profession) {
     // المعرفة أدقّ من استخراج النصّ الخام → ثقة عالية تفوز على العنوان المستخرَج.
     out.push({ key: 'profession', label: 'المهنة', value: u.profession.label, confidence: 0.92 });
-    if (u.problem) out.push({ key: 'specialties', label: 'التخصّص', value: u.problem.label, confidence: 0.7 });
+    if (u.problem) out.push({ key: 'specialties', label: 'التخصّص', value: u.problem.name, confidence: 0.7 });
   }
   return out;
 }

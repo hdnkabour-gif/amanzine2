@@ -1,7 +1,7 @@
 {
-  "name": "ai-commerce-backend",
+  "name": "amanzine-backend",
   "version": "2.1.0",
-  "description": "AI Commerce OS — Backend",
+  "description": "AMANZINE — نظام تشغيل للحاجة · Backend",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

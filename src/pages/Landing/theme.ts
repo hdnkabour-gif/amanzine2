@@ -1,12 +1,12 @@
-// نظام الألوان — «طين وزليج» (هوية مغربية دافئة) + كاشف عنوان الـAPI.
-// الأسماء الدلالية محفوظة (orange/blue/purple/green) لكن قيمها مغربية:
-//   orange=طين (أساسي) · purple=زعفران (لمسة) · blue=نعناع أطلسي · green=نجاح.
+// نظام الألوان — هويّة Need OS (زمرّد + ذهب على كريم مغربيّ دافئ). الأسماء
+// الدلالية محفوظة لتوافق الأقسام، لكن قيمها الجديدة: orange=زمرّد (أساسي) ·
+// purple=ذهب (لمسة/إجراء) · blue=زمرّد غامق (ثانوي) · green=نجاح.
 export const C = {
-  bg: '#FBF7F0', surface: '#FFFFFF', alt: '#F4EDE2',
-  ink: '#1A130D', ink2: '#6B5D4F', ink3: '#A99C8B',
-  border: 'rgba(26,19,13,0.10)', borderH: 'rgba(26,19,13,0.18)',
-  shadow: '0 14px 44px rgba(120,72,43,0.10)', shadowH: '0 26px 64px rgba(120,72,43,0.16)',
-  orange: '#C75B39', orangeD: '#A8482B', blue: '#1F8A70', green: '#2E8B57', purple: '#E8A317',
+  bg: '#FAF8F2', surface: '#FFFFFF', alt: '#F1EEE6',
+  ink: '#0F1A15', ink2: '#586B61', ink3: '#95A09A',
+  border: 'rgba(15,26,21,0.10)', borderH: 'rgba(15,26,21,0.18)',
+  shadow: '0 14px 44px rgba(10,143,111,0.10)', shadowH: '0 26px 64px rgba(10,143,111,0.16)',
+  orange: '#0A8F6F', orangeD: '#077A5E', blue: '#0F766E', green: '#12A150', purple: '#D4A017',
 } as const;
 
 // نفس منطق كشف العنوان في services/api.ts (يعمل في dev والإنتاج)

@@ -10,6 +10,7 @@ import { buildContext } from '../lib/core/context';
 import { orchestrate, recordExperience, recordFeedback } from '../lib/core/orchestrator';
 import { relatedProfessions } from '../lib/knowledge/graph';
 import { playGate } from '../lib/gateTransition';
+import UnderstandingCard from '../components/UnderstandingCard';
 import type { Journey } from '../lib/core/plugins';
 import type { Page } from '../types';
 
@@ -184,6 +185,9 @@ export default function LivingHome() {
           ))}
         </div>
       </form>
+
+      {/* ── 🧠 «فهمنا طلبك» — إظهار الذكاء أثناء الكتابة (قبل البحث) ── */}
+      {!result && <UnderstandingCard query={text} onAct={() => submit(text)} />}
 
       {/* ── نتيجة/محادثة نشطة ── */}
       {result && (

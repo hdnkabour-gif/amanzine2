@@ -30,6 +30,9 @@ const GLOBAL_CSS = `
   @keyframes lpBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(7px)} }
   @keyframes lpGrad { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }
   @keyframes lpShine { 0%{transform:translateX(-220%) skewX(-18deg)} 60%,100%{transform:translateX(320%) skewX(-18deg)} }
+  @keyframes lpFade { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes lpCaret { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:.001ms!important;animation-iteration-count:1!important} }
   .lpcard { position: relative; transition: transform .3s cubic-bezier(.16,1,.3,1), box-shadow .3s ease, border-color .3s ease; }
   .lpcard::after { content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; opacity:0; transition:opacity .4s ease; background-image:${NAQSH}; background-repeat:no-repeat; background-position:top -7px right -7px; background-size:66px 66px; }
   .lpcard:hover { transform: translateY(-5px); box-shadow: ${C.shadowH}, inset 0 0 0 1.5px ${C.orange}26; border-color: ${C.borderH}; }

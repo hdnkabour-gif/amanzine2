@@ -1,5 +1,5 @@
 {
-  "name": "ai-commerce-os",
+  "name": "amanzine",
   "private": true,
   "version": "3.2.0",
   "type": "module",
@@ -12,6 +12,8 @@
     "postinstall": "cd server && npm install",
     "start": "node server/index.js",
     "lint": "tsc --noEmit",
+    "test:brain": "node scripts/run-brain-tests.mjs",
+    "test": "npm run test:brain && cd server && npm test",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx}\" \"server/**/*.js\""
   },
   "dependencies": {

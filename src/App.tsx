@@ -192,7 +192,7 @@ function SplashScreen() {
       {/* ② الشعار يتشكّل (اللقطة ١) + لوحة مكافئة للصورة النهائيّة (اللقطة ٣ إن غابت الصورة الرسميّة) */}
       {(beat === 1 || showComposed) && (
         <div style={{ position: 'relative', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-          <BrandLogo size={124} radius={30} style={{ background: 'rgba(255,255,255,.96)', animation: 'gateLogoIn 1s cubic-bezier(.16,1,.3,1) both, gateGlow 2.4s ease infinite .6s' }} />
+          <BrandLogo size={132} radius={0} style={{ background: 'transparent', animation: 'gateLogoIn 1s cubic-bezier(.16,1,.3,1) both, gateGlow 2.4s ease infinite .6s' }} />
           <div style={{ textAlign: 'center', animation: 'gateText .8s .35s ease both' }}>
             <div style={{ fontSize: 29, fontWeight: 900, letterSpacing: '.05em', color: '#FAF3E0', fontFamily: 'Tajawal, system-ui, sans-serif' }}>AMANZINE</div>
             <div style={{ fontSize: 14, color: '#D4AF37', marginTop: 6, fontWeight: 800, fontFamily: 'Tajawal, system-ui, sans-serif' }}>البوابة الذكية المغربية</div>

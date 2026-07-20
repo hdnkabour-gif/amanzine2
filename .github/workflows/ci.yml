@@ -24,6 +24,9 @@ jobs:
       - name: Build frontend (vite)
         run: npm run build
 
+      - name: Brain tests (understand · memory · describe · systemMap)
+        run: npm run test:brain
+
       - name: Server tests
         run: cd server && npm test
 

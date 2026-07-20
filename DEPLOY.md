@@ -1,4 +1,4 @@
-# 🚀 دليل النشر — SAHARSHOP2026 على Railway
+# 🚀 دليل النشر — AMANZINE على Railway
 
 > الكود **جاهز** (يبني نظيفاً، `tsc` = 0، اختبارات تمر). يكفي ضبط متغيّرات البيئة أدناه ليصبح الحُكم **GO ✅**.
 > خدمة واحدة: `npm run build` يبني الواجهة، ثم `node server/index.js` يقدّم `dist/` + الـAPI + WebSocket على منفذ واحد.
@@ -72,6 +72,6 @@ curl -i https://<your-domain>/api/products            # ⇒ 401 (الحماية 
 
 <div align="center">
 
-**SAHAR shop — AI Commerce OS © 2026** · تطوير: Alloservix · Abdellatif hadana
+**AMANZINE — نظام تشغيل للحاجة © 2026** · تطوير: Alloservix · Abdellatif hadana
 
 </div>

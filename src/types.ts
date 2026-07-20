@@ -1,5 +1,5 @@
 // ================================================================
-// AI Commerce OS — Complete Type System v8
+// AMANZINE — نظام تشغيل للحاجة · Complete Type System
 // ================================================================
 
 export type Page =
@@ -447,7 +447,7 @@ export const seedAuditLogs: AuditLog[] = [
   { id: 1, timestamp: '2025-01-15 14:32', user: 'المدير', action: 'وافق على ORD-001', details: 'محمد العلوي — 598 MAD', type: 'order', severity: 'success' },
   { id: 2, timestamp: '2025-01-15 12:00', user: 'AI', action: 'رد تلقائي', details: 'محمد العلوي — WhatsApp', type: 'ai', severity: 'info' },
   { id: 3, timestamp: '2025-01-15 10:00', user: 'المدير', action: 'أضاف منتج', details: 'قميص كتان — 299 MAD', type: 'product', severity: 'success' },
-  { id: 4, timestamp: '2025-01-15 09:00', user: 'النظام', action: 'بدء التشغيل', details: 'AI Commerce OS v8', type: 'settings', severity: 'info' },
+  { id: 4, timestamp: '2025-01-15 09:00', user: 'النظام', action: 'بدء التشغيل', details: 'AMANZINE — نظام تشغيل للحاجة', type: 'settings', severity: 'info' },
 ];
 
 // ── Role Permissions ──────────────────────────────────────────

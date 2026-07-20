@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../store';
-import { Eye, EyeOff, User, Mail, Lock, Store, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, User, Mail, Lock, ArrowLeft } from 'lucide-react';
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -107,8 +107,10 @@ export default function AuthPage() {
       if (isLogin) {
         await login(form.email, form.password);
       } else {
-        if (!form.name || !form.storeName) { setError('الاسم واسم المتجر مطلوبان'); setLoading(false); return; }
-        await register(form.name, form.email, form.password, form.storeName);
+        if (!form.name) { setError('الاسم مطلوب'); setLoading(false); return; }
+        // لا نسأل عن «متجر» ولا عن دور — الحساب Entity، ونوعه (بائع/زبون/مزوّد)
+        // يُستنتَج لاحقًا من أوّل حاجة يكتبها (parseNeed) لا من سؤال عند التسجيل.
+        await register(form.name, form.email, form.password);
       }
     } catch (err: any) {
       setError(err.message || (isLogin ? 'بيانات الدخول غير صحيحة' : 'حدث خطأ'));
@@ -212,8 +214,8 @@ export default function AuthPage() {
           <h1 style={{ fontSize: 24, fontWeight: 900, color: DS.text, marginBottom: 4, letterSpacing: '-0.02em' }}>
             <span style={{ color: '#1FA565' }}>AMAN<span style={{ color: '#E0524C' }}>Z</span>INE</span>
           </h1>
-          <p style={{ color: DS.text3, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', fontWeight: 600 }}>
-            AI Commerce OS
+          <p style={{ color: DS.text3, fontSize: 11, letterSpacing: 'normal', fontWeight: 600 }}>
+            نظام تشغيل للحاجة
           </p>
         </div>
 
@@ -256,24 +258,14 @@ export default function AuthPage() {
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
             {!isLogin && (
-              <>
-                <div style={{ position: 'relative' }}>
-                  <User size={14} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: focusedField === 'name' ? DS.purpleLight : DS.text3, pointerEvents: 'none', transition: 'color 0.2s' }} />
-                  <input type="text" placeholder="اسمك الكامل" required value={form.name}
-                    onChange={e => set('name', e.target.value)}
-                    onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField('')}
-                    style={inputStyle('name')}
-                  />
-                </div>
-                <div style={{ position: 'relative' }}>
-                  <Store size={14} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: focusedField === 'storeName' ? DS.purpleLight : DS.text3, pointerEvents: 'none', transition: 'color 0.2s' }} />
-                  <input type="text" placeholder="اسم متجرك" required value={form.storeName}
-                    onChange={e => set('storeName', e.target.value)}
-                    onFocus={() => setFocusedField('storeName')} onBlur={() => setFocusedField('')}
-                    style={inputStyle('storeName')}
-                  />
-                </div>
-              </>
+              <div style={{ position: 'relative' }}>
+                <User size={14} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: focusedField === 'name' ? DS.purpleLight : DS.text3, pointerEvents: 'none', transition: 'color 0.2s' }} />
+                <input type="text" placeholder="اسمك" required value={form.name}
+                  onChange={e => set('name', e.target.value)}
+                  onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField('')}
+                  style={inputStyle('name')}
+                />
+              </div>
             )}
 
             <div style={{ position: 'relative' }}>
