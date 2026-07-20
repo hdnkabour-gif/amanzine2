@@ -4,6 +4,7 @@ import { useStore } from '../store';
 import NavBar from './NavBar';
 import GlobalSearch from '../components/GlobalSearch';
 import MasterBackground from '../components/MasterBackground';
+import FeedbackButton from '../components/FeedbackButton';
 
 // ── Skeleton fallback ─────────────────────────────
 function PageSkeleton() {
@@ -135,6 +136,7 @@ export default function MainLayout() {
           </div>
         </main>
       </div>
+      <FeedbackButton />
     </div>
   );
 }

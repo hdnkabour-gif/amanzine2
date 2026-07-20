@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { Search, Package, ShoppingCart, Users, MessageCircle, X, Settings, Zap } from 'lucide-react';
 import type { Page } from '../types';
+import { MES } from '../lib/mes';
 
 interface Result {
   type: 'product'|'order'|'customer'|'conversation'|'page';
@@ -161,8 +162,10 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
             })}
           </div>
         ) : query.trim() ? (
-          <div style={{ padding:'32px 16px',textAlign:'center',color:'var(--ink3)',fontSize:14 }}>
-            لا نتائج لـ "{query}"
+          <div style={{ padding:'32px 16px',textAlign:'center',color:'var(--ink3)',fontSize:14,lineHeight:1.7 }}>
+            <div style={{ fontSize:30,opacity:.4,marginBottom:8 }}>🔎</div>
+            <div style={{ color:'var(--ink1)',fontWeight:700 }}>{MES.noResults(query)}</div>
+            <div style={{ fontSize:12.5,marginTop:5 }}>{MES.tryWider}</div>
           </div>
         ) : (
           <div style={{ padding:'16px' }}>
