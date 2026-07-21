@@ -16,6 +16,22 @@ test('electrical symptom ⇒ electrician', () => {
   assert.equal(u.profession?.id, 'electrician');
 });
 
+test('network symptom ⇒ it_tech («الويفي ماخدامش»)', () => {
+  const u = understand('الويفي ماخدامش فالدار');
+  assert.equal(u.problem?.id, 'network_down', 'المشكلة = عطل شبكة');
+  assert.equal(u.profession?.id, 'it_tech', 'المهنة = تقني معلوماتيّة');
+});
+
+test('server/network variants ⇒ it_tech', () => {
+  assert.equal(understand('عندي مشكل فالشبكة').profession?.id, 'it_tech');
+  assert.equal(understand('السيرفر خربان').profession?.id, 'it_tech');
+});
+
+test('enriched computer symptom ⇒ it_tech («PC ما خدامش»)', () => {
+  assert.equal(understand('pc ما خدامش').problem?.id, 'computer_broken');
+  assert.equal(understand('الكمبيوتر بطّيء').profession?.id, 'it_tech');
+});
+
 test('urgent context is detected', () => {
   const u = understand('الما كيهرب دابا بزربة');
   assert.equal(u.context.urgent, true);

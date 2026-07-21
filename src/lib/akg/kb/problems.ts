@@ -125,7 +125,13 @@ export const PROBLEMS: Record<string, Problem> = {
     category: 'التجميل', requiredExperience: 'beginner',
   },
   computer_broken: {
-    id: 'computer_broken', name: 'عطل حاسوب', symptoms: { darija: ['الپيسي خربان', 'الحاسوب ما كيخدمش', 'الويندوز طاح', 'الأورديناتور بلوكا', 'بغيت تقني إعلاميات'], arabic: ['الحاسوب معطّل'] },
+    id: 'computer_broken', name: 'عطل حاسوب', symptoms: { darija: ['الپيسي خربان', 'الحاسوب ما كيخدمش', 'الويندوز طاح', 'الأورديناتور بلوكا', 'بغيت تقني إعلاميات', 'الكمبيوتر بطّيء', 'pc ما خدامش', 'عندي مشكل فالحاسوب', 'بغيت نفورماتي', 'خاصني تقني'], arabic: ['الحاسوب معطّل', 'الحاسوب بطيء'] },
+    severity: 'medium', emergency: false,
+    solutions: [{ profession: 'it_tech', capabilities: [], estimatedDuration: 'ساعات', difficulty: 'medium' }],
+    category: 'المعلوماتيّة', requiredExperience: 'intermediate',
+  },
+  network_down: {
+    id: 'network_down', name: 'عطل شبكة/إنترنت', symptoms: { darija: ['الويفي ماخدامش', 'النت مقطوع', 'الراوتر خربان', 'الشبكة مقطوعة', 'عندي مشكل فالشبكة', 'السيرفر خربان', 'الكابل مقطوع', 'بغيت نركب الشبكة'], arabic: ['الشبكة معطّلة', 'انقطاع الإنترنت'] },
     severity: 'medium', emergency: false,
     solutions: [{ profession: 'it_tech', capabilities: [], estimatedDuration: 'ساعات', difficulty: 'medium' }],
     category: 'المعلوماتيّة', requiredExperience: 'intermediate',

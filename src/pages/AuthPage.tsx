@@ -205,7 +205,7 @@ export default function AuthPage() {
             }} />
             {logoErr
               ? <span style={{ fontSize: 40, fontWeight: 900, color: '#006233' }}>A</span>
-              : <img src="/amanzine-logo.svg" alt="AMANZINE"
+              : <img src="/brand/amanzine-mark-512.png" alt="AMANZINE"
                   style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative' }}
                   onError={() => setLogoErr(true)}
                 />

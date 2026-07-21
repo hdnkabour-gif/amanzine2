@@ -10,6 +10,9 @@ import { buildContext } from '../lib/core/context';
 import { orchestrate, recordExperience, recordFeedback } from '../lib/core/orchestrator';
 import { relatedProfessions } from '../lib/knowledge/graph';
 import { playGate } from '../lib/gateTransition';
+import { personaGreeting, personaWelcome } from '../lib/persona';
+import { decideInterface, confirmPrompt } from '../lib/interfaceDecision';
+import { receptionStart, receptionTurn, receptionUnderstood, receptionStep, receptionEnd, recordDecision, recordConfirm } from '../lib/journey';
 import UnderstandingCard from '../components/UnderstandingCard';
 import type { Journey } from '../lib/core/plugins';
 import type { Page } from '../types';
@@ -39,25 +42,36 @@ export default function LivingHome() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [stepIdx, setStepIdx] = useState(0);
   const [pending, setPending] = useState<NeedOption | null>(null);
+  const [confirmed, setConfirmed] = useState(false); // وضع confirm: أكّد المستخدم الفهم؟
   const [gapDays, setGapDays] = useState(0);
   const [fuDone, setFuDone] = useState(false);
   const [journey, setJourney] = useState<Journey | 'discover'>('discover');
   const [xpLog] = useState<Interaction[]>(getInteractions); // تفاعلات الجلسات السابقة (تُقرأ مرّة)
 
+  // ── أمثلةٌ حيّة متغيّرة (تعليمٌ بلا دليل) — تتبدّل في placeholder ما دامت الخانة فارغة ──
+  // تحترم «تقليل الحركة»؛ تتوقّف بمجرّد أن يكتب المستخدم أو تظهر نتيجة.
+  const [phIdx, setPhIdx] = useState(0);
+  useEffect(() => {
+    if (text || result) return;
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const id = setInterval(() => setPhIdx(v => (v + 1) % NEED_EXAMPLES.length), 2800);
+    return () => clearInterval(id);
+  }, [text, result]);
+
+  const [returning, setReturning] = useState(false);
   useEffect(() => {
     try {
       const last = Number(localStorage.getItem(VISIT_KEY) || 0);
-      if (last) setGapDays(Math.floor((Date.now() - last) / 86400000));
+      if (last) { setGapDays(Math.floor((Date.now() - last) / 86400000)); setReturning(true); }
       localStorage.setItem(VISIT_KEY, String(Date.now()));
     } catch { /* noop */ }
+    // قياس قمع الاستقبال (بيتا): زمن أوّل فهم/أدوار/خروج. يُغلَق عند مغادرة الصفحة.
+    receptionStart();
+    return () => receptionEnd('idle');
   }, []);
 
-  const greet = useMemo(() => {
-    const h = new Date().getHours();
-    const g = h < 12 ? 'صباح الخير' : h < 18 ? 'مرحباً' : 'مساء الخير';
-    const name = (user as any)?.name?.split(' ')?.[0] || '';
-    return name ? `${g} ${name} 👋` : `${g} 👋`;
-  }, [user]);
+  const greet = useMemo(() => personaGreeting(new Date().getHours(), (user as any)?.name || ''), [user]);
+  const welcome = useMemo(() => personaWelcome((user as any)?.name || '', returning), [user, returning]);
 
   // ── مشاهد القصّة: من بيانات المستخدم الحقيقية، بصوت سرديّ ──
   const beats = useMemo(() => {
@@ -88,6 +102,7 @@ export default function LivingHome() {
     [products, orders, customers, conversations, settings, user]);
 
   const go = (dest: Dest, what: string, intent?: string, via: Via = 'type') => {
+    receptionStep(intent || via); receptionEnd('routed');    // قياس: خرج لوجهةٍ (نقطة الخروج = النيّة)
     if (intent) recordExperience({ object: result?.object, raw: text, intent, what, dest: destToStr(dest), via, journey, uctx });
     // البوّابة تنفتح ثمّ تأخذك لوجهتك — استعارة أمانزين (سريعة، آمنة، تحترم تقليل الحركة).
     if (dest.page) {
@@ -115,14 +130,19 @@ export default function LivingHome() {
   const submit = (raw: string) => {
     const q = raw.trim();
     if (!q) return;
+    receptionTurn(q, 'text');                                // قياس: دورٌ كتابيّ
     const { result: r, journey: j } = orchestrate(q, uctx); // Context → Orchestrator → Journey (+ تعلّم الخادم)
+    if (r.intent !== 'unknown') receptionUnderstood();       // قياس: زمن أوّل فهم
+    const dec = decideInterface(r);
+    recordDecision(dec.mode, r.intent, dec.reason, q);       // قياس: القرار + السبب + التقاط جملة «ما لم نفهمه»
     setJourney(j);
-    setText(q); setResult(r); setStepIdx(0); setPending(null);
+    setText(q); setResult(r); setStepIdx(0); setPending(null); setConfirmed(false);
     setTurns([{ who: 'user', text: q }, ...(r.open ? [{ who: 'sys' as const, text: r.open }] : [])]);
   };
-  const reset = () => { setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); };
+  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); };
 
   const pickOption = (opt: NeedOption) => {
+    receptionTurn(opt.label, 'button');                      // قياس: دورٌ بالأزرار
     setTurns(t => [...t, { who: 'user', text: opt.label }]);
     const steps = result?.steps || [];
     if (stepIdx + 1 < steps.length) setStepIdx(i => i + 1);
@@ -130,6 +150,15 @@ export default function LivingHome() {
   };
   const activeStep = result?.steps?.[stepIdx];
   const mem = result ? lastByIntent(result.intent, xpLog) : undefined; // ذاكرة تخصّ هذه النيّة (من تفاعلات سابقة)
+
+  // Decision Layer — «التطبيق يقرّر أفضل واجهة». وضع confirm يُظهر تأكيدًا خفيفًا
+  // عند اليقين المتوسّط قبل التوجيه («فهمت أنّك باغي… صح؟»).
+  const decision = result ? decideInterface(result) : null;
+  const CONFIRM_PHRASE: Record<string, string> = {
+    sell: 'تبيع شي حاجة', buy: 'تشري شي حاجة', rent: 'تكري', book: 'تحجز موعد',
+    find_pro: 'تلقى مختصّ', urgent: 'تلقى مختصّ دابا', create_service: 'تنشر خدمتك', create_store: 'دير متجرك',
+  };
+  const confirmText = result ? (result.object?.profession ? `تلقى ${result.object.profession}` : (CONFIRM_PHRASE[result.intent] || result.label)) : '';
 
   // متابعة تجربة سابقة (Life Memory مرئيّة): طلب حِرفيّ/عاجل من الأيام الماضية.
   const followUp = useMemo(() => {
@@ -161,6 +190,12 @@ export default function LivingHome() {
         <h1 style={{ fontSize: 'clamp(1.5rem, 5vw, 2.1rem)', fontWeight: 900, letterSpacing: '-0.02em', margin: 0, color: 'var(--ink1)' }}>
           شنو محتاج اليوم؟
         </h1>
+        {/* استقبال أوّل ٣٠ ثانية — صوت AMANZINE الثابت (يظهر قبل أيّ نتيجة فقط) */}
+        {!result && (
+          <div style={{ fontSize: 12.5, color: 'var(--ink3)', fontWeight: 600, marginTop: 8, maxWidth: 440, marginInline: 'auto', lineHeight: 1.6 }}>
+            {welcome}
+          </div>
+        )}
       </div>
 
       {/* Input */}
@@ -168,7 +203,7 @@ export default function LivingHome() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '14px 16px', borderRadius: 16, background: 'var(--panel,rgba(255,255,255,.03))', border: '1.5px solid var(--border2,rgba(255,255,255,.14))' }}>
           <Search size={19} style={{ color: 'var(--ink3)', flexShrink: 0 }} />
           <input value={text} onChange={e => setText(e.target.value)}
-            placeholder="كتب بالدارجة… مثلاً: الماء كيقطر ضروري"
+            placeholder={`كتب بالدارجة… مثلاً: ${NEED_EXAMPLES[phIdx] || 'الماء كيقطر ضروري'}`}
             autoComplete="off"
             style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--ink1)', fontSize: 15.5, fontWeight: 600, fontFamily: 'inherit', direction: 'rtl' }} />
           {text && (
@@ -231,7 +266,19 @@ export default function LivingHome() {
               </div>
             </div>
           )}
-          {(pending || !result.steps) && (
+          {/* وضع confirm — تأكيدٌ خفيف قبل التوجيه (يقينٌ متوسّط) */}
+          {!pending && !confirmed && decision?.mode === 'confirm' && (
+            <div style={{ marginTop: 2, border: '1.5px solid var(--warn,#F59E0B)', borderRadius: 15, padding: 15, background: 'color-mix(in srgb, var(--warn,#F59E0B) 8%, transparent)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink1)', lineHeight: 1.6 }}>{confirmPrompt(confirmText)}</div>
+              <div style={{ display: 'flex', gap: 9 }}>
+                <button onClick={() => { recordConfirm(true, result.confidence ?? 0); setConfirmed(true); go({ page: result.page, url: result.url }, result.tags[0] || result.label, result.intent, 'type'); }}
+                  style={{ flex: 1, padding: '11px 16px', borderRadius: 12, border: 'none', background: 'var(--mint,#12A150)', color: '#fff', fontSize: 14, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>✅ إيه، صحيح</button>
+                <button onClick={() => { recordConfirm(false, result.confidence ?? 0); reset(); }}
+                  style={{ padding: '11px 16px', borderRadius: 12, border: '1px solid var(--border2,rgba(255,255,255,.16))', background: 'transparent', color: 'var(--ink2)', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>❌ لا، نبدّل</button>
+              </div>
+            </div>
+          )}
+          {(pending || !result.steps) && !(!pending && !confirmed && decision?.mode === 'confirm') && (
             <DestinationCard next={pending?.next || result.next}
               onGo={() => {
                 const dest: Dest = pending ? { page: pending.page, url: pending.url } : { page: result.page, url: result.url };

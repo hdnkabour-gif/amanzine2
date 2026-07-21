@@ -1,10 +1,11 @@
 import { useState, lazy, Suspense } from 'react';
-import { Brain, Map, Activity, GraduationCap, Cpu, Search, Crown } from 'lucide-react';
+import { Brain, Map, Activity, GraduationCap, Cpu, Search, Crown, LineChart } from 'lucide-react';
 import AppKnowledgePanel from '../components/AppKnowledgePanel';
 import SystemMapPanel from '../components/SystemMapPanel';
 import LiveBrainPanel from '../components/LiveBrainPanel';
 import ExplainPanel from '../components/ExplainPanel';
 import OwnerConsolePanel from '../components/OwnerConsolePanel';
+import BetaMonitorPanel from '../components/BetaMonitorPanel';
 
 // ============================================================
 // ControlCenter — «مركز القيادة» للمطوّر/الأدمن (المرحلة أ — قراءة فقط). منصّة
@@ -24,9 +25,10 @@ const INK1 = 'var(--ink1,#FAFAFA)';
 const INK3 = 'var(--ink3,#7E877F)';
 const GREEN = 'var(--amz-emerald,#0a8f6f)';
 
-type TabId = 'owner' | 'brain' | 'map' | 'explain' | 'live' | 'learn';
+type TabId = 'owner' | 'beta' | 'brain' | 'map' | 'explain' | 'live' | 'learn';
 const TABS: { id: TabId; label: string; icon: typeof Brain }[] = [
   { id: 'owner', label: 'المالك', icon: Crown },
+  { id: 'beta', label: 'البيتا', icon: LineChart },
   { id: 'brain', label: 'العقل', icon: Brain },
   { id: 'map', label: 'خريطة النظام', icon: Map },
   { id: 'explain', label: 'التفسير', icon: Search },
@@ -69,6 +71,7 @@ export default function ControlCenter() {
       {/* body */}
       <div>
         {tab === 'owner' && <OwnerConsolePanel />}
+        {tab === 'beta' && <BetaMonitorPanel />}
         {tab === 'brain' && <AppKnowledgePanel />}
         {tab === 'map' && <SystemMapPanel />}
         {tab === 'explain' && <ExplainPanel />}

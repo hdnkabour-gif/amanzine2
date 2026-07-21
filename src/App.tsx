@@ -12,6 +12,7 @@ import BusinessProfile       from './pages/BusinessProfile';
 import Onboarding            from './pages/Onboarding';
 import NotificationToast     from './components/NotificationToast';
 import TourGuide             from './components/TourGuide';
+import ErrorBoundary         from './components/ErrorBoundary';
 import { isRtlLang } from './i18n';
 
 const PAGE_URLS: Record<string, string> = {
@@ -36,6 +37,11 @@ const PAGE_URLS: Record<string, string> = {
   moderation:    '/moderation',
   bookings:      '/bookings',
   knowledge:     '/knowledge-studio',
+  // روابط كانت ناقصة — بلا مدخلٍ هنا لا يتزامن العنوان ولا يعمل الرابط المباشر (deep-link)
+  wallet:        '/wallet',
+  profile:       '/profile',
+  assistant:     '/assistant',
+  publish:       '/publish',
 };
 
 const URL_PAGES: Record<string, string> = Object.fromEntries(
@@ -322,6 +328,8 @@ function AppShell() {
       {isAuthed && <TourGuide />}
       {/* ambient background handled in CSS body */}
 
+      {/* حاجزُ تعطُّلٍ يغطّي كلّ المسارات — العامّة منها (سوق/متجر/اكتشف) لم تكن محميّة */}
+      <ErrorBoundary>
       <Routes>
         {/* ── PUBLIC: Storefront for customers ── */}
         <Route path="/store"          element={<Storefront />} />
@@ -344,7 +352,7 @@ function AppShell() {
         {['/home','/dashboard','/products','/services','/orders','/messages','/customers',
           '/analytics','/insights','/connections','/delivery','/notifications',
           '/settings','/studio','/editor','/import','/coupons','/guide','/moderation','/knowledge-studio',
-          '/wallet','/profile','/assistant','/publish'].map(path => (
+          '/bookings','/wallet','/profile','/assistant','/publish'].map(path => (
           <Route key={path} path={path}
             element={isAuthed ? <MainLayout /> : <Navigate to="/login" replace />} />
         ))}
@@ -361,6 +369,7 @@ function AppShell() {
           isAuthed ? <Navigate to="/home" replace /> : <LandingPage />
         } />
       </Routes>
+      </ErrorBoundary>
     </>
   );
 }

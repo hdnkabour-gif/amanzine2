@@ -1,4 +1,5 @@
 import type { Page } from '../types';
+import { readHuman, type HumanIntent } from './humanIntent';
 
 // ============================================================
 // needEngine — «شنو محتاج اليوم؟»
@@ -62,6 +63,7 @@ export interface NeedObject {
   location?: string;    // مكان/مدينة
   budget?: string;      // ميزانية مذكورة
   confidence?: number;  // درجة يقين الفهم (0..1)
+  reason?: string;      // شرحٌ لكيفيّة فهم النيّة (طبقة النيّة الإنسانيّة)
   at: number;
 }
 
@@ -362,8 +364,8 @@ function buildNeedObject(r: NeedResult, raw: string, ctx: NeedContext): NeedObje
 
 // درجة اليقين: تحدّد متى يُوجّه المحرّك مباشرة، ومتى يسأل توضيحًا.
 function confidenceOf(r: NeedResult): number {
+  if (r.steps && r.steps.length) return 0.5;   // يحتاج جوابًا واحدًا قبل الحسم (أولويّة)
   if (r.intent === 'unknown') return 0.3;
-  if (r.steps && r.steps.length) return 0.5;   // يحتاج جوابًا واحدًا قبل الحسم
   if (r.intent === 'urgent') return 0.97;
   if (['create_service', 'create_store', 'sell', 'manage', 'book'].includes(r.intent)) return 0.9;
   if (['find_pro', 'rent'].includes(r.intent)) return 0.86;
@@ -371,8 +373,100 @@ function confidenceOf(r: NeedResult): number {
   return 0.7;
 }
 
+// ── طبقة النيّة الإنسانيّة → محادثة موجّهة ──────────────────
+// تُترجم «ماذا يحاول الإنسان أن يفعل؟» إلى ترحيبٍ + سؤالٍ واحدٍ يقود للمسار الصحيح،
+// بدل قفزةٍ خاطئةٍ لنموذج. تُبنى على نفس بنية NeedStep فتظهر مباشرةً في الواجهة.
+function humanResult(intent: HumanIntent): NeedResult | null {
+  switch (intent) {
+    case 'HELP':
+      return {
+        intent: 'find_pro', label: 'مساعدة', color: 'var(--info,#3B82F6)', tags: [],
+        open: 'فهمت أنّك محتاج مساعدة 🤝 نكتشفو المشكل بجوج، خطوة بخطوة — آش وقع بالضبط؟',
+        steps: [{ q: 'أشنو نوع المشكل؟', options: [
+          { label: '💧 الماء (تسرّب، صنبور، بالوعة…)', url: `${MARKET}?urgent=1`, next: 'نوصلوك بأقرب سبّاك متاح قربك.' },
+          { label: '⚡ الكهرباء (الضو، التيار…)', url: `${MARKET}?urgent=1`, next: 'نوصلوك بأقرب كهربائي متاح قربك.' },
+          { label: '❄️ جهاز خربان (ثلّاجة، مكيّف، تلفون…)', url: MARKET, next: 'نوصلوك بتقني الأجهزة المناسب.' },
+          { label: '💻 حاسوب / شبكة / إنترنت', url: `${MARKET}?q=${encodeURIComponent('تقني معلوماتيّة')}`, next: 'نوصلوك بتقني معلوماتيّة قربك.' },
+          { label: '🔨 حاجة أخرى فالدار (باب، صباغة، خشب…)', url: MARKET, next: 'نوصلوك بالحرفيّ المناسب قربك.' },
+        ] }],
+        next: 'نفهمو المشكل باش نوصلوك بالمختصّ الصحيح — بلا ما تبحث بنفسك.',
+      };
+    case 'SELF':
+      return {
+        intent: 'create_service', label: 'تعريف', color: 'var(--mint,#12A150)', tags: [],
+        open: 'فهمت أنّك مزوّد خدمة 👋 مرحبا بيك — نعرفوك مزيان باش نوصّلوك للناس اللي محتاجينك.',
+        steps: [{ q: 'شنو نوع الخدمة اللي كتقدّم؟', options: [
+          { label: '🔧 حرفيّ / صنايعي (سبّاك، كهربائي، نجّار…)', page: 'publish', next: 'ننشئ صفحة الخدمة ديالك من وصفك مباشرة.' },
+          { label: '🎓 مهنيّ (طبيب، محامي، أستاذ، مصوّر…)', page: 'publish', next: 'ننشئ صفحة مهنيّة ليك يلقّاوها الزبناء.' },
+          { label: '🏪 عندي محلّ / متجر', page: 'settings', next: 'نجهّزو المتجر ديالك وننشروه.' },
+          { label: '✍️ حاجة أخرى — نوضّح بكلماتي', page: 'publish', next: 'كتب التفاصيل وأمانزين يبني الإعلان.' },
+        ] }],
+        next: 'نعرفو الخدمة ديالك باش نوصّلوها للزبناء المناسبين.',
+      };
+    case 'SELL':
+      return {
+        intent: 'sell', label: 'بيع', color: 'var(--ember,#FF6A00)', tags: [],
+        open: 'فهمت أنّك باغي تبيع 👍 نعاونوك — غير قول لينا شنو.',
+        steps: [{ q: 'شنو باغي تبيع؟', options: [
+          { label: '📦 سلعة / منتج', page: 'publish', next: 'نبنيو الإعلان من وصفٍ ولا تصويرة.' },
+          { label: '🚗 سيّارة / مركبة', page: 'publish', next: 'نبنيو إعلان السيّارة من جملتك.' },
+          { label: '🏠 عقار (دار، محلّ، أرض…)', page: 'publish', next: 'نبنيو إعلان العقار مباشرة.' },
+          { label: '🔧 خدمة كنقدّمها', page: 'publish', next: 'ننشئ صفحة الخدمة ديالك.' },
+        ] }],
+        next: 'نحدّدو شنو باغي تبيع باش نبنيو الإعلان المناسب.',
+      };
+    case 'BUY':
+      return {
+        intent: 'buy', label: 'شراء', color: 'var(--info,#3B82F6)', tags: [],
+        open: 'فهمت أنّك كتقلب على شي حاجة 👋 نلقّيوها ليك — شنو هي؟',
+        steps: [{ q: 'شنو باغي تشري؟', options: [
+          { label: '📱 إلكترونيك (تليفون، حاسوب…)', url: MARKET, next: 'نعرضو ليك المتوفّر قربك حسب الثمن.' },
+          { label: '👕 حوايج / لباس', url: MARKET, next: 'نعرضو ليك أقرب النتائج.' },
+          { label: '🛋️ أثاث / موبيليا', url: MARKET, next: 'نعرضو ليك المتوفّر قربك.' },
+          { label: '🔎 حاجة أخرى — نكتب بالتفصيل', url: EXPLORE, next: 'كتب اللي محتاج ونقلّبو ليك.' },
+        ] }],
+        next: 'نحدّدو شنو باغي تشري باش نلقّيوه ليك بسرعة.',
+      };
+    case 'EXPLORE':
+      return {
+        intent: 'unknown', label: 'اكتشاف', color: 'var(--ink3,#7E877F)', tags: [],
+        open: 'مرحبا بيك 👋 دخل تشوف على راحتك — ملّي تلقى شي حاجة تعجبك ولا محتاجها، غير گولها لينا.',
+        steps: [{ q: 'من أين تحبّ تبدا؟', options: [
+          { label: '🛍️ نشوف السوق (سلع وخدمات قربي)', url: MARKET, next: 'نعرضو ليك المتوفّر قربك.' },
+          { label: '🧰 نشوف الخدمات والحرفيّين', url: `${MARKET}?type=service`, next: 'نعرضو ليك المزوّدين قربك.' },
+          { label: '✨ نشوف الجديد', url: EXPLORE, next: 'نعرضو ليك آخر ما نُشر.' },
+          { label: '✍️ عندي شي فبالي — نكتبو', url: EXPLORE, next: 'كتب اللي محتاج ونقلّبو ليك.' },
+        ] }],
+        next: 'اكتشف على راحتك، والعقل معاك ملّي تحتاجه.',
+      };
+    case 'QUESTION':
+      return {
+        intent: 'find_pro', label: 'مساعدة', color: 'var(--info,#3B82F6)', tags: [],
+        open: 'مرحبا بيك 👋 أنا هنا نعاونك — ما تحتاجش تعرف تستعمل التطبيق، غير قول لي أش حاب تدير.',
+        steps: [{ q: 'أش حاب تدير دابا؟', options: [
+          { label: '🔎 كنقلب على شي حاجة ولا مختصّ', url: MARKET, next: 'كتب اللي محتاج ونلقّيوه ليك.' },
+          { label: '🏷️ بغيت نبيع ولا نعلن', page: 'publish', next: 'نبنيو الإعلان ديالك بسهولة.' },
+          { label: '🧑‍🔧 عندي خدمة / محلّ نقدّمو', page: 'publish', next: 'ننشئ صفحتك يلقّاوها الزبناء.' },
+          { label: '🧭 غير كنجرّب نشوف', url: EXPLORE, next: 'نكتشفو التطبيق معاك.' },
+        ] }],
+        next: 'نبداو بسؤالٍ بسيط ونمشيو معاك خطوة بخطوة.',
+      };
+    default:
+      return null;
+  }
+}
+
 // المدخل العام: يفهم النيّة ثم يُثريها بالسياق (Understanding = طلب + سياق).
 export function parseNeed(raw: string, ctx: NeedContext = {}): NeedResult {
+  // طبقةٌ أولى — «ماذا يحاول هذا الإنسان أن يفعل؟» قبل تصنيف المهنة/المنتج.
+  const human = readHuman(raw);
+  const hr = human.intent !== 'NONE' ? humanResult(human.intent) : null;
+  if (hr) {
+    hr.confidence = confidenceOf(hr);
+    hr.object = buildNeedObject(hr, raw, ctx);
+    if (hr.object) { hr.object.confidence = hr.confidence; hr.object.reason = human.reason; }
+    return hr;
+  }
   const r = enrich(coreParse(raw), normalize(raw), ctx);
   r.confidence = confidenceOf(r);
   r.object = buildNeedObject(r, raw, ctx);
@@ -382,12 +476,14 @@ export function parseNeed(raw: string, ctx: NeedContext = {}): NeedResult {
 
 // أمثلة تدرِّب المستخدم على الكتابة الطبيعية (تظهر تحت الخانة)
 export const NEED_EXAMPLES: string[] = [
-  'بغيت نبيع',
-  'الماء كيقطر ضروري',
-  'بغيت نشري لبنتي صباط',
-  'أنا كوافورة',
+  'أنا كنبيع',              // نيّة بيع مبهمة → نسأل شنو
+  'عندي مشكل فالدار',       // مساعدة (لا عقار)
+  'أنا نجّار',               // تعريفٌ بالنفس
+  'خاصني سباك',             // طلبُ حرفيّ
+  'الماء كيقطر ضروري',       // عَرَضٌ موصوف → عاجل
+  'واش ممكن تعاونّي؟',       // سؤالٌ عامّ → ترحيبٌ وإرشاد
+  'بغيت نشري لبنتي صباط',    // شراءٌ محدّد
+  'عندي محل للمأكولات',      // صاحب متجر
+  'كنقلب على طبيب',          // مهنة بالاسم
   'بغيت دار للكراء فالحي الحسني',
-  'عندي محل للمأكولات',
-  'كنقلب على طبيب',
-  'بغيت بناي اليوم مع 15:00',
 ];

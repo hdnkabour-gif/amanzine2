@@ -6,3 +6,7 @@ import './memory.test';
 import './describe.test';
 import './systemMap.test';
 import './entity.test';
+import './humanIntent.test';
+import './persona.test';
+import './reception.test';
+import './interfaceDecision.test';

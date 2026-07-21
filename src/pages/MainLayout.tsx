@@ -5,6 +5,8 @@ import NavBar from './NavBar';
 import GlobalSearch from '../components/GlobalSearch';
 import MasterBackground from '../components/MasterBackground';
 import FeedbackButton from '../components/FeedbackButton';
+import DeferredAuthBanner from '../components/DeferredAuthBanner';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 // ── Skeleton fallback ─────────────────────────────
 function PageSkeleton() {
@@ -127,12 +129,16 @@ export default function MainLayout() {
             ⚠️ وضع غير متصل — البيانات محلية فقط
           </div>
         )}
+        {/* التسجيل المتأخّر — نداءٌ لطيف للضيف في صفحات الحفظ فقط */}
+        <DeferredAuthBanner />
         {/* Main content */}
         <main className="main-with-sidebar" style={{ flex:1, paddingTop:56, paddingBottom:80, overflowX:'hidden', minHeight:'100dvh' }}>
           <div style={{ maxWidth:1100, margin:'0 auto', padding:'20px 16px' }}>
-            <Suspense fallback={<PageSkeleton />}>
-              <PageContent />
-            </Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<PageSkeleton />}>
+                <PageContent />
+              </Suspense>
+            </ErrorBoundary>
           </div>
         </main>
       </div>
