@@ -137,7 +137,7 @@ export const L: Record<Lang, Record<string, string>> = {
 // ── قاموس المحتوى الجديد (يشمل أقسام FAQ/Promo/الثقة/الفوتر) ──
 export const LX: Record<Lang, Record<string, string>> = {
   ar: {
-    osBadge: 'Need OS · نظام تشغيل للحاجة', sample: 'مثال', byStore: 'بواسطة', dh: 'د.م.',
+    osBadge: 'كل حاجة، فمكان واحد', sample: 'مثال', byStore: 'بواسطة', dh: 'د.م.',
     liveTitle: '🛍️ منتجات وخدمات حيّة من السوق', liveSub: 'إعلانات حقيقية نشرها تجّار AMANZINE الآن', liveViewAll: 'تصفّح كل السوق',
     citiesTitle: '🇲🇦 متاجر في كل المغرب', citiesSub: 'تجّار ينمّون أعمالهم من كل المدن', cityUnit: 'إعلان', cityBeFirst: 'كن الأول هنا',
     statMerchants: 'تاجر', statProducts: 'منتج', statOrders: 'طلب', statListings: 'إعلان في السوق',
@@ -147,7 +147,7 @@ export const LX: Record<Lang, Record<string, string>> = {
     why1: 'إطلاق في دقائق', why1d: 'متجر جاهز برابط خاص دون أي خبرة تقنية.',
     why2: 'يعمل 24/7', why2d: 'المساعد الذكي يرد ويجمع الطلبات حتى وأنت نائم.',
     why3: 'وصول أوسع', why3d: 'السوق الموحّد + كل قنوات التواصل في مكان واحد.',
-    seoTitle: 'AMANZINE — نظام تشغيل للحاجة', seoDesc: 'أنشئ متجرك الإلكتروني، اعرض خدماتك، وبِع في السوق المغربي الموحّد — مع ذكاء اصطناعي وتوصيل آلي. مجاني للبدء.',
+    seoTitle: 'AMANZINE — كل حاجة، فمكان واحد', seoDesc: 'أنشئ متجرك الإلكتروني، اعرض خدماتك، وبِع في السوق المغربي الموحّد — مع ذكاء اصطناعي وتوصيل آلي. مجاني للبدء.',
     promo: '🎉 مجاني للبدء — أنشئ متجرك اليوم بدون بطاقة بنكية', promoCta: 'ابدأ الآن',
     trustSecure: 'آمن 100%', trustFast: 'جاهز في دقائق', trustSupport: 'دعم 24/7',
     faqTitle: 'أسئلة شائعة', faqSub: 'كل ما تحتاج معرفته قبل البدء',
@@ -158,7 +158,7 @@ export const LX: Record<Lang, Record<string, string>> = {
     footExplore: 'استكشف', lnkMarket: 'السوق', lnkPricing: 'الأسعار', lnkHow: 'كيف يعمل', lnkFaq: 'الأسئلة الشائعة', backTop: 'العودة للأعلى',
   },
   darija: {
-    osBadge: 'Need OS · نظام تشغيل للحاجة', sample: 'مثال', byStore: 'ديال', dh: 'د.م.',
+    osBadge: 'كلشي فبلاصة وحدة', sample: 'مثال', byStore: 'ديال', dh: 'د.م.',
     liveTitle: '🛍️ منتجات وخدمات حيّة من السوق', liveSub: 'إعلانات حقيقية نشروهم تجّار AMANZINE دابا', liveViewAll: 'تصفّح السوق كامل',
     citiesTitle: '🇲🇦 متاجر ف كل المغرب', citiesSub: 'تجّار كينمّيو خدمتهم من كل المدن', cityUnit: 'إعلان', cityBeFirst: 'كن الأول هنا',
     statMerchants: 'تاجر', statProducts: 'منتج', statOrders: 'طلب', statListings: 'إعلان ف السوق',
@@ -168,7 +168,7 @@ export const LX: Record<Lang, Record<string, string>> = {
     why1: 'إطلاق ف دقايق', why1d: 'متجر واجد برابط ديالك بلا أي خبرة تقنية.',
     why2: 'خدّام 24/7', why2d: 'المساعد الذكي كيجاوب وكيجمع الطلبات حتى وانت نعسان.',
     why3: 'وصول كثر', why3d: 'السوق الموحّد + كل قنوات التواصل ف بلاصة وحدة.',
-    seoTitle: 'AMANZINE — نظام تشغيل للحاجة', seoDesc: 'دير متجرك، قدّم خدماتك، وبيع ف السوق المغربي الموحّد — مع ذكاء اصطناعي وتوصيل أوتوماتيك. بلاش باش تبدا.',
+    seoTitle: 'AMANZINE — كلشي فبلاصة وحدة', seoDesc: 'دير متجرك، قدّم خدماتك، وبيع ف السوق المغربي الموحّد — مع ذكاء اصطناعي وتوصيل أوتوماتيك. بلاش باش تبدا.',
     promo: '🎉 بلاش باش تبدا — دير متجرك اليوم بلا كارط بانكير', promoCta: 'بدا دابا',
     trustSecure: 'آمن 100%', trustFast: 'واجد ف دقايق', trustSupport: 'دعم 24/7',
     faqTitle: 'أسئلة بزّاف مطروحة', faqSub: 'كل ما تحتاج تعرفو قبل ما تبدا',

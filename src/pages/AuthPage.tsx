@@ -215,7 +215,7 @@ export default function AuthPage() {
             <span style={{ color: '#1FA565' }}>AMAN<span style={{ color: '#E0524C' }}>Z</span>INE</span>
           </h1>
           <p style={{ color: DS.text3, fontSize: 11, letterSpacing: 'normal', fontWeight: 600 }}>
-            نظام تشغيل للحاجة
+            كل حاجة، فمكان واحد
           </p>
         </div>
 

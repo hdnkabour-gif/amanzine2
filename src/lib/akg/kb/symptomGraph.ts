@@ -128,7 +128,15 @@ export const SYMPTOM_GRAPH: SymptomNode[] = [
 
 const norm = (s: string) => s.toLowerCase().trim();
 
-// نصّ → (مشكلة + ثقة). دقيق أوّلًا، ثمّ جزئيّ (كلمة مفتاحيّة) بثقة أقلّ.
+// كلماتٌ عامّة (نيّة/رغبة/ضمائر) ليست أعراضًا — لا يجوز أن تُطلق مطابقةً جزئيّة
+// وحدها، وإلّا «بغيت طبيب» يلتقط «بغيت» من «بغيت نصبغ» فيُرجع «صبّاغ» خطأً.
+const GENERIC = new Set([
+  'بغيت', 'باغي', 'بغا', 'بغينا', 'نبغي', 'كنبغي', 'خاصني', 'خاص', 'نحتاج', 'محتاج',
+  'عندي', 'عندنا', 'ديال', 'هادشي', 'واحد', 'شوية', 'بزاف', 'دابا', 'نقلب', 'كنقلب',
+  'الدار', 'دار', 'ولكن', 'صغير', 'كبير',
+]);
+
+// نصّ → (مشكلة + ثقة). دقيق أوّلًا، ثمّ جزئيّ (كلمة مفتاحيّة حقيقيّة) بثقة أقلّ.
 export function findProblemBySymptom(text: string): { problemId: string; confidence: number } | null {
   const t = norm(text);
   // دقيق — أطول نمط مطابق يفوز
@@ -138,10 +146,11 @@ export function findProblemBySymptom(text: string): { problemId: string; confide
     if (t.includes(p) && p.length > bestLen) { best = { problemId: n.problemId, confidence: n.confidence }; bestLen = p.length; }
   }
   if (best) return best;
-  // جزئيّ — كلمة مفتاحيّة (>3 أحرف) بثقة مخفّضة
+  // جزئيّ — كلمة مفتاحيّة (>3 أحرف، وليست كلمةً عامّة) بثقة مخفّضة
   for (const n of SYMPTOM_GRAPH) {
     for (const part of n.pattern.split(' ')) {
-      if (part.length > 3 && t.includes(norm(part))) return { problemId: n.problemId, confidence: +(n.confidence * 0.65).toFixed(2) };
+      const w = norm(part);
+      if (w.length > 3 && !GENERIC.has(w) && t.includes(w)) return { problemId: n.problemId, confidence: +(n.confidence * 0.65).toFixed(2) };
     }
   }
   return null;

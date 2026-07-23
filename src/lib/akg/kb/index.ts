@@ -15,8 +15,10 @@ export * from './tools';
 export * from './geo';
 export * from './categories';
 export * from './memory';
+export * from './arabizi';
 
 import { conceptsIn, normalize, type VocabEntry } from './vocabulary';
+import { deArabizi } from './arabizi';
 import { getProblem, type Problem } from './problems';
 import { findProblemBySymptom } from './symptomGraph';
 import { getProfession, findProfessionByLabel, type Profession } from './professions';
@@ -38,9 +40,12 @@ export interface Understanding {
 const has = (t: string, arr: string[]) => arr.some(w => t.includes(w));
 
 // الجسر إلى المحرّكات — يفهم النصّ عبر السجلّات (المشكلة أوّلًا).
-export function understand(text: string): Understanding {
+export function understand(input: string): Understanding {
+  // 0) طبقة اللاتينيّة — «bghit 3andi mouchkil» → «بغيت عندي مشكل» قبل أيّ قراءة.
+  const text = deArabizi(input);
   const t = text.toLowerCase().trim();
   const reasoning: string[] = [];
+  if (text !== input) reasoning.push('🔤 حوّلنا الكتابة اللاتينيّة إلى دارجة');
   const concepts = conceptsIn(text);
 
   // 1) Symptom Graph — من العرَض إلى المشكلة.

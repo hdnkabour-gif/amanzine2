@@ -2,6 +2,8 @@
 // setup أوّلًا (polyfill لـ localStorage) قبل أيّ وحدة تلمس التخزين.
 import './setup';
 import './understand.test';
+import './arabizi.test';
+import './understanding.test';
 import './memory.test';
 import './describe.test';
 import './systemMap.test';
