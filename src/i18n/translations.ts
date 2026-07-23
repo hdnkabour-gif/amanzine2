@@ -350,7 +350,7 @@ const darija: T = {
   'landing.how.step2': 'سيّر الكوماندات بالذكاء الاصطناعي',
   'landing.how.step3': 'وصّل وجمع الربح ديالك',
   'onboarding.type.product': 'بضايع', 'onboarding.type.service': 'خدمات', 'onboarding.type.both': 'بضايع وخدمات', 'onboarding.skip': 'تخطّ',
-  'landing.tagline': 'كل حاجة، فمكان واحد', 'landing.subtitle': 'بدأ المتجر ديالك وبيع أكثر بالذكاء الاصطناعي',
+  'landing.tagline': 'كل كلمة عندها طريق', 'landing.subtitle': 'بدأ المتجر ديالك وبيع أكثر بالذكاء الاصطناعي',
   'landing.customer.title': 'أنا زبون', 'landing.customer.desc': 'قلّب على البضايع واطلب مع توصيل سريع',
   'landing.customer.cta': 'تسوّق دابا', 'landing.customer.f1': 'بضايع متنوعة',
   'landing.customer.f2': 'توصيل سريع', 'landing.customer.f3': 'أثمنة مزيانة',

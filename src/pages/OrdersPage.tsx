@@ -195,7 +195,7 @@ function printOrder(order: any, settings: any, currency: string) {
 
   <div class="footer">
     <span>شكراً لثقتك في <strong>${brandName}</strong> 💛</span>
-    <span>AMANZINE — كل حاجة، فمكان واحد</span>
+    <span>AMANZINE — كل كلمة عندها طريق</span>
   </div>
 </div>
 <script>setTimeout(()=>window.print(),500);</script>

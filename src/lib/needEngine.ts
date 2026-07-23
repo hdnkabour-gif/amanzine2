@@ -1,5 +1,6 @@
 import type { Page } from '../types';
 import { readHuman, type HumanIntent } from './humanIntent';
+import { resolveConcept } from './akg/kb/knowledge';
 
 // ============================================================
 // needEngine — «شنو محتاج اليوم؟»
@@ -296,14 +297,35 @@ function coreParse(raw: string): NeedResult {
     return { intent: 'manage', label: 'متابعة', color: 'var(--ember,#FF6A00)', tags: [], page: 'conversations', next: 'يفتح رسائل زبنائك في مكان واحد.' };
   }
 
-  // 10) غير مفهوم → اقتراح التصفّح
+  // 9.5) طبقة المعرفة المتعدّدة اللغات — قبل الاستسلام: هل النصّ (فرنسيّة/إنجليزيّة/
+  //      دارجة لاتينيّة) يحمل خدمةً معروفة؟ «je cherche un plombier» ⇒ سبّاك.
+  const kc = resolveConcept(raw);
+  if (kc && kc.concept?.ar) {
+    const svcName = kc.concept.ar;
+    return {
+      intent: 'find_pro', label: svcName, color: 'var(--info,#3B82F6)', tags: [],
+      url: MARKET,
+      open: `فهمت 👍 كتقلّب على «${svcName}».`,
+      next: `نوصّلك بأقرب «${svcName}» قربك.`,
+    };
+  }
+
+  // 10) لم نلتقط نيّةً محدّدة → لا نتوقّف ولا نعتذر: نكمّل الحوار بالسؤال التالي.
+  //     «التطبيق لا يتوقّف عندما لا يفهم» — بدل «ما فهمناش»، نسأل «مع من نبدأو؟».
   return {
     intent: 'unknown',
-    label: 'بحث',
-    color: 'var(--ink3,#7E877F)',
+    label: 'نكمّلو',
+    color: 'var(--info,#3B82F6)',
     tags: [],
-    url: EXPLORE,
-    next: 'ما فهمناش بالضبط — نوجّهك لاكتشف كل شيء، أو جرّب صياغة أخرى.',
+    open: 'واخّا، معاك 🙌 نكمّلو مزيان.',
+    steps: [{ q: 'فهمت أنّك محتاج شي حاجة — مع من نبدأو؟', options: [
+      { label: '🔧 خدمة / مختصّ', url: MARKET, next: 'نلقّاو ليك المختصّ المناسب قربك.' },
+      { label: '🛍️ نشري حاجة', url: MARKET, next: 'نوجّهوك للسوق حسب اللي باغي.' },
+      { label: '📣 نبيع / نعلن', page: 'publish', next: 'نبنيو إعلانك من جملة وحدة.' },
+      { label: '📦 متابعة طلب', page: 'orders', next: 'نفتحو طلباتك وحالتها.' },
+      { label: '✍️ نكتب بتفصيل', url: EXPLORE, next: 'كتب اللي محتاج بكلماتك ونقلّبو ليك.' },
+    ] }],
+    next: 'قول ليا شويّة كثر وأنا نوجّهك — بلا ما نوقفو.',
   };
 }
 

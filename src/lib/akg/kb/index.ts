@@ -16,9 +16,12 @@ export * from './geo';
 export * from './categories';
 export * from './memory';
 export * from './arabizi';
+export * from './knowledgeData';
+export * from './knowledge';
 
 import { conceptsIn, normalize, type VocabEntry } from './vocabulary';
 import { deArabizi } from './arabizi';
+import { resolveConcept, resolveCity } from './knowledge';
 import { getProblem, type Problem } from './problems';
 import { findProblemBySymptom } from './symptomGraph';
 import { getProfession, findProfessionByLabel, type Profession } from './professions';
@@ -31,6 +34,10 @@ export interface Understanding {
   capabilities: string[];          // القدرات المطلوبة
   concepts: VocabEntry[];          // مفاهيم مذكورة
   city?: string;
+  district?: string;               // الحيّ (من قاعدة المدن) إن وُجد
+  category?: string;               // فئة المفهوم (automotive/home…) من القاموس المتعدّد اللغات
+  service?: string;                // مُعرّف المفهوم القانونيّ (mechanic/plumber…)
+  language?: string;               // لغة الكتابة المكتشَفة (darija/ar/fr/en/mixed)
   context: { urgent: boolean; night: boolean; weekend: boolean };
   confidence: number;              // 0..1
   reasoning: string[];             // خطوات الاستدلال (تفسير)
@@ -85,9 +92,30 @@ export function understand(input: string): Understanding {
     reasoning.push(`🧠 معرفة معتمَدة: «${mem.phrase}» ⇒ ${profession?.label || problem?.name || mem.concept}`);
   }
 
-  // 3) الموقع.
-  const city = cityInText(text);
-  if (city) reasoning.push(`📍 الموقع «${city}»`);
+  // 2.7) القاموس المتعدّد اللغات (دارجة/عربيّة/فرنسيّة/إنجليزيّة/Arabizi) — إشارةٌ
+  //      إضافيّة تملأ الفجوات فقط (لا تُلغي ما فوقها). تربط «je cherche un mécanicien»
+  //      و«bghit mecanicien» و«ميكانيكي» بمفهومٍ قانونيّ واحد.
+  let category: string | undefined;
+  let service: string | undefined;
+  let language: string | undefined;
+  const kc = resolveConcept(input);   // النصّ الأصليّ (لا المُعرَّب) — ليقرأ الفرنسيّة/الإنجليزيّة
+  if (kc) {
+    category = kc.category || undefined;
+    service = kc.id;
+    language = kc.language;
+    reasoning.push(`🗂️ مفهوم «${kc.concept.ar || kc.id}» (${kc.category || 'عامّ'}) · لغة: ${kc.language}`);
+    if (!profession) {
+      const p = findProfessionByLabel(kc.concept.ar || '') || findProfessionByLabel(kc.concept.darija || '');
+      if (p) { profession = p; profConf = Math.max(profConf, 0.6); reasoning.push(`👤 المهنة من القاموس «${p.label}»`); }
+    }
+  }
+
+  // 3) الموقع — قاعدة المدن أوّلًا (أعمق: أسماء بديلة + أحياء)، ثمّ المطابقة القديمة.
+  let city = cityInText(text);
+  let district: string | undefined;
+  const gc = resolveCity(input);
+  if (gc) { city = city || gc.city; district = gc.district; }
+  if (city) reasoning.push(`📍 الموقع «${city}»${district ? ` · ${district}` : ''}`);
 
   // 4) السياق (طارئ/ليل/عطلة).
   const context = {
@@ -102,11 +130,13 @@ export function understand(input: string): Understanding {
   if (problem && profession) confidence = Math.max(Math.min(problemConf, profConf), 0.3);
   else if (profession) confidence = 0.45;
   else if (concepts.length) confidence = 0.35;
+  // مفهومٌ قانونيٌّ من القاموس المتعدّد اللغات يرفع الثقة (فهمنا الخدمة/الفئة).
+  if (service) confidence = Math.max(confidence, profession ? 0.6 : 0.5);
   // معرفة معتمَدة بشريًّا ترفع الثقة (الإنسان أكّدها).
   if (learned && profession) confidence = Math.max(confidence, 0.85);
   else if (learned) confidence = Math.max(confidence, 0.6);
 
-  return { problem, profession, capabilities, concepts, city, context, confidence, reasoning, learned };
+  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned };
 }
 
 export function resolveTerm(term: string) { return normalize(term); }

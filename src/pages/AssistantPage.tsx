@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import { Sparkles, Send, ArrowLeft } from 'lucide-react';
-import { parseNeed, type NeedResult } from '../lib/needEngine';
+import { parseNeed, type NeedResult, type NeedOption } from '../lib/needEngine';
 import { buildContext } from '../lib/core/context';
 import { playGate } from '../lib/gateTransition';
 import type { Page } from '../types';
@@ -29,9 +29,8 @@ export default function AssistantPage() {
     const query = q.trim(); if (!query) return;
     const uctx = buildContext(store as any, { authed: !!user });
     const r = parseNeed(query, { hour: uctx.time.hour, city: uctx.place.city });
-    const reply = r.intent === 'unknown'
-      ? 'ما فهمتش بالضبط 🤔 جرّب تكتب حاجتك بطريقة أخرى، مثلاً: «بغيت كهربائي» أو «بغيت نبيع صباط».'
-      : (r.open ? r.open + ' ' : '') + r.next;
+    // لا «ما فهمناش» أبدًا: دائمًا افتتاحٌ + الخطوة التالية (حتى عند unknown صار حوارًا).
+    const reply = (r.open ? r.open + ' ' : '') + r.next;
     setMsgs(m => [...m, { who: 'user', text: query }, { who: 'ai', text: reply, result: r }]);
     setText('');
   };
@@ -39,6 +38,13 @@ export default function AssistantPage() {
   const goTo = (r: NeedResult) => {
     if (r.page) { const p = r.page as Page; playGate(() => setPage(p)); return; }
     const url = r.url || '/market';
+    playGate(() => { try { window.location.assign(url); } catch { /* noop */ } });
+  };
+
+  // نقر على خيارٍ في سؤالٍ موجّه → يقود لوجهته (صفحة أو رابط).
+  const goToOption = (opt: NeedOption) => {
+    if (opt.page) { const p = opt.page as Page; playGate(() => setPage(p)); return; }
+    const url = opt.url || '/market';
     playGate(() => { try { window.location.assign(url); } catch { /* noop */ } });
   };
 
@@ -67,11 +73,24 @@ export default function AssistantPage() {
               backdropFilter: m.who === 'ai' ? 'blur(10px)' : undefined }}>
               {m.text}
             </div>
-            {m.result && m.result.intent !== 'unknown' && !m.result.steps && (
+            {m.result && !m.result.steps && (m.result.url || m.result.page) && (
               <button onClick={() => goTo(m.result!)} style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 12, border: 'none', background: 'var(--amz-gold,#D4A017)', color: '#1a1300', fontSize: 13, fontWeight: 900, fontFamily: 'inherit', cursor: 'pointer' }}>
                 يالله نمشيو <ArrowLeft size={15} />
               </button>
             )}
+            {/* أسئلة موجّهة: خيارات قابلة للنقر — الحوار يقود بدل انتظار صياغةٍ مثاليّة */}
+            {m.result?.steps?.map((st, si) => (
+              <div key={si} style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 2 }}>
+                {st.q && <div style={{ fontSize: 12.5, color: 'var(--ink3)', fontWeight: 800 }}>{st.q}</div>}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                  {st.options.map((opt, oi) => (
+                    <button key={oi} onClick={() => goToOption(opt)} style={{ padding: '8px 13px', borderRadius: 11, border: `1px solid color-mix(in srgb, ${green} 40%, transparent)`, background: 'color-mix(in srgb, #fff 4%, transparent)', color: 'var(--ink1)', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         ))}
         <div ref={endRef} />
