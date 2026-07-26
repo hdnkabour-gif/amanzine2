@@ -968,6 +968,26 @@ db.getListingRating = async (listingId) => {
   return { avg: +r.avg || 0, count: +r.count || 0 };
 };
 
+// ── Learning loop: «ما لم نفهمه» (unknown queries) — كنز تطوير المعرفة ──
+// يبلّغه العميل عند فشل القواعد؛ الأدمن يراجعه ويضيف المفردات إلى knowledgeExtra.
+db.bumpUnknownText = async (text) => {
+  const t = String(text || '').trim().slice(0, 200);
+  if (t.length < 2) return;
+  try {
+    await pool.query(
+      `INSERT INTO learning_unknowns (text, count) VALUES ($1, 1)
+       ON CONFLICT (text) DO UPDATE SET count = learning_unknowns.count + 1, last_seen = NOW()`, [t]);
+  } catch { /* الجدول قد لا يوجد بعد — نتجاهل بلا كسر */ }
+};
+db.topUnknownTexts = async (limit = 100) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT text, count, last_seen FROM learning_unknowns ORDER BY count DESC, last_seen DESC LIMIT $1`,
+      [Math.min(Number(limit) || 100, 500)]);
+    return rows.map(r => ({ text: r.text, count: +r.count, lastSeen: r.last_seen }));
+  } catch { return []; }
+};
+
 // ── Wallet & Payments ─────────────────────────────────────────
 db.getWallet = async (userId) => {
   const { rows } = await pool.query('SELECT * FROM wallets WHERE user_id = $1', [userId]);

@@ -16,8 +16,12 @@ export * from './geo';
 export * from './categories';
 export * from './memory';
 export * from './arabizi';
-export * from './knowledgeData';
+// المفاهيم: نصدّر المصدر الموحّد (concepts = مولّد + توسعة) بدل الخام (knowledgeData)
+export { CITIES } from './knowledgeData';
+export type { CityData } from './knowledgeData';
+export * from './concepts';
 export * from './knowledge';
+export * from './knowledgeGraph';
 
 import { conceptsIn, normalize, type VocabEntry } from './vocabulary';
 import { deArabizi } from './arabizi';

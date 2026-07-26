@@ -175,13 +175,24 @@ const bucketOf = (c: number): Bucket => c < 0.5 ? 'low' : c < 0.7 ? 'mid' : 'hig
 function dload(): DecisionLog { try { const v = JSON.parse(localStorage.getItem(DKEY) || 'null'); if (v && v.modes && v.conf) return v; } catch { /* noop */ } return emptyLog(); }
 function dsave(d: DecisionLog) { try { localStorage.setItem(DKEY, JSON.stringify(d)); } catch { /* noop */ } }
 
+// Learning loop — نبلّغ الخادم بما لم نفهمه (fire-and-forget، لا يكسر شيئًا عند الفشل).
+function reportUnknown(text: string) {
+  try {
+    if (typeof fetch === 'undefined') return;
+    fetch('/api/ai/report-unknown', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ text }),
+    }).catch(() => { /* بلا شبكة ⇒ يبقى محليًّا في unknownTexts */ });
+  } catch { /* noop */ }
+}
+
 export function recordDecision(mode: string, intent: string, reason?: string, raw?: string) {
   const d = dload();
   d.modes[mode] = (d.modes[mode] || 0) + 1;
   if (intent === 'unknown') {
     d.unknown++;
     const t = (raw || '').trim().slice(0, 80);
-    if (t) { if (!d.unknownTexts) d.unknownTexts = {}; d.unknownTexts[t] = (d.unknownTexts[t] || 0) + 1; }
+    if (t) { if (!d.unknownTexts) d.unknownTexts = {}; d.unknownTexts[t] = (d.unknownTexts[t] || 0) + 1; reportUnknown(t); }
   } else d.intents[intent] = (d.intents[intent] || 0) + 1;
   if (reason) d.reasons[reason] = (d.reasons[reason] || 0) + 1;
   dsave(d);

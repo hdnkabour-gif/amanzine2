@@ -195,6 +195,13 @@ async function migrate() {
       UNIQUE(user_id, customer_id)
     )`);
 
+    // Learning loop — «ما لم نفهمه» (unknown queries) لتطوير المعرفة
+    await client.query(`CREATE TABLE IF NOT EXISTS learning_unknowns (
+      text TEXT PRIMARY KEY,
+      count INTEGER NOT NULL DEFAULT 1,
+      last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
+
     // Performance indexes
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_products_user_id    ON products(user_id)`,

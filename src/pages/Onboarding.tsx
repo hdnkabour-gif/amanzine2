@@ -2,8 +2,16 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-type Step = 'welcome' | 'brand' | 'type' | 'category' | 'ai' | 'done';
-const ORDER: Step[] = ['welcome', 'brand', 'type', 'category', 'ai', 'done'];
+type Step = 'welcome' | 'role' | 'brand' | 'type' | 'category' | 'ai' | 'done';
+const ORDER: Step[] = ['welcome', 'role', 'brand', 'type', 'category', 'ai', 'done'];
+
+// الدور — «القانون يختلف»: المحتاج يبحث ويطلب، التاجر يبيع، المزوّد يقدّم خدمة.
+type Role = 'needer' | 'merchant' | 'provider';
+const ROLES: { id: Role; icon: string; title: string; sub: string; color: string }[] = [
+  { id: 'needer',   icon: '🙋', title: 'باغي نلقى حاجة', sub: 'خدمة، مختصّ، ولا منتج — أمانزين يوجّهك',   color: '#0a8f6f' },
+  { id: 'provider', icon: '🔧', title: 'عندي خدمة نقدّمها', sub: 'حرفيّ/مختصّ — يوصلوك الزبناء',            color: '#8B5CF6' },
+  { id: 'merchant', icon: '🏪', title: 'باغي نبيع منتجات', sub: 'متجر، سلع، طلبات — أدوات التاجر كاملة',   color: '#FF6A00' },
+];
 
 const BTYPE_OPTIONS = [
   { id: 'products', icon: '📦', title: 'منتجات', sub: 'ملابس، أحذية، إلكترونيات...' , color: '#FF6A00' },
@@ -24,6 +32,7 @@ const CITIES = ['الدار البيضاء', 'الرباط', 'مراكش', 'فا
 export default function Onboarding() {
   const { settings, updateSettings, setOnboardingCompleted, setPage } = useStore();
   const [step, setStep] = useState<Step>('welcome');
+  const [role, setRole] = useState<Role | ''>('');
   const [brand, setBrand] = useState({ name: '', currency: 'MAD', phone: '', city: '' });
   const [ai, setAi] = useState({ personality: 'Moroccan Seller', language: 'Darija', tone: 'Friendly' });
   const [businessType, setBusinessType] = useState('products');
@@ -33,6 +42,21 @@ export default function Onboarding() {
   const pct = (idx / (ORDER.length - 1)) * 100;
   const next = () => { if (idx < ORDER.length - 1) setStep(ORDER[idx + 1]); };
   const prev = () => { if (idx > 0) setStep(ORDER[idx - 1]); };
+
+  // اختيار الدور — يحسم «قانون» التجربة. المحتاج يدخل مباشرةً للحوار (لا إعداد متجر).
+  const chooseRole = (r: Role) => {
+    setRole(r);
+    try { updateSettings('role' as any, r); } catch { /* noop */ }
+    if (r === 'needer') {
+      updateSettings('brand', { ...settings.brand, role: r } as any);
+      updateSettings('onboardingDone', true as any);
+      setOnboardingCompleted(true);
+      setPage('assistant');   // «قول ليا شنو محتاج… ونوجّهك»
+      return;
+    }
+    if (r === 'provider') setBusinessType('services');
+    next();
+  };
 
   const enteredBrand = () => {
     const b: Record<string, string> = {};
@@ -46,7 +70,7 @@ export default function Onboarding() {
 
   const finish = () => {
     const b = enteredBrand();
-    if (Object.keys(b).length) updateSettings('brand', { ...settings.brand, ...b });
+    updateSettings('brand', { ...settings.brand, ...b, role: role || 'merchant' } as any);
     updateSettings('ai', { ...settings.ai, ...ai });
     updateSettings('businessType' as any, businessType);
     updateSettings('businessCategory' as any, category);
@@ -115,7 +139,7 @@ export default function Onboarding() {
                 مرحباً في <span style={{ color: '#1FA565' }}>AMAN<span style={{ color: '#E0524C' }}>Z</span>INE</span>
               </h1>
               <p style={{ fontSize: 14, color: 'var(--ink2)', lineHeight: 1.8, marginBottom: 24 }}>
-                سنجهّز متجرك في أقل من دقيقة. أجب عن أسئلة بسيطة فقط — يمكنك تغيير كل شيء لاحقاً.
+                باش نجهّزو ليك أشمن تجربة — نسولوك سؤال ولا جوج بسّاح. تقدر تبدّل كلشي من بعد.
               </p>
               <button onClick={next} className="btn btn-primary btn-xl" style={{ width: '100%', justifyContent: 'center' }}>
                 لنبدأ
@@ -123,6 +147,32 @@ export default function Onboarding() {
               <button onClick={skip} style={{ marginTop: 12, color: 'var(--ink3)', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', display: 'block', width: '100%', fontFamily: 'inherit' }}>
                 تخطي والدخول مباشرة
               </button>
+            </div>
+          )}
+
+          {/* ROLE — «القانون يختلف»: من أنت؟ */}
+          {step === 'role' && (
+            <div>
+              <div style={{ marginBottom: 18, textAlign: 'center' }}>
+                <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink1)' }}>شنو جاي دير فأمانزين؟</h2>
+                <p style={{ fontSize: 13, color: 'var(--ink3)', marginTop: 6 }}>اختر باش نوجّهو ليك التجربة المناسبة — تقدر تبدّل من بعد.</p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {ROLES.map(r => (
+                  <button key={r.id} onClick={() => chooseRole(r.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 14, textAlign: 'right', padding: '16px 16px', borderRadius: 16, border: `1.5px solid ${r.color}55`, background: `${r.color}12`, cursor: 'pointer', fontFamily: 'inherit', transition: 'transform .15s' }}
+                    onMouseDown={e => (e.currentTarget.style.transform = 'scale(.98)')}
+                    onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+                    onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
+                    <span style={{ fontSize: 30, flexShrink: 0 }}>{r.icon}</span>
+                    <span style={{ flex: 1 }}>
+                      <span style={{ display: 'block', fontSize: 16, fontWeight: 900, color: 'var(--ink1)' }}>{r.title}</span>
+                      <span style={{ display: 'block', fontSize: 12.5, color: 'var(--ink3)', marginTop: 2 }}>{r.sub}</span>
+                    </span>
+                    <ChevronLeft size={18} style={{ color: r.color, flexShrink: 0 }} />
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

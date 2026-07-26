@@ -38,6 +38,7 @@ export interface UnderstandingContext {
   city?: string;
   activity?: string;          // نوع النشاط (تاجر أدوات كهربائيّة…)
   language?: UnderLang;
+  image?: string;             // Vision — صورة base64 (data:) اختياريّة
 }
 
 // ── واجهة المزوّد — الكلّ يحقّقها (Gemini/GPT/Claude/Offline) ──
@@ -92,8 +93,43 @@ export const OfflineProvider: UnderstandingProvider = {
   understand: async (text, ctx) => understandRules(text, ctx),
 };
 
-// مزوّدات الذكاء — اليوم Stub (لا مفتاح ⇒ غير مُهيّأة ⇒ نسقط للقواعد).
-// يوم تُضيف مفتاحًا: نفّذ available()+understand() في هذا الملفّ وحده — لا شيء آخر يتغيّر.
+// المزوّد البعيد — نداءٌ واحد إلى الخادم `/api/ai/understand` الذي يعيد استعمال
+// بنية aiChat (Gemini/GPT/Claude/DeepSeek) الموجودة. الخادم يختار المزوّد ويقرأ
+// المفاتيح؛ إن لم يكن هناك مفتاحٌ يعيد { available:false } ⇒ نسقط للقواعد بأمان.
+// تبديل المزوّد غدًا = إعداداتٌ في الخادم، لا مسّ لهذا الملفّ.
+export const RemoteProvider: UnderstandingProvider = {
+  name: 'remote',
+  available: () => typeof fetch !== 'undefined',
+  async understand(text, ctx) {
+    try {
+      const r = await fetch('/api/ai/understand', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, image: ctx?.image, context: { city: ctx?.city, activity: ctx?.activity } }),
+      });
+      if (!r.ok) return null;
+      const j = await r.json();
+      if (!j || !j.available || !j.result) return null;
+      const u = j.result;
+      const INTENT_MAP: Record<string, UnderstandingResult['intent']> = {
+        find_pro: 'HELP', buy: 'BUY', sell: 'SELL', book: 'HELP',
+        question: 'QUESTION', explore: 'EXPLORE', none: 'NONE',
+      };
+      return {
+        intent: INTENT_MAP[String(u.intent || 'none')] || 'NONE',
+        profession: u.service || undefined,
+        problem: u.problem || undefined,
+        city: u.city || undefined,
+        object: undefined,
+        language: (u.language || 'mixed') as UnderLang,
+        confidence: typeof u.confidence === 'number' ? u.confidence : 0.7,
+        reasoning: Array.isArray(u.reasoning) ? u.reasoning : [],
+        source: 'llm',
+      };
+    } catch { return null; }   // شبكة/خادم ⇒ لا نكسر شيئًا، نسقط للقواعد
+  },
+};
+
+// Stubs محفوظة (للتوثيق/الرجوع) — غير مستعملة في السلسلة.
 function makeStubProvider(name: string): UnderstandingProvider {
   return { name, available: () => false, understand: async () => null };
 }
@@ -101,8 +137,8 @@ export const GeminiProvider = makeStubProvider('gemini');
 export const GPTProvider = makeStubProvider('gpt');
 export const ClaudeProvider = makeStubProvider('claude');
 
-// سلسلة المزوّدات بالأولويّة (رخيص/سريع أوّلًا). قابلةٌ للتبديل بلا مسّ الواجهة.
-const LLM_CHAIN: UnderstandingProvider[] = [GeminiProvider, GPTProvider, ClaudeProvider];
+// سلسلة المزوّدات: الخادم البعيد (يقرّر المزوّد الفعليّ داخليًّا).
+const LLM_CHAIN: UnderstandingProvider[] = [RemoteProvider];
 
 // بوّابة التصعيد — نرسل للذكاء فقط حين تضعف القواعد **و** يكون النصّ من النوع الصعب.
 // (تحيّات/حالات واضحة ⇒ تبقى قواعد ⇒ الاستخدام ~١٠-٣٠٪ فقط.)
@@ -128,7 +164,8 @@ export function shouldEscalate(text: string, base: UnderstandingResult): boolean
 // ── الطبقة ③: التنسيق الهجين (متزامن للقواعد، لا-متزامن للذكاء عند اللزوم) ──
 export async function understandHybrid(text: string, ctx?: UnderstandingContext): Promise<UnderstandingResult> {
   const base = understandRules(text, ctx);
-  if (!shouldEscalate(text, base)) return base;         // القواعد كافية
+  // صورةٌ حاضرة ⇒ نُصعّد دائمًا (الرؤية شغل الذكاء)؛ وإلّا نتبع بوّابة التصعيد.
+  if (!ctx?.image && !shouldEscalate(text, base)) return base;
   for (const p of LLM_CHAIN) {
     if (!p.available()) continue;
     try {

@@ -5,6 +5,7 @@ import './understand.test';
 import './arabizi.test';
 import './understanding.test';
 import './knowledge.test';
+import './knowledgeGraph.test';
 import './memory.test';
 import './describe.test';
 import './systemMap.test';

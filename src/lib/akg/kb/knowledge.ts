@@ -8,7 +8,8 @@
 //   resolveCity('bghit sbak f casa')          → { city:'الدار البيضاء' }
 // ============================================================
 
-import { CONCEPTS, CITIES } from './knowledgeData';
+import { CITIES } from './knowledgeData';
+import { CONCEPTS } from './concepts';
 import { deArabizi } from './arabizi';
 
 // ── تطبيعٌ عربيّ (المراحل ١-٨): تشكيل، توحيد حروف، تكرار، رموز ──

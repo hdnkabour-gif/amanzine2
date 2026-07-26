@@ -767,4 +767,96 @@ function _parseDataUrl(imageUrl) {
   return m ? { mime: m[1], b64: m[2] } : null;
 }
 
+// ══════════════════════════════════════════════════════════════
+//   UNDERSTAND — طبقة فهمِ المحتاج (Context Engine عبر LLM). آخر خطوة (fallback)
+//   فوق القواعد: النصّ الحرّ الطويل/الغامض الذي تُفوِّته القواعد ⇒ JSON منظّم فقط
+//   (لا ردّ بيع، لا محادثة). عامّ (للمحتاج قبل التسجيل)؛ المفاتيح من env المنصّة
+//   أو إعدادات userId إن مُرِّر. بلا مفتاح ⇒ { available:false } فيسقط العميل للقواعد.
+// ══════════════════════════════════════════════════════════════
+const UNDERSTAND_SYS = [
+  'أنت طبقة فهمٍ داخل AMANZINE (المغرب). حوّل ما يكتبه المستخدم بأيّ لغة',
+  '(دارجة/عربية/فرنسية/إنجليزية/Arabizi) إلى JSON منظّم فقط — لا ردّ محادثة، لا بيع.',
+  'افهم السياق لا الكلمات: «الما كيقطر من الصالون»→تسرّب ماء→سبّاك؛',
+  '«الباب ما بقا كيسدش»→نجّار؛ «المكينة ما بقاتش كتخدم»→تقنيّ إصلاح؛',
+  '«بغيت ندهّن الدار قبل العيد»→صبّاغ، urgency=true.',
+  'أعِد JSON فقط بهذا الشكل بلا أيّ نصٍّ إضافيّ:',
+  '{"intent":"find_pro|buy|sell|book|question|explore|none","service":"<الخدمة بالعربية>",',
+  '"problem":"<المشكلة إن وُجدت أو null>","category":"automotive|home_services|health|beauty|food|digital|other",',
+  '"city":"<المدينة أو null>","urgency":true|false,"language":"darija|ar|fr|en|mixed",',
+  '"confidence":0.0,"reasoning":["سبب مختصر"],"possible_questions":["سؤال توضيحيّ"]}',
+].join(' ');
+
+function _safeJson(s) {
+  if (!s) return null;
+  let t = String(s).trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+  const a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if (a >= 0 && b > a) t = t.slice(a, b + 1);
+  try { return JSON.parse(t); } catch { return null; }
+}
+function _normUnderstanding(p) {
+  if (!p || typeof p !== 'object') return null;
+  const clamp = n => (typeof n === 'number' && n >= 0 && n <= 1 ? n : 0.7);
+  const arr = x => (Array.isArray(x) ? x.filter(v => typeof v === 'string').slice(0, 6) : []);
+  const nn = v => (v == null || v === 'null' || v === '' ? undefined : String(v));
+  return {
+    intent: nn(p.intent) || 'none',
+    service: nn(p.service),
+    problem: nn(p.problem),
+    category: nn(p.category),
+    city: nn(p.city),
+    urgency: p.urgency === true || p.urgency === 'true',
+    language: nn(p.language) || 'mixed',
+    confidence: clamp(p.confidence),
+    reasoning: arr(p.reasoning),
+    possible_questions: arr(p.possible_questions),
+  };
+}
+
+router.post('/understand', async (req, res) => {
+  try {
+    const text = String(req.body?.text || '').slice(0, 500).trim();
+    const hasImage = typeof req.body?.image === 'string' && req.body.image.startsWith('data:');
+    if (!text && !hasImage) return res.status(400).json({ error: 'text or image required' });
+    let dbAi = null;
+    if (req.body?.userId) { try { const s = await db.getSettings(req.body.userId); dbAi = s?.ai || null; } catch { /* noop */ } }
+    const keys = _resolveAIKeys(req.body?.ai, dbAi);
+    if (!Object.values(keys).some(Boolean)) return res.json({ available: false });
+    // مزوّدٌ رخيصٌ جيّدٌ بالدارجة أوّلًا (DeepSeek/Gemini)، ثمّ الباقي.
+    const ctx = req.body?.context || {};
+    const ctxLine = ctx && (ctx.city || ctx.activity) ? `\n[سياق: ${[ctx.city && 'مدينة:' + ctx.city, ctx.activity && 'نشاط:' + ctx.activity].filter(Boolean).join(' · ')}]` : '';
+    // Vision Engine — صورة (base64) اختياريّة. نُعيد استعمال دعم aiChat للرؤية (Gemini/OpenAI/Claude).
+    const img = (typeof req.body?.image === 'string' && req.body.image.startsWith('data:') && req.body.image.length < 2_800_000) ? req.body.image : '';
+    // Gemini قويٌّ بالرؤية ورخيص؛ نفضّله للصور إن توفّر مفتاحه.
+    const provider = req.body?.provider || (img && keys.gemini ? 'gemini' : dbAi?.provider) || (keys.deepseek ? 'deepseek' : keys.gemini ? 'gemini' : 'openai');
+    const out = await aiChat({
+      keys, provider,
+      models: { openai: 'gpt-4o-mini', claude: dbAi?.claudeModel },
+      sysPrompt: img ? UNDERSTAND_SYS + ' إن وُجدت صورةٌ: استخرج الأشياء/العلامات/الأضرار ثمّ استنتج service (مثال: سيّارة+عجلة مثقوبة→mechanic). JSON فقط.' : UNDERSTAND_SYS,
+      history: [], message: (text || 'صف المشكلة في الصورة واستنتج الخدمة') + ctxLine,
+      imageUrl: img, maxTokens: img ? 380 : 320, temperature: 0, jsonMode: true,
+    });
+    if (!out || !out.text) return res.json({ available: true, result: null });
+    const parsed = _normUnderstanding(_safeJson(out.text));
+    return res.json({ available: true, provider: out.provider, result: parsed });
+  } catch (e) {
+    return res.status(500).json({ error: 'understand failed' });
+  }
+});
+
+// ── Learning loop: تبليغ «ما لم نفهمه» (عامّ) + مراجعته (أدمن) ──
+router.post('/report-unknown', async (req, res) => {
+  try {
+    const t = String(req.body?.text || '').trim().slice(0, 200);
+    if (t.length < 2) return res.json({ ok: false });
+    await db.bumpUnknownText(t);
+    return res.json({ ok: true });
+  } catch { return res.json({ ok: false }); }
+});
+router.get('/unknown-report', auth, async (req, res) => {
+  try {
+    const rows = await db.topUnknownTexts(Number(req.query.limit) || 100);
+    return res.json({ unknowns: rows });
+  } catch { return res.status(500).json({ error: 'report failed' }); }
+});
+
 module.exports = router;

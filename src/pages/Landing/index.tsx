@@ -6,13 +6,9 @@ import { BackToTop, Zellige } from './components';
 import PromoBanner from './sections/PromoBanner';
 import Header from './sections/Header';
 import Hero from './sections/Hero';
-import LiveTicker from './sections/LiveTicker';
 import LiveMarketplace from './sections/LiveMarketplace';
-import OSPreview from './sections/OSPreview';
 import Cities from './sections/Cities';
-import Bento from './sections/Bento';
 import HowItWorks from './sections/HowItWorks';
-import Pricing from './sections/Pricing';
 import FAQ from './sections/FAQ';
 import FinalCTA from './sections/FinalCTA';
 import Footer from './sections/Footer';
@@ -62,15 +58,14 @@ function Shell() {
         <div style={{ position: 'fixed', top: 0, insetInlineStart: 0, height: 3, width: `${Math.round(prog * 100)}%`, background: `linear-gradient(90deg, ${C.orange}, ${C.purple}, ${C.blue})`, zIndex: 60, transition: 'width .1s linear' }} />
         <PromoBanner />
         <Header />
+        {/* Landing المحتاج: يبدأ بـ«آش واقع؟» (إثبات الفهم)، ثمّ كيف يعمل، فالمدن، فالسوق.
+            حُذف من الواجهة ما يخصّ التاجر/الممنوع (Bento «منظومة تجارة/ذكاء اصطناعيّ» ·
+            Pricing على الـLanding · شريط «كن أوّل تاجر») — الميثاق: أثبت لا تشرح، لغة بشر. */}
         <main>
           <Hero />
-          <LiveTicker />
-          <LiveMarketplace />
-          <OSPreview />
-          <Cities />
-          <Bento />
           <HowItWorks />
-          <Pricing />
+          <Cities />
+          <LiveMarketplace />
           <FAQ />
           <FinalCTA />
         </main>
