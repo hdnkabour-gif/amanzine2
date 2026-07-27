@@ -244,6 +244,14 @@ async function startServer() {
       console.log(`[ENV] NODE_ENV=${process.env.NODE_ENV || 'development'}`);
       console.log(`[ENV] PORT=${PORT}`);
       ensureAdmin();
+      // مَن يملك لوحة المنصّة فعلًا؟ سطرٌ واحدٌ في السجلّ يمنع مفاجأة «403» بعد النشر.
+      try {
+        const { platformAdminEmails } = require('./middleware/platformAdmin');
+        const list = platformAdminEmails();
+        console.log(list.length
+          ? `[Admin] أدمن المنصّة: ${list.join(', ')}`
+          : '[Admin] ⚠️  لا ADMIN_EMAIL — لوحة المنصّة مقفلة في الإنتاج.');
+      } catch { /* noop */ }
     });
 
     // ── WebSocket (moved inside async start) ─────────────────

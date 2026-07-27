@@ -44,10 +44,9 @@ function sendWhatsAppOTP(phoneDigits, code) {
 // Platform-admin gate: if PLATFORM_ADMIN_EMAIL (or ADMIN_EMAIL) is set,
 // only that account can moderate; otherwise any authenticated user can
 // (keeps dev/MVP working without extra config).
-function isPlatformAdmin(req) {
-  const pa = process.env.PLATFORM_ADMIN_EMAIL || process.env.ADMIN_EMAIL;
-  return !pa || (req.user && req.user.email === pa);
-}
+// مصدرٌ واحد مع بقيّة المنصّة. كانت المقارنة هنا `email === pa` **حسّاسةً لحالة
+// الأحرف**: بريدٌ فيه حرفٌ كبير في متغيّرات البيئة ⇒ 403 صامتة للمالك نفسه.
+const { isPlatformAdmin } = require('../middleware/platformAdmin');
 
 // Anti-spam: max 10 submissions/hour per IP for the public quick-seller form.
 const submitLimiter = rateLimit({
