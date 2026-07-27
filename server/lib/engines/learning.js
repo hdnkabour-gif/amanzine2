@@ -33,10 +33,15 @@ function init(bus) {
 
 // ملخّص «عقل AMANZINE» — كله مجمّع/مجهّل (DR-0004 + حدود الخصوصية DR-0003 §7).
 async function brain({ days = 30 } = {}) {
-  const [stages, quality, topMisses] = await Promise.all([
+  // topCities/topTerms إضافةٌ للوحة المالك: «أفضل مدينة · أفضل خدمة».
+  // كلٌّ منها اختياريّ — فشلُه لا يُسقط اللوحة كاملة.
+  const safe = (p) => p.catch(() => []);
+  const [stages, quality, topMisses, topCities, topTerms] = await Promise.all([
     db.getLearningStages({ days }),
     db.getSearchQuality({ days }),
     db.listSearchMisses({ status: 'open', limit: 10 }),
+    safe(db.getTopCities({ days, limit: 8 })),
+    safe(db.getTopTerms({ days, limit: 10 })),
   ]);
   const searches = quality.total || 0;
   const rate = (n) => (searches ? Math.round(((n || 0) / searches) * 1000) / 1000 : 0);
@@ -48,7 +53,7 @@ async function brain({ days = 30 } = {}) {
     orderRate:   rate(stages.order),
     reviewRate:  rate(stages.review),
   };
-  return { days, searches, quality, funnel: stages, score, topMisses };
+  return { days, searches, quality, funnel: stages, score, topMisses, topCities, topTerms };
 }
 
 module.exports = { STAGE_OF, stageOf, init, brain };

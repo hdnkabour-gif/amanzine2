@@ -782,7 +782,8 @@ const UNDERSTAND_SYS = [
   'أعِد JSON فقط بهذا الشكل بلا أيّ نصٍّ إضافيّ:',
   '{"intent":"find_pro|buy|sell|book|question|explore|none","service":"<الخدمة بالعربية>",',
   '"problem":"<المشكلة إن وُجدت أو null>","category":"automotive|home_services|health|beauty|food|digital|other",',
-  '"city":"<المدينة أو null>","urgency":true|false,"language":"darija|ar|fr|en|mixed",',
+  '"city":"<اسم المدينة بالعربيّة فقط مثل: الدار البيضاء · الرباط · مراكش — أو null>",',
+  '"urgency":true|false,"language":"darija|ar|fr|en|mixed",',
   '"confidence":0.0,"reasoning":["سبب مختصر"],"possible_questions":["سؤال توضيحيّ"]}',
 ].join(' ');
 
@@ -812,6 +813,16 @@ function _normUnderstanding(p) {
   };
 }
 
+// ذاكرة المحادثة للفهم: تحويل آخر جُمَل المستخدم إلى history يفهمه aiChat.
+// بلا هذا كان كلّ سؤالٍ منفصلًا («فالرباط» بعد «بغيت سبّاك» تضيع). نحدّ بـ6 جُمَل قصيرة.
+function _recentHistory(recent) {
+  if (!Array.isArray(recent)) return [];
+  return recent
+    .filter(m => typeof m === 'string' && m.trim())
+    .slice(-6)
+    .map(m => ({ role: 'user', content: String(m).slice(0, 200) }));
+}
+
 router.post('/understand', async (req, res) => {
   try {
     const text = String(req.body?.text || '').slice(0, 500).trim();
@@ -832,10 +843,13 @@ router.post('/understand', async (req, res) => {
       keys, provider,
       models: { openai: 'gpt-4o-mini', claude: dbAi?.claudeModel },
       sysPrompt: img ? UNDERSTAND_SYS + ' إن وُجدت صورةٌ: استخرج الأشياء/العلامات/الأضرار ثمّ استنتج service (مثال: سيّارة+عجلة مثقوبة→mechanic). JSON فقط.' : UNDERSTAND_SYS,
-      history: [], message: (text || 'صف المشكلة في الصورة واستنتج الخدمة') + ctxLine,
+      history: _recentHistory(req.body?.recentMessages),
+      message: (text || 'صف المشكلة في الصورة واستنتج الخدمة') + ctxLine,
       imageUrl: img, maxTokens: img ? 380 : 320, temperature: 0, jsonMode: true,
     });
-    if (!out || !out.text) return res.json({ available: true, result: null });
+    // فشلُ المزوّد = «الذكاء غير متاحٍ الآن» لا «متاحٌ بنتيجةٍ فارغة» — العميل يسقط
+    // للقواعد في الحالتين، لكنّ التوحيد يمنع سوء تفسيرٍ مستقبليًّا.
+    if (!out || !out.text) return res.json({ available: false });
     const parsed = _normUnderstanding(_safeJson(out.text));
     return res.json({ available: true, provider: out.provider, result: parsed });
   } catch (e) {

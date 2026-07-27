@@ -203,12 +203,17 @@ export default function AuthPage() {
               borderRightColor: 'rgba(193,39,45,0.4)',
               animation: 'float 4s ease-in-out infinite',
             }} />
+            {/* الشعار SVG (2.2KB، حادٌّ على كلّ الشاشات) بدل PNG 235KB الضبابيّ عند
+                التكبير. <picture> يُسقط تلقائيًّا إلى PNG لو تعذّر الـSVG، ثمّ للحرف. */}
             {logoErr
               ? <span style={{ fontSize: 40, fontWeight: 900, color: '#006233' }}>A</span>
-              : <img src="/brand/amanzine-mark-512.png" alt="AMANZINE"
-                  style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative' }}
-                  onError={() => setLogoErr(true)}
-                />
+              : <picture style={{ width: '100%', height: '100%', position: 'relative' }}>
+                  <source srcSet="/amanzine-logo.svg" type="image/svg+xml" />
+                  <img src="/brand/amanzine-mark-512.png" alt="AMANZINE" width={88} height={88}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative' }}
+                    onError={() => setLogoErr(true)}
+                  />
+                </picture>
             }
           </div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: DS.text, marginBottom: 4, letterSpacing: '-0.02em' }}>

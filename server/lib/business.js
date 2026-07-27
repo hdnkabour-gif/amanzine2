@@ -211,15 +211,21 @@ const BusinessService = {
   },
 
   // للخريطة: نفس المصدر، مع تصفية بالموقع والمسافة
+  // السوق المغربيّ: أغلب المزوّدين عندهم **مدينة** بلا إحداثيّات. إسقاطُهم كان
+  // يُفرغ نتائج «القريب» في مدنٍ كاملة. القاعدة الآن: من له إحداثيّات يُقاس بالمسافة،
+  // ومن له مدينةٌ مطابقةٌ فقط يبقى **بعد** أصحاب المسافة (بلا distanceKm ⇒ إشارةٌ محايدة).
   async searchNearby({ lat, lng, radiusKm = 25, city, q, type, limit = 60 } = {}) {
     const all = await this.search({ city, q, type, limit });
     const origin = (num(lat) != null && num(lng) != null) ? { lat: +lat, lng: +lng } : null;
     const withLoc = all.filter(b => b.location);
-    if (!origin) return withLoc;
-    return withLoc
+    const noLoc = all.filter(b => !b.location);
+    if (!origin) return [...withLoc, ...noLoc];
+    const near = withLoc
       .map(b => ({ ...b, distanceKm: +haversineKm(origin, b.location).toFixed(2) }))
       .filter(b => b.distanceKm <= radiusKm)
       .sort((a, b) => a.distanceKm - b.distanceKm);
+    // احتياطيّ المدينة: لا نُخفي مزوّدًا صالحًا لمجرّد أنّ إحداثيّاته ناقصة.
+    return [...near, ...noLoc];
   },
 
   // مرادف يستعمله الذكاء الاصطناعي لاحقاً (نية → استعلام)

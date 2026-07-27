@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import { Sparkles, Send, ArrowLeft, Camera } from 'lucide-react';
-import { parseNeed, type NeedResult, type NeedOption } from '../lib/needEngine';
+import { type NeedResult, type NeedOption } from '../lib/needEngine';
 import { understandHybrid } from '../lib/understanding';
 import { resolveConcept, conceptGraph, type ConceptNode } from '../lib/akg/kb';
 import { buildContext } from '../lib/core/context';
 import { playGate } from '../lib/gateTransition';
+import { receptionStart, receptionTurn, receptionUnderstood, receptionEnd, recordDecision } from '../lib/journey';
+import { orchestrate, recordExperience } from '../lib/core/orchestrator';
+import type { Via } from '../lib/experienceLog';
 import type { Page } from '../types';
 
 // ============================================================
@@ -17,6 +20,16 @@ interface Msg { who: 'user' | 'ai'; text: string; result?: NeedResult; node?: Co
 
 const GREET = 'السلام 👋 أنا مساعد أمانزين. قول ليا شنو محتاج — نجّار، بيتزا، شقة فالرباط، بغيت نبيع… ونوجّهك.';
 const SUGGEST = ['بغيت سبّاك مستعجل', 'فين نلقى طبيب أسنان', 'بغيت نبيع تلفون', 'شقة للكراء فالرباط'];
+
+// يحمل الحاجة المفهومة إلى السوق حتى يُرتّبها محرّك البحث/الترتيب (/api/search) —
+// وإلّا هبط المستخدم على سوقٍ عامّ وضاع الفهم. نُلحق q (الحاجة) + city إن وُجدا.
+function withNeed(url: string | undefined, q: string, city?: string): string {
+  let u = url || '/market';
+  if (!u.startsWith('/market')) return u;
+  if (!/[?&]q=/.test(u) && q.trim()) { u += (u.includes('?') ? '&' : '?') + 'q=' + encodeURIComponent(q.trim()); }
+  if (city && !/[?&]city=/.test(u)) { u += '&city=' + encodeURIComponent(city); }
+  return u;
+}
 
 // ضغطُ صورةٍ إلى 512px كحدٍّ أقصى (توفير تكلفة الرؤية ~٨٠٪) → data URL (jpeg 0.7).
 function shrinkImage(file: File, max = 512): Promise<string> {
@@ -44,8 +57,14 @@ export default function AssistantPage() {
   const [text, setText] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // آخر طلبٍ مفهوم — نسجّل التجربة (Experience) لحظة ما ينقر المستخدم فعلًا على وجهة.
+  const lastRef = useRef<{ raw: string; intent: string; journey: string; uctx: any } | null>(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
+
+  // حلقة التعلّم: المساعد قلبُ المنصّة — كلّ حوارٍ فيه يُغذّي نفس القياس الذي يغذّيه
+  // «شنو محتاج» (استقبال + قرار + التقاط «ما لم نفهمه»). بلا هذا كان القلبُ أصمَّ عن التعلّم.
+  useEffect(() => { receptionStart(); return () => { receptionEnd('idle'); }; }, []);
 
   // 📷 صوّر المشكلة — يضغط الصورة ويرسلها للفهم (Vision عبر /api/ai/understand).
   const sendImage = async (file: File) => {
@@ -53,11 +72,13 @@ export default function AssistantPage() {
     const uctx = buildContext(store as any, { authed: !!user });
     setMsgs(m => [...m, { who: 'user', text: '📷 صورة المشكلة' }, { who: 'ai', text: 'كنتفرّج فالصورة… 🔎' }]);
     try {
-      const u = await understandHybrid('', { image, city: uctx.place.city || undefined });
+      const prior = msgs.filter(m => m.who === 'user').map(m => m.text);
+      const u = await understandHybrid('', { image, city: uctx.place.city || undefined, recentMessages: prior });
       const svc = u.profession || u.problem;
       if (u.source === 'llm' && svc) {
+        receptionUnderstood();  // الرؤية فهمت المشكل من صورة → حالةٌ مفهومة
         const node = conceptGraph(svc) || null;
-        const res: NeedResult = { intent: 'find_pro', label: svc, color: 'var(--info,#3B82F6)', tags: [], url: '/market', next: '' };
+        const res: NeedResult = { intent: 'find_pro', label: svc, color: 'var(--info,#3B82F6)', tags: [], url: withNeed('/market', node?.name || svc, u.city || uctx.place.city || undefined), next: '' };
         setMsgs(m => [...m, { who: 'ai', text: `أها 👍 باين ${svc}${u.city ? ` ف${u.city}` : ''}. نوصّلك بالأقرب.`, result: res, node }]);
       } else {
         setMsgs(m => [...m, { who: 'ai', text: 'ما بانش ليّ مزيان فالصورة — وصّف ليّ المشكل بكلمة وحدة؟' }]);
@@ -67,29 +88,42 @@ export default function AssistantPage() {
     }
   };
 
-  const send = (q: string) => {
+  const send = (q: string, source: 'text' | 'button' = 'text') => {
     const query = q.trim(); if (!query) return;
     const uctx = buildContext(store as any, { authed: !!user });
-    const r = parseNeed(query, { hour: uctx.time.hour, city: uctx.place.city });
+    // عقلٌ واحد: نمرّ عبر الـ Orchestrator (لا parseNeed مباشرةً) ليصل الطلب أيضًا إلى
+    // تعلّم الخادم (searchAPI.query) — كان المساعد يتجاوزه فيضيع نصف التعلّم.
+    const { result: r, journey: jrn } = orchestrate(query, uctx);
+    // حلقة التعلّم: نُغذّي القياس بنفس منطق «شنو محتاج» — دورٌ، زمنُ فهم، قرار، والتقاطُ المجهول.
+    receptionTurn(query, source);
+    if (r.intent !== 'unknown') receptionUnderstood();
+    recordDecision('chat', r.intent, source === 'button' ? 'chat_button' : 'chat_text', query);
     // لا «ما فهمناش» أبدًا: دائمًا افتتاحٌ + الخطوة التالية (حتى عند unknown صار حوارًا).
     const reply = (r.open ? r.open + ' ' : '') + r.next;
     // عُقدة الرسم: إن عُرف المفهوم، نرفق أسئلته التوضيحيّة وخدماته المرتبطة.
     const svc = resolveConcept(query)?.id;
     const node = svc ? conceptGraph(svc) : null;
-    setMsgs(m => [...m, { who: 'user', text: query }, { who: 'ai', text: reply, result: r, node }]);
+    // احمل الحاجة إلى السوق (إلّا حين تكون الوجهة صفحةً داخليّة) — لا يضيع الفهم.
+    const rr: NeedResult = (!r.page && r.url) ? { ...r, url: withNeed(r.url, query, uctx.place.city || undefined) } : r;
+    lastRef.current = { raw: query, intent: r.intent, journey: String(jrn), uctx };
+    setMsgs(m => [...m, { who: 'user', text: query }, { who: 'ai', text: reply, result: rr, node }]);
     setText('');
 
     // آخر طبقة (AI): إن عجزت القواعد (unknown) نستدعي الفهم الهجين — لا يوقف الحوار،
     // يحسّنه. بلا مفتاحٍ على الخادم يسقط للقواعد بلا أثرٍ سلبيّ (source='rules').
     if (r.intent === 'unknown') {
-      understandHybrid(query, { city: uctx.place.city || undefined })
+      // ذاكرة المحادثة: نمرّر ما سبق أن كتبه المستخدم في هذه الجلسة (لا الردود)
+      // ليفهم الذكاء الجملة الناقصة في سياقها بدل معاملتها كسؤالٍ يتيم.
+      const prior = msgs.filter(m => m.who === 'user').map(m => m.text);
+      understandHybrid(query, { city: uctx.place.city || undefined, recentMessages: prior })
         .then(u => {
           if (u.source !== 'llm') return;
           const svc = u.profession || u.problem;
           if (!svc) return;
+          receptionUnderstood();  // الطبقةُ الأخيرة (AI) أنقذت حالةً كانت مجهولة → صارت مفهومة
           const res: NeedResult = {
             intent: 'find_pro', label: svc, color: 'var(--info,#3B82F6)', tags: [],
-            url: '/market', next: '',
+            url: withNeed('/market', conceptGraph(svc)?.name || svc, u.city || uctx.place.city || undefined), next: '',
           };
           const line = `أها 👍 فهمت — باين ${svc}${u.city ? ` ف${u.city}` : ''}. نوصّلك بالأقرب ليك.`;
           setMsgs(m => [...m, { who: 'ai', text: line, result: res }]);
@@ -98,16 +132,30 @@ export default function AssistantPage() {
     }
   };
 
+  // التجربة تُسجَّل عند الفعل لا عند الفهم: هذه أقوى إشارةٍ للتعلّم (نيّة → وجهة فعليّة).
+  const logExperience = (dest: string, via: Via = 'type') => {
+    const L = lastRef.current; if (!L) return;
+    try { recordExperience({ raw: L.raw, intent: L.intent, what: L.raw, dest, via, journey: L.journey, uctx: L.uctx }); }
+    catch { /* التسجيل لا يعطّل التنقّل أبدًا */ }
+  };
+
   const goTo = (r: NeedResult) => {
-    if (r.page) { const p = r.page as Page; playGate(() => setPage(p)); return; }
+    if (r.page) { const p = r.page as Page; logExperience(String(r.page)); playGate(() => setPage(p)); return; }
     const url = r.url || '/market';
+    logExperience(url);
+    receptionEnd('routed');
     playGate(() => { try { window.location.assign(url); } catch { /* noop */ } });
   };
 
-  // نقر على خيارٍ في سؤالٍ موجّه → يقود لوجهته (صفحة أو رابط).
+  // نقر على خيارٍ في سؤالٍ موجّه → يقود لوجهته (صفحة أو رابط). التسمية = التنقيح
+  // (مثلاً «أسنان») ⇒ نحملها كـ q إلى السوق ليُرتّبها البحث بدل سوقٍ عامّ.
   const goToOption = (opt: NeedOption) => {
     if (opt.page) { const p = opt.page as Page; playGate(() => setPage(p)); return; }
-    const url = opt.url || '/market';
+    const uctx = buildContext(store as any, { authed: !!user });
+    receptionTurn(opt.label, 'button');
+    const url = withNeed(opt.url || '/market', opt.label, uctx.place.city || undefined);
+    logExperience(url, 'guided');
+    receptionEnd('routed');
     playGate(() => { try { window.location.assign(url); } catch { /* noop */ } });
   };
 
@@ -166,7 +214,7 @@ export default function AssistantPage() {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center' }}>
                     <span style={{ fontSize: 11.5, color: 'var(--ink3)', fontWeight: 700 }}>ولا يهمّك:</span>
                     {m.node.related.slice(0, 4).map(rel => (
-                      <button key={rel.id} onClick={() => send(rel.name)} style={{ padding: '6px 11px', borderRadius: 999, border: `1px solid color-mix(in srgb, ${green} 35%, transparent)`, background: 'transparent', color: 'var(--ink2)', fontSize: 12, fontWeight: 650, fontFamily: 'inherit', cursor: 'pointer' }}>
+                      <button key={rel.id} onClick={() => send(rel.name, 'button')} style={{ padding: '6px 11px', borderRadius: 999, border: `1px solid color-mix(in srgb, ${green} 35%, transparent)`, background: 'transparent', color: 'var(--ink2)', fontSize: 12, fontWeight: 650, fontFamily: 'inherit', cursor: 'pointer' }}>
                         {rel.name}
                       </button>
                     ))}
@@ -183,7 +231,7 @@ export default function AssistantPage() {
       {msgs.length <= 1 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {SUGGEST.map(s => (
-            <button key={s} onClick={() => send(s)} style={{ padding: '8px 13px', borderRadius: 99, border: `1px solid color-mix(in srgb, ${green} 40%, transparent)`, background: 'transparent', color: 'var(--ink2)', fontSize: 12.5, fontWeight: 650, fontFamily: 'inherit', cursor: 'pointer' }}>{s}</button>
+            <button key={s} onClick={() => send(s, 'button')} style={{ padding: '8px 13px', borderRadius: 99, border: `1px solid color-mix(in srgb, ${green} 40%, transparent)`, background: 'transparent', color: 'var(--ink2)', fontSize: 12.5, fontWeight: 650, fontFamily: 'inherit', cursor: 'pointer' }}>{s}</button>
           ))}
         </div>
       )}

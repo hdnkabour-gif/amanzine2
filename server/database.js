@@ -406,11 +406,20 @@ const db = {
     }
     if (!parts.length) return this.getOrder(id);
     parts.push(`updated_at = NOW()`);
-    await pool.query(`UPDATE orders SET ${parts.join(', ')} WHERE id = $1`, vals);
+    // دفاعٌ في العمق: المسارات تتحقّق من الملكيّة أصلًا، لكن حين يُمرَّر userId
+    // نُقيّد الاستعلام به أيضًا (نفس نمط updateProduct). userId ليس في القائمة
+    // البيضاء أعلاه ⇒ لا يُكتَب كعمود أبدًا، يُستعمل للتقييد فقط.
+    if (u.userId) {
+      vals.push(u.userId);
+      await pool.query(`UPDATE orders SET ${parts.join(', ')} WHERE id = $1 AND user_id = $${idx}`, vals);
+    } else {
+      await pool.query(`UPDATE orders SET ${parts.join(', ')} WHERE id = $1`, vals);
+    }
     return this.getOrder(id);
   },
-  async deleteOrder(id) {
-    await pool.query('DELETE FROM orders WHERE id = $1', [id]);
+  async deleteOrder(id, userId) {
+    if (userId) await pool.query('DELETE FROM orders WHERE id = $1 AND user_id = $2', [id, userId]);
+    else await pool.query('DELETE FROM orders WHERE id = $1', [id]);
   },
 
   // Atomic: find-or-create customer + create order in one transaction
@@ -1288,6 +1297,45 @@ db.resolveSearchMiss = async (id, { category, adminId, status = 'resolved' } = {
     [id, status, category || null, adminId || null]
   );
   return rows[0] || null;
+};
+
+// أكثر الخدمات طلبًا — عدّاد يوميّ مجهّل للمصطلح المطبَّع (بلا هوية، بلا نصّ خام).
+db.recordSearchTerm = async ({ term, hit }) => {
+  const t = String(term || '').trim().slice(0, 60);
+  if (t.length < 2) return;
+  await pool.query(
+    `INSERT INTO search_terms_daily (day, term, hits, total)
+       VALUES (CURRENT_DATE, $1, $2, 1)
+     ON CONFLICT (day, term) DO UPDATE
+       SET hits = search_terms_daily.hits + $2, total = search_terms_daily.total + 1`,
+    [t, hit ? 1 : 0]
+  );
+};
+
+// أعلى المدن نشاطًا (من search_daily — بياناتٌ موجودةٌ أصلًا).
+db.getTopCities = async ({ days = 30, limit = 8 } = {}) => {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(city, 'غير محدّدة') AS city,
+            SUM(total)::int AS total, SUM(hits)::int AS hits, SUM(misses)::int AS misses
+       FROM search_daily
+      WHERE day >= CURRENT_DATE - (($1::int - 1) || ' days')::interval
+      GROUP BY COALESCE(city, 'غير محدّدة')
+      ORDER BY total DESC LIMIT $2`,
+    [days, limit]
+  );
+  return rows;
+};
+
+// أكثر الخدمات طلبًا.
+db.getTopTerms = async ({ days = 30, limit = 10 } = {}) => {
+  const { rows } = await pool.query(
+    `SELECT term, SUM(total)::int AS total, SUM(hits)::int AS hits
+       FROM search_terms_daily
+      WHERE day >= CURRENT_DATE - (($1::int - 1) || ' days')::interval
+      GROUP BY term ORDER BY total DESC LIMIT $2`,
+    [days, limit]
+  );
+  return rows;
 };
 
 // جودة البحث اليومية المجهّلة (DR-0003 §6.b) — عدّاد hit/miss بلا هوية.

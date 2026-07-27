@@ -443,6 +443,16 @@ async function migrate() {
     )`);
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_search_daily_day_city ON search_daily(day, COALESCE(city, ''))`);
 
+    // أكثر الخدمات طلبًا — تجميع يوميّ مجهّل للمصطلح المطبَّع (نفس فلسفة search_daily:
+    // عدّادات بلا هوية). كان النجاح يزيد عدّادًا فقط، فتعذّر معرفة «أفضل خدمة».
+    await client.query(`CREATE TABLE IF NOT EXISTS search_terms_daily (
+      day DATE NOT NULL DEFAULT CURRENT_DATE,
+      term TEXT NOT NULL,                 -- المصطلح المطبَّع (لا نصّ المستخدم الخام)
+      hits INTEGER NOT NULL DEFAULT 0,    -- أعادت نتائج
+      total INTEGER NOT NULL DEFAULT 0
+    )`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_search_terms_day_term ON search_terms_daily(day, term)`);
+
     // Learning Loop — تجميع يومي مجهّل لمراحل القمع (DR-0004). لا هوية مستخدم.
     // شكل طويل (day, stage) → إضافة مرحلة جديدة بلا هجرة (القانون ٩).
     await client.query(`CREATE TABLE IF NOT EXISTS learning_daily (

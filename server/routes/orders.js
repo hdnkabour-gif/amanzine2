@@ -38,7 +38,7 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const o = await db.getOrder(req.params.id);
     if (!o || o.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
-    res.json(await db.updateOrder(o.id, req.body));
+    res.json(await db.updateOrder(o.id, { ...req.body, userId: req.user.id }));
   } catch (e) { console.error('[orders]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -113,7 +113,7 @@ router.put('/:id/approve', auth, async (req, res) => {
     const order = await db.getOrder(req.params.id);
     if (!order || order.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
 
-    await db.updateOrder(order.id, { status: 'approved' });
+    await db.updateOrder(order.id, { userId: req.user.id, status: 'approved' });
 
     // Update customer stats
     if (order.customerId) {
@@ -144,7 +144,7 @@ router.put('/:id/approve', auth, async (req, res) => {
     if (settings.delivery?.autoSendOnApproval && providers.length > 0) {
       const prov = providers[0];
       const tracking = `TRK-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-      await db.updateOrder(order.id, { status: 'processing', deliveryProvider: prov.name, trackingNumber: tracking });
+      await db.updateOrder(order.id, { userId: req.user.id, status: 'processing', deliveryProvider: prov.name, trackingNumber: tracking });
       await db.addLog({ userId: req.user.id, user: 'System', action: `Sent to delivery: ${order.id}`, details: `${prov.name} — ${tracking}`, type: 'delivery', severity: 'info' });
     }
 
@@ -189,7 +189,7 @@ router.put('/:id/approve', auth, async (req, res) => {
       `شكراً لثقتك! 🙏`,
     ].join('\n');
 
-    await db.updateOrder(order.id, { notes: (refreshedOrder?.notes||'') + '\n[INVOICE]' + invoice });
+    await db.updateOrder(order.id, { userId: req.user.id, notes: (refreshedOrder?.notes||'') + '\n[INVOICE]' + invoice });
 
     if (waToken && waPhoneId && refreshedOrder?.customerPhone) {
       try {
@@ -201,7 +201,7 @@ router.put('/:id/approve', auth, async (req, res) => {
     } else {
       const waPhone = (refreshedOrder?.customerPhone||'').replace(/\D/g,'');
       if (waPhone) {
-        await db.updateOrder(order.id, { notes: (refreshedOrder?.notes||'') + '\n[WA_URL]https://wa.me/' + waPhone + '?text=' + encodeURIComponent(invoice) });
+        await db.updateOrder(order.id, { userId: req.user.id, notes: (refreshedOrder?.notes||'') + '\n[WA_URL]https://wa.me/' + waPhone + '?text=' + encodeURIComponent(invoice) });
       }
     }
     const finalOrder = await db.getOrder(order.id);
@@ -215,7 +215,7 @@ router.put('/:id/reject', auth, async (req, res) => {
   try {
     const o = await db.getOrder(req.params.id);
     if (!o || o.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
-    await db.updateOrder(o.id, { status: 'cancelled' });
+    await db.updateOrder(o.id, { userId: req.user.id, status: 'cancelled' });
     await db.addLog({ userId: req.user.id, user: 'Manager', action: `Rejected order: ${o.id}`, details: req.body.reason || '', type: 'order', severity: 'error' });
     const updated = await db.getOrder(o.id);
     req.app.get('broadcast')?.(req.user.id, { event: 'order_updated', data: updated });
@@ -230,7 +230,7 @@ router.put('/:id/ship', auth, async (req, res) => {
     const tracking = req.body.trackingNumber || `TRK-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
     const shipSettings = await db.getSettings(req.user.id) || {};
     const prov = req.body.provider || shipSettings.delivery?.defaultProvider || 'Amana';
-    await db.updateOrder(o.id, { status: 'shipped', trackingNumber: tracking, deliveryProvider: prov });
+    await db.updateOrder(o.id, { userId: req.user.id, status: 'shipped', trackingNumber: tracking, deliveryProvider: prov });
     await db.addLog({ userId: req.user.id, user: 'Manager', action: `Shipped: ${o.id}`, details: tracking, type: 'delivery', severity: 'success' });
     await db.addNotification({ userId: req.user.id, type: 'success', message: `🚚 Shipped — ${tracking}` });
     const shipWaToken = shipSettings.social?.whatsapp?.accessToken;
@@ -257,7 +257,7 @@ router.put('/:id/deliver', auth, async (req, res) => {
   try {
     const o = await db.getOrder(req.params.id);
     if (!o || o.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
-    await db.updateOrder(o.id, { status: 'delivered' });
+    await db.updateOrder(o.id, { userId: req.user.id, status: 'delivered' });
     await db.addLog({ userId: req.user.id, user: 'System', action: `Delivered: ${o.id}`, details: o.customerName, type: 'order', severity: 'success' });
 
     if (o.customerId && o.total > 0) {

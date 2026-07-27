@@ -462,7 +462,17 @@ export const insightsAPI = {
 // Knowledge Studio (أدمن) — عقل AMANZINE: ما تعلّمه + ما لم يفهمه (misses)،
 // مع اعتماد/رفض. يوسّع القاموس من الاستخدام الحقيقيّ، لا من إدخال يدويّ.
 export interface KnowledgeMiss { id: string; raw?: string; normalized?: string; term?: string; count?: number; city?: string; }
-export interface BrainStats { days: number; searches: number; quality?: { total?: number; successRate?: number }; score?: { searchSuccess?: number }; topMisses?: KnowledgeMiss[]; }
+export interface TopCity { city: string; total: number; hits: number; misses: number }
+export interface TopTerm { term: string; total: number; hits: number }
+export interface BrainStats {
+  days: number; searches: number;
+  quality?: { total?: number; hits?: number; misses?: number; successRate?: number };
+  score?: { searchSuccess?: number };
+  funnel?: Record<string, number>;
+  topMisses?: KnowledgeMiss[];
+  topCities?: TopCity[];   // أفضل مدينة (من search_daily)
+  topTerms?: TopTerm[];    // أفضل خدمة (من search_terms_daily)
+}
 export const knowledgeAPI = {
   brain:  (days = 30) => request<BrainStats>('GET', `/knowledge/brain?days=${days}`),
   misses: (status = 'open', limit = 100) => request<{ misses: KnowledgeMiss[] }>('GET', `/knowledge/misses?status=${status}&limit=${limit}`),

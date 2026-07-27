@@ -468,8 +468,10 @@
       <div id="splash-content">
         <!-- Logo -->
         <div id="splash-logo-wrap">
-          <img id="splash-logo" src="/brand/amanzine-mark-512.png" alt="AMANZINE"
-            onerror="this.style.display='none';document.getElementById('splash-logo-fallback').style.display='block'" />
+          <!-- SVG (2.2KB) على أوّل رسمة بدل PNG 235KB — الشاشة الأولى تظهر أسرع وأحدّ.
+               onerror يسقط إلى PNG ثمّ إلى الحرف، فلا تختفي العلامة أبدًا. -->
+          <img id="splash-logo" src="/amanzine-logo.svg" alt="AMANZINE" width="128" height="128"
+            onerror="if(this.src.indexOf('.svg')>-1){this.src='/brand/amanzine-mark-512.png';return;}this.style.display='none';document.getElementById('splash-logo-fallback').style.display='block'" />
           <div id="splash-logo-fallback">A</div>
         </div>
 

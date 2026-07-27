@@ -532,6 +532,11 @@ export default function GuidePage() {
         <div style={{ position: 'absolute', top: -60, right: -40, width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,106,0,0.12), transparent 70%)' }} />
         <div style={{ position: 'absolute', bottom: -50, left: -30, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,0.08), transparent 70%)' }} />
         <div style={{ position: 'relative' }}>
+          {/* العلامة (SVG) — الدليل كان الصفحة الوحيدة بلا شعار، فاختلّ الاتّساق
+              مع Landing وصفحة الدخول. نفس الملفّ الحادّ 2.2KB. */}
+          <img src="/amanzine-logo.svg" alt="" aria-hidden="true" width={44} height={44}
+            style={{ width: 44, height: 44, objectFit: 'contain', marginBottom: 12, display: 'block' }}
+            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 99, background: 'rgba(255,106,0,0.06)', border: '1px solid rgba(255,106,0,0.15)', marginBottom: 16 }}>
             <BookOpen size={14} color="#FF6A00" />
             <span style={{ fontSize: 12, fontWeight: 700, color: '#FF9A55' }}>دليل الاستخدام الكامل</span>

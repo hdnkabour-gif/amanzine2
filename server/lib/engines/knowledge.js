@@ -33,6 +33,8 @@ async function recordSearch({ raw, city, resultCount } = {}) {
   if (r.length < 2 || r.length > 120) return; // بحث حقيقي فقط
   const hit = (Number(resultCount) || 0) > 0;
   try { await db.recordSearchDay({ city: city || null, hit }); } catch (_e) {}
+  // المصطلح المطبَّع (لا النصّ الخام) — يجيب «أكثر الخدمات طلبًا» بلا مسّ الخصوصيّة.
+  try { await db.recordSearchTerm({ term: norm(r), hit }); } catch (_e) {}
   if (!hit) await recordMiss({ raw: r, city });
 }
 

@@ -2,15 +2,16 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-type Step = 'welcome' | 'role' | 'brand' | 'type' | 'category' | 'ai' | 'done';
-const ORDER: Step[] = ['welcome', 'role', 'brand', 'type', 'category', 'ai', 'done'];
+type Step = 'welcome' | 'meet' | 'brand' | 'type' | 'category' | 'ai' | 'done';
+const ORDER: Step[] = ['welcome', 'meet', 'done'];
 
-// الدور — «القانون يختلف»: المحتاج يبحث ويطلب، التاجر يبيع، المزوّد يقدّم خدمة.
-type Role = 'needer' | 'merchant' | 'provider';
-const ROLES: { id: Role; icon: string; title: string; sub: string; color: string }[] = [
-  { id: 'needer',   icon: '🙋', title: 'باغي نلقى حاجة', sub: 'خدمة، مختصّ، ولا منتج — أمانزين يوجّهك',   color: '#0a8f6f' },
-  { id: 'provider', icon: '🔧', title: 'عندي خدمة نقدّمها', sub: 'حرفيّ/مختصّ — يوصلوك الزبناء',            color: '#8B5CF6' },
-  { id: 'merchant', icon: '🏪', title: 'باغي نبيع منتجات', sub: 'متجر، سلع، طلبات — أدوات التاجر كاملة',   color: '#FF6A00' },
+// «نتعارفو» — قدراتٌ لا أدوارٌ مقفلة. ملفٌّ واحد يقدر يدير عدّة أشياء (اليوم محتاج،
+// غدًا مزوّد، بعدها تاجر). يختار المستخدم أكثر من واحدة، ويقدر يزيد/ينقص لاحقًا.
+const INTERESTS: { id: string; icon: string; label: string }[] = [
+  { id: 'find',    icon: '🔎', label: 'نلقى خدمة ولا منتج' },
+  { id: 'provide', icon: '🔧', label: 'نقدّم خدمة (حرفيّ/مختصّ)' },
+  { id: 'sell',    icon: '🛍️', label: 'نبيع منتجات' },
+  { id: 'shop',    icon: '🏪', label: 'عندي محلّ / مؤسّسة' },
 ];
 
 const BTYPE_OPTIONS = [
@@ -32,7 +33,8 @@ const CITIES = ['الدار البيضاء', 'الرباط', 'مراكش', 'فا
 export default function Onboarding() {
   const { settings, updateSettings, setOnboardingCompleted, setPage } = useStore();
   const [step, setStep] = useState<Step>('welcome');
-  const [role, setRole] = useState<Role | ''>('');
+  const [meet, setMeet] = useState({ name: '', city: '', phone: '' });
+  const [caps, setCaps] = useState<Set<string>>(new Set(['find']));
   const [brand, setBrand] = useState({ name: '', currency: 'MAD', phone: '', city: '' });
   const [ai, setAi] = useState({ personality: 'Moroccan Seller', language: 'Darija', tone: 'Friendly' });
   const [businessType, setBusinessType] = useState('products');
@@ -43,19 +45,25 @@ export default function Onboarding() {
   const next = () => { if (idx < ORDER.length - 1) setStep(ORDER[idx + 1]); };
   const prev = () => { if (idx > 0) setStep(ORDER[idx - 1]); };
 
-  // اختيار الدور — يحسم «قانون» التجربة. المحتاج يدخل مباشرةً للحوار (لا إعداد متجر).
-  const chooseRole = (r: Role) => {
-    setRole(r);
-    try { updateSettings('role' as any, r); } catch { /* noop */ }
-    if (r === 'needer') {
-      updateSettings('brand', { ...settings.brand, role: r } as any);
-      updateSettings('onboardingDone', true as any);
-      setOnboardingCompleted(true);
-      setPage('assistant');   // «قول ليا شنو محتاج… ونوجّهك»
-      return;
-    }
-    if (r === 'provider') setBusinessType('services');
-    next();
+  const toggleCap = (id: string) => setCaps(prev => {
+    const n = new Set(prev);
+    if (id === 'find') return n;           // «نلقى» أساسيّة دائمًا
+    n.has(id) ? n.delete(id) : n.add(id);
+    return n;
+  });
+
+  // «نتعارفو» — يحفظ الاسم/المدينة + القدرات (متعدّدة)، ويوجّه حسب ما يهمّ المستخدم.
+  const finishMeet = () => {
+    const capsArr = ['find', ...[...caps].filter(c => c !== 'find')];
+    const wantsBusiness = capsArr.some(c => c === 'provide' || c === 'sell' || c === 'shop');
+    const b = settings.brand as any;
+    updateSettings('brand', { ...b, name: meet.name.trim() || b?.name || '', city: meet.city || b?.city || '', phone: meet.phone.trim() || b?.phone || '' } as any);
+    updateSettings('capabilities' as any, capsArr);
+    // دورٌ أساسيّ للتوافق فقط (القدرات هي المصدر الحقيقيّ).
+    updateSettings('role' as any, capsArr.includes('provide') ? 'provider' : capsArr.includes('sell') || capsArr.includes('shop') ? 'merchant' : 'needer');
+    updateSettings('onboardingDone', true as any);
+    setOnboardingCompleted(true);
+    setPage(wantsBusiness ? 'dashboard' : 'assistant');
   };
 
   const enteredBrand = () => {
@@ -70,7 +78,8 @@ export default function Onboarding() {
 
   const finish = () => {
     const b = enteredBrand();
-    updateSettings('brand', { ...settings.brand, ...b, role: role || 'merchant' } as any);
+    updateSettings('brand', { ...settings.brand, ...b } as any);
+    updateSettings('capabilities' as any, ['find', ...[...caps].filter(c => c !== 'find')]);
     updateSettings('ai', { ...settings.ai, ...ai });
     updateSettings('businessType' as any, businessType);
     updateSettings('businessCategory' as any, category);
@@ -150,29 +159,42 @@ export default function Onboarding() {
             </div>
           )}
 
-          {/* ROLE — «القانون يختلف»: من أنت؟ */}
-          {step === 'role' && (
+          {/* MEET — «نتعارفو» : شاشةٌ واحدة، محادثةٌ خفيفة. ملفٌّ واحد بعدّة قدرات. */}
+          {step === 'meet' && (
             <div>
-              <div style={{ marginBottom: 18, textAlign: 'center' }}>
-                <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink1)' }}>شنو جاي دير فأمانزين؟</h2>
-                <p style={{ fontSize: 13, color: 'var(--ink3)', marginTop: 6 }}>اختر باش نوجّهو ليك التجربة المناسبة — تقدر تبدّل من بعد.</p>
+              <div style={{ marginBottom: 16, textAlign: 'center' }}>
+                <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink1)' }}>نتعارفو 👋 بغيت نعرفك</h2>
+                <p style={{ fontSize: 13, color: 'var(--ink3)', marginTop: 6 }}>سؤال ولا جوج بسّاح — وتقدر تبدّل كلشي من بعد.</p>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {ROLES.map(r => (
-                  <button key={r.id} onClick={() => chooseRole(r.id)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 14, textAlign: 'right', padding: '16px 16px', borderRadius: 16, border: `1.5px solid ${r.color}55`, background: `${r.color}12`, cursor: 'pointer', fontFamily: 'inherit', transition: 'transform .15s' }}
-                    onMouseDown={e => (e.currentTarget.style.transform = 'scale(.98)')}
-                    onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
-                    onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
-                    <span style={{ fontSize: 30, flexShrink: 0 }}>{r.icon}</span>
-                    <span style={{ flex: 1 }}>
-                      <span style={{ display: 'block', fontSize: 16, fontWeight: 900, color: 'var(--ink1)' }}>{r.title}</span>
-                      <span style={{ display: 'block', fontSize: 12.5, color: 'var(--ink3)', marginTop: 2 }}>{r.sub}</span>
-                    </span>
-                    <ChevronLeft size={18} style={{ color: r.color, flexShrink: 0 }} />
-                  </button>
-                ))}
+
+              <label style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ink2)' }}>شنو سميتك؟</label>
+              <input value={meet.name} onChange={e => setMeet(m => ({ ...m, name: e.target.value }))} placeholder="مثلاً: عبد اللطيف"
+                style={{ width: '100%', margin: '6px 0 14px', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface,#fff1)', color: 'var(--ink1)', fontSize: 15, fontFamily: 'inherit' }} />
+
+              <label style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ink2)' }}>منين نتا؟</label>
+              <select value={meet.city} onChange={e => setMeet(m => ({ ...m, city: e.target.value }))}
+                style={{ width: '100%', margin: '6px 0 14px', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface,#fff1)', color: 'var(--ink1)', fontSize: 15, fontFamily: 'inherit' }}>
+                <option value="">اختر المدينة</option>
+                {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+
+              <label style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ink2)' }}>آش يهمّك؟ <span style={{ color: 'var(--ink3)', fontWeight: 600 }}>(تقدر تختار كثر من وحدة)</span></label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '8px 0 6px' }}>
+                {INTERESTS.map(it => {
+                  const on = caps.has(it.id) || it.id === 'find';
+                  return (
+                    <button key={it.id} onClick={() => toggleCap(it.id)} disabled={it.id === 'find'}
+                      style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 13px', borderRadius: 999, cursor: it.id === 'find' ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                        border: `1.5px solid ${on ? '#0a8f6f' : 'var(--border)'}`, background: on ? '#0a8f6f22' : 'transparent', color: on ? 'var(--ink1)' : 'var(--ink3)' }}>
+                      <span>{it.icon}</span>{it.label}{on && it.id !== 'find' ? ' ✓' : ''}
+                    </button>
+                  );
+                })}
               </div>
+
+              <button onClick={finishMeet} className="btn btn-primary btn-xl" style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}>
+                يالله نبداو
+              </button>
             </div>
           )}
 

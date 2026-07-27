@@ -14,6 +14,7 @@
 // ============================================================
 
 import { understand } from './akg/kb';
+import { resolveCity } from './akg/kb/knowledge';
 import { readHuman, type HumanIntent } from './humanIntent';
 
 // ── العقد الموحّد (نفس شكل مخرجاتنا الحاليّة + reasoning + المصدر) ──
@@ -104,7 +105,13 @@ export const RemoteProvider: UnderstandingProvider = {
     try {
       const r = await fetch('/api/ai/understand', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, image: ctx?.image, context: { city: ctx?.city, activity: ctx?.activity } }),
+        // ذاكرة المحادثة: نمرّر آخر ما كتبه المستخدم (recentMessages) ليفهم الذكاء
+        // «فالرباط» بعد «بغيت سبّاك». كان الحقل مُعرَّفًا ولا يملؤه أحد ⇒ فهمٌ بلا سياق.
+        body: JSON.stringify({
+          text, image: ctx?.image,
+          recentMessages: (ctx?.recentMessages || []).slice(-6),
+          context: { city: ctx?.city, activity: ctx?.activity },
+        }),
       });
       if (!r.ok) return null;
       const j = await r.json();
@@ -118,7 +125,9 @@ export const RemoteProvider: UnderstandingProvider = {
         intent: INTENT_MAP[String(u.intent || 'none')] || 'NONE',
         profession: u.service || undefined,
         problem: u.problem || undefined,
-        city: u.city || undefined,
+        // تطبيع المدينة: الذكاء قد يردّ «Casablanca»/«Casa» بينما القاعدة تخزّن
+        // «الدار البيضاء» ⇒ بحثٌ بلا نتائج **بصمت**. resolveCity يفهم الشكلين.
+        city: (u.city ? (resolveCity(String(u.city))?.city || u.city) : undefined) || undefined,
         object: undefined,
         language: (u.language || 'mixed') as UnderLang,
         confidence: typeof u.confidence === 'number' ? u.confidence : 0.7,
