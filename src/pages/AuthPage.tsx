@@ -15,17 +15,17 @@ function loadScript(src: string): Promise<void> {
 
 const DS = {
   bg: '#0A0A14',
-  purple: '#7C3AED',
-  purpleLight: '#A855F7',
-  purpleGlow: 'rgba(124,58,237,0.2)',
-  orange: '#FF7A00',
-  orangeLight: '#FFB347',
-  orangeGlow: 'rgba(255,122,0,0.2)',
+  emerald: '#0A8F6F',
+  emeraldLight: '#12A150',
+  emeraldGlow: 'rgba(10,143,111,0.22)',
+  orange: '#D4A017',
+  orangeLight: '#E8C25A',
+  orangeGlow: 'rgba(212,160,23,0.2)',
   text: '#FAFAFA',
   text2: 'rgba(255,255,255,0.55)',
   text3: 'rgba(255,255,255,0.3)',
   border: 'rgba(255,255,255,0.06)',
-  borderFocus: 'rgba(124,58,237,0.4)',
+  borderFocus: 'rgba(10,143,111,0.45)',
   glass: 'rgba(255,255,255,0.03)',
   glassHover: 'rgba(255,255,255,0.06)',
   radius: 16,
@@ -44,6 +44,16 @@ export default function AuthPage() {
   const [socialCfg, setSocialCfg] = useState<{ googleClientId: string; facebookAppId: string }>({ googleClientId: '', facebookAppId: '' });
   const [socialBusy, setSocialBusy] = useState(false);
   const [focusedField, setFocusedField] = useState('');
+  // الحاجة القادمة من صفحة الهبوط — تُكمل الرحلة بدل نموذجٍ مقطوعٍ عمّا سبقه.
+  const [need] = useState<{ text: string; service?: string; city?: string } | null>(() => {
+    try {
+      const raw = sessionStorage.getItem('amanzine_need');
+      if (!raw) return null;
+      const n = JSON.parse(raw);
+      if (!n?.text || (Date.now() - (n.at || 0)) > 30 * 60 * 1000) return null;  // تنتهي بعد نصف ساعة
+      return n;
+    } catch { return null; }
+  });
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
@@ -64,7 +74,7 @@ export default function AuthPage() {
         // C-3: الجلسة محمولة في كوكي HttpOnly ضبطه الخادم — لا توكن في localStorage.
         // نخزّن المستخدم فقط (غير سرّي) ليستعيد الإقلاع الجلسة فوراً بعد التحويل.
         localStorage.setItem('ai_commerce_user', JSON.stringify(j.user));
-        window.location.href = '/home';
+        if (!resumeNeed()) window.location.href = '/home';
       } else {
         setError(j.error || 'فشل تسجيل الدخول');
       }
@@ -100,17 +110,28 @@ export default function AuthPage() {
     } catch { setError('تعذّر تحميل Facebook'); setSocialBusy(false); }
   };
 
+  // بعد الدخول: أكمِل الحاجة التي جاء بها بدل صفحةٍ عامّة — الرحلة واحدة.
+  const resumeNeed = (): boolean => {
+    if (!need?.text) return false;
+    try { sessionStorage.removeItem('amanzine_need'); } catch { /* noop */ }
+    const city = need.city ? `&city=${encodeURIComponent(need.city)}` : '';
+    try { window.location.assign(`/market?q=${encodeURIComponent(need.text)}${city}`); return true; }
+    catch { return false; }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setError('');
     try {
       if (isLogin) {
         await login(form.email, form.password);
+        if (resumeNeed()) return;
       } else {
         if (!form.name) { setError('الاسم مطلوب'); setLoading(false); return; }
         // لا نسأل عن «متجر» ولا عن دور — الحساب Entity، ونوعه (بائع/زبون/مزوّد)
         // يُستنتَج لاحقًا من أوّل حاجة يكتبها (parseNeed) لا من سؤال عند التسجيل.
         await register(form.name, form.email, form.password);
+        if (resumeNeed()) return;
       }
     } catch (err: any) {
       setError(err.message || (isLogin ? 'بيانات الدخول غير صحيحة' : 'حدث خطأ'));
@@ -122,7 +143,7 @@ export default function AuthPage() {
     width: '100%',
     padding: '14px 44px 14px 16px',
     borderRadius: DS.radiusSm,
-    background: focusedField === fieldName ? 'rgba(124,58,237,0.06)' : DS.glass,
+    background: focusedField === fieldName ? 'rgba(10,143,111,0.07)' : DS.glass,
     border: focusedField === fieldName ? `1.5px solid ${DS.borderFocus}` : `1px solid ${DS.border}`,
     color: DS.text,
     fontSize: 14,
@@ -130,7 +151,7 @@ export default function AuthPage() {
     boxSizing: 'border-box',
     fontFamily: 'Tajawal, sans-serif',
     transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-    boxShadow: focusedField === fieldName ? `0 0 20px ${DS.purpleGlow}` : 'none',
+    boxShadow: focusedField === fieldName ? `0 0 20px ${DS.emeraldGlow}` : 'none',
   });
 
   return (
@@ -155,21 +176,21 @@ export default function AuthPage() {
           position: 'absolute', top: '-15%', right: '-10%',
           width: '50vw', height: '50vw', maxWidth: 500, maxHeight: 500,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(10,143,111,0.14) 0%, transparent 70%)',
           animation: 'ambientGlow 6s ease-in-out infinite',
         }} />
         <div style={{
           position: 'absolute', bottom: '-10%', left: '-5%',
           width: '40vw', height: '40vw', maxWidth: 400, maxHeight: 400,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,122,0,0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(212,160,23,0.08) 0%, transparent 70%)',
           animation: 'ambientGlow 8s ease-in-out infinite 1s',
         }} />
         <div style={{
           position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)',
           width: '60vw', height: '60vw', maxWidth: 600, maxHeight: 600,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(124,58,237,0.04) 0%, transparent 60%)',
+          background: 'radial-gradient(circle, rgba(10,143,111,0.05) 0%, transparent 60%)',
         }} />
         {/* Grid */}
         <div style={{
@@ -222,6 +243,21 @@ export default function AuthPage() {
           <p style={{ color: DS.text3, fontSize: 11, letterSpacing: 'normal', fontWeight: 600 }}>
             كل كلمة عندها طريق
           </p>
+
+          {/* الحاجة محمولةٌ من الهبوط: الصفحة تُكمل الحوار، لا تبدأ من الصفر. */}
+          {need && (
+            <div style={{
+              marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 9,
+              padding: '9px 15px', borderRadius: DS.radiusFull,
+              background: 'rgba(10,143,111,0.10)', border: `1px solid ${DS.borderFocus}`,
+              animation: 'fadeInUp .5s cubic-bezier(.16,1,.3,1) both .15s', maxWidth: '100%',
+            }}>
+              <span style={{ fontSize: 11.5, color: DS.text2, fontWeight: 700, flexShrink: 0 }}>فهمت أنّك بغيتي</span>
+              <span style={{ fontSize: 13, color: DS.emeraldLight, fontWeight: 900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {need.service || need.text}{need.city ? ` · ${need.city}` : ''}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Form Card */}
@@ -247,11 +283,11 @@ export default function AuthPage() {
                   cursor: 'pointer', border: 'none', fontFamily: 'inherit',
                   transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                   background: String(isLogin) === v
-                    ? 'linear-gradient(135deg, #7C3AED, #A855F7)'
+                    ? 'linear-gradient(135deg, #0A8F6F, #12A150)'
                     : 'transparent',
                   color: String(isLogin) === v ? '#fff' : DS.text2,
                   boxShadow: String(isLogin) === v
-                    ? `0 4px 16px ${DS.purpleGlow}`
+                    ? `0 4px 16px ${DS.emeraldGlow}`
                     : 'none',
                 }}>
                 {label}
@@ -264,7 +300,7 @@ export default function AuthPage() {
 
             {!isLogin && (
               <div style={{ position: 'relative' }}>
-                <User size={14} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: focusedField === 'name' ? DS.purpleLight : DS.text3, pointerEvents: 'none', transition: 'color 0.2s' }} />
+                <User size={14} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: focusedField === 'name' ? DS.emeraldLight : DS.text3, pointerEvents: 'none', transition: 'color 0.2s' }} />
                 <input type="text" placeholder="اسمك" required value={form.name}
                   onChange={e => set('name', e.target.value)}
                   onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField('')}
@@ -274,7 +310,7 @@ export default function AuthPage() {
             )}
 
             <div style={{ position: 'relative' }}>
-              <Mail size={14} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: focusedField === 'email' ? DS.purpleLight : DS.text3, pointerEvents: 'none', transition: 'color 0.2s' }} />
+              <Mail size={14} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: focusedField === 'email' ? DS.emeraldLight : DS.text3, pointerEvents: 'none', transition: 'color 0.2s' }} />
               <input type="email" placeholder="البريد الإلكتروني" required value={form.email}
                 onChange={e => set('email', e.target.value)}
                 onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField('')}
@@ -283,7 +319,7 @@ export default function AuthPage() {
             </div>
 
             <div style={{ position: 'relative' }}>
-              <Lock size={14} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: focusedField === 'password' ? DS.purpleLight : DS.text3, pointerEvents: 'none', transition: 'color 0.2s' }} />
+              <Lock size={14} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: focusedField === 'password' ? DS.emeraldLight : DS.text3, pointerEvents: 'none', transition: 'color 0.2s' }} />
               <input type={showPwd ? 'text' : 'password'} placeholder="كلمة المرور" required value={form.password}
                 onChange={e => set('password', e.target.value)}
                 onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField('')}
@@ -307,7 +343,7 @@ export default function AuthPage() {
                       .then(() => setError('✅ تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني'))
                       .catch(() => setError('✅ إذا كان البريد مسجلاً سيصلك رابط إعادة التعيين'));
                   }}
-                  style={{ background: 'none', border: 'none', color: 'rgba(124,58,237,0.7)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: 0, textDecoration: 'underline' }}>
+                  style={{ background: 'none', border: 'none', color: 'rgba(18,161,80,0.85)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: 0, textDecoration: 'underline' }}>
                   نسيت كلمة المرور؟
                 </button>
               </div>
@@ -327,10 +363,10 @@ export default function AuthPage() {
             <button type="submit" disabled={loading}
               style={{
                 width: '100%', padding: '15px', borderRadius: DS.radiusSm,
-                background: loading ? 'rgba(124,58,237,0.4)' : 'linear-gradient(135deg, #7C3AED, #A855F7)',
+                background: loading ? 'rgba(10,143,111,0.45)' : 'linear-gradient(135deg, #0A8F6F, #12A150)',
                 border: 'none', color: '#fff', fontSize: 15, fontWeight: 700,
                 cursor: loading ? 'not-allowed' : 'pointer', marginTop: 8,
-                boxShadow: loading ? 'none' : `0 8px 28px ${DS.purpleGlow}`,
+                boxShadow: loading ? 'none' : `0 8px 28px ${DS.emeraldGlow}`,
                 transition: 'all 0.25s',
                 fontFamily: 'inherit',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -394,7 +430,7 @@ export default function AuthPage() {
                 style={{
                   flex: 1, padding: '11px', borderRadius: DS.radiusSm,
                   background: 'rgba(255,122,0,0.06)', border: '1px solid rgba(255,122,0,0.15)',
-                  color: '#FFB347', cursor: 'pointer', fontWeight: 700, fontSize: 12,
+                  color: '#E8C25A', cursor: 'pointer', fontWeight: 700, fontSize: 12,
                   fontFamily: 'inherit', transition: 'all 0.2s',
                 }}>
                 👨‍💼 تاجر Demo
@@ -419,7 +455,7 @@ export default function AuthPage() {
               marginTop: 18, color: DS.text3, fontSize: 12, textDecoration: 'none',
               transition: 'color 0.2s',
             }}
-            onMouseEnter={e => (e.currentTarget.style.color = DS.purpleLight)}
+            onMouseEnter={e => (e.currentTarget.style.color = DS.emeraldLight)}
             onMouseLeave={e => (e.currentTarget.style.color = DS.text3)}>
             <ArrowLeft size={13} /> الصففحة الرئيسية
           </a>

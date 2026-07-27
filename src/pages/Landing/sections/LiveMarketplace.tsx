@@ -6,11 +6,15 @@ import { C } from '../theme';
 export default function LiveMarketplace() {
   const { tx, listings, Arrow } = useLanding();
   const realList = listings.slice(0, 8);
-  const gridItems = realList.length >= 3 ? realList.slice(0, 6) : [...realList, ...SAMPLES].slice(0, 6);
+  const showingSamples = realList.length < 3;
+  const gridItems = showingSamples ? [...realList, ...SAMPLES].slice(0, 6) : realList.slice(0, 6);
+  // صدقٌ في العنوان: «إعلانات حقيقيّة» تُقال **فقط** حين تكون حقيقيّة. حين نعرض
+  // أمثلةً (السوق ما زال يمتلئ) نقولها صراحةً بدل ادّعاءٍ يكذّبه المستخدم بنقرة.
+  const sub = showingSamples ? tx('liveSampleSub') : tx('liveSub');
 
   return (
     <Section id="live" alt>
-      <Reveal><SecHead title={tx('liveTitle')} sub={tx('liveSub')} /></Reveal>
+      <Reveal><SecHead title={tx('liveTitle')} sub={sub} /></Reveal>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,200px), 1fr))', gap: 16, marginTop: 30 }}>
         {gridItems.map((it, i) => <Reveal key={it.id} delay={(i % 4) * 70}><ProductCard it={it} big /></Reveal>)}
       </div>

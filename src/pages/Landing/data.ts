@@ -138,8 +138,8 @@ export const L: Record<Lang, Record<string, string>> = {
 export const LX: Record<Lang, Record<string, string>> = {
   ar: {
     osBadge: 'كل كلمة عندها طريق', sample: 'مثال', byStore: 'بواسطة', dh: 'د.م.',
-    liveTitle: '🛍️ منتجات وخدمات حيّة من السوق', liveSub: 'إعلانات حقيقية نشرها تجّار AMANZINE الآن', liveViewAll: 'تصفّح كل السوق',
-    citiesTitle: '🇲🇦 متاجر في كل المغرب', citiesSub: 'تجّار ينمّون أعمالهم من كل المدن', cityUnit: 'إعلان', cityBeFirst: 'كن الأول هنا',
+    liveTitle: '🛍️ منتجات وخدمات حيّة من السوق', liveSub: 'إعلانات حقيقية نشرها تجّار AMANZINE الآن', liveSampleSub: 'أمثلة توضيحيّة — السوق كيتعمّر دابا. كون نتَ الأوّل.', liveViewAll: 'تصفّح كل السوق',
+    citiesTitle: 'متاجر في كل المغرب', citiesSub: 'تجّار ينمّون أعمالهم من كل المدن', cityUnit: 'إعلان', cityBeFirst: 'كن الأول هنا',
     statMerchants: 'تاجر', statProducts: 'منتج', statOrders: 'طلب', statListings: 'إعلان في السوق',
     earlyBadge: '🚀 منصّة جديدة في الانطلاق', earlyTitle: 'كن من أوائل التجّار في AMANZINE', earlySub: 'نبني السوق المغربي الذكي معاً من البداية — مكانك في المقدّمة محجوز الآن.',
     bentoTitle: 'منظومة تجارة كاملة', bentoSub: 'كل أدوات نجاحك في مكان واحد — والذكاء الاصطناعي يدعمها لا يحلّ محلّها.',
@@ -159,8 +159,8 @@ export const LX: Record<Lang, Record<string, string>> = {
   },
   darija: {
     osBadge: 'كل كلمة عندها طريق', sample: 'مثال', byStore: 'ديال', dh: 'د.م.',
-    liveTitle: '🛍️ منتجات وخدمات حيّة من السوق', liveSub: 'إعلانات حقيقية نشروهم تجّار AMANZINE دابا', liveViewAll: 'تصفّح السوق كامل',
-    citiesTitle: '🇲🇦 متاجر ف كل المغرب', citiesSub: 'تجّار كينمّيو خدمتهم من كل المدن', cityUnit: 'إعلان', cityBeFirst: 'كن الأول هنا',
+    liveTitle: '🛍️ منتجات وخدمات حيّة من السوق', liveSub: 'إعلانات حقيقية نشروهم تجّار AMANZINE دابا', liveSampleSub: 'هادو أمثلة — السوق كيتعمّر دابا. كون نتَ الأوّل.', liveViewAll: 'تصفّح السوق كامل',
+    citiesTitle: 'متاجر ف كل المغرب', citiesSub: 'تجّار كينمّيو خدمتهم من كل المدن', cityUnit: 'إعلان', cityBeFirst: 'كن الأول هنا',
     statMerchants: 'تاجر', statProducts: 'منتج', statOrders: 'طلب', statListings: 'إعلان ف السوق',
     earlyBadge: '🚀 منصّة جديدة ف الانطلاق', earlyTitle: 'كن من أوائل التجّار ف AMANZINE', earlySub: 'كنبنيو السوق المغربي الذكي مع بعضياتنا من البداية — بلاصتك ف المقدّمة محجوزة دابا.',
     bentoTitle: 'منظومة تجارة كاملة', bentoSub: 'كل أدوات النجاح ف بلاصة وحدة — والذكاء الاصطناعي كيدعمها ماشي كيعوّضها.',
@@ -180,8 +180,8 @@ export const LX: Record<Lang, Record<string, string>> = {
   },
   fr: {
     osBadge: 'Need OS · système d’exploitation du besoin', sample: 'Exemple', byStore: 'par', dh: 'DH',
-    liveTitle: '🛍️ Produits & services en direct du Souk', liveSub: 'De vraies annonces publiées par les marchands AMANZINE', liveViewAll: 'Explorer tout le Souk',
-    citiesTitle: '🇲🇦 Des boutiques partout au Maroc', citiesSub: 'Des marchands qui se développent dans chaque ville', cityUnit: 'annonces', cityBeFirst: 'Soyez le premier ici',
+    liveTitle: '🛍️ Produits & services en direct du Souk', liveSub: 'De vraies annonces publiées par les marchands AMANZINE', liveSampleSub: 'Exemples illustratifs — le marché se remplit. Soyez le premier.', liveViewAll: 'Explorer tout le Souk',
+    citiesTitle: 'Des boutiques partout au Maroc', citiesSub: 'Des marchands qui se développent dans chaque ville', cityUnit: 'annonces', cityBeFirst: 'Soyez le premier ici',
     statMerchants: 'marchands', statProducts: 'produits', statOrders: 'commandes', statListings: 'annonces au Souk',
     earlyBadge: '🚀 Nouvelle plateforme en lancement', earlyTitle: 'Soyez parmi les premiers marchands AMANZINE', earlySub: 'Construisons ensemble le souk marocain intelligent dès le départ — votre place en tête est réservée maintenant.',
     bentoTitle: 'Un écosystème commerce complet', bentoSub: 'Tous vos outils de réussite au même endroit — l’IA les soutient, sans les remplacer.',
@@ -201,8 +201,8 @@ export const LX: Record<Lang, Record<string, string>> = {
   },
   en: {
     osBadge: 'Need OS · the operating system for what you need', sample: 'Example', byStore: 'by', dh: 'DH',
-    liveTitle: '🛍️ Live products & services from the Market', liveSub: 'Real ads posted by AMANZINE merchants', liveViewAll: 'Browse the whole market',
-    citiesTitle: '🇲🇦 Stores across Morocco', citiesSub: 'Merchants growing in every city', cityUnit: 'ads', cityBeFirst: 'Be the first here',
+    liveTitle: '🛍️ Live products & services from the Market', liveSub: 'Real ads posted by AMANZINE merchants', liveSampleSub: 'Illustrative examples — the market is filling up. Be the first.', liveViewAll: 'Browse the whole market',
+    citiesTitle: 'Stores across Morocco', citiesSub: 'Merchants growing in every city', cityUnit: 'ads', cityBeFirst: 'Be the first here',
     statMerchants: 'merchants', statProducts: 'products', statOrders: 'orders', statListings: 'market ads',
     earlyBadge: '🚀 New platform launching', earlyTitle: 'Be among the first AMANZINE merchants', earlySub: 'Let’s build Morocco’s smart marketplace together from day one — your front-row spot is reserved now.',
     bentoTitle: 'A complete commerce ecosystem', bentoSub: 'All your success tools in one place — AI supports them, never replaces them.',
@@ -223,7 +223,7 @@ export const LX: Record<Lang, Record<string, string>> = {
   zh: {
     osBadge: 'Need OS · 需求操作系统', sample: '示例', byStore: '来自', dh: 'DH',
     liveTitle: '🛍️ 来自市场的实时产品与服务', liveSub: 'AMANZINE 商家发布的真实广告', liveViewAll: '浏览整个市场',
-    citiesTitle: '🇲🇦 遍布摩洛哥的店铺', citiesSub: '在每座城市成长的商家', cityUnit: '条广告', cityBeFirst: '成为这里的第一个',
+    citiesTitle: '遍布摩洛哥的店铺', citiesSub: '在每座城市成长的商家', cityUnit: '条广告', cityBeFirst: '成为这里的第一个',
     statMerchants: '商家', statProducts: '产品', statOrders: '订单', statListings: '市场广告',
     earlyBadge: '🚀 全新平台正在启动', earlyTitle: '成为首批 AMANZINE 商家', earlySub: '从第一天起一起打造摩洛哥智能市场 — 你的前排席位现已为你保留。',
     bentoTitle: '完整的商业生态系统', bentoSub: '所有成功工具集于一处 — AI 是助力，而非替代。',

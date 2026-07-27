@@ -86,6 +86,18 @@ export default function Hero() {
   const go = () => {
     const q = text.trim(); if (!q) return;
     try { localStorage.setItem(MEM_KEY, JSON.stringify({ t: q, at: Date.now() })); } catch { /* noop */ }
+    // الحاجة تُحمَل ككائنٍ كامل (لا نصًّا) لتكمل الرحلة: صفحة الدخول تعرض
+    // «فهمت أنّك بغيتي…» بدل أن تبدو نموذجًا ميّتًا مقطوعًا عمّا سبقه.
+    try {
+      sessionStorage.setItem('amanzine_need', JSON.stringify({
+        text: q,
+        service: u?.profession?.label || u?.problem?.name || '',
+        city: u?.city || '',
+        confidence: u?.confidence ?? null,
+        source: 'landing',
+        at: Date.now(),
+      }));
+    } catch { /* noop */ }
     receptionEnd('routed');
     const city = u?.city ? `&city=${encodeURIComponent(u.city)}` : '';
     navigate(`/market?q=${encodeURIComponent(q)}${city}`);
