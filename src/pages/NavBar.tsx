@@ -133,6 +133,12 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 ];
 
 // Mobile hamburger panel = flattened complete list (with descriptions).
+// أدوات المنصّة (لا أدوات المتجر): تُخفى عمّن ليس أدمن المنصّة. الخادم يمنعها
+// أصلًا بـ403 — هذا يمنع أن يراها المستخدم العاديّ فيحتار أو يصطدم بخطأ.
+const PLATFORM_ONLY: ReadonlySet<string> = new Set(['knowledge', 'moderation']);
+const visibleItems = (items: NavItem[], isAdmin: boolean) =>
+  isAdmin ? items : items.filter(i => !PLATFORM_ONLY.has(i.page as string));
+
 const SIDEBAR_NAV: NavItem[] = NAV_GROUPS.flatMap(g => g.items);
 // Desktop left sidebar = same grouped structure (descriptions ignored there).
 const DESKTOP_SIDEBAR_GROUPS = NAV_GROUPS;
@@ -143,6 +149,7 @@ export default function NavBar() {
     orders, conversations, notifications,
     sidebarOpen, setSidebarOpen, logout, user
   } = useStore();
+  const isPlatformAdmin = !!(user as any)?.isPlatformAdmin;
 
   const [showSearch, setShowSearch] = React.useState(false);
   const [fabOpen, setFabOpen] = React.useState(false);
@@ -353,7 +360,7 @@ export default function NavBar() {
               🏪 السوق المغربي الموحّد
             </a>
             <nav style={{ flex: 1, overflowY: 'auto', padding: '6px 0' }}>
-              {SIDEBAR_NAV.map(item => {
+              {visibleItems(SIDEBAR_NAV, isPlatformAdmin).map(item => {
                 const active = currentPage === item.page || (item.page === 'insights' && currentPage === 'analytics');
                 const b = badge(item.page);
                 return (
@@ -403,12 +410,15 @@ export default function NavBar() {
 
       {/* ══ DESKTOP SIDEBAR (≥1024px) ══ */}
       <aside className="nav-desktop-sidebar" dir="rtl">
-        {DESKTOP_SIDEBAR_GROUPS.map(group => (
+        {DESKTOP_SIDEBAR_GROUPS.map(group => {
+          const items = visibleItems(group.items, isPlatformAdmin);
+          if (items.length === 0) return null;   // مجموعةٌ فرغت بعد الترشيح ⇒ لا عنوانَ يتيم
+          return (
           <div key={group.label} style={{ marginBottom: 4 }}>
             <div style={{ padding: '10px 14px 4px', fontSize: 10, fontWeight: 800, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               {group.label}
             </div>
-            {group.items.map(item => {
+            {items.map(item => {
               const active = currentPage === item.page || (item.page === 'insights' && currentPage === 'analytics');
               const b = badge(item.page);
               return (
@@ -420,7 +430,8 @@ export default function NavBar() {
               );
             })}
           </div>
-        ))}
+          );
+        })}
         <div style={{ marginTop: 'auto', padding: '12px 14px', borderTop: '1px solid var(--border2)' }}>
           <LangSwitcher compact />
         </div>

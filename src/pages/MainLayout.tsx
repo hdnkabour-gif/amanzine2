@@ -46,8 +46,14 @@ const ProfilePage       = lazy(() => import('./ProfilePage'));
 const AssistantPage     = lazy(() => import('./AssistantPage'));
 const UniversalPublish  = lazy(() => import('./UniversalPublish'));
 
+// صفحاتٌ خاصّةٌ بأدمن المنصّة — إخفاء الرابط وحده لا يكفي: من يكتب /knowledge
+// مباشرةً كان يفتحها. الخادم يمنع بياناتها بـ403، وهذا يمنع الواجهة نفسها.
+const PLATFORM_PAGES = new Set(['knowledge', 'moderation']);
+
 function PageContent() {
-  const { currentPage } = useStore();
+  const { currentPage, user } = useStore();
+  const isPlatformAdmin = !!(user as any)?.isPlatformAdmin;
+  if (PLATFORM_PAGES.has(currentPage as string) && !isPlatformAdmin) return <DashboardPage />;
   switch (currentPage) {
     case 'home':          return <LivingHome />;
     case 'dashboard':     return <DashboardPage />;

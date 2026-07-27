@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, Search, CheckCircle2, XCircle, MapPin, Wrench, RefreshCw } from 'lucide-react';
+import { Activity, Search, CheckCircle2, XCircle, MapPin, Wrench, RefreshCw, UserPlus, Package, Store, CalendarCheck } from 'lucide-react';
 import { knowledgeAPI, type BrainStats } from '../services/api';
 
 // ============================================================
@@ -126,6 +126,33 @@ export default function PlatformPulsePanel() {
         <Stat icon={Search} label="كم بحثًا" value={busy && !data ? '…' : String(total)} sub={`آخر ${days === 1 ? 'يوم' : days + ' يوم'}`} />
         <Stat icon={CheckCircle2} label="فُهم (أعطى نتائج)" value={busy && !data ? '…' : String(hits)} tone="#22C55E" sub={`${rate}% نسبة النجاح`} />
         <Stat icon={XCircle} label="لم يُفهَم / بلا نتيجة" value={busy && !data ? '…' : String(misses)} tone={misses > 0 ? '#F59E0B' : undefined} sub="كنز تطوير المعرفة" />
+      </div>
+
+      {/* الجديد خلال المدّة — «شكون دخل جديد؟» */}
+      <div style={{ padding: '13px 16px', borderRadius: 14, background: CARD, border: LINE }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: INK1, marginBottom: 10 }}>
+          الجديد خلال {days === 1 ? 'اليوم' : `${days} يوم`}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {[
+            { icon: UserPlus, label: 'مستخدمون جدد', v: data?.fresh?.users },
+            { icon: Store, label: 'مزوّدون', v: data?.fresh?.providers },
+            { icon: Package, label: 'منتجات', v: data?.fresh?.products },
+            { icon: Wrench, label: 'خدمات', v: data?.fresh?.services },
+            { icon: Store, label: 'إعلانات', v: data?.fresh?.listings },
+            { icon: CalendarCheck, label: 'طلبات وحجوزات', v: (data?.fresh?.orders ?? 0) + (data?.fresh?.bookings ?? 0) },
+          ].map(x => (
+            <div key={x.label} style={{ flex: '1 1 120px', minWidth: 118, padding: '10px 12px', borderRadius: 12, background: 'rgba(255,255,255,.02)', border: LINE }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <x.icon size={12} style={{ color: INK3 }} />
+                <span style={{ fontSize: 11, color: INK3, fontWeight: 700 }}>{x.label}</span>
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: (x.v || 0) > 0 ? '#22C55E' : INK1, lineHeight: 1 }}>
+                {busy && !data ? '…' : (x.v ?? 0)}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* أفضل مدينة · أفضل خدمة */}

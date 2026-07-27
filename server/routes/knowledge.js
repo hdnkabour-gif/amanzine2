@@ -8,15 +8,10 @@ const auth = require('../middleware/auth');
 const knowledge = require('../lib/engines/knowledge');
 const learning = require('../lib/engines/learning');
 
-// حارس أدمن: دور admin، أو بريد ضمن ADMIN_EMAILS. آمن افتراضيًا (المنع هو الأصل).
-function admin(req, res, next) {
-  const allow = (process.env.ADMIN_EMAILS || '')
-    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-  const email = (req.user && req.user.email || '').toLowerCase();
-  const ok = req.user && (req.user.role === 'admin' || (email && allow.includes(email)));
-  if (!ok) return res.status(403).json({ error: 'Admin only' });
-  next();
-}
+// حارس أدمن المنصّة (مصدرٌ واحد). كان هنا `req.user.role === 'admin'` — وهو دورٌ
+// يأخذه **كلّ** مَن يسجّل (مالك متجره)، فكان أيّ مشتركٍ يقرأ بيانات المنصّة كاملةً
+// ويعدّل المعرفة. الاعتماد الآن على البريد وحده.
+const { platformAdmin: admin } = require('../middleware/platformAdmin');
 
 // قائمة عمليات البحث بلا نتيجة (الأكثر تكرارًا أولًا) — مادة مراجعة القاموس.
 router.get('/misses', auth, admin, async (req, res) => {

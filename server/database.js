@@ -1312,6 +1312,26 @@ db.recordSearchTerm = async ({ term, hit }) => {
   );
 };
 
+// الجديد خلال مدّة — «شكون دخل جديد؟». كانت الإحصاءات إجماليّاتٍ تراكميّة فقط،
+// فتعذّر معرفة النموّ. كلّ عدّادٍ مستقلٌّ: فشلُه (جدولٌ ناقص) لا يُسقط الباقي.
+db.getNewSince = async ({ days = 7 } = {}) => {
+  const one = async (sql) => {
+    try { const { rows } = await pool.query(sql, [days]); return +(rows[0]?.n) || 0; }
+    catch { return 0; }
+  };
+  const W = `created_at >= NOW() - (($1::int) || ' days')::interval`;
+  const [users, products, services, listings, providers, orders, bookings] = await Promise.all([
+    one(`SELECT COUNT(*) AS n FROM users WHERE ${W}`),
+    one(`SELECT COUNT(*) AS n FROM products WHERE type <> 'service' AND ${W}`),
+    one(`SELECT COUNT(*) AS n FROM products WHERE type =  'service' AND ${W}`),
+    one(`SELECT COUNT(*) AS n FROM listings WHERE ${W}`),
+    one(`SELECT COUNT(*) AS n FROM providers WHERE ${W}`),
+    one(`SELECT COUNT(*) AS n FROM orders   WHERE ${W}`),
+    one(`SELECT COUNT(*) AS n FROM bookings WHERE ${W}`),
+  ]);
+  return { days, users, products, services, listings, providers, orders, bookings };
+};
+
 // أعلى المدن نشاطًا (من search_daily — بياناتٌ موجودةٌ أصلًا).
 db.getTopCities = async ({ days = 30, limit = 8 } = {}) => {
   const { rows } = await pool.query(

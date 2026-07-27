@@ -152,7 +152,10 @@ router.get('/me', auth, async (req, res) => {
   try {
     const user = await db.getUser(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ user: safe(user) });
+    // إشارةٌ للواجهة لتُخفي أدوات المنصّة عمّن لا يملكها. الحماية الحقيقيّة تبقى
+    // على الخادم (كلّ مسار أدمن يتحقّق بنفسه) — هذه للتجربة لا للأمن.
+    const { isPlatformAdmin } = require('../middleware/platformAdmin');
+    res.json({ user: { ...safe(user), isPlatformAdmin: isPlatformAdmin(req) } });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
