@@ -12,6 +12,24 @@ interface StepConfig {
 }
 
 const STEPS: StepConfig[] = [
+  // الجولة تبدأ من هويّة المنصّة (الحاجة والمساعد) لا من لوحة التاجر — كانت
+  // تشرح ٩ صفحاتٍ تجاريّةٍ فقط، فيظنّ المحتاج أنّه دخل تطبيقًا خاطئًا.
+  {
+    page: 'home',
+    key: 's0',
+    icon: '✨',
+    gradient: ['#0A8F6F', '#12A150'],
+    accentBg: 'rgba(10,143,111,.08)',
+    bullets: ['nav.services', 'nav.orders', 'nav.products'],
+  },
+  {
+    page: 'assistant',
+    key: 's10',
+    icon: '🧠',
+    gradient: ['#0A8F6F', '#D4A017'],
+    accentBg: 'rgba(212,160,23,.08)',
+    bullets: ['nav.services', 'nav.messages', 'nav.orders'],
+  },
   {
     page: 'dashboard',
     key: 's1',

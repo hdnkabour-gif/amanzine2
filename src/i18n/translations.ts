@@ -201,6 +201,8 @@ const ar: T = {
   // Tour guide
   'tour.skip': 'تخطي', 'tour.next': 'التالي', 'tour.prev': 'السابق',
   'tour.finish': 'ابدأ الاستخدام ✨', 'tour.step': '{cur} / {total}',
+  'tour.s0.title': 'قول شنو محتاج', 'tour.s0.desc': 'كتب حاجتك بالدارجة أو بالفرنسية أو حتى بالحروف اللاتينية — أمانزين يفهمك ويوصّلك.',
+  'tour.s10.title': 'المساعد الذكيّ', 'tour.s10.desc': 'حاور المساعد، وإن صعب الوصف صوّر المشكلة 📷 — يفهم الصورة ويقترح المختصّ.',
   'tour.s1.title': 'لوحة التحكم', 'tour.s1.desc': 'نظرة شاملة على أداء متجرك — الإيرادات والطلبات والعملاء في لمحة واحدة.',
   'tour.s2.title': 'المنتجات', 'tour.s2.desc': 'أضف منتجاتك بالصور والأوصاف والأسعار. يمكن للذكاء الاصطناعي توليد الأوصاف والهاشتاق تلقائياً.',
   'tour.s3.title': 'الطلبات', 'tour.s3.desc': 'تابع كل طلب من الاستلام حتى التوصيل. اقبل أو ارفض أو أرسل للشحن بضغطة زر.',
@@ -384,6 +386,8 @@ const darija: T = {
 
   'tour.skip': 'تخطّ', 'tour.next': 'التالي', 'tour.prev': 'السابق',
   'tour.finish': 'بدأ تستعمل ✨', 'tour.step': '{cur} / {total}',
+  'tour.s0.title': 'گول شنو محتاج', 'tour.s0.desc': 'كتب حاجتك بالدارجة ولا بالفرنسية ولا حتى بالحروف — أمانزين كيفهمك ويوصّلك.',
+  'tour.s10.title': 'المساعد الذكي', 'tour.s10.desc': 'هضر مع المساعد، وإلا صعيب توصف صوّر المشكل 📷 — كيفهم التصويرة ويقترح ليك المختصّ.',
   'tour.s1.title': 'الداشبور', 'tour.s1.desc': 'شوف كيفاش كيمشي المتجر ديالك — الربح والكوماندات والزبناء.',
   'tour.s2.title': 'البضايع', 'tour.s2.desc': 'زيد بضايعك بالصور والوصف والثمن. الذكاء الاصطناعي يقدر يكتب الوصف عليك.',
   'tour.s3.title': 'الكوماندات', 'tour.s3.desc': 'تابع كل كوماندا من الاستلام حتى التوصيل. قبل أو ارفض أو شحن بكليك واحد.',
@@ -570,6 +574,8 @@ const fr: T = {
 
   'tour.skip': 'Ignorer', 'tour.next': 'Suivant', 'tour.prev': 'Précédent',
   'tour.finish': 'Commencer ✨', 'tour.step': '{cur} / {total}',
+  'tour.s0.title': 'Dites votre besoin', 'tour.s0.desc': 'Écrivez en darija, en français ou en lettres latines — AMANZINE vous comprend et vous oriente.',
+  'tour.s10.title': 'Assistant intelligent', 'tour.s10.desc': 'Discutez avec l\'assistant ; si c\'est difficile à décrire, photographiez le problème 📷.',
   'tour.s1.title': 'Tableau de bord', 'tour.s1.desc': 'Vue complète de votre boutique — revenus, commandes, clients en un coup d\'œil.',
   'tour.s2.title': 'Produits', 'tour.s2.desc': 'Ajoutez vos produits avec photos, descriptions et prix. L\'IA génère les descriptions automatiquement.',
   'tour.s3.title': 'Commandes', 'tour.s3.desc': 'Suivez chaque commande de la réception à la livraison. Acceptez, refusez ou expédiez en un clic.',
@@ -752,6 +758,8 @@ const en: T = {
 
   'tour.skip': 'Skip tour', 'tour.next': 'Next', 'tour.prev': 'Previous',
   'tour.finish': 'Get started ✨', 'tour.step': '{cur} / {total}',
+  'tour.s0.title': 'Say what you need', 'tour.s0.desc': 'Write in Darija, French or Latin letters — AMANZINE understands and guides you.',
+  'tour.s10.title': 'Smart assistant', 'tour.s10.desc': 'Chat with the assistant; if it is hard to describe, photograph the problem 📷.',
   'tour.s1.title': 'Dashboard', 'tour.s1.desc': 'Complete overview of your store — revenue, orders, and customers at a glance.',
   'tour.s2.title': 'Products', 'tour.s2.desc': 'Add products with photos, descriptions, and prices. AI generates descriptions automatically.',
   'tour.s3.title': 'Orders', 'tour.s3.desc': 'Track every order from receipt to delivery. Approve, reject, or ship with one click.',
@@ -932,6 +940,8 @@ const zh: T = {
 
   'tour.skip': '跳过导览', 'tour.next': '下一步', 'tour.prev': '上一步',
   'tour.finish': '开始使用 ✨', 'tour.step': '{cur} / {total}',
+  'tour.s0.title': '说出你的需求', 'tour.s0.desc': '用达里贾语、法语或拉丁字母书写 — AMANZINE 都能理解并为你指路。',
+  'tour.s10.title': '智能助手', 'tour.s10.desc': '与助手对话；如果难以描述，可直接拍下问题 📷。',
   'tour.s1.title': '仪表盘', 'tour.s1.desc': '全面了解你的店铺 — 收入、订单和客户一目了然。',
   'tour.s2.title': '产品', 'tour.s2.desc': '添加带照片、描述和价格的产品。AI 自动生成描述。',
   'tour.s3.title': '订单', 'tour.s3.desc': '跟踪每一笔订单，从接收到送达。一键批准、拒绝或发货。',
