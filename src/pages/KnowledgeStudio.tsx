@@ -4,6 +4,7 @@ import { knowledgeAPI, type BrainStats } from '../services/api';
 import { getInteractions, knowledgeHealth } from '../lib/experienceLog';
 import { mineCandidates, validateCandidate, kbVersion, type Candidate } from '../lib/knowledge/candidates';
 import JourneyAnalytics from '../components/JourneyAnalytics';
+import ConceptPicker, { type ConceptChoice } from '../components/ConceptPicker';
 
 // ============================================================
 // Knowledge Studio — «عقل AMANZINE» للأدمن: ما تعلّمه التطبيق، وما لم يفهمه
@@ -38,7 +39,8 @@ export default function KnowledgeStudio() {
   const [mode, setMode] = useState<'loading' | 'server' | 'local'>('loading');
   const [brain, setBrain] = useState<BrainStats | null>(null);
   const [misses, setMisses] = useState<Miss[]>([]);
-  const [cat, setCat] = useState<Record<string, string>>({});
+  // المفهوم المختار لكلّ كلمة — كائنٌ من عقل المنصّة، لا نصٌّ حرّ يُخمَّن.
+  const [cat, setCat] = useState<Record<string, ConceptChoice | null>>({});
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [ver, setVer] = useState(1);
 
@@ -63,8 +65,9 @@ export default function KnowledgeStudio() {
   }, []);
 
   const approve = async (m: Miss) => {
-    const c = (cat[m.id] || '').trim();
-    if (!c) return;
+    const pick = cat[m.id];
+    if (!pick) return;                    // لا اعتماد بلا مفهومٍ حقيقيّ من العقل
+    const c = pick.id;
     if (mode === 'server') { try { await knowledgeAPI.resolve(m.id, c); } catch { /* noop */ } }
     else { learn(m.term, c); }
     setMisses(x => x.filter(y => y.id !== m.id));
@@ -171,12 +174,10 @@ export default function KnowledgeStudio() {
               <div style={{ fontSize: 14, fontWeight: 750, color: 'var(--ink1,#FAFAFA)' }}>«{m.term}»</div>
               <div style={{ fontSize: 11, color: 'var(--ink3,#7E877F)', marginTop: 1 }}>كتبها {m.count} {m.count === 1 ? 'مرة' : 'مرّات'}</div>
             </div>
-            <input value={cat[m.id] || ''} onChange={e => setCat(c => ({ ...c, [m.id]: e.target.value }))}
-              placeholder="اربطها بـ… (سبّاك، مقهى، بقال…)"
-              style={{ flex: '1 1 150px', minWidth: 0, background: 'var(--bg2,rgba(255,255,255,0.02))', border: '1px solid var(--border2,rgba(255,255,255,0.14))', borderRadius: 10, padding: '9px 12px', color: 'var(--ink1,#FAFAFA)', fontSize: 13, fontFamily: 'inherit', outline: 'none', direction: 'rtl' }} />
+            <ConceptPicker value={cat[m.id] || null} onChange={v => setCat(c => ({ ...c, [m.id]: v }))} />
             <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
-              <button onClick={() => approve(m)} disabled={!(cat[m.id] || '').trim()} title="اعتمد"
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 13px', borderRadius: 10, border: 'none', background: (cat[m.id] || '').trim() ? 'var(--mint,#12A150)' : 'var(--border2,rgba(255,255,255,0.12))', color: '#fff', fontSize: 12.5, fontWeight: 800, fontFamily: 'inherit', cursor: (cat[m.id] || '').trim() ? 'pointer' : 'default' }}>
+              <button onClick={() => approve(m)} disabled={!cat[m.id]} title="اعتمد"
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 13px', borderRadius: 10, border: 'none', background: cat[m.id] ? 'var(--mint,#12A150)' : 'var(--border2,rgba(255,255,255,0.12))', color: '#fff', fontSize: 12.5, fontWeight: 800, fontFamily: 'inherit', cursor: cat[m.id] ? 'pointer' : 'default' }}>
                 <Check size={14} /> اعتمد
               </button>
               <button onClick={() => reject(m)} title="رفض"

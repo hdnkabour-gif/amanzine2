@@ -35,6 +35,13 @@ const rateLimit   = require('express-rate-limit');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
+
+// ── الثقة بالوسيط (Railway/أيّ PaaS) ─────────────────────────
+// بدونها كان express-rate-limit يرمي ERR_ERL_UNEXPECTED_X_FORWARDED_FOR في
+// السجلّات، ويعجز عن تمييز المستخدمين: كلّ الطلبات تصل من IP الوسيط ⇒ إمّا
+// دلوٌ واحدٌ للجميع (مستخدمٌ واحدٌ يحجب الكلّ) أو حدٌّ بلا معنى.
+// نثق بقفزةٍ واحدة فقط (وسيط المنصّة) لا `true` المفتوح الذي يسمح بانتحال IP.
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
 const DIST = path.join(__dirname, '..', 'dist');
 
 // ── Ensure data dir ──────────────────────────────────────────
