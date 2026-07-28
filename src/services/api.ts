@@ -475,7 +475,18 @@ export interface BrainStats {
   topTerms?: TopTerm[];    // أفضل خدمة (من search_terms_daily)
   fresh?: FreshCounts | null;  // الجديد خلال المدّة (مستخدمون · منتجات · خدمات…)
 }
+export interface CustomConcept {
+  id: string; category: string; status: 'draft' | 'published';
+  concept: Record<string, string>; variants: Record<string, string[]>;
+  stance?: any; asks?: any; links?: any; services?: string[]; examples?: string[];
+}
 export const knowledgeAPI = {
+  // مفاهيمُ الأدمن — تُضاف من الواجهة بدل CSV
+  listConcepts: (status?: 'draft' | 'published') =>
+    request<{ concepts: CustomConcept[] }>('GET', `/knowledge/concepts${status ? `?status=${status}` : ''}`),
+  saveConcept: (c: any) => request<{ concept: CustomConcept }>('POST', '/knowledge/concepts', c),
+  updateConcept: (id: string, c: any) => request<{ concept: CustomConcept }>('PUT', `/knowledge/concepts/${encodeURIComponent(id)}`, c),
+  deleteConcept: (id: string) => request<{ ok: boolean }>('DELETE', `/knowledge/concepts/${encodeURIComponent(id)}`),
   brain:  (days = 30) => request<BrainStats>('GET', `/knowledge/brain?days=${days}`),
   misses: (status = 'open', limit = 100) => request<{ misses: KnowledgeMiss[] }>('GET', `/knowledge/misses?status=${status}&limit=${limit}`),
   resolve: (id: string, category: string) => request<{ miss: KnowledgeMiss }>('POST', `/knowledge/misses/${encodeURIComponent(id)}/resolve`, { category }),

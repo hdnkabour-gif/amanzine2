@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { conceptGraph, graphCoverage } from '../../src/lib/akg/kb';
+import { conceptGraph, graphCoverage, stanceOf, CONCEPTS } from '../../src/lib/akg/kb';
 
 // ============================================================
 // عُقد الرسم — لكلّ مفهومٍ أسئلةٌ توضيحيّة · خدماتٌ مرتبطة · مسارُ حجز.
@@ -44,4 +44,53 @@ test('المجالات الجديدة (تقنية/شبكات/ملابس) مُد�
     assert.ok(n, `no node for ${id}`);
     assert.ok(n!.questions.length >= 1);
   }
+});
+
+// ── asks: ما يكتبه الأدمن يجب أن يُعرَض، لا أن يُحفَظ فقط ────────
+test('asks تظهر في العُقدة بدل الأسئلة العامّة', () => {
+  const c = CONCEPTS.find(x => x.id === 'data_recovery')!;
+  assert.ok(c.asks?.seek?.length, 'بيانات الاختبار تغيّرت: data_recovery بلا asks');
+  const n = conceptGraph('data_recovery', 'seek')!;
+  assert.deepEqual(n.questions, c.asks!.seek);
+  // العامّة كانت هي المعروضة قبل الدمج — يجب ألّا تظهر الآن.
+  assert.ok(!n.questions.includes('واش الخدمة مستعجلة؟'));
+});
+
+test('الاتّجاه يختار الجانب: العارض لا يُسأل سؤال الطالب', () => {
+  const c = CONCEPTS.find(x => x.id === 'computer_hardware_store')!;
+  const offer = conceptGraph('computer_hardware_store', 'offer')!;
+  const seek = conceptGraph('computer_hardware_store', 'seek')!;
+  assert.deepEqual(offer.questions, c.asks!.offer);
+  assert.deepEqual(seek.questions, c.asks!.seek);
+  assert.notDeepEqual(offer.questions, seek.questions);
+});
+
+test('اتّجاهٌ مجهول ⇒ أسئلةُ الطالب (أغلبُ مَن يفتح المساعد يطلب)', () => {
+  const c = CONCEPTS.find(x => x.id === 'printer_repair')!;
+  assert.deepEqual(conceptGraph('printer_repair')!.questions, c.asks!.seek);
+});
+
+test('بلا asks تبقى الطبقة المُنسَّقة كما هي (لا انحدار)', () => {
+  const c = CONCEPTS.find(x => x.id === 'mechanic')!;
+  assert.ok(!c.asks?.offer?.length && !c.asks?.seek?.length);
+  assert.equal(conceptGraph('mechanic', 'seek')!.questions[0], 'واش كتصلح جميع الماركات؟');
+});
+
+test('links.related تُستعمَل حين تكون مكتوبة', () => {
+  const c = CONCEPTS.find(x => x.id === 'data_recovery')!;
+  assert.deepEqual(c.links?.related, ['computer_repair', 'it_support']);
+  const ids = conceptGraph('data_recovery')!.related.map(r => r.id);
+  assert.deepEqual(ids, ['computer_repair', 'it_support']);
+});
+
+// ── stanceOf: الجسر الذي يمرّر الاتّجاه من المساعد إلى العُقدة ──
+test('stanceOf يميّز «أنا حدّاد» عن «بغيت حدّاد»', () => {
+  assert.equal(stanceOf('أنا حداد'), 'offer');
+  assert.equal(stanceOf('بغيت حداد'), 'seek');
+  assert.equal(stanceOf('عندي مشكل فالحاسوب'), 'seek');   // شكوى لا عرض
+  assert.equal(stanceOf('حداد'), 'unknown');
+});
+
+test('stanceOf يقرأ اللاتينيّة أيضًا', () => {
+  assert.equal(stanceOf('bghit haddad'), 'seek');
 });

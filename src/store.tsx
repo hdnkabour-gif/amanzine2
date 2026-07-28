@@ -7,6 +7,7 @@ import {
   type Page, type UserRole, type LogType, type LogSeverity, type NotifType, type OrderStatus,
 } from './types';
 import * as api from './services/api';
+import { registerRuntimeConcepts } from './lib/akg/kb/knowledge';
 import { validateImport } from './utils/importSchema';
 import { Sounds } from './utils/sounds';
 
@@ -214,6 +215,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // C-3: ‏/auth/me يصادق عبر كوكي HttpOnly حتى بدون توكن في الذاكرة —
       // (وعند انتهاء توكن الوصول يجدّده تلقائياً من كوكي refresh داخل api.ts)
       const meData = await api.authAPI.me().catch(() => null);
+
+      // مفاهيمُ الأدمن المنشورة تُحمَّل عند الإقلاع وتُسجَّل في محرّك الفهم.
+      // بدونها تبقى محفوظةً في القاعدة بلا أثر — تُضاف ولا تُفهَم.
+      api.knowledgeAPI.listConcepts('published')
+        .then(r => {
+          const list = (r.concepts || []).map((c: any) => ({
+            id: c.id, category: c.category || '', concept: c.concept || {}, variants: c.variants || {},
+            stance: c.stance, asks: c.asks, links: c.links,
+            services: c.services || [], examples: c.examples || [],
+          }));
+          if (list.length) registerRuntimeConcepts(list as any);
+        })
+        .catch(() => { /* زائرٌ أو غير أدمن ⇒ المعرفة المدمجة تكفي */ });
       const currentUser = meData?.user || null;
 
       if (!currentUser) {

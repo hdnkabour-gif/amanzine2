@@ -14,3 +14,4 @@ import './humanIntent.test';
 import './persona.test';
 import './reception.test';
 import './interfaceDecision.test';
+import './routing.test';

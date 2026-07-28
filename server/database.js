@@ -1332,6 +1332,44 @@ db.getNewSince = async ({ days = 7 } = {}) => {
   return { days, users, products, services, listings, providers, orders, bookings };
 };
 
+// ── مفاهيمُ الأدمن (custom_concepts) ──────────────────────────
+// تُقرأ حيّةً من القاعدة، فلا تحتاج إعادة نشرٍ لتؤثّر في الفهم.
+db.listCustomConcepts = async ({ status } = {}) => {
+  const { rows } = status
+    ? await pool.query('SELECT * FROM custom_concepts WHERE status = $1 ORDER BY updated_at DESC', [status])
+    : await pool.query('SELECT * FROM custom_concepts ORDER BY updated_at DESC');
+  return rows;
+};
+
+db.getCustomConcept = async (id) => {
+  const { rows } = await pool.query('SELECT * FROM custom_concepts WHERE id = $1', [id]);
+  return rows[0] || null;
+};
+
+// upsert: نفس الـid يُحدَّث لا يُكرَّر (نفس قاعدة الدمج في concepts.ts).
+db.upsertCustomConcept = async (c) => {
+  const j = (v, d) => JSON.stringify(v == null ? d : v);
+  const { rows } = await pool.query(
+    `INSERT INTO custom_concepts (id, category, concept, variants, stance, asks, links, services, examples, status, created_by, updated_at)
+       VALUES ($1,$2,$3::jsonb,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10,$11,NOW())
+     ON CONFLICT (id) DO UPDATE SET
+       category = EXCLUDED.category, concept = EXCLUDED.concept, variants = EXCLUDED.variants,
+       stance = EXCLUDED.stance, asks = EXCLUDED.asks, links = EXCLUDED.links,
+       services = EXCLUDED.services, examples = EXCLUDED.examples,
+       status = EXCLUDED.status, updated_at = NOW()
+     RETURNING *`,
+    [String(c.id), String(c.category || ''), j(c.concept, {}), j(c.variants, {}), j(c.stance, {}),
+     j(c.asks, {}), j(c.links, {}), j(c.services, []), j(c.examples, []),
+     c.status === 'published' ? 'published' : 'draft', c.createdBy || null]
+  );
+  return rows[0];
+};
+
+db.deleteCustomConcept = async (id) => {
+  const { rowCount } = await pool.query('DELETE FROM custom_concepts WHERE id = $1', [id]);
+  return rowCount > 0;
+};
+
 // أعلى المدن نشاطًا (من search_daily — بياناتٌ موجودةٌ أصلًا).
 db.getTopCities = async ({ days = 30, limit = 8 } = {}) => {
   const { rows } = await pool.query(

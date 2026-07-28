@@ -3,7 +3,8 @@ import { useStore } from '../store';
 import { Sparkles, Send, ArrowLeft, Camera } from 'lucide-react';
 import { type NeedResult, type NeedOption } from '../lib/needEngine';
 import { understandHybrid } from '../lib/understanding';
-import { resolveConcept, conceptGraph, type ConceptNode } from '../lib/akg/kb';
+import { resolveConcept, conceptGraph, stanceOf, type ConceptNode } from '../lib/akg/kb';
+import { shrinkImage } from '../lib/imageFile';
 import { buildContext } from '../lib/core/context';
 import { playGate } from '../lib/gateTransition';
 import { receptionStart, receptionTurn, receptionUnderstood, receptionEnd, recordDecision } from '../lib/journey';
@@ -29,25 +30,6 @@ function withNeed(url: string | undefined, q: string, city?: string): string {
   if (!/[?&]q=/.test(u) && q.trim()) { u += (u.includes('?') ? '&' : '?') + 'q=' + encodeURIComponent(q.trim()); }
   if (city && !/[?&]city=/.test(u)) { u += '&city=' + encodeURIComponent(city); }
   return u;
-}
-
-// ضغطُ صورةٍ إلى 512px كحدٍّ أقصى (توفير تكلفة الرؤية ~٨٠٪) → data URL (jpeg 0.7).
-function shrinkImage(file: File, max = 512): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, max / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
-      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-      const cx = cv.getContext('2d'); if (!cx) return reject(new Error('no ctx'));
-      cx.drawImage(img, 0, 0, w, h);
-      resolve(cv.toDataURL('image/jpeg', 0.7));
-    };
-    img.onerror = reject;
-    const fr = new FileReader();
-    fr.onload = () => { img.src = String(fr.result); };
-    fr.onerror = reject; fr.readAsDataURL(file);
-  });
 }
 
 export default function AssistantPage() {
@@ -102,7 +84,8 @@ export default function AssistantPage() {
     const reply = (r.open ? r.open + ' ' : '') + r.next;
     // عُقدة الرسم: إن عُرف المفهوم، نرفق أسئلته التوضيحيّة وخدماته المرتبطة.
     const svc = resolveConcept(query)?.id;
-    const node = svc ? conceptGraph(svc) : null;
+    // الاتّجاه يختار الأسئلة: مَن قال «أنا حدّاد» لا يُسأل «شحال الميزانية؟».
+    const node = svc ? conceptGraph(svc, stanceOf(query, svc)) : null;
     // احمل الحاجة إلى السوق (إلّا حين تكون الوجهة صفحةً داخليّة) — لا يضيع الفهم.
     const rr: NeedResult = (!r.page && r.url) ? { ...r, url: withNeed(r.url, query, uctx.place.city || undefined) } : r;
     lastRef.current = { raw: query, intent: r.intent, journey: String(jrn), uctx };

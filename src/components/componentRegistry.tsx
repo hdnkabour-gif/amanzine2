@@ -6,6 +6,7 @@
 // ============================================================
 
 import { useState, useRef, useEffect } from 'react';
+import { shrinkForListing, MAX_PHOTOS } from '../lib/imageFile';
 
 const BORDER = 'var(--border2,rgba(255,255,255,.14))';
 const INK1 = 'var(--ink1)';
@@ -80,12 +81,78 @@ const ToggleField: FieldComponent = ({ value, onChange, big, green }) => (
   </div>
 );
 
-const MediaPicker = (label: string): FieldComponent => ({ value, onChange, big, green }) => (
-  <button type="button" onClick={() => onChange(value ? undefined : 'أضيفت')}
-    style={{ display: 'flex', alignItems: 'center', gap: 7, alignSelf: 'flex-start', padding: big ? '11px 18px' : '9px 14px', borderRadius: 11, border: `1px dashed ${value ? green : BORDER}`, background: 'transparent', color: value ? green : INK3, fontSize: big ? 14 : 12.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
-    {value ? `${label} ✓` : `＋ أضف ${label}`}
-  </button>
-);
+// ── الصور: مُنتقٍ حقيقيّ ───────────────────────────────────
+// كان هذا زرًّا كاذبًا: ينقره المستخدم فيكتب النصّ «أضيفت» ويعرض ✓ بلا أيّ
+// صورة — لا حقل ملفّ ولا رفع. الإعلان يُنشَر بلا صورة والمستخدم يظنّها أُضيفت.
+// صار حقلَ ملفٍّ فعليًّا: يختار، يُضغَط، ويظهر مصغّرًا يمكن حذفه.
+const GalleryPicker: FieldComponent = ({ value, onChange, big, green }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const photos: string[] = Array.isArray(value) ? value : value ? [String(value)] : [];
+
+  const pick = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setErr(null); setBusy(true);
+    const room = MAX_PHOTOS - photos.length;
+    const next: string[] = [];
+    for (const f of Array.from(files).slice(0, Math.max(0, room))) {
+      if (!f.type.startsWith('image/')) { setErr('اختر صورةً فقط'); continue; }
+      try { next.push(await shrinkForListing(f)); }
+      catch { setErr('تعذّر قراءة الصورة — جرّب وحدة أخرى'); }
+    }
+    if (next.length) onChange([...photos, ...next]);
+    if (files.length > room) setErr(`الحدّ ${MAX_PHOTOS} صور`);
+    setBusy(false);
+    if (inputRef.current) inputRef.current.value = '';   // اختيارُ نفس الملفّ مرّتين
+  };
+  const drop = (i: number) => {
+    const rest = photos.filter((_, k) => k !== i);
+    onChange(rest.length ? rest : undefined);
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+      <input ref={inputRef} type="file" accept="image/*" multiple hidden
+        onChange={e => { void pick(e.target.files); }} />
+      {photos.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {photos.map((src, i) => (
+            <div key={i} style={{ position: 'relative', width: 72, height: 72, borderRadius: 11, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
+              <img src={src} alt={`صورة ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              <button type="button" onClick={() => drop(i)} aria-label={`حذف الصورة ${i + 1}`}
+                style={{ position: 'absolute', insetInlineEnd: 3, top: 3, width: 20, height: 20, borderRadius: 99, border: 'none', background: 'rgba(0,0,0,.62)', color: '#fff', fontSize: 13, lineHeight: 1, cursor: 'pointer', padding: 0 }}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {photos.length < MAX_PHOTOS && (
+        <button type="button" disabled={busy} onClick={() => inputRef.current?.click()}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, alignSelf: 'flex-start', padding: big ? '11px 18px' : '9px 14px', borderRadius: 11, border: `1px dashed ${photos.length ? green : BORDER}`, background: 'transparent', color: photos.length ? green : INK3, fontSize: big ? 14 : 12.5, fontWeight: 700, fontFamily: 'inherit', cursor: busy ? 'progress' : 'pointer' }}>
+          {busy ? '…كنحضّر الصور' : photos.length ? `＋ زيد صورة (${photos.length}/${MAX_PHOTOS})` : '📷 أضف صورًا'}
+        </button>
+      )}
+      <div style={{ fontSize: 11.5, color: err ? '#FCA5A5' : INK3 }}>
+        {err || 'الإعلان بصورة كيتشاف أكثر بكثير — حتّى وحدة كتّفرق.'}
+      </div>
+    </div>
+  );
+};
+
+const VideoPicker: FieldComponent = ({ value, onChange, big, green }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const name = typeof value === 'object' && value ? (value as any).name : value;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <input ref={inputRef} type="file" accept="video/*" hidden
+        onChange={e => { const f = e.target.files?.[0]; if (f) onChange({ name: f.name, size: f.size }); }} />
+      <button type="button" onClick={() => (name ? onChange(undefined) : inputRef.current?.click())}
+        style={{ display: 'flex', alignItems: 'center', gap: 7, alignSelf: 'flex-start', padding: big ? '11px 18px' : '9px 14px', borderRadius: 11, border: `1px dashed ${name ? green : BORDER}`, background: 'transparent', color: name ? green : INK3, fontSize: big ? 14 : 12.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
+        {name ? `🎬 ${String(name).slice(0, 28)} — احذف` : '🎬 أضف فيديو'}
+      </button>
+    </div>
+  );
+};
 
 // ── السجلّ ──────────────────────────────────────────────────
 const registry: Record<string, FieldComponent> = {
@@ -96,8 +163,8 @@ const registry: Record<string, FieldComponent> = {
   MoneyInput,
   ChoiceCards,
   ToggleField,
-  GalleryPicker: MediaPicker('صورًا'),
-  VideoPicker: MediaPicker('فيديو'),
+  GalleryPicker,
+  VideoPicker,
 };
 
 export function registerComponent(name: string, comp: FieldComponent): void {

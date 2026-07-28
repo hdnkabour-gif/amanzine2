@@ -1,11 +1,12 @@
 import { useState, lazy, Suspense } from 'react';
-import { Brain, Map, Activity, GraduationCap, Cpu, Search, Crown, LineChart, HeartPulse } from 'lucide-react';
+import { Brain, Map, Activity, GraduationCap, Cpu, Search, Crown, LineChart, HeartPulse, PlusCircle } from 'lucide-react';
 import AppKnowledgePanel from '../components/AppKnowledgePanel';
 import SystemMapPanel from '../components/SystemMapPanel';
 import LiveBrainPanel from '../components/LiveBrainPanel';
 import ExplainPanel from '../components/ExplainPanel';
 import OwnerConsolePanel from '../components/OwnerConsolePanel';
 import PlatformPulsePanel from '../components/PlatformPulsePanel';
+import AddConceptPanel from '../components/AddConceptPanel';
 import BetaMonitorPanel from '../components/BetaMonitorPanel';
 
 // ============================================================
@@ -26,9 +27,10 @@ const INK1 = 'var(--ink1,#FAFAFA)';
 const INK3 = 'var(--ink3,#7E877F)';
 const GREEN = 'var(--amz-emerald,#0a8f6f)';
 
-type TabId = 'pulse' | 'owner' | 'beta' | 'brain' | 'map' | 'explain' | 'live' | 'learn';
+type TabId = 'pulse' | 'add' | 'owner' | 'beta' | 'brain' | 'map' | 'explain' | 'live' | 'learn';
 const TABS: { id: TabId; label: string; icon: typeof Brain }[] = [
   { id: 'pulse', label: 'نبض المنصّة', icon: HeartPulse },
+  { id: 'add', label: 'إضافة مفهوم', icon: PlusCircle },
   { id: 'owner', label: 'المالك', icon: Crown },
   { id: 'beta', label: 'البيتا', icon: LineChart },
   { id: 'brain', label: 'العقل', icon: Brain },
@@ -73,6 +75,7 @@ export default function ControlCenter() {
       {/* body */}
       <div>
         {tab === 'pulse' && <PlatformPulsePanel />}
+        {tab === 'add' && <AddConceptPanel />}
         {tab === 'owner' && <OwnerConsolePanel />}
         {tab === 'beta' && <BetaMonitorPanel />}
         {tab === 'brain' && <AppKnowledgePanel />}

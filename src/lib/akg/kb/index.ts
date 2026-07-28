@@ -6,6 +6,8 @@
 //   بيانات فقط تغذّي inference/search — تحترم الـ Freeze.
 // ============================================================
 
+import { CONCEPTS as ALL_CONCEPTS } from './concepts';
+
 export * from './vocabulary';
 export * from './professions';
 export * from './problems';
@@ -46,6 +48,61 @@ export interface Understanding {
   confidence: number;              // 0..1
   reasoning: string[];             // خطوات الاستدلال (تفسير)
   learned?: { phrase: string; concept: string }; // معرفة معتمَدة بشريًّا طُبِّقت
+  stance?: Stance;                 // يَعرض أم يطلب؟ «أنا حدّاد» ≠ «بغيت حدّاد»
+}
+
+// الاتّجاه: بدونه كان «أنا حدّاد» يُفهَم كطلبٍ لحدّاد، فيردّ التطبيق «نقلبو عليه»
+// على من يعرض حدادته. علاماتٌ عامّة تعمل مع كلّ المفاهيم، ثمّ عباراتُ المفهوم نفسه.
+export type Stance = 'offer' | 'seek' | 'unknown';
+
+const OFFER_MARKS = [
+  'انا ', 'أنا ', 'احنا', 'إحنا', 'عندي', 'عندنا', 'كنبيع', 'نبيع', 'كنخدم',
+  'كنصايب', 'كنصنع', 'كنقدم', 'كندير', 'خدمتي', 'شركتي', 'محلي', 'متجري',
+  'عندي محل', 'عندي شركة', 'صاحب', 'حرفي', 'مول ',
+];
+const SEEK_MARKS = [
+  'بغيت', 'بغينا', 'خاصني', 'خاصنا', 'محتاج', 'نحتاج', 'كنقلب', 'كنقلبو',
+  'فين نلقى', 'فين كاين', 'واش كاين', 'شكون', 'ابحث', 'أبحث', 'اريد', 'أريد',
+  // ضُمَّت من قائمة needEngine.WANT: كانت هناك إشاراتٌ طلبٍ لا يعرفها الاتّجاه،
+  // فيختلف العقلان على نفس الجملة. المصدر واحدٌ الآن.
+  'باغي', 'خصني', 'نقلب', 'وين', 'فين', 'علاش', 'شحال ثمن', 'عندكم',
+];
+
+// شكوى: «عندي مشكل» تبدأ بعلامة عرض («عندي») لكنّها طلبُ مساعدة.
+// «لديّ/عندي/فيا» — الشكوى تُكتب بصيغٍ كثيرة، وكلّها طلبُ مساعدة لا عرض.
+const COMPLAINT = [
+  'عندي مشكل', 'عندي مشكلة', 'عندنا مشكل', 'عندي عطل', 'عندي خلل', 'ما كيخدمش', 'خربان',
+  'لدي مشكل', 'لديّ مشكل', 'لدي مشكلة', 'عندي مشكيل', 'واجهتني مشكلة', 'طرا لي مشكل',
+  // الدارجة تؤنّث كثيرًا (الثلّاجة، الغسّالة، الطوموبيل) — بلا صيغة المؤنّث كانت
+  // «الثلاجة ما بقاتش خدامة» تُقرأ بلا اتّجاه فتضيع شكوى.
+  'ما بقاش خدام', 'ما بقاتش خدامة', 'ما بقاتش خدّامة', 'ما بقاتش',
+  'ما خدامش', 'ما خدماش', 'ما كتخدمش', 'ما كيخدمش',
+  'تخربق', 'تخربقات', 'تعطل', 'تعطلات', 'حبس', 'حبسات',
+];
+
+// أفعالُ العرض بصيغة المتكلّم — تغلب أداةَ الطلب حين تجتمعان.
+const SELF_OFFER = ['نبيع', 'كنبيع', 'نسوق', 'نسوّق', 'باغي نبيع', 'بغيت نبيع'];
+
+function detectStance(t: string, c?: { stance?: { offer?: string[]; seek?: string[] } }): Stance {
+  if (COMPLAINT.some(w => t.includes(w))) return 'seek';
+  // عباراتُ المفهوم أدقّ من العلامات العامّة ⇒ تُفحَص أوّلًا.
+  for (const ph of c?.stance?.offer || []) if (ph && t.includes(ph)) return 'offer';
+  for (const ph of c?.stance?.seek  || []) if (ph && t.includes(ph)) return 'seek';
+  // فعلُ العرض يغلب أداةَ الطلب: «بغيت نبيع طوموبيل» صياغتُه طلبٌ ومعناه عرض.
+  // بدون هذا كان صاحبُ السيّارة يُرسَل إلى السوق ليشتري ما يريد بيعه.
+  if (SELF_OFFER.some(w => t.includes(w))) return 'offer';
+  // الطلب يغلب العرض عند اجتماعهما: «عندي مشكل وبغيت سبّاك» طلبٌ لا عرض.
+  const seek  = SEEK_MARKS.some(w => t.includes(w));
+  if (seek) return 'seek';
+  if (OFFER_MARKS.some(w => t.includes(w))) return 'offer';
+  return 'unknown';
+}
+
+// اتّجاهُ نصٍّ بذاته (بلا فهمٍ كامل) — يحتاجه المساعد ليختار أيّ أسئلةٍ يعرض:
+// «أنا حدّاد» يُسأل سؤالَ العارض، و«بغيت حدّاد» يُسأل سؤالَ الطالب.
+export function stanceOf(input: string, conceptId?: string): Stance {
+  const t = deArabizi(input).toLowerCase().trim();
+  return detectStance(t, conceptId ? ALL_CONCEPTS.find(x => x.id === conceptId) : undefined);
 }
 
 const has = (t: string, arr: string[]) => arr.some(w => t.includes(w));
@@ -140,7 +197,12 @@ export function understand(input: string): Understanding {
   if (learned && profession) confidence = Math.max(confidence, 0.85);
   else if (learned) confidence = Math.max(confidence, 0.6);
 
-  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned };
+  // 6) الاتّجاه — يُحسَب على النصّ المطبَّع مع عبارات المفهوم المحلول إن وُجد.
+  const stanceConcept = service ? ALL_CONCEPTS.find(x => x.id === service) : undefined;
+  const stance = detectStance(t, stanceConcept);
+  if (stance !== 'unknown') reasoning.push(stance === 'offer' ? '🧭 اتّجاه: يَعرض' : '🧭 اتّجاه: يطلب');
+
+  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance };
 }
 
 export function resolveTerm(term: string) { return normalize(term); }

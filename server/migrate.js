@@ -453,6 +453,25 @@ async function migrate() {
     )`);
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_search_terms_day_term ON search_terms_daily(day, term)`);
 
+    // مفاهيمُ يضيفها الأدمن من الواجهة. تُقرأ حيّةً بلا إعادة نشرٍ ولا CSV.
+    // status: draft (مسوّدة) · published (حيّة) — بوّابةٌ بشريّةٌ قبل أن تؤثّر في الفهم.
+    await client.query(`CREATE TABLE IF NOT EXISTS custom_concepts (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL DEFAULT '',
+      concept  JSONB NOT NULL DEFAULT '{}'::jsonb,   -- {ar,darija,fr,en}
+      variants JSONB NOT NULL DEFAULT '{}'::jsonb,   -- {ar:[],darija:[],fr:[],en:[],arabizi:[]}
+      stance   JSONB NOT NULL DEFAULT '{}'::jsonb,   -- {offer:[],seek:[]}
+      asks     JSONB NOT NULL DEFAULT '{}'::jsonb,   -- {offer:[],seek:[]}
+      links    JSONB NOT NULL DEFAULT '{}'::jsonb,   -- {related:[],needs:[],sells:[],near:[]}
+      services JSONB NOT NULL DEFAULT '[]'::jsonb,
+      examples JSONB NOT NULL DEFAULT '[]'::jsonb,
+      status TEXT NOT NULL DEFAULT 'draft',
+      created_by TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_custom_concepts_status ON custom_concepts(status, updated_at DESC)`);
+
     // Learning Loop — تجميع يومي مجهّل لمراحل القمع (DR-0004). لا هوية مستخدم.
     // شكل طويل (day, stage) → إضافة مرحلة جديدة بلا هجرة (القانون ٩).
     await client.query(`CREATE TABLE IF NOT EXISTS learning_daily (

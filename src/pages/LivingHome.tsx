@@ -280,6 +280,8 @@ export default function LivingHome() {
           )}
           {(pending || !result.steps) && !(!pending && !confirmed && decision?.mode === 'confirm') && (
             <DestinationCard next={pending?.next || result.next}
+              dest={pending ? { page: pending.page, url: pending.url } : { page: result.page, url: result.url }}
+              intent={result.intent}
               onGo={() => {
                 const dest: Dest = pending ? { page: pending.page, url: pending.url } : { page: result.page, url: result.url };
                 go(dest, pending?.label || result.tags[0] || result.label, result.intent, pending ? 'guided' : 'type');
@@ -380,15 +382,48 @@ export default function LivingHome() {
   );
 }
 
-function DestinationCard({ next, onGo }: { next: string; onGo: () => void }) {
+// اسمُ الوجهة وسببُ الذهاب إليها. كانت البطاقة تقول ما سيحدث ولا تقول **أين**
+// تأخذك ولا **لماذا**، فيبدو الانتقال مفاجئًا — «علاش دّاني لصفحة النشر؟».
+const PAGE_NAMES: Record<string, string> = {
+  publish: 'النشر الموحّد', settings: 'إعدادات المتجر', products: 'منتجاتي',
+  orders: 'طلباتي', bookings: 'الحجوزات', conversations: 'الرسائل', insights: 'الإحصائيات',
+};
+const WHY: Record<string, string> = {
+  sell: 'لأنّك كتعرض شي حاجة للبيع',
+  create_service: 'لأنّك كتقدّم خدمة — نعرّفو بيك',
+  create_store: 'لأنّك عندك محلّ — نجهّزوه',
+  rent: 'لأنّ الأمر متعلّقٌ بالكراء',
+  find_pro: 'لأنّك كتقلّب على مختصّ',
+  urgent: 'لأنّ الأمر مستعجل',
+  buy: 'لأنّك باغي تشري',
+  book: 'لأنّك باغي تحجز موعد',
+  manage: 'لمتابعة نشاطك',
+};
+function destName(dest: { page?: string; url?: string }): string {
+  if (dest.page) return PAGE_NAMES[dest.page] || 'صفحة داخليّة';
+  const u = dest.url || '';
+  if (u.startsWith('/market')) return u.includes('urgent') ? 'السوق — المتاحون الآن' : 'السوق';
+  if (u.startsWith('/explore')) return 'اكتشف';
+  return 'الوجهة المناسبة';
+}
+
+function DestinationCard({ next, dest, intent, onGo }: {
+  next: string; dest: { page?: string; url?: string }; intent?: string; onGo: () => void;
+}) {
+  const where = destName(dest);
+  const why = intent ? WHY[intent] : undefined;
   return (
     <div style={{ marginTop: 2, border: '1.5px solid var(--ember,#FF6A00)', borderRadius: 15, padding: 15, background: 'var(--ember-soft,rgba(255,106,0,.08))', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 13.5, color: 'var(--ink1)', lineHeight: 1.6 }}>
         <Check size={17} style={{ color: 'var(--ember,#FF6A00)', flexShrink: 0, marginTop: 2 }} />
         <span>{next}</span>
       </div>
+      {/* أين ولماذا — قبل الانتقال، لا بعده */}
+      <div style={{ fontSize: 12.5, color: 'var(--ink2,#C7CDC8)', lineHeight: 1.7, paddingInlineStart: 26 }}>
+        غادي نوصّلوك لـ <b style={{ color: 'var(--ink1)' }}>{where}</b>{why ? ` — ${why}.` : '.'}
+      </div>
       <button onClick={onGo} style={{ padding: '11px 16px', borderRadius: 12, border: 'none', background: 'var(--ember,#FF6A00)', color: '#fff', fontSize: 14, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-        يالله نمشيو <ArrowLeft size={17} />
+        يالله نمشيو لـ{where} <ArrowLeft size={17} />
       </button>
     </div>
   );

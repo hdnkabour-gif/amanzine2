@@ -84,18 +84,33 @@ function genericQuestions(): string[] {
 }
 
 // conceptGraph — عُقدةٌ غنيّة لمفهوم. تُشتقّ من البيانات + طبقةٍ مُنسَّقة.
-export function conceptGraph(id: string): ConceptNode | null {
+// `stance` يختار أسئلة المفهوم المكتوبة (asks): سؤالُ مَن يَعرض ليس سؤالَ مَن يطلب.
+export function conceptGraph(id: string, stance?: 'offer' | 'seek' | 'unknown'): ConceptNode | null {
   const c = CONCEPTS.find(x => x.id === id);
   if (!c) return null;
 
-  // أسئلة: المُنسَّقة أوّلًا، ثمّ ما يُشتقّ من أمثلة الملفّ (الجُمَل التي فيها سؤال)، وإلّا عامّة.
+  // أسئلة بأربع طبقات، الأخصّ أوّلًا:
+  //   1) asks المكتوبة للمفهوم (من CSV أو من لوحة الأدمن) — حسب الاتّجاه.
+  //      بلا هذه الطبقة كان ما يكتبه الأدمن يُحفَظ ولا يُعرَض أبدًا.
+  //   2) المُنسَّقة يدويًّا  3) أمثلةُ الملفّ التي فيها سؤال  4) أسئلةٌ عامّة.
+  // عند اتّجاهٍ مجهول نُقدّم أسئلة الطالب: أغلبُ مَن يفتح المساعد يطلب لا يَعرض.
+  const authored = stance === 'offer'
+    ? (c.asks?.offer || [])
+    : stance === 'seek'
+      ? (c.asks?.seek || [])
+      : (c.asks?.seek?.length ? c.asks.seek : (c.asks?.offer || []));
   const derived = (c.examples || []).filter(e => /[؟?]/.test(e)).slice(0, 3);
-  const questions = (CURATED_Q[id]?.length ? CURATED_Q[id] : derived.length ? derived : genericQuestions());
+  const questions = (authored.length ? authored
+    : CURATED_Q[id]?.length ? CURATED_Q[id]
+      : derived.length ? derived : genericQuestions()).slice(0, 4);
 
-  // مرتبطة: المُنسَّقة أوّلًا، وإلّا خدماتٌ من نفس الفئة.
-  const relIds = CURATED_R[id]?.length
-    ? CURATED_R[id]
-    : CONCEPTS.filter(x => x.id !== id && x.category && x.category === c.category).slice(0, 4).map(x => x.id);
+  // مرتبطة: روابطُ المفهوم المكتوبة (links.related) أوّلًا — نفس منطق asks:
+  // ما يكتبه الأدمن أدقُّ من الاشتقاق. ثمّ المُنسَّقة، وإلّا خدماتٌ من نفس الفئة.
+  const relIds = c.links?.related?.length
+    ? c.links.related
+    : CURATED_R[id]?.length
+      ? CURATED_R[id]
+      : CONCEPTS.filter(x => x.id !== id && x.category && x.category === c.category).slice(0, 4).map(x => x.id);
   const related: RelatedRef[] = relIds
     .map(rid => { const rc = CONCEPTS.find(x => x.id === rid); return rc ? { id: rid, name: rc.concept.ar || rid } : null; })
     .filter((r): r is RelatedRef => !!r)

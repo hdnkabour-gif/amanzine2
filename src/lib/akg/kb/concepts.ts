@@ -5,10 +5,33 @@
 //   `knowledge.ts` و`knowledgeGraph.ts`. إضافةٌ خالصة.
 // ============================================================
 
-import { CONCEPTS as GENERATED, type ConceptData } from './knowledgeData';
+import { CONCEPTS as GENERATED, type ConceptData, type ConceptStance, type ConceptLinks } from './knowledgeData';
 import { EXTRA_CONCEPTS, ENRICH_CONCEPTS } from './knowledgeExtra';
+// مولَّدٌ من CSV عبر scripts/import-knowledge.mjs — يُدمَج بنفس قاعدة الـid.
+import { IMPORTED_CONCEPTS } from './knowledgeExtra.generated';
 
 const uniq = (a: string[] = []) => Array.from(new Set(a.filter(Boolean)));
+
+// دمج اتّجاهٍ (stance/asks): اتّحادٌ بلا تكرار، ويُعيد undefined إن خلا الطرفان
+// فلا نُثقل المفاهيم بحقولٍ فارغة.
+function mergeStance(a?: ConceptStance, b?: ConceptStance): ConceptStance | undefined {
+  if (!a && !b) return undefined;
+  const offer = uniq([...(a?.offer || []), ...(b?.offer || [])]);
+  const seek  = uniq([...(a?.seek  || []), ...(b?.seek  || [])]);
+  if (!offer.length && !seek.length) return undefined;
+  return { ...(offer.length ? { offer } : {}), ...(seek.length ? { seek } : {}) };
+}
+
+function mergeLinks(a?: ConceptLinks, b?: ConceptLinks): ConceptLinks | undefined {
+  if (!a && !b) return undefined;
+  const out: ConceptLinks = {};
+  for (const k of ['related', 'needs', 'sells', 'near'] as const) {
+    const v = uniq([...((a as any)?.[k] || []), ...((b as any)?.[k] || [])]);
+    if (v.length) (out as any)[k] = v;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 function mergeVariants(a: ConceptData['variants'], b: ConceptData['variants']): ConceptData['variants'] {
   const langs = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
   const out: ConceptData['variants'] = {};
@@ -17,9 +40,11 @@ function mergeVariants(a: ConceptData['variants'], b: ConceptData['variants']): 
 }
 
 const byId = new Map<string, ConceptData>();
-for (const c of GENERATED) byId.set(c.id, { ...c });
+// نسخةٌ آمنة: النسخ السطحيّ يُبقي `variants` مشترَكًا مع knowledgeData،
+// فأيّ دمجٍ لاحقٍ كان سيعدّل المصدر المولّد نفسه.
+for (const c of GENERATED) byId.set(c.id, { ...c, variants: { ...c.variants } });
 // إثراء + إضافة: نفس الـid يُوحّد؛ الجديد يُضاف.
-for (const c of [...ENRICH_CONCEPTS, ...EXTRA_CONCEPTS]) {
+for (const c of [...ENRICH_CONCEPTS, ...EXTRA_CONCEPTS, ...IMPORTED_CONCEPTS]) {
   const ex = byId.get(c.id);
   if (ex) {
     byId.set(c.id, {
@@ -29,9 +54,12 @@ for (const c of [...ENRICH_CONCEPTS, ...EXTRA_CONCEPTS]) {
       variants: mergeVariants(ex.variants, c.variants),
       services: uniq([...(ex.services || []), ...(c.services || [])]),
       examples: uniq([...(ex.examples || []), ...(c.examples || [])]),
+      stance: mergeStance(ex.stance, c.stance),
+      asks:   mergeStance(ex.asks,   c.asks),
+      links:  mergeLinks(ex.links,   c.links),
     });
   } else {
-    byId.set(c.id, { ...c });
+    byId.set(c.id, { ...c, variants: { ...c.variants } });
   }
 }
 

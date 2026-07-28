@@ -8,7 +8,7 @@
 //   resolveCity('bghit sbak f casa')          → { city:'الدار البيضاء' }
 // ============================================================
 
-import { CITIES } from './knowledgeData';
+import { CITIES, type ConceptData } from './knowledgeData';
 import { CONCEPTS } from './concepts';
 import { deArabizi } from './arabizi';
 
@@ -60,6 +60,31 @@ for (const c of CONCEPTS) {
   for (const t of [...(c.variants.fr || []), ...(c.variants.en || []), ...(c.variants.arabizi || []), ...(aug.fr || []), ...(aug.en || []), ...(aug.arabizi || [])]) {
     const n = normLatin(t); if (n.length >= 2) latIndex.push({ term: n, c: m });
   }
+}
+// المصطلحُ الأطول أخصُّ ⇒ يُفحَص أوّلًا (longest-match-wins).
+arIndex.sort((a, b) => b.term.length - a.term.length);
+latIndex.sort((a, b) => b.term.length - a.term.length);
+
+// مفاهيمُ وقتِ التشغيل: ما يضيفه الأدمن من الواجهة يُحفَظ في القاعدة، ولو بقي
+// هناك لما أثّر في الفهم أبدًا (الفهارس تُبنى عند تحميل الوحدة). هذه الدالّة
+// تُدخِله في نفس الفهرسين ثمّ تُعيد الفرز، فيعمل فورًا بلا إعادة نشر.
+export function registerRuntimeConcepts(list: ConceptData[]): number {
+  let added = 0;
+  for (const c of list || []) {
+    if (!c?.id || !c.variants) continue;
+    const m: Match = { id: c.id, category: c.category, concept: c.concept || {} };
+    for (const t of [...(c.variants.ar || []), ...(c.variants.darija || [])]) {
+      const n = normArabic(t); if (n.length >= 2) { arIndex.push({ term: n, tokens: toks(n), c: m }); added++; }
+    }
+    for (const t of [...(c.variants.fr || []), ...(c.variants.en || []), ...(c.variants.arabizi || [])]) {
+      const n = normLatin(t); if (n.length >= 2) { latIndex.push({ term: n, c: m }); added++; }
+    }
+  }
+  if (added) {
+    arIndex.sort((a, b) => b.term.length - a.term.length);
+    latIndex.sort((a, b) => b.term.length - a.term.length);
+  }
+  return added;
 }
 // الأطول أوّلًا (أدقّ مطابقة)
 arIndex.sort((a, b) => b.term.length - a.term.length);
@@ -121,7 +146,9 @@ export function resolveConcept(text: string): ConceptResolution | null {
     if (r.all.every(hits)) return { id: r.id, category: categoryFor(r.id, r.category), concept: conceptById(r.id), language: hasArabic ? 'darija' : 'en' };
   }
 
-  // العربيّة: مطابقةٌ متّصلة (أدقّ) أوّلًا.
+  // الأخصّ أوّلًا: الفهرسان مرتّبان بطول المصطلح تنازليًّا، فـ«بيع حواسيب» تسبق
+// «حاسوب». بدونه كان أوّلُ مفهومٍ في الترتيب يفوز مهما كان مصطلحه عامًّا.
+// العربيّة: مطابقةٌ متّصلة (أدقّ) أوّلًا.
   for (const { term, c } of arIndex) {
     if ((ta && ta.includes(term)) || (tda && tda.includes(term))) {
       return { id: c.id, category: categoryFor(c.id, c.category), concept: c.concept, language: 'darija' };

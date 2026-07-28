@@ -45,7 +45,7 @@ const EXAMPLES = ['عندي آيفون 13 نبيعو ب 3000', 'بغيت نبي�
 
 export default function CreateFlow({ def }: { def: PageDef }) {
   const store = useStore();
-  const { setPage, user } = store;
+  const { setPage, user, addProduct } = store;
   const scoped = def.kind === 'create';           // صفحة موجَّهة لمجال (products.create…)
   const [raw, setRaw] = useState('');
   const [built, setBuilt] = useState(false);
@@ -57,6 +57,8 @@ export default function CreateFlow({ def }: { def: PageDef }) {
   const [finished, setFinished] = useState<Journey | null>(null);
   const [fb, setFb] = useState<string | null>(null);
   const [gate, setGate] = useState<PolicyResult | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
   const build = (text: string) => {
     const q = text.trim(); if (!q) return;
@@ -99,14 +101,68 @@ export default function CreateFlow({ def }: { def: PageDef }) {
     return { ...m, ...values };
   };
 
-  const publish = () => {
+  // القيمُ المجموعة → منتج/خدمة تُحفَظ فعلًا. الحقول تختلف بالقالب (سيّارة/عقار/
+  // خدمة)، لذا نأخذ المعروف بالاسم ونُبقي الباقي في `data` بلا ضياع.
+  const toProduct = (v: Values) => {
+    const KNOWN = ['title', 'profession', 'price', 'dailyPrice', 'desc', 'city', 'photos', 'video', 'category'];
+    // حقولُ القالب الخاصّة (ماركة · سنة · كيلومتراج · خبرة · ضمانة…) تُحفَظ في
+    // `customFields` — نفس الحقل الذي يقرأه السوق ويعرضه للزبون. بلا هذا كانت
+    // تُجمَع في الواجهة ثمّ تُرمى عند الحفظ، فيُنشَر إعلانُ سيّارةٍ بلا ماركة.
+    const labels: Record<string, string> = {
+      brand: 'الماركة', model: 'الموديل', year: 'السنة', mileage: 'الكيلومتراج',
+      fuel: 'الوقود', gearbox: 'علبة السرعات', condition: 'الحالة', papers: 'الأوراق',
+      warranty: 'الضمانة', specialties: 'التخصّصات', experience: 'الخبرة',
+      mobile: 'يتنقّل للزبون', hours: 'أوقات العمل', phone: 'الهاتف',
+      deposit: 'الضمان', insurance: 'التأمين',
+    };
+    const customFields = Object.entries(v)
+      .filter(([k, val]) => !KNOWN.includes(k) && val != null && val !== '')
+      .map(([k, val]) => ({
+        id: k, label: labels[k] || k, options: [] as string[],
+        type: (typeof val === 'boolean' ? 'boolean' : 'text') as any,
+        value: String(typeof val === 'boolean' ? (val ? 'نعم' : 'لا') : val),
+      }));
+    const photos: string[] = Array.isArray(v.photos) ? v.photos : v.photos ? [String(v.photos)] : [];
+    const num = (x: any) => { const n = parseFloat(String(x ?? '').replace(/[^\d.]/g, '')); return Number.isFinite(n) ? n : 0; };
+    return {
+      // الخادم يرفض اسمًا أقصر من حرفين — لا نترك النشر يفشل على تفصيلٍ كهذا.
+      name: (String(v.title || v.profession || raw).trim() || 'إعلان جديد').slice(0, 120),
+      description: String(v.desc || raw || ''),
+      price: num(v.price ?? v.dailyPrice),
+      cost: 0, stock: 1,
+      category: String(v.category || def.id),
+      sizes: [], colors: [],
+      status: 'published',
+      emoji: '📦',
+      imageUrl: photos[0] || '',
+      images: photos,
+      isForChildren: false,
+      views: 0, sales: 0,
+      city: v.city || undefined,
+      videoUrl: typeof v.video === 'string' ? v.video : '',
+      customFields,               // حقول القالب — يقرأها السوق ويعرضها
+    };
+  };
+
+  const publish = async () => {
     const rc = merged();
     // Policies: الصلاحيّات من PageDef (النشر يتطلّب دخولًا).
     if (def.permissions.includes('publish')) {
       const pol = checkPolicy('publish', { authed: !!user, city: rc.city });
       if (pol.decision !== 'allow') { setGate(pol); return; }
     }
-    setGate(null); setRec(rc);
+    setGate(null);
+    // الحفظ الحقيقيّ. كانت هذه الدالّة تكتب سجلًّا محلّيًّا وتعرض «صار مرئيًّا
+    // للباحثين قربك» — ولا يصل شيءٌ إلى الخادم أبدًا. الإعلان لم يكن يُنشَر.
+    setSaving(true); setSaveErr(null);
+    try {
+      await addProduct(toProduct(rc));
+    } catch (e: any) {
+      setSaving(false);
+      setSaveErr(e?.message || 'تعذّر الحفظ — تحقّق من الاتّصال وعاود');
+      return;                     // لا نعرض نجاحًا لم يقع
+    }
+    setSaving(false); setRec(rc);
     const j = finishJourney(true); setFinished(j); setDone(true);
   };
 
@@ -215,16 +271,36 @@ export default function CreateFlow({ def }: { def: PageDef }) {
           <Stepper wf={wf} phase={phase} accent={accent} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 900, color: step.theme?.accent || gold }}>
             <span>{step.theme?.icon || '🚀'}</span> {step.scenarioLabel}
-            <button onClick={() => setShowAll(s => !s)} style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 5, background: 'transparent', border: '1px solid var(--border2,rgba(255,255,255,.14))', borderRadius: 99, padding: '4px 10px', color: 'var(--ink3)', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
-              <List size={12} /> {showAll ? 'وضع المحادثة' : 'عرض الكل'}
+            {/* النموذج اليدويّ الكامل: كان زرًّا رماديًّا صغيرًا مكتوبًا عليه «عرض
+                الكل» — لا يدلّ على أنّه نموذجٌ كامل، فلم يكن أحدٌ يعرف بوجوده.
+                صار مسمّى بصراحة، بلونٍ ظاهر، ومعه عددُ حقوله. */}
+            <button onClick={() => setShowAll(s => !s)} style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 5, background: showAll ? 'transparent' : `color-mix(in srgb, ${accent} 14%, transparent)`, border: `1px solid ${accent}`, borderRadius: 99, padding: '5px 12px', color: accent, fontSize: 11.5, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>
+              {showAll
+                ? <><MessageCircle size={12} /> رجّع المحادثة</>
+                : <><List size={12} /> النموذج الكامل ({fullFields.length} حقل)</>}
             </button>
           </div>
 
+          {/* يُقال مرّةً واحدة، قبل أن يبدأ الجواب — لا بعد أن يملّ */}
+          {!showAll && Object.keys(values).length === 0 && (
+            <div style={{ fontSize: 12, color: 'var(--ink3)', lineHeight: 1.75, marginTop: -6 }}>
+              كنسولوك سؤالًا بسؤال باش تكون ساهلة. وإلا كتفضّل تعمّر كلشي بيدك،
+              حلّ <b style={{ color: accent }}>النموذج الكامل</b> من فوق.
+            </div>
+          )}
+
+          {saveErr && (
+            <div style={{ padding: '11px 14px', borderRadius: 12, border: '1px solid rgba(239,68,68,.4)', background: 'rgba(239,68,68,.08)', color: '#FCA5A5', fontSize: 13, fontWeight: 700, lineHeight: 1.7 }}>
+              ما تنشرش — {saveErr}
+            </div>
+          )}
           {showAll ? (
             <>
               <FullFormRenderer fields={fullFields} values={values} gold={gold} green={green} onChange={set} />
               {gateBanner}
-              <button onClick={publish} style={{ ...btn(gold, true), justifyContent: 'center', padding: '13px', fontSize: 15 }}><Rocket size={17} /> نشر الآن</button>
+              <button onClick={publish} disabled={saving} style={{ ...btn(gold, true), justifyContent: 'center', padding: '13px', fontSize: 15, opacity: saving ? .7 : 1, cursor: saving ? 'progress' : 'pointer' }}>
+                <Rocket size={17} /> {saving ? 'كنسجّل…' : 'نشر الآن'}
+              </button>
             </>
           ) : (
             <UniversalRenderer step={step} values={values} gold={gold} green={green} onChange={set} onAction={onAction} onCorrect={correct} gate={gateBanner} />
