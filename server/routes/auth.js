@@ -111,7 +111,8 @@ router.post('/social', sanitizeBody, async (req, res) => {
       // Verify the Google ID token server-side
       const data = await httpsGetJSON(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
       // Optionally enforce audience: if GOOGLE_CLIENT_ID set, aud must match
-      if (data && data.email && (!process.env.GOOGLE_CLIENT_ID || data.aud === process.env.GOOGLE_CLIENT_ID)) {
+      // ✅ التعديل هنا: أضفنا .trim() لإزالة أي مسافات أو أسطر مخفية من متغيرات Railway
+      if (data && data.email && (!process.env.GOOGLE_CLIENT_ID || data.aud === process.env.GOOGLE_CLIENT_ID.trim())) {
         profile = { email: String(data.email).toLowerCase(), name: data.name || data.given_name || data.email.split('@')[0] };
       }
     } else if (provider === 'facebook' && accessToken) {
