@@ -101,7 +101,7 @@ if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
 // ── Rate limiting ─────────────────────────────────────────────
 app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false }));
-app.use('/api/auth/', rateLimit({ windowMs: 60 * 1000, max: 100, message: { error: 'Too many requests, try again later' } }));
+app.use('/api/auth/', rateLimit({ windowMs: 60 * 1000, max: 200, message: { error: 'Too many requests, try again later' } }));
 
 // محددات أدق للمسارات العامة (بدون auth) — حماية التاجر من البوتات والإغراق:
 // عجلة الحظ، إنشاء الطلبات، المجيب الآلي، والتحقق من الكوبونات
