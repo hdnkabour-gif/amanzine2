@@ -106,21 +106,36 @@ router.post('/social', sanitizeBody, async (req, res) => {
   try {
     const { provider, credential, accessToken } = req.body;
     let profile = null;
+    let why = 'مزوّد غير معروف أو رمزٌ ناقص';   // سببُ الرفض — للسجلّ لا للعميل
 
     if (provider === 'google' && credential) {
       // Verify the Google ID token server-side
       const data = await httpsGetJSON(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
-      // Optionally enforce audience: if GOOGLE_CLIENT_ID set, aud must match
-      // ✅ التعديل هنا: أضفنا .trim() لإزالة أي مسافات أو أسطر مخفية من متغيرات Railway
-      if (data && data.email && (!process.env.GOOGLE_CLIENT_ID || data.aud === process.env.GOOGLE_CLIENT_ID.trim())) {
+      // المعرّف يُقارَن بعد trim: متغيّرات البيئة على المنصّات تُلصَق كثيرًا
+      // بمسافةٍ أو سطرٍ جديدٍ خفيّ في آخرها، فتفشل المقارنة الصارمة ويُرفَض
+      // حسابٌ صحيحٌ تمامًا برسالةٍ لا تدلّ على السبب.
+      const wantAud = String(process.env.GOOGLE_CLIENT_ID || '').trim();
+      const gotAud  = String(data?.aud || '').trim();
+      if (!data || !data.email) {
+        why = `Google لم يُرجع بريدًا (${data?.error_description || data?.error || 'رمزٌ غير صالح أو منتهٍ'})`;
+      } else if (wantAud && gotAud !== wantAud) {
+        // لا نطبع المعرّفات كاملةً في السجلّ — أطرافُها تكفي للتشخيص.
+        const tip = (v) => (v ? `${v.slice(0, 12)}…${v.slice(-8)}` : '(فارغ)');
+        why = `عدم تطابق الجمهور (aud): الرمز=${tip(gotAud)} · GOOGLE_CLIENT_ID=${tip(wantAud)}`;
+      } else {
         profile = { email: String(data.email).toLowerCase(), name: data.name || data.given_name || data.email.split('@')[0] };
       }
     } else if (provider === 'facebook' && accessToken) {
       const data = await httpsGetJSON(`https://graph.facebook.com/me?fields=id,name,email&access_token=${encodeURIComponent(accessToken)}`);
       if (data && data.email) profile = { email: String(data.email).toLowerCase(), name: data.name || data.email.split('@')[0] };
+      else why = `Facebook لم يُرجع بريدًا (${data?.error?.message || 'قد يكون الحساب بلا بريدٍ مؤكَّد'})`;
     }
 
-    if (!profile || !profile.email) return res.status(401).json({ error: 'فشل التحقق من الحساب' });
+    if (!profile || !profile.email) {
+      // السببُ في السجلّ حتمًا: «فشل التحقق» وحدها لا تُصلَّح، وقد كلّفتنا وقتًا.
+      console.error('[auth/social] رُفض:', why);
+      return res.status(401).json({ error: 'فشل التحقق من الحساب' });
+    }
 
     let user = await db.getUserByEmail(profile.email);
     let isNew = false;

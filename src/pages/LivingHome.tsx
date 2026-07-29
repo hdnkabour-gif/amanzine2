@@ -5,7 +5,7 @@ import {
   MessageCircle, ShoppingBag, Eye, Plus, AlertTriangle, Phone, Heart, Sparkles, Truck,
 } from 'lucide-react';
 import { NEED_EXAMPLES, type NeedResult, type NeedOption } from '../lib/needEngine';
-import { lastByIntent, getInteractions, setSatisfaction, type Interaction, type Via } from '../lib/experienceLog';
+import { lastByIntent, lastByJourney, getInteractions, setSatisfaction, type Interaction, type Via } from '../lib/experienceLog';
 import { buildContext } from '../lib/core/context';
 import { orchestrate, recordExperience, recordFeedback } from '../lib/core/orchestrator';
 import { relatedProfessions } from '../lib/knowledge/graph';
@@ -153,7 +153,11 @@ export default function LivingHome() {
     else setPending(opt);
   };
   const activeStep = result?.steps?.[stepIdx];
-  const mem = result ? lastByIntent(result.intent, xpLog) : undefined; // ذاكرة تخصّ هذه النيّة (من تفاعلات سابقة)
+  // ذاكرةٌ بمستويَين: النيّة نفسها أوّلًا (أدقّ)، ثمّ نفسُ الرحلة (أوسع).
+  // كان حقل journey يُكتب في كلّ تجربةٍ ولا يُقرأ — القاعدة ⑦: يُعرَض أو يُحذَف.
+  const memExact = result ? lastByIntent(result.intent, xpLog) : undefined;
+  const memJourney = !memExact && result ? lastByJourney(String(journey), xpLog) : undefined;
+  const mem = memExact || memJourney;
 
   // Decision Layer — «التطبيق يقرّر أفضل واجهة». وضع confirm يُظهر تأكيدًا خفيفًا
   // عند اليقين المتوسّط قبل التوجيه («فهمت أنّك باغي… صح؟»).
@@ -259,7 +263,11 @@ export default function LivingHome() {
           {mem && (
             <button onClick={() => go(strToDest(mem.dest), mem.what, result.intent, 'memory')} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 13px', borderRadius: 13, background: 'var(--panel,rgba(255,255,255,.04))', border: '1px dashed var(--border2,rgba(255,255,255,.16))', cursor: 'pointer', textAlign: 'start', fontFamily: 'inherit', width: '100%' }}>
               <span style={{ fontSize: 15 }}>↩️</span>
-              <span style={{ flex: 1, fontSize: 13, color: 'var(--ink2)' }}>آخر مرة مشيتي لـ <b style={{ color: 'var(--ink1)' }}>{mem.what}</b> — تعاود؟</span>
+              <span style={{ flex: 1, fontSize: 13, color: 'var(--ink2)' }}>
+                {memExact
+                  ? <>آخر مرة مشيتي لـ <b style={{ color: 'var(--ink1)' }}>{mem.what}</b> — تعاود؟</>
+                  : <>من نفس الرحلة: <b style={{ color: 'var(--ink1)' }}>{mem.what}</b> — تكمّل منها؟</>}
+              </span>
               <ArrowLeft size={15} style={{ color: 'var(--ink3)' }} />
             </button>
           )}

@@ -216,9 +216,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // (وعند انتهاء توكن الوصول يجدّده تلقائياً من كوكي refresh داخل api.ts)
       const meData = await api.authAPI.me().catch(() => null);
 
-      // مفاهيمُ الأدمن المنشورة تُحمَّل عند الإقلاع وتُسجَّل في محرّك الفهم.
-      // بدونها تبقى محفوظةً في القاعدة بلا أثر — تُضاف ولا تُفهَم.
-      api.knowledgeAPI.listConcepts('published')
+      // المفاهيم المنشورة تُحمَّل عند الإقلاع وتُسجَّل في محرّك الفهم.
+      // **مسارٌ عامّ** لا محميّ: الفهم يخصّ كلّ الناس، والمحميُّ كان يرجع 401
+      // للزائر فيدفعه العميلُ إلى /login في حلقةِ إعادة تحميلٍ لا نهائيّة.
+      api.knowledgeAPI.publicConcepts()
         .then(r => {
           const list = (r.concepts || []).map((c: any) => ({
             id: c.id, category: c.category || '', concept: c.concept || {}, variants: c.variants || {},

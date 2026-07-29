@@ -81,7 +81,26 @@ function normalizeConcept(body) {
   };
 }
 
-// GET — قائمة المفاهيم المضافة
+// GET عامّ — المفاهيم **المنشورة** فقط، لكلّ زائر بلا حساب.
+// السبب: الفهم يخصّ الناس لا الأدمن. كان الإقلاع يستدعي المسار المحميّ أدناه
+// لكلّ زائر، فيرجع 401 «Authentication required»، فيدفع العميلُ المستخدمَ إلى
+// /login، فيُقلع من جديد، فيُستدعى ثانيةً — **حلقةُ إعادة تحميلٍ لا نهائيّة**
+// على الصفحة الرئيسيّة وصفحة الدخول معًا. لا يُعرَض هنا شيءٌ سرّيّ: ما نُشر
+// يظهر أصلًا في الفهم لكلّ من يكتب.
+router.get('/concepts/public', async (_req, res) => {
+  try {
+    const rows = await db.listCustomConcepts({ status: 'published' });
+    res.json({
+      concepts: rows.map(r => ({
+        id: r.id, category: r.category, concept: r.concept, variants: r.variants,
+        stance: r.stance, asks: r.asks, links: r.links,
+        services: r.services, examples: r.examples,
+      })),
+    });
+  } catch (e) { console.error('[knowledge]', e.message); res.json({ concepts: [] }); }
+});
+
+// GET — قائمة المفاهيم المضافة (أدمن: تشمل المسوّدات وبيانات الإدارة)
 router.get('/concepts', auth, admin, async (req, res) => {
   try {
     const status = ['draft', 'published'].includes(req.query.status) ? req.query.status : undefined;

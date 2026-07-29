@@ -484,6 +484,9 @@ export const knowledgeAPI = {
   // مفاهيمُ الأدمن — تُضاف من الواجهة بدل CSV
   listConcepts: (status?: 'draft' | 'published') =>
     request<{ concepts: CustomConcept[] }>('GET', `/knowledge/concepts${status ? `?status=${status}` : ''}`),
+  // المنشورةُ فقط، بلا حساب — يستدعيها الإقلاع لكلّ زائر. استدعاءُ المسار
+  // المحميّ هنا كان يرجع 401 فيدفع العميلُ إلى /login في حلقةٍ لا نهائيّة.
+  publicConcepts: () => request<{ concepts: CustomConcept[] }>('GET', '/knowledge/concepts/public'),
   saveConcept: (c: any) => request<{ concept: CustomConcept }>('POST', '/knowledge/concepts', c),
   updateConcept: (id: string, c: any) => request<{ concept: CustomConcept }>('PUT', `/knowledge/concepts/${encodeURIComponent(id)}`, c),
   deleteConcept: (id: string) => request<{ ok: boolean }>('DELETE', `/knowledge/concepts/${encodeURIComponent(id)}`),

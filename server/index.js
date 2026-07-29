@@ -54,15 +54,25 @@ app.use(helmet({
   contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],           // React needs inline scripts
-      styleSrc:  ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      // الدخول الاجتماعيّ: مكتبتا Google وFacebook تُحمَّلان من نطاقَيهما.
+      // كانتا محجوبتَين، فلا يُحمَّل السكربت أصلًا — ولهذا لا تفتح النافذة
+      // أو تفتح ثمّ يفشل كلّ شيء. الحجبُ سببٌ سابقٌ على أيّ خطأ 401.
+      scriptSrc: ["'self'", "'unsafe-inline'",            // React needs inline scripts
+        'https://accounts.google.com', 'https://apis.google.com',
+        'https://connect.facebook.net',
+      ],
+      styleSrc:  ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://accounts.google.com'],
       imgSrc:    ["'self'", 'data:', 'https:', 'blob:'],  // base64 product images
       connectSrc:["'self'",
         'https://api.openai.com',
         'https://generativelanguage.googleapis.com',
         'https://graph.facebook.com',
+        'https://accounts.google.com', 'https://oauth2.googleapis.com',
+        'https://www.googleapis.com',
       ],
-      fontSrc:   ["'self'", 'https://fonts.gstatic.com'],
+      // One Tap ونافذةُ الاختيار تعملان داخل إطار — بلا frameSrc تُحجَبان.
+      frameSrc:  ["'self'", 'https://accounts.google.com', 'https://www.facebook.com', 'https://staticxx.facebook.com'],
+      fontSrc:   ["'self'", 'https://fonts.gstatic.com', 'data:'],
       mediaSrc:  ["'self'", 'blob:'],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
@@ -99,9 +109,46 @@ app.use(express.json({ limit: '20mb', verify: (req, _res, buf) => { req.rawBody 
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
+// فحصُ الصحّة **قبل** المحدِّدات — لا بعدها. Railway يستدعيه دوريًّا، وكان
+// يستهلك دلوَ المستخدم نفسه حتّى يعود 429، فتظنّ المنصّةُ أنّ الخادم ساقط.
+// الترتيب هو ما يجعله استثناءً فعليًّا: middleware يسبق ما بعده.
+// ── Health ───────────────────────────────────────────────────
+app.get('/api/health', (req, res) => {
+  const mem = process.memoryUsage();
+  res.json({
+    status: 'ok', version: '3.2.0', name: 'AMANZINE AI Commerce OS',
+    time: new Date().toISOString(),
+    uptime: Math.round(process.uptime()) + 's',
+    memory: Math.round(mem.heapUsed/1024/1024) + 'MB',
+    node: process.version,
+    ai: {
+      openai: !!(process.env.OPENAI_API_KEY),
+      gemini: !!(process.env.GEMINI_API_KEY),
+    },
+    env: process.env.NODE_ENV || 'development',
+  });
+});
+
 // ── Rate limiting ─────────────────────────────────────────────
-app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false }));
-app.use('/api/auth/', rateLimit({ windowMs: 60 * 1000, max: 10, message: { error: 'Too many requests, try again later' } }));
+// فحصُ الصحّة **خارج** كلّ حدّ: Railway يستدعيه دوريًّا، فكان يستهلك دلوَ
+// المستخدم نفسه حتّى يعود 429 — فيظنّ المنصّةُ أنّ الخادم ساقط.
+// يُعرَّف قبل المحدِّدات لا بعدها؛ الترتيب هو ما يجعله استثناءً فعليًّا.
+
+// الحدّ العامّ: ١٠٠ لكلّ ١٥ دقيقة كان يخنق تطبيقَ صفحةٍ واحدة — جلسةٌ عاديّة
+// ترسل عشرات الطلبات (me · config · concepts · بحث · تتبّع) فتُستهلَك الحصّة
+// في دقائق، فيُحجَب المستخدم قبل أن يضغط «دخول». رُفع إلى معدّلٍ واقعيّ.
+app.use('/api/', rateLimit({
+  windowMs: 15 * 60 * 1000, max: 600, standardHeaders: true, legacyHeaders: false,
+  message: { error: 'طلبات كثيرة — انتظر قليلاً' },
+}));
+// المصادقة: ١٠/دقيقة كانت تسقط قبل أيّ محاولةٍ حقيقيّة، لأنّ فتح الصفحة وحده
+// يرسل me + config. القراءةُ لا تُحسَب؛ الحدُّ الصارم يبقى على المحاولات
+// الكاتبة (دخول/تسجيل/استعادة) وهي المقصودة بالحماية من التخمين.
+app.use('/api/auth/', rateLimit({
+  windowMs: 60 * 1000, max: 40,
+  skip: (req) => req.method === 'GET',
+  message: { error: 'محاولات كثيرة — انتظر دقيقة' },
+}));
 
 // محددات أدق للمسارات العامة (بدون auth) — حماية التاجر من البوتات والإغراق:
 // عجلة الحظ، إنشاء الطلبات، المجيب الآلي، والتحقق من الكوبونات
@@ -165,22 +212,6 @@ app.use('/api/business',      require('./routes/business'));    // Universal Bus
 app.use('/api/knowledge',     require('./routes/knowledge'));   // Knowledge layer (أدمن): search misses (DR-0002)
 app.use('/api/needs',         require('./routes/needs'));       // Demand Capture: «ما لقيناش» تصير طلبًا مؤكّدًا
 
-// ── Health ───────────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
-  const mem = process.memoryUsage();
-  res.json({
-    status: 'ok', version: '3.2.0', name: 'AMANZINE AI Commerce OS',
-    time: new Date().toISOString(),
-    uptime: Math.round(process.uptime()) + 's',
-    memory: Math.round(mem.heapUsed/1024/1024) + 'MB',
-    node: process.version,
-    ai: {
-      openai: !!(process.env.OPENAI_API_KEY),
-      gemini: !!(process.env.GEMINI_API_KEY),
-    },
-    env: process.env.NODE_ENV || 'development',
-  });
-});
 
 // ── Serve uploaded media ─────────────────────────────────────
 const UPLOADS = path.join(DATA_DIR, 'uploads');

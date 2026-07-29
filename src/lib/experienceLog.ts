@@ -43,6 +43,14 @@ export function lastByIntent(intent: string, log?: Interaction[]): Interaction |
   return (log || getInteractions()).find(i => i.intent === intent);
 }
 
+// الرحلة أوسع من النيّة: مَن يكري دارًا يمرّ بنيّاتٍ عدّة (بحث · معاينة · حجز)
+// وكلّها رحلةٌ واحدة. الاسترجاع بالنيّة وحدها يفوّت هذا، فيبدو التطبيق ناسيًا
+// بينما هو يعرف. كان حقل `journey` يُكتب في كلّ تجربةٍ ولا يُقرأ أبدًا.
+export function lastByJourney(journey: string, log?: Interaction[]): Interaction | undefined {
+  if (!journey || journey === 'discover') return undefined;
+  return (log || getInteractions()).find(i => i.journey === journey);
+}
+
 // Feedback Loop: تسجيل رضا المستخدم عن تجربة (بالطابع الزمنيّ).
 export function setSatisfaction(at: number, satisfied: boolean): void {
   try {
