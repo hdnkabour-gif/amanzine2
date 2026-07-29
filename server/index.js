@@ -115,8 +115,13 @@ if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 // ── Health ───────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   const mem = process.memoryUsage();
+  // بلا قاعدةٍ لا يكون الخادم «ok»: الفحص ينجح والتطبيق فارغٌ من الداخل.
+  // نُبقي 200 (وإلّا أسقطت المنصّةُ النشرَ فلا يُقرأ السبب) لكن نقول الحقيقة.
+  const noDb = !process.env.DATABASE_URL;
   res.json({
-    status: 'ok', version: '3.2.0', name: 'AMANZINE AI Commerce OS',
+    status: noDb ? 'degraded' : 'ok',
+    ...(noDb ? { degraded: 'DATABASE_URL غير مضبوط — لا تسجيلَ دخولٍ ولا حفظَ بيانات' } : {}),
+    version: '3.2.0', name: 'AMANZINE AI Commerce OS',
     time: new Date().toISOString(),
     uptime: Math.round(process.uptime()) + 's',
     memory: Math.round(mem.heapUsed/1024/1024) + 'MB',

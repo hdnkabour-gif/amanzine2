@@ -67,10 +67,19 @@ router.post('/register', sanitizeBody, validateAuth, async (req, res) => {
 router.post('/login', sanitizeBody, validateAuth, async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+    // الرسائل بالعربيّة: الواجهة عربيّةٌ بالكامل، ورسالةٌ إنجليزيّة تظهر
+    // للمستخدم المغربيّ في أضعف لحظة (فشلُ دخول) كسرٌ للثقة لا تفصيلُ ترجمة.
+    // ولا نفرّق بين «بريدٌ غير مسجّل» و«كلمةٌ خاطئة» — التفريق يكشف مَن له حساب.
+    if (!email || !password) return res.status(400).json({ error: 'البريد وكلمة المرور مطلوبان' });
+    // بلا قاعدةٍ لا يوجد مستخدمٌ أصلًا، فيقول الخادم «كلمة مرور خاطئة» لمن
+    // كلمتُه صحيحة — كذبٌ يُضيّع ساعاتٍ في البحث عن عطبٍ ليس في مكانه.
+    if (!process.env.DATABASE_URL) {
+      console.error('[auth/login] لا قاعدة بيانات — DATABASE_URL غير مضبوط');
+      return res.status(503).json({ error: 'الخدمة ما زالت تُجهَّز (قاعدة البيانات غير موصولة) — عاود من بعد' });
+    }
     const user = await db.getUserByEmail(email);
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ error: 'Incorrect email or password' });
+      return res.status(401).json({ error: 'البريد ولا كلمة المرور ماشي صحيحين' });
     }
     await db.addLog({ userId: user.id, user: user.name, action: 'Login', details: '', type: 'auth', severity: 'info' });
     const token        = sign(user);
@@ -104,6 +113,10 @@ router.get('/config', (req, res) => {
 // POST /api/auth/social — PUBLIC: verify Google/Facebook token, find-or-create user, issue JWT
 router.post('/social', sanitizeBody, async (req, res) => {
   try {
+    if (!process.env.DATABASE_URL) {
+      console.error('[auth/social] لا قاعدة بيانات — DATABASE_URL غير مضبوط');
+      return res.status(503).json({ error: 'الخدمة ما زالت تُجهَّز (قاعدة البيانات غير موصولة) — عاود من بعد' });
+    }
     const { provider, credential, accessToken } = req.body;
     let profile = null;
     let why = 'مزوّد غير معروف أو رمزٌ ناقص';   // سببُ الرفض — للسجلّ لا للعميل

@@ -42,6 +42,7 @@ export default function AuthPage() {
   const [logoErr, setLogoErr]   = useState(false);
   const [form, setForm] = useState({ name:'', email:'', password:'', storeName:'' });
   const [socialCfg, setSocialCfg] = useState<{ googleClientId: string; facebookAppId: string }>({ googleClientId: '', facebookAppId: '' });
+  const [googleReady, setGoogleReady] = useState(false);
   const [socialBusy, setSocialBusy] = useState(false);
   const [focusedField, setFocusedField] = useState('');
   // الحاجة القادمة من صفحة الهبوط — تُكمل الرحلة بدل نموذجٍ مقطوعٍ عمّا سبقه.
@@ -63,6 +64,32 @@ export default function AuthPage() {
     ).catch(() => {});
   }, []);
 
+  // تحميلُ مكتبة Google **مسبقًا** لا عند النقر. كان `await loadScript(...)`
+  // داخل معالِج النقر يفصل الفتح عن نقرة المستخدم، فيعتبره المتصفّح نافذةً
+  // تلقائيّة ويحجبها: «Failed to open popup window. Maybe blocked by the
+  // browser?». التحميل هنا يجعل النقرة لاحقًا متزامنةً فتمرّ.
+  useEffect(() => {
+    if (!socialCfg.googleClientId) return;
+    let dead = false;
+    loadScript('https://accounts.google.com/gsi/client')
+      .then(() => {
+        if (dead) return;
+        const g = (window as any).google;
+        if (!g?.accounts?.id) return;
+        g.accounts.id.initialize({
+          client_id: socialCfg.googleClientId,
+          callback: (resp: any) => {
+            if (resp?.credential) finishSocial('google', { credential: resp.credential });
+            else setSocialBusy(false);
+          },
+        });
+        setGoogleReady(true);
+      })
+      .catch(() => { /* بلا شبكة/محجوب ⇒ يبقى الزرّ يشرح نفسه عند النقر */ });
+    return () => { dead = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socialCfg.googleClientId]);
+
   const finishSocial = async (provider: string, payload: Record<string, string>) => {
     try {
       const r = await fetch('/api/auth/social', {
@@ -82,18 +109,27 @@ export default function AuthPage() {
     setSocialBusy(false);
   };
 
-  const googleLogin = async () => {
+  const googleLogin = () => {
     if (!socialCfg.googleClientId) { setError('تسجيل الدخول بـ Google يتطلب إعداد GOOGLE_CLIENT_ID في الخادم'); return; }
+    const g = (window as any).google;
+    if (!googleReady || !g?.accounts?.id) { setError('Google مازال كيتحمّل — عاود بعد ثانية'); return; }
     setError(''); setSocialBusy(true);
     try {
-      await loadScript('https://accounts.google.com/gsi/client');
-      const g = (window as any).google;
-      g.accounts.id.initialize({
-        client_id: socialCfg.googleClientId,
-        callback: (resp: any) => { if (resp?.credential) finishSocial('google', { credential: resp.credential }); else setSocialBusy(false); },
+      // بلا await هنا: النقرةُ نفسها هي ما يفتح النافذة.
+      // وإن لم تُعرَض (حجبُ نوافذ · عزلُ الكوكيز في فايرفوكس) نقول السبب بدل
+      // دوّارةٍ لا تنتهي — الصمت هنا هو ما ضيّع الوقت.
+      g.accounts.id.prompt((n: any) => {
+        const skipped = n?.isNotDisplayed?.() || n?.isSkippedMoment?.();
+        if (!skipped) return;
+        const why = n?.getNotDisplayedReason?.() || n?.getSkippedReason?.() || '';
+        setSocialBusy(false);
+        setError(
+          why === 'opt_out_or_no_session' ? 'ما كاين حتّى حساب Google مسجّل فهاد المتصفّح — دخل لـ Google أوّلًا'
+            : why === 'suppressed_by_user' ? 'سبق وسدّيتي نافذة Google — حيّد الحجب من إعدادات المتصفّح'
+              : 'المتصفّح حجب نافذة Google — سمح بالنوافذ المنبثقة لهاد الموقع وعاود'
+        );
       });
-      g.accounts.id.prompt();
-    } catch { setError('تعذّر تحميل Google'); setSocialBusy(false); }
+    } catch { setError('تعذّر فتح Google'); setSocialBusy(false); }
   };
 
   const facebookLogin = async () => {
