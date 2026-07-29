@@ -37,10 +37,6 @@ const app  = express();
 const PORT = process.env.PORT || 3001;
 
 // ── الثقة بالوسيط (Railway/أيّ PaaS) ─────────────────────────
-// بدونها كان express-rate-limit يرمي ERR_ERL_UNEXPECTED_X_FORWARDED_FOR في
-// السجلّات، ويعجز عن تمييز المستخدمين: كلّ الطلبات تصل من IP الوسيط ⇒ إمّا
-// دلوٌ واحدٌ للجميع (مستخدمٌ واحدٌ يحجب الكلّ) أو حدٌّ بلا معنى.
-// نثق بقفزةٍ واحدة فقط (وسيط المنصّة) لا `true` المفتوح الذي يسمح بانتحال IP.
 app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
 const DIST = path.join(__dirname, '..', 'dist');
 
@@ -49,31 +45,28 @@ const DATA_DIR = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // ── Middleware ───────────────────────────────────────────────
-// CSP: restrictive in production, relaxed locally for Vite HMR
-// ── Middleware ───────────────────────────────────────────────
-// CSP: restrictive in production, relaxed locally for Vite HMR
 app.use(helmet({
   contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
+    useDefaults: false, // ⚠️ ضروري لإزالة strict-dynamic
     directives: {
       defaultSrc: ["'self'"],
-      // ⬇️ أضفنا Google هنا للسماح بتحميل مكتبة المصادقة
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://accounts.google.com'],
-      // ⬇️ أضفنا هذا السطر لحل مشكلة script-src-attr 'none'
-      scriptSrcAttr: ["'unsafe-inline'"], 
-      styleSrc:  ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      imgSrc:    ["'self'", 'data:', 'https:', 'blob:'],
-      // ⬇️ نضيف Google هنا للسماح للطلبات بالذهاب إلى Google
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://accounts.google.com', 'https://connect.facebook.net'],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://accounts.google.com'],
+      styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://accounts.google.com'], // تم الإضافة لحل مشاكل التحميل
+      styleSrcAttr: ["'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
       connectSrc: ["'self'",
         'https://api.openai.com',
         'https://generativelanguage.googleapis.com',
         'https://graph.facebook.com',
         'https://accounts.google.com',
+        'https://connect.facebook.net',
       ],
-      fontSrc:   ["'self'", 'https://fonts.gstatic.com'],
-      mediaSrc:  ["'self'", 'blob:'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      mediaSrc: ["'self'", 'blob:'],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
-      // ⬇️ لمنع أخطاء أخرى قد تظهر من Google One Tap
       frameSrc: ["'self'", 'https://accounts.google.com'],
     },
   } : false,
@@ -83,7 +76,6 @@ app.use(helmet({
 // CORS: strict allowlist only — no wildcard domains
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow: no origin (same-origin, Capacitor mobile apps)
     if (!origin) return callback(null, true);
     const allowed = [
       'http://localhost:5173', 'http://localhost:3000',
@@ -102,35 +94,38 @@ app.use(cors({
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
 }));
 app.use(require('cookie-parser')());
-// H-3: نحتفظ بالـ raw body للتحقّق من توقيع Webhook (Meta) بدقّة
 app.use(express.json({ limit: '20mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
 // ── Rate limiting ─────────────────────────────────────────────
-app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false }));
+// 1. استثناء مسار الصحة من أي قيود (يوضع دائماً في البداية)
+app.use('/api/health', (req, res, next) => next());
+
+// 2. القيود الخاصة بالمسارات المهمة (تأتي قبل القيد العام)
 app.use('/api/auth/', rateLimit({ windowMs: 60 * 1000, max: 300, message: { error: 'Too many requests, try again later' } }));
 
-// محددات أدق للمسارات العامة (بدون auth) — حماية التاجر من البوتات والإغراق:
-// عجلة الحظ، إنشاء الطلبات، المجيب الآلي، والتحقق من الكوبونات
+// محددات أدق للمسارات العامة
 app.use('/api/coupons/public/spin', rateLimit({ windowMs: 60 * 60 * 1000, max: 10, message: { error: 'محاولات كثيرة — عُد لاحقاً 🍀' } }));
 app.use('/api/orders/public',       rateLimit({ windowMs: 60 * 60 * 1000, max: 15, message: { error: 'طلبات كثيرة من هذا الجهاز — حاول بعد قليل' } }));
 app.use('/api/ai/public-reply',     rateLimit({ windowMs: 10 * 60 * 1000, max: 30, message: { error: 'رسائل كثيرة — انتظر قليلاً ثم أعد المحاولة' } }));
 app.use('/api/coupons/validate',    rateLimit({ windowMs: 10 * 60 * 1000, max: 40, message: { error: 'محاولات تحقق كثيرة — انتظر قليلاً' } }));
-app.use('/api/track',               rateLimit({ windowMs: 5 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false })); // أحداث view/click متكرّرة
-app.use('/api/bookings/public',     rateLimit({ windowMs: 60 * 60 * 1000, max: 20, message: { error: 'محاولات حجز كثيرة — حاول بعد قليل' } })); // alloservix
-app.use('/api/search',              rateLimit({ windowMs: 10 * 60 * 1000, max: 150, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // المحرّك الموحّد
-app.use('/api/recommend',           rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Recommendation Engine
-app.use('/api/feed',                rateLimit({ windowMs: 10 * 60 * 1000, max: 150, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Activity Feed
-app.use('/api/discover',            rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Super App (legacy alias)
-app.use('/api/business',            rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Universal Business Engine
-app.use('/api/needs',               rateLimit({ windowMs: 60 * 60 * 1000, max: 20, message: { error: 'طلبات كثيرة — حاول بعد قليل' } })); // Demand Capture (عامّ)
-app.use('/api/knowledge',           rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Knowledge layer (أدمن)
+app.use('/api/track',               rateLimit({ windowMs: 5 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false }));
+app.use('/api/bookings/public',     rateLimit({ windowMs: 60 * 60 * 1000, max: 20, message: { error: 'محاولات حجز كثيرة — حاول بعد قليل' } }));
+app.use('/api/search',              rateLimit({ windowMs: 10 * 60 * 1000, max: 150, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } }));
+app.use('/api/recommend',           rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } }));
+app.use('/api/feed',                rateLimit({ windowMs: 10 * 60 * 1000, max: 150, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } }));
+app.use('/api/discover',            rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } }));
+app.use('/api/business',            rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } }));
+app.use('/api/needs',               rateLimit({ windowMs: 60 * 60 * 1000, max: 20, message: { error: 'طلبات كثيرة — حاول بعد قليل' } }));
+app.use('/api/knowledge',           rateLimit({ windowMs: 10 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } }));
 
-// H-5: سقف لمسارات الذكاء الاصطناعي (حماية تكلفة المالك من الاستنزاف)
+// سقف لمسارات الذكاء الاصطناعي
 app.use('/api/ai/',          rateLimit({ windowMs: 60 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات ذكاء اصطناعي كثيرة — انتظر قليلاً (حماية التكلفة)' } }));
-// C-2: تحديد محاولات تتبّع الطلب (يدعم منع تعداد البيانات)
 app.use('/api/orders/track', rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'محاولات تتبّع كثيرة — انتظر قليلاً' } }));
+
+// 3. القيد العام (يوضع في النهاية ليلتقط ما تبقى من مسارات لا تملك قيوداً خاصة)
+app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false }));
 
 // ── Routes ───────────────────────────────────────────────────
 app.use('/api/auth',          require('./routes/auth'));
@@ -146,32 +141,32 @@ app.use('/api/analytics',     require('./routes/analytics'));
 app.use('/api/media',         require('./routes/media'));
 app.use('/api/loyalty', require('./routes/loyalty'));
 app.use('/api/coupons',       require('./routes/coupons'));
-app.use('/api/ai',            require('./routes/ai-search'));   // AI Engine: /ask (عام) — قبل مسارات ai المصادَقة
+app.use('/api/ai',            require('./routes/ai-search'));
 app.use('/api/ai',            require('./routes/ai'));
 app.use('/api/delivery-auto', require('./routes/delivery-auto'));
 app.use('/api/push',          require('./routes/push'));
 app.use('/api/listings',      require('./routes/listings'));
-app.use('/api/providers',     require('./routes/providers'));   // alloservix — سوق الخدمات
-app.use('/api/bookings',      require('./routes/bookings'));    // alloservix — الحجوزات
-app.use('/api/search',        require('./routes/search'));      // المحرّك الموحّد الوحيد (Discover = Search بلا q)
-app.use('/api/recommend',     require('./routes/recommend'));   // Recommendation Engine (فوق Business Graph)
-app.use('/api/feed',          require('./routes/feed'));        // Activity Feed (timelines فوق Activity Engine)
-app.use('/api/insights',      require('./routes/insights'));    // Analytics Engine (لوحات من تدفّق الأحداث)
-app.use('/api/track',         require('./routes/track'));       // استقبال view/click → Activity events
-app.use('/api/wallet',        require('./routes/wallet'));      // Wallet Engine
-app.use('/api/payment',       require('./routes/payment'));     // Payment Engine
+app.use('/api/providers',     require('./routes/providers'));
+app.use('/api/bookings',      require('./routes/bookings'));
+app.use('/api/search',        require('./routes/search'));
+app.use('/api/recommend',     require('./routes/recommend'));
+app.use('/api/feed',          require('./routes/feed'));
+app.use('/api/insights',      require('./routes/insights'));
+app.use('/api/track',         require('./routes/track'));
+app.use('/api/wallet',        require('./routes/wallet'));
+app.use('/api/payment',       require('./routes/payment'));
 
-// المحرّكات المعتمدة على الأحداث: Analytics + Rules→Notification كمشتركين على الـBus
+// المحرّكات المعتمدة على الأحداث
 try {
   require('./lib/engines/analytics').init();
   require('./lib/engines/rules').init(require('./lib/engines/notification'));
-  require('./lib/engines/learning').init(require('./lib/engines/eventbus')); // Learning Loop (DR-0004)
+  require('./lib/engines/learning').init(require('./lib/engines/eventbus'));
   console.log('[engines] analytics + rules→notification + learning subscribers ready');
 } catch (e) { console.error('[engines] init failed:', e.message); }
-app.use('/api/discover',      require('./routes/discover'));    // legacy alias — يفوّض إلى Search Engine
-app.use('/api/business',      require('./routes/business'));    // Universal Business Engine — الملف الموحد
-app.use('/api/knowledge',     require('./routes/knowledge'));   // Knowledge layer (أدمن): search misses (DR-0002)
-app.use('/api/needs',         require('./routes/needs'));       // Demand Capture: «ما لقيناش» تصير طلبًا مؤكّدًا
+app.use('/api/discover',      require('./routes/discover'));
+app.use('/api/business',      require('./routes/business'));
+app.use('/api/knowledge',     require('./routes/knowledge'));
+app.use('/api/needs',         require('./routes/needs'));
 
 // ── Health ───────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -209,7 +204,7 @@ app.get('*', (req, res) => {
   }
 });
 
-// ── Structured logging + crash handlers (production readiness) ──
+// ── Structured logging + crash handlers ──────────────────────
 const logger = require('./lib/logger');
 process.on('unhandledRejection', (reason) => {
   logger.error('Unhandled promise rejection', { reason: reason && reason.message ? reason.message : String(reason) });
@@ -233,9 +228,6 @@ const migrate = require('./migrate');
 async function startServer() {
   try {
     if (process.env.DATABASE_URL) {
-      // Migration must NOT crash the process — otherwise a transient/misconfigured
-      // DB makes the server never listen and the Railway healthcheck fails for 5m.
-      // Start in degraded mode and surface the error in logs/monitoring instead.
       try { await migrate(); }
       catch (e) { logger.error('DB migration failed — starting in degraded mode (check DATABASE_URL / DB connectivity)', { error: e.message }); logger.capture(e); }
     } else {
@@ -254,7 +246,6 @@ async function startServer() {
       console.log(`[ENV] NODE_ENV=${process.env.NODE_ENV || 'development'}`);
       console.log(`[ENV] PORT=${PORT}`);
       ensureAdmin();
-      // مَن يملك لوحة المنصّة فعلًا؟ سطرٌ واحدٌ في السجلّ يمنع مفاجأة «403» بعد النشر.
       try {
         const { platformAdminEmails } = require('./middleware/platformAdmin');
         const list = platformAdminEmails();
@@ -264,7 +255,7 @@ async function startServer() {
       } catch { /* noop */ }
     });
 
-    // ── WebSocket (moved inside async start) ─────────────────
+    // ── WebSocket ──────────────────────────────────────────────
     const WebSocket = require('ws');
     const jwt       = require('jsonwebtoken');
     const { JWT_SECRET: _wsSecret } = require('./lib/config');
@@ -289,21 +280,17 @@ async function startServer() {
         } catch { return false; }
       };
 
-      // C-3: مصادقة فورية عبر كوكي HttpOnly (آمنة من XSS) إن توفّرت —
-      // تتيح مصادقة WebSocket دون إرسال التوكن في رسالة من localStorage
       const cookieHeader = req.headers.cookie || '';
       const cookiePair = cookieHeader.split(';').map(s => s.trim()).find(s => s.startsWith('token='));
       if (cookiePair) { try { authenticate(decodeURIComponent(cookiePair.slice(6))); } catch {} }
 
-      // Give client 5 s in production to send auth message; allow dev without auth
       if (userId) {
-        // مُصادَق عبر الكوكي — لا حاجة لمؤقّت أو رسالة auth إضافية
+        // مُصادَق عبر الكوكي
       } else if (process.env.NODE_ENV === 'production') {
         authTimer = setTimeout(() => {
           if (!userId) { ws.close(4001, 'Auth timeout'); }
         }, 5000);
       } else {
-        // Dev: auto-auth with hintId so existing tests/demos work
         userId = hintId;
         if (!clients.has(userId)) clients.set(userId, new Set());
         clients.get(userId).add(ws);
@@ -343,8 +330,6 @@ async function startServer() {
 }
 
 startServer();
-
-// WebSocket is now initialized inside startServer() above.
 
 // ── Init Supabase sync ───────────────────────────────────────
 require('./sync').ensureTable().catch(() => {});
@@ -427,14 +412,12 @@ function startDailyBackup() {
         if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
         const filename = `backup-${user.id}-${new Date().toISOString().split('T')[0]}.json`;
         fs.writeFileSync(path.join(backupDir, filename), JSON.stringify(backup, null, 2));
-        // Keep only last 7 backups per user
         const files = fs.readdirSync(backupDir).filter(f => f.includes(user.id)).sort();
         if (files.length > 7) files.slice(0, files.length - 7).forEach(f => fs.unlinkSync(path.join(backupDir, f)));
         console.log(`[Backup] ✅ ${user.email} — ${filename}`);
       }
     } catch(e) { console.error('[Backup]', e.message); }
   }
-  // Run at startup + every 24h
   setTimeout(doBackup, 5000);
   setInterval(doBackup, 24 * 60 * 60 * 1000);
   console.log('[Backup] Daily backup scheduled');
@@ -442,8 +425,6 @@ function startDailyBackup() {
 startDailyBackup();
 
 // ── Abandoned-cart reminder Cron (H-4) ──────────────────────────
-// بديل موثوق لمؤقّتات setTimeout في الذاكرة (التي تُفقد عند إعادة التشغيل):
-// فحص دوري كل ساعة يجد المحادثات المهجورة ويذكّرها مرّة واحدة.
 function startAbandonedCartCron() {
   const { db } = require('./database');
   async function run() {
@@ -462,7 +443,5 @@ function startAbandonedCartCron() {
   console.log('[AbandonedCart] Hourly reminder cron scheduled');
 }
 startAbandonedCartCron();
-
-
 
 module.exports = app;
