@@ -9,7 +9,6 @@ const fs   = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 // ── Parse combined CLOUDINARY_URL → individual SDK vars ──────
-// Format: cloudinary://API_KEY:API_SECRET@CLOUD_NAME
 if (process.env.CLOUDINARY_URL && !process.env.CLOUDINARY_CLOUD_NAME) {
   try {
     const m = process.env.CLOUDINARY_URL.match(/^cloudinary:\/\/([^:]+):([^@]+)@(.+)$/);
@@ -47,13 +46,13 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 // ── Middleware ───────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
-    useDefaults: false, // ⚠️ ضروري لإزالة strict-dynamic
+    useDefaults: false,
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", 'https://accounts.google.com', 'https://connect.facebook.net'],
       scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://accounts.google.com'],
-      styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://accounts.google.com'], // تم الإضافة لحل مشاكل التحميل
+      styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://accounts.google.com'],
       styleSrcAttr: ["'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
       connectSrc: ["'self'",
@@ -99,11 +98,11 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
 // ── Rate limiting ─────────────────────────────────────────────
-// 1. استثناء مسار الصحة من أي قيود (يوضع دائماً في البداية)
+// 1. استثناء مسار الصحة (يوضع دائماً في البداية)
 app.use('/api/health', (req, res, next) => next());
 
-// 2. القيود الخاصة بالمسارات المهمة (تأتي قبل القيد العام)
-app.use('/api/auth/', rateLimit({ windowMs: 60 * 1000, max: 300, message: { error: 'Too many requests, try again later' } }));
+// 2. القيود الخاصة بالمسارات المهمة (الآن بحماية 1000 طلب لتجنب 429)
+app.use('/api/auth/', rateLimit({ windowMs: 60 * 1000, max: 1000, message: { error: 'Too many requests, try again later' } }));
 
 // محددات أدق للمسارات العامة
 app.use('/api/coupons/public/spin', rateLimit({ windowMs: 60 * 60 * 1000, max: 10, message: { error: 'محاولات كثيرة — عُد لاحقاً 🍀' } }));
@@ -118,13 +117,13 @@ app.use('/api/feed',                rateLimit({ windowMs: 10 * 60 * 1000, max: 1
 app.use('/api/discover',            rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } }));
 app.use('/api/business',            rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } }));
 app.use('/api/needs',               rateLimit({ windowMs: 60 * 60 * 1000, max: 20, message: { error: 'طلبات كثيرة — حاول بعد قليل' } }));
-app.use('/api/knowledge',           rateLimit({ windowMs: 10 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } }));
+app.use('/api/knowledge',           rateLimit({ windowMs: 10 * 60 * 1000, max: 1000, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } }));
 
 // سقف لمسارات الذكاء الاصطناعي
 app.use('/api/ai/',          rateLimit({ windowMs: 60 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات ذكاء اصطناعي كثيرة — انتظر قليلاً (حماية التكلفة)' } }));
 app.use('/api/orders/track', rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'محاولات تتبّع كثيرة — انتظر قليلاً' } }));
 
-// 3. القيد العام (يوضع في النهاية ليلتقط ما تبقى من مسارات لا تملك قيوداً خاصة)
+// 3. القيد العام (يوضع في النهاية ليلتقط ما تبقى)
 app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false }));
 
 // ── Routes ───────────────────────────────────────────────────
