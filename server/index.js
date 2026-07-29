@@ -380,6 +380,14 @@ require('./sync').ensureTable().catch(() => {});
 // ── Auto-create admin ─────────────────────────────────────────
 async function ensureAdmin() {
   try {
+    // بلا قاعدةٍ لا يوجد ما يُنشَأ. كان يمضي فيرجع createUser قيمةً معدومة،
+    // فيرمي `Cannot read properties of undefined (reading 'id')` — سطرٌ غامضٌ
+    // يوهم بعطبٍ في إنشاء الأدمن، بينما السبب مذكورٌ أعلاه بوضوح. الضجيجُ
+    // فوق الرسالة الصحيحة يُضيّع الوقتَ تمامًا كالصمت.
+    if (!process.env.DATABASE_URL) {
+      if (process.env.ADMIN_EMAIL) console.warn('[Admin] تُخُطّي إنشاء الأدمن — لا قاعدة بيانات (انظر الرسالة أعلاه).');
+      return;
+    }
     const { db } = require('./database');
     const email = process.env.ADMIN_EMAIL;
     const pass  = process.env.ADMIN_PASSWORD;
@@ -387,6 +395,7 @@ async function ensureAdmin() {
     if (await db.getUserByEmail(email)) return;
     const bcrypt = require('bcryptjs');
     const user = await db.createUser({ name: process.env.ADMIN_NAME || 'Admin', email, password: bcrypt.hashSync(pass, 10), role: 'admin' });
+    if (!user?.id) { console.error('[Admin] لم يُنشأ المستخدم — تحقّق من اتّصال القاعدة'); return; }
     const { defaultSettings } = require('./defaults');
     await db.saveSettings(user.id, { ...defaultSettings, brand: { ...defaultSettings.brand, email } });
     console.log(`[Admin] Created: ${email}`);
