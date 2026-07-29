@@ -251,8 +251,10 @@ export default function CreateFlow({ def }: { def: PageDef }) {
             <textarea value={raw} onChange={e => setRaw(e.target.value)} rows={2} placeholder="مثلاً: بغيت نبيع Golf 2018 · أنا نجّار · عندي شقة للكراء"
               style={{ width: '100%', resize: 'vertical', background: 'transparent', border: 'none', outline: 'none', color: 'var(--ink1)', fontSize: 15, fontWeight: 600, fontFamily: 'inherit', direction: 'rtl' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {/* أربعةُ أزرارٍ كانت تبدو فعّالةً ولا تفعل شيئًا، و«قريبًا» مخبّأةٌ
+                  في title لا يراها مستخدمُ الهاتف. صارت معطّلةً ومعلَنةً. */}
               {[{ i: Camera, l: 'صورة' }, { i: Mic, l: 'صوت' }, { i: MessageCircle, l: 'واتساب' }, { i: FileText, l: 'PDF' }].map(m => (
-                <button key={m.l} type="button" title={`${m.l} — قريبًا`} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 11px', borderRadius: 10, border: '1px solid var(--border,rgba(255,255,255,.08))', background: 'transparent', color: 'var(--ink3)', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}><m.i size={14} /> {m.l}</button>
+                <button key={m.l} type="button" disabled style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 11px', borderRadius: 10, border: '1px dashed var(--border,rgba(255,255,255,.08))', background: 'transparent', color: 'var(--ink3)', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'default', opacity: .45 }}><m.i size={14} /> {m.l} · قريبًا</button>
               ))}
               <button onClick={() => build(raw)} disabled={!raw.trim()} style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 12, border: 'none', background: raw.trim() ? gold : 'var(--panel4,#1E3260)', color: raw.trim() ? '#1a1300' : 'var(--ink3)', fontSize: 13.5, fontWeight: 900, fontFamily: 'inherit', cursor: raw.trim() ? 'pointer' : 'default' }}><Sparkles size={15} /> ابنِ السيناريو</button>
             </div>

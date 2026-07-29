@@ -493,6 +493,17 @@ export const knowledgeAPI = {
   ignore:  (id: string) => request<{ miss: KnowledgeMiss }>('POST', `/knowledge/misses/${encodeURIComponent(id)}/resolve`, { status: 'ignored' }),
 };
 
+// ── Demand Capture — «ما لقيناش» تصير طلبًا مؤكّدًا ───────────
+export interface NeedDemandRow { concept: string; city: string; count: number; reachable: number; last_at: string; }
+export const needsAPI = {
+  create: (n: { raw: string; city?: string; concept?: string; contact?: string }) =>
+    request<{ id: string; ok: boolean; reachable: boolean }>('POST', '/needs', n),
+  demand: (days = 30) => request<{ demand: NeedDemandRow[] }>('GET', `/needs/demand?days=${days}`),
+  list: (status = 'open') => request<{ requests: any[] }>('GET', `/needs?status=${status}`),
+  update: (id: string, d: { status?: string; matchedBusiness?: string }) =>
+    request<{ request: any }>('PATCH', `/needs/${encodeURIComponent(id)}`, d),
+};
+
 // Activity Feed
 export interface Activity { id: string; businessId: string; actor: string; type: string; category: string; city: string | null; createdAt: string; payload: any; }
 export const feedAPI = {

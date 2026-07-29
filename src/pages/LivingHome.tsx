@@ -10,6 +10,7 @@ import { buildContext } from '../lib/core/context';
 import { orchestrate, recordExperience, recordFeedback } from '../lib/core/orchestrator';
 import { relatedProfessions } from '../lib/knowledge/graph';
 import { playGate } from '../lib/gateTransition';
+import { useNavigate } from 'react-router-dom';
 import { personaGreeting, personaWelcome } from '../lib/persona';
 import { decideInterface, confirmPrompt } from '../lib/interfaceDecision';
 import { receptionStart, receptionTurn, receptionUnderstood, receptionStep, receptionEnd, recordDecision, recordConfirm } from '../lib/journey';
@@ -37,6 +38,7 @@ const strToDest = (s: string): Dest => s.startsWith('page:') ? { page: s.slice(5
 
 export default function LivingHome() {
   const { settings, products, orders, customers, conversations, setPage, user } = useStore();
+  const navigate = useNavigate();
   const [text, setText] = useState('');
   const [result, setResult] = useState<NeedResult | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -123,7 +125,9 @@ export default function LivingHome() {
         if (city) url += `&city=${encodeURIComponent(city)}`;
       }
       const target = url;
-      playGate(() => { try { window.location.assign(target); } catch { /* noop */ } });
+      // تنقّلٌ داخل الراوتر لا إعادةُ تحميل: كانت location.assign تهدم الحالة
+      // والرحلة والفهم في كلّ انتقال، فيبدو التطبيق ثلاثةَ تطبيقات لا واحدًا.
+      playGate(() => navigate(target));
     }
   };
 
@@ -213,16 +217,25 @@ export default function LivingHome() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'center' }}>
-          {[{ i: Mic, l: 'تحدّث' }, { i: Camera, l: 'صورة' }, { i: MapPin, l: 'موقعي' }].map(m => (
-            <button key={m.l} type="button" title={`${m.l} (قريبًا)`} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 11, border: '1px solid var(--border,rgba(255,255,255,.08))', background: 'var(--panel,rgba(255,255,255,.02))', color: 'var(--ink3)', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
-              <m.i size={14} /> {m.l}
+          {/* «قريبًا» كانت مخبّأةً في title — لا يراها مستخدمُ الهاتف أبدًا، فينقر
+              زرًّا يبدو فعّالًا ولا يقع شيء. صارت مكتوبةً على الزرّ ومعطّلةً فعلًا.
+              ما عدا «صورة» فهي تعمل حقًّا داخل المساعد، فتقود إليه. */}
+          {[{ i: Mic, l: 'تحدّث', soon: true }, { i: Camera, l: 'صورة', soon: false }, { i: MapPin, l: 'موقعي', soon: true }].map(m => (
+            <button key={m.l} type="button" disabled={m.soon}
+              onClick={m.soon ? undefined : () => playGate(() => setPage('assistant' as Page))}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 11, border: '1px solid var(--border,rgba(255,255,255,.08))', background: 'var(--panel,rgba(255,255,255,.02))', color: 'var(--ink3)', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit', cursor: m.soon ? 'default' : 'pointer', opacity: m.soon ? .45 : 1 }}>
+              <m.i size={14} /> {m.l}{m.soon ? ' · قريبًا' : ''}
             </button>
           ))}
         </div>
       </form>
 
-      {/* ── 🧠 «فهمنا طلبك» — إظهار الذكاء أثناء الكتابة (قبل البحث) ── */}
-      {!result && <UnderstandingCard query={text} onAct={() => submit(text)} />}
+      {/* ── 🧠 «فهمنا طلبك» — أثناء الكتابة، **وتبقى مرآةً بعد الفهم**.
+          كانت مشروطةً بـ `!result` فتختفي في لحظة القرار — أي حين يحتاجها
+          المستخدم ليتأكّد أنّ ما فُهم عنه صحيح قبل أن يمضي. ── */}
+      <UnderstandingCard query={text} onAct={() => submit(text)}
+        mirror={!!result}
+        onCorrect={() => { recordConfirm(false, result?.confidence ?? 0); reset(); }} />
 
       {/* ── نتيجة/محادثة نشطة ── */}
       {result && (

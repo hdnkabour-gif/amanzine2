@@ -1396,6 +1396,25 @@ db.getTopTerms = async ({ days = 30, limit = 10 } = {}) => {
   return rows;
 };
 
+// عباراتٌ رائجة **صالحةٌ للعرض العلنيّ**. البحث نصٌّ حرّ: قد يكتب أحدُهم
+// رقم هاتفه أو عنوان داره. لذلك ثلاثةُ حرّاس قبل أن تُعرَض لأيّ زائر:
+//   ① لا أرقام إطلاقًا (هاتف/رقم منزل)  ② قصيرة (لا جملة شخصيّة طويلة)
+//   ③ بحثها ثلاثةٌ فأكثر — ما يكتبه واحدٌ فقط قد يدلّ عليه.
+db.getPublicTrendingTerms = async ({ days = 7, limit = 8, minCount = 3 } = {}) => {
+  const { rows } = await pool.query(
+    `SELECT term, SUM(total)::int AS total
+       FROM search_terms_daily
+      WHERE day >= CURRENT_DATE - (($1::int - 1) || ' days')::interval
+        AND term !~ '[0-9]'
+        AND char_length(term) BETWEEN 4 AND 40
+      GROUP BY term
+     HAVING SUM(total) >= $3
+      ORDER BY SUM(total) DESC LIMIT $2`,
+    [days, limit, minCount]
+  );
+  return rows;
+};
+
 // جودة البحث اليومية المجهّلة (DR-0003 §6.b) — عدّاد hit/miss بلا هوية.
 db.recordSearchDay = async ({ city, hit }) => {
   await pool.query(
@@ -1439,6 +1458,59 @@ db.getLearningStages = async ({ days = 30 } = {}) => {
     [days]
   );
   const m = {}; for (const r of rows) m[r.stage] = r.count; return m;
+};
+
+// ── Demand Capture (need_requests) ────────────────────────────
+// «ما لقيناش» ليست نهايةً بل بداية: نلتقط الحاجة لنعود بها لصاحبها.
+db.createNeedRequest = async (n) => {
+  const id = n.id || uid();
+  const { rows } = await pool.query(
+    `INSERT INTO need_requests (id, raw, concept, city, contact, contact_kind, user_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [id, String(n.raw || '').slice(0, 500), n.concept || null, n.city || null,
+     n.contact || null, n.contactKind || null, n.userId || null]
+  );
+  return rows[0];
+};
+
+// الطلبات المفتوحة مجمّعةً: «١٧ زبونًا كيقلّبو على سبّاك فسلا» — مادّةُ الاستقطاب.
+db.needDemand = async ({ days = 30, limit = 50 } = {}) => {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(concept,'—') AS concept, COALESCE(city,'—') AS city,
+            COUNT(*)::int AS count,
+            COUNT(contact)::int AS reachable,
+            MAX(created_at) AS last_at
+       FROM need_requests
+      WHERE status = 'open'
+        AND created_at >= NOW() - (($1::int) || ' days')::interval
+      GROUP BY 1, 2 ORDER BY count DESC, last_at DESC LIMIT $2`,
+    [days, limit]
+  );
+  return rows;
+};
+
+db.listNeedRequests = async ({ status = 'open', concept, city, limit = 100 } = {}) => {
+  const { rows } = await pool.query(
+    `SELECT * FROM need_requests
+      WHERE status = $1
+        AND ($2::text IS NULL OR concept = $2)
+        AND ($3::text IS NULL OR city = $3)
+      ORDER BY created_at DESC LIMIT $4`,
+    [status, concept || null, city || null, limit]
+  );
+  return rows;
+};
+
+db.updateNeedRequest = async (id, { status, matchedBusiness }) => {
+  const { rows } = await pool.query(
+    `UPDATE need_requests
+        SET status = COALESCE($2, status),
+            matched_business = COALESCE($3, matched_business),
+            updated_at = NOW()
+      WHERE id = $1 RETURNING *`,
+    [id, status || null, matchedBusiness || null]
+  );
+  return rows[0] || null;
 };
 
 module.exports = { db };

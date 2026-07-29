@@ -7,6 +7,7 @@ import { resolveConcept, conceptGraph, stanceOf, type ConceptNode } from '../lib
 import { shrinkImage } from '../lib/imageFile';
 import { buildContext } from '../lib/core/context';
 import { playGate } from '../lib/gateTransition';
+import { useNavigate } from 'react-router-dom';
 import { receptionStart, receptionTurn, receptionUnderstood, receptionEnd, recordDecision } from '../lib/journey';
 import { orchestrate, recordExperience } from '../lib/core/orchestrator';
 import type { Via } from '../lib/experienceLog';
@@ -35,6 +36,7 @@ function withNeed(url: string | undefined, q: string, city?: string): string {
 export default function AssistantPage() {
   const store = useStore();
   const { setPage, user } = store;
+  const navigate = useNavigate();
   const [msgs, setMsgs] = useState<Msg[]>([{ who: 'ai', text: GREET }]);
   const [text, setText] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
@@ -127,7 +129,7 @@ export default function AssistantPage() {
     const url = r.url || '/market';
     logExperience(url);
     receptionEnd('routed');
-    playGate(() => { try { window.location.assign(url); } catch { /* noop */ } });
+    playGate(() => navigate(url));
   };
 
   // نقر على خيارٍ في سؤالٍ موجّه → يقود لوجهته (صفحة أو رابط). التسمية = التنقيح
@@ -139,7 +141,7 @@ export default function AssistantPage() {
     const url = withNeed(opt.url || '/market', opt.label, uctx.place.city || undefined);
     logExperience(url, 'guided');
     receptionEnd('routed');
-    playGate(() => { try { window.location.assign(url); } catch { /* noop */ } });
+    playGate(() => navigate(url));
   };
 
   const green = 'var(--amz-emerald,#0a8f6f)';

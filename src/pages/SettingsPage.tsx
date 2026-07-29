@@ -343,7 +343,7 @@ export default function SettingsPage() {
                 <option value="offline">⚫ غير متصل</option>
               </select>
             </Field>
-            <button onClick={() => notify('success', '✅ محفوظ — إعداداتك تُحفظ تلقائياً عند كل تغيير')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--mint,#12A150)' }}>✓ كيتسجّل أوتوماتيكيًّا عند كل تبديل</div>
           </Section>
 
           <Section title="أهداف المبيعات">
@@ -526,7 +526,7 @@ export default function SettingsPage() {
                 d.reply?notify('success','✅ AI يعمل! الرد: '+d.reply.slice(0,50)):notify('error','❌ لا يوجد رد');
               }catch{notify('error','❌ فشل الاتصال بـ AI');}
             }} className="btn btn-ghost btn-sm" style={{width:'fit-content'}}>🧪 اختبار AI</button>
-            <button onClick={() => notify('success', '✅ محفوظ — إعدادات AI تُحفظ تلقائياً عند كل تغيير')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--mint,#12A150)' }}>✓ كيتسجّل أوتوماتيكيًّا عند كل تبديل</div>
           </Section>
         </div>
       )}
@@ -600,7 +600,7 @@ export default function SettingsPage() {
             </Field>
           )}
 
-          <button onClick={() => notify('success', '✅ محفوظ — إعداداتك تُحفظ تلقائياً عند كل تغيير')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--mint,#12A150)' }}>✓ كيتسجّل أوتوماتيكيًّا عند كل تبديل</div>
         </Section>
       )}
 
@@ -1279,7 +1279,7 @@ export default function SettingsPage() {
                 className={`chip ${s.ai.provider === 'mistral' ? 'active' : ''}`}
               >🌬️ Mistral</button>
             </div>
-            <button onClick={() => notify('success', '✅ محفوظ — إعداداتك تُحفظ تلقائياً عند كل تغيير')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--mint,#12A150)' }}>✓ كيتسجّل أوتوماتيكيًّا عند كل تبديل</div>
           </Section>
 
           <Section title="📱 واتساب بيزنس">
@@ -1304,7 +1304,7 @@ export default function SettingsPage() {
               onClick={()=>updateSettings('social',{...s.social,whatsapp:{...(s.social as any)?.whatsapp,autoPublish:!((s.social as any)?.whatsapp?.autoPublish)}} as any)}
               label="نشر تلقائي على واتساب"
             />
-            <button onClick={() => notify('success', '✅ محفوظ — إعداداتك تُحفظ تلقائياً عند كل تغيير')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--mint,#12A150)' }}>✓ كيتسجّل أوتوماتيكيًّا عند كل تبديل</div>
           </Section>
 
           <Section title="📘 فيسبوك وإنستغرام">
@@ -1342,7 +1342,7 @@ export default function SettingsPage() {
               onClick={()=>updateSettings('social',{...s.social,facebook:{...(s.social as any)?.facebook,autoHashtags:!((s.social as any)?.facebook?.autoHashtags)}} as any)}
               label="إضافة هاشتاقات تلقائياً"
             />
-            <button onClick={() => notify('success', '✅ محفوظ — إعداداتك تُحفظ تلقائياً عند كل تغيير')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--mint,#12A150)' }}>✓ كيتسجّل أوتوماتيكيًّا عند كل تبديل</div>
           </Section>
 
           <Section title="🎵 TikTok Shop">
@@ -1352,7 +1352,7 @@ export default function SettingsPage() {
             <Field label="TikTok Access Token">
               <input className="input" type="password" dir="ltr" placeholder="act.xxxxxxxx..." value={(s.social as any)?.tiktok?.accessToken||''} onChange={e=>updateSettings('social',{...s.social,tiktok:{...(s.social as any)?.tiktok,accessToken:e.target.value}} as any)}/>
             </Field>
-            <button onClick={()=>notify('success','✅ تم الحفظ')} className="btn btn-primary" style={{width:'fit-content'}}>حفظ</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--mint,#12A150)' }}>✓ كيتسجّل أوتوماتيكيًّا عند كل تبديل</div>
           </Section>
 
           <div className="card" style={{ padding: '16px 18px', background: 'rgba(0,210,179,.04)', border: '1px solid rgba(0,210,179,.15)' }}>

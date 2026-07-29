@@ -15,7 +15,13 @@ const GOLD = 'var(--amz-gold,#D4A017)';
 const INK1 = 'var(--ink1)';
 const INK3 = 'var(--ink3)';
 
-export default function UnderstandingCard({ query, onAct }: { query: string; onAct: () => void }) {
+// `mirror`: بعد أن يفهم النظام ويقرّر وجهةً، تبقى البطاقة ظاهرةً كمرآة — بلا
+// زرّ فعلٍ (بطاقة الوجهة تملك الفعل) ومعها «صحّح». كانت تُعرَض عند `!result`
+// فقط، أي تختفي في اللحظة التي يقرّر فيها المستخدم — وهي اللحظة التي يحتاج
+// فيها أن يرى ما فُهم عنه.
+export default function UnderstandingCard({ query, onAct, mirror, onCorrect }: {
+  query: string; onAct: () => void; mirror?: boolean; onCorrect?: () => void;
+}) {
   const u = useMemo<Understanding | null>(() => {
     const q = (query || '').trim();
     return q.length >= 3 ? understand(q) : null;
@@ -61,10 +67,17 @@ export default function UnderstandingCard({ query, onAct }: { query: string; onA
         <Row label="المدينة" value={u.city} />
       </div>
 
-      {/* زرّ الإجراء — البطاقة بداية التدفّق لا مجرّد عرض */}
-      <button onClick={onAct} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px 16px', borderRadius: 12, border: 'none', background: GOLD, color: '#1a1300', fontSize: 14.5, fontWeight: 900, fontFamily: 'inherit', cursor: 'pointer' }}>
-        {prof ? `لقّى ليا ${prof} قريب` : 'كمّل'} <ArrowLeft size={17} />
-      </button>
+      {/* زرّ الإجراء — البطاقة بداية التدفّق لا مجرّد عرض.
+          في وضع المرآة لا فعلَ هنا (بطاقة الوجهة تملكه)، بل تصحيحٌ فقط. */}
+      {mirror ? (
+        <button onClick={onCorrect} style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 99, border: `1px solid ${INK3}`, background: 'transparent', color: INK3, fontSize: 12.5, fontWeight: 750, fontFamily: 'inherit', cursor: 'pointer' }}>
+          ✏️ ماشي هاكّا — صحّح
+        </button>
+      ) : (
+        <button onClick={onAct} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px 16px', borderRadius: 12, border: 'none', background: GOLD, color: '#1a1300', fontSize: 14.5, fontWeight: 900, fontFamily: 'inherit', cursor: 'pointer' }}>
+          {prof ? `لقّى ليا ${prof} قريب` : 'كمّل'} <ArrowLeft size={17} />
+        </button>
+      )}
 
       {/* «لماذا؟» — شفافية الاستدلال (Explain-AI) من reasoning[] */}
       {u.reasoning.length > 0 && (

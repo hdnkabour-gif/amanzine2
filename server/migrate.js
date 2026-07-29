@@ -509,6 +509,26 @@ async function migrate() {
       END $$
     `).catch(() => {});
 
+    // Demand Capture — حاجةٌ لم يجد لها السوق عرضًا. أهمّ جدولٍ في البيتا:
+    // سوقٌ جديد يبدأ فارغًا، فكلّ «ما لقيناش» بلا التقاطٍ هو زبونٌ ضائع
+    // وإشارةُ طلبٍ مهدورة. هذه الصفوف هي ما نذهب به إلى الحرفيّين:
+    // «عندي ١٧ زبونًا كيقلّبو على سبّاك فسلا — بغيتي؟».
+    await client.query(`CREATE TABLE IF NOT EXISTS need_requests (
+      id TEXT PRIMARY KEY,
+      raw TEXT NOT NULL,                 -- ما كتبه الإنسان بلغته
+      concept TEXT,                      -- المفهوم إن فُهم (سبّاك…)
+      city TEXT,
+      contact TEXT,                       -- هاتف/بريد — اختياريّ
+      contact_kind TEXT,                  -- phone | email
+      user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      status TEXT NOT NULL DEFAULT 'open',-- open | matched | closed
+      matched_business TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_need_requests_open
+      ON need_requests(status, concept, city, created_at DESC)`);
+
     await client.query('COMMIT');
     console.log('[DB] ✅ Migrations complete');
   } catch (err) {

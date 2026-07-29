@@ -13,7 +13,8 @@
     "start": "node server/index.js",
     "lint": "tsc --noEmit",
     "test:brain": "node scripts/run-brain-tests.mjs",
-    "test": "npm run test:brain && cd server && npm test",
+    "test:constitution": "node --test test/constitution.test.mjs",
+    "test": "npm run test:brain && npm run test:constitution && cd server && npm test",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx}\" \"server/**/*.js\""
   },
   "dependencies": {

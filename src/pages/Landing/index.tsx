@@ -5,11 +5,10 @@ import { LandingProvider, useLanding } from './context';
 import { BackToTop, Zellige } from './components';
 import PromoBanner from './sections/PromoBanner';
 import Header from './sections/Header';
-import Hero from './sections/Hero';
+import NeedFirst from './sections/NeedFirst';
 import LiveMarketplace from './sections/LiveMarketplace';
 import Cities from './sections/Cities';
 import HowItWorks from './sections/HowItWorks';
-import FAQ from './sections/FAQ';
 import FinalCTA from './sections/FinalCTA';
 import Footer from './sections/Footer';
 
@@ -56,17 +55,22 @@ function Shell() {
       <Zellige />
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ position: 'fixed', top: 0, insetInlineStart: 0, height: 3, width: `${Math.round(prog * 100)}%`, background: `linear-gradient(90deg, ${C.orange}, ${C.purple}, ${C.blue})`, zIndex: 60, transition: 'width .1s linear' }} />
-        <PromoBanner />
         <Header />
         {/* Landing المحتاج: يبدأ بـ«آش واقع؟» (إثبات الفهم)، ثمّ كيف يعمل، فالمدن، فالسوق.
             حُذف من الواجهة ما يخصّ التاجر/الممنوع (Bento «منظومة تجارة/ذكاء اصطناعيّ» ·
             Pricing على الـLanding · شريط «كن أوّل تاجر») — الميثاق: أثبت لا تشرح، لغة بشر. */}
         <main>
-          <Hero />
+          {/* أوّل شاشة: الخانة وحدها. الأقسام التسويقيّة تحتها لمن يمرّر —
+              فمَن جاء وعنده حاجة يكتبها في الثانية الأولى، ومَن جاء يستكشف
+              يجد ما يشرح. البطلُ واحد: أن يكتب. */}
+          <NeedFirst />
+          {/* كلُّ ما عدا الشعار والخانة والمرآة نزل **تحت** أوّل شاشة —
+              حتّى الشريطُ الترويجيّ. مَن جاء بحاجةٍ يقرّر في ثلاث ثوانٍ ولا
+              يقرأ؛ ومَن جاء يستكشف يمرّر فيجد كلّ شيء كما كان. */}
+          <PromoBanner />
           <HowItWorks />
           <Cities />
           <LiveMarketplace />
-          <FAQ />
           <FinalCTA />
         </main>
         <Footer />

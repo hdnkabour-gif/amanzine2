@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { ShieldCheck, Package, Star, Heart, Settings as Cog, Store, ArrowLeft } from 'lucide-react';
 import { getInteractions } from '../lib/experienceLog';
@@ -11,6 +12,7 @@ import type { Page } from '../types';
 // ============================================================
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
   const { user, settings, products, orders, setPage } = useStore();
   const name = (user as any)?.name || (settings.brand as any)?.name || 'مستخدم أمانزين';
   const city = (settings.brand as any)?.city || (user as any)?.city || 'المغرب';
@@ -78,7 +80,7 @@ export default function ProfilePage() {
       {/* روابط سريعة */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         {[
-          { i: Store, l: 'عرض متجري كما يراه الزبناء', act: () => { try { const uid = (user as any)?.id || 'me'; window.location.assign(`/store/${uid}`); } catch { /* noop */ } } },
+          { i: Store, l: 'عرض متجري كما يراه الزبناء', act: () => { try { const uid = (user as any)?.id || 'me'; navigate(`/store/${uid}`); } catch { /* noop */ } } },
           { i: Cog, l: 'الإعدادات والبيانات', act: () => playGate(() => setPage('settings')) },
         ].map(r => (
           <button key={r.l} onClick={r.act} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 15px', borderRadius: 13, background: 'var(--panel,rgba(255,255,255,.03))', border: '1px solid var(--border,rgba(255,255,255,.08))', color: 'var(--ink1)', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start' }}>

@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
+import NeedCapture from '../components/NeedCapture';
 import DiscoverSections from '../components/DiscoverSections'; // Super App — الاكتشاف الموحد
 import { type Lang, LANGS, isRtlLang } from '../i18n';
 import { pt } from '../i18n/public';
@@ -84,6 +86,18 @@ export default function Marketplace() {
   // يُبذَر من رابط «شنو محتاج اليوم؟» (‎/market?q=…&city=…) فيبحث الخادم مباشرة
   const [city, setCity] = useState(() => { try { return new URLSearchParams(window.location.search).get('city') || ''; } catch { return ''; } });
   const [q, setQ] = useState(() => { try { return new URLSearchParams(window.location.search).get('q') || ''; } catch { return ''; } }); // Discover: بحث موحّد عبر كل شيء
+
+  // التنقّل صار داخل الراوتر بلا إعادة تحميل، فالمكوّن لا يُركَّب من جديد حين
+  // يأتي طلبٌ ثانٍ إلى /market. بدون هذا كان يبقى معروضًا بحثُ المرّة الأولى:
+  // يكتب «بغيت نجّار» بعد «بغيت سبّاك» فيرى السبّاكين. نتابع الرابط لا التركيب.
+  const location = useLocation();
+  useEffect(() => {
+    try {
+      const p = new URLSearchParams(location.search);
+      setQ(p.get('q') || '');
+      setCity(p.get('city') || '');
+    } catch { /* noop */ }
+  }, [location.search]);
   const [showSell, setShowSell] = useState(false);
   const [detail, setDetail] = useState<Listing | null>(null);
 
@@ -144,11 +158,16 @@ export default function Marketplace() {
         {loading ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: C.ink3 }}>{pt(lang, 'mk.loading')}</div>
         ) : listings.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '70px 20px', color: C.ink3 }}>
-            <div style={{ fontSize: 46, opacity: 0.3, marginBottom: 12 }}>📭</div>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{pt(lang, 'mk.emptyTitle')}</div>
-            <div style={{ fontSize: 12.5, marginBottom: 18 }}>{pt(lang, 'mk.emptySub')}</div>
-            <button onClick={() => setShowSell(true)} style={{ padding: '11px 24px', borderRadius: 12, background: `linear-gradient(135deg, ${C.ember}, #CC5500)`, border: 'none', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{pt(lang, 'mk.publish')}</button>
+          // الفراغ يلتقط الطلب بدل أن يطلب من الباحث أن ينشر. كان هنا زرّ
+          // «كون أوّل واحد وانشر» — أي: يا مَن تبحث عن سبّاك، صِر سبّاكًا.
+          // نخسر الزبون والإشارة معًا. النشر يبقى متاحًا لمن جاء ليعرض فعلًا.
+          <div style={{ padding: '48px 16px' }}>
+            <NeedCapture query={q} city={city || undefined} />
+            <div style={{ textAlign: 'center', marginTop: 20 }}>
+              <button onClick={() => setShowSell(true)} style={{ padding: '9px 18px', borderRadius: 12, background: 'transparent', border: `1px solid ${C.ember}`, color: C.ember, fontWeight: 750, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>
+                عندك نتا هاد الخدمة؟ انشرها
+              </button>
+            </div>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 12 }}>

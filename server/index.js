@@ -116,6 +116,7 @@ app.use('/api/recommend',           rateLimit({ windowMs: 10 * 60 * 1000, max: 1
 app.use('/api/feed',                rateLimit({ windowMs: 10 * 60 * 1000, max: 150, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Activity Feed
 app.use('/api/discover',            rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Super App (legacy alias)
 app.use('/api/business',            rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Universal Business Engine
+app.use('/api/needs',               rateLimit({ windowMs: 60 * 60 * 1000, max: 20, message: { error: 'طلبات كثيرة — حاول بعد قليل' } })); // Demand Capture (عامّ)
 app.use('/api/knowledge',           rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Knowledge layer (أدمن)
 
 // H-5: سقف لمسارات الذكاء الاصطناعي (حماية تكلفة المالك من الاستنزاف)
@@ -162,6 +163,7 @@ try {
 app.use('/api/discover',      require('./routes/discover'));    // legacy alias — يفوّض إلى Search Engine
 app.use('/api/business',      require('./routes/business'));    // Universal Business Engine — الملف الموحد
 app.use('/api/knowledge',     require('./routes/knowledge'));   // Knowledge layer (أدمن): search misses (DR-0002)
+app.use('/api/needs',         require('./routes/needs'));       // Demand Capture: «ما لقيناش» تصير طلبًا مؤكّدًا
 
 // ── Health ───────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
