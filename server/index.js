@@ -50,27 +50,35 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // ── Middleware ───────────────────────────────────────────────
 // CSP: restrictive in production, relaxed locally for Vite HMR
+// ── Middleware ───────────────────────────────────────────────
+// CSP: restrictive in production, relaxed locally for Vite HMR
 app.use(helmet({
   contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],           // React needs inline scripts
+      // ⬇️ أضفنا Google هنا للسماح بتحميل مكتبة المصادقة
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://accounts.google.com'],
+      // ⬇️ أضفنا هذا السطر لحل مشكلة script-src-attr 'none'
+      scriptSrcAttr: ["'unsafe-inline'"], 
       styleSrc:  ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      imgSrc:    ["'self'", 'data:', 'https:', 'blob:'],  // base64 product images
-      connectSrc:["'self'",
+      imgSrc:    ["'self'", 'data:', 'https:', 'blob:'],
+      // ⬇️ نضيف Google هنا للسماح للطلبات بالذهاب إلى Google
+      connectSrc: ["'self'",
         'https://api.openai.com',
         'https://generativelanguage.googleapis.com',
         'https://graph.facebook.com',
+        'https://accounts.google.com',
       ],
       fontSrc:   ["'self'", 'https://fonts.gstatic.com'],
       mediaSrc:  ["'self'", 'blob:'],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
+      // ⬇️ لمنع أخطاء أخرى قد تظهر من Google One Tap
+      frameSrc: ["'self'", 'https://accounts.google.com'],
     },
   } : false,
   crossOriginEmbedderPolicy: false,
 }));
-app.use(compression());
 
 // CORS: strict allowlist only — no wildcard domains
 app.use(cors({
@@ -101,7 +109,7 @@ if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
 // ── Rate limiting ─────────────────────────────────────────────
 app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false }));
-app.use('/api/auth/', rateLimit({ windowMs: 60 * 1000, max: 200, message: { error: 'Too many requests, try again later' } }));
+app.use('/api/auth/', rateLimit({ windowMs: 60 * 1000, max: 300, message: { error: 'Too many requests, try again later' } }));
 
 // محددات أدق للمسارات العامة (بدون auth) — حماية التاجر من البوتات والإغراق:
 // عجلة الحظ، إنشاء الطلبات، المجيب الآلي، والتحقق من الكوبونات
