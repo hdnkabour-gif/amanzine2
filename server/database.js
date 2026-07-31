@@ -1289,6 +1289,12 @@ db.listSearchMisses = async ({ status = 'open', limit = 100 } = {}) => {
   );
   return rows;
 };
+// صفٌّ واحد — يحتاجه إغلاقُ حلقة التعلّم: نصُّ ما كتبه الإنسان هو المرادفُ
+// المُتعلَّم افتراضًا، فلا بدّ من قراءته قبل الكتابة في المعرفة.
+db.getSearchMiss = async (id) => {
+  const { rows } = await pool.query(`SELECT * FROM search_misses WHERE id = $1`, [id]);
+  return rows[0] || null;
+};
 db.resolveSearchMiss = async (id, { category, adminId, status = 'resolved' } = {}) => {
   const { rows } = await pool.query(
     `UPDATE search_misses
