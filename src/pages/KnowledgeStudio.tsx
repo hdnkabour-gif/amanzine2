@@ -41,6 +41,8 @@ export default function KnowledgeStudio() {
   const [misses, setMisses] = useState<Miss[]>([]);
   // المفهوم المختار لكلّ كلمة — كائنٌ من عقل المنصّة، لا نصٌّ حرّ يُخمَّن.
   const [cat, setCat] = useState<Record<string, ConceptChoice | null>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [ver, setVer] = useState(1);
 
@@ -64,17 +66,33 @@ export default function KnowledgeStudio() {
     return () => { alive = false; };
   }, []);
 
+  // «اعتمد» = **تعلُّم**. كنّا نرسل معرّف المفهوم في حقل `category`، فيُكتب
+  // وسمًا نصّيًّا في search_misses وينتهي: المحرّك لا يفهم الكلمة غدًا. الآن
+  // يُرسَل `conceptId` فيُضاف المرادفُ إلى المفهوم ويصير الفهمُ دائمًا.
+  //
+  // وكان `catch { noop }` يُخفي الصفَّ حتّى عند الفشل — «نجاحٌ» بلا نجاح.
+  // الآن: لا يُخفى صفٌّ إلّا بعد أن يؤكّد الخادم أنّه تعلَّم فعلًا.
   const approve = async (m: Miss) => {
     const pick = cat[m.id];
     if (!pick) return;                    // لا اعتماد بلا مفهومٍ حقيقيّ من العقل
-    const c = pick.id;
-    if (mode === 'server') { try { await knowledgeAPI.resolve(m.id, c); } catch { /* noop */ } }
-    else { learn(m.term, c); }
-    setMisses(x => x.filter(y => y.id !== m.id));
+    if (mode !== 'server') { learn(m.term, pick.id); setMisses(x => x.filter(y => y.id !== m.id)); return; }
+    setBusyId(m.id); setErr(null);
+    try {
+      const r = await knowledgeAPI.learn(m.id, { conceptId: pick.id, variants: [m.term] });
+      if (!r.learned) throw new Error('لم يُضَف أيُّ مرادف');
+      setMisses(x => x.filter(y => y.id !== m.id));
+    } catch (e: any) {
+      // التعارضُ (409) ليس فشلًا تقنيًّا بل معلومة: الكلمةُ يملكها مفهومٌ آخر.
+      setErr(e?.message || 'تعذّر التعلّم — الصفُّ باقٍ كما هو');
+    }
+    setBusyId(null);
   };
   const reject = async (m: Miss) => {
-    if (mode === 'server') { try { await knowledgeAPI.ignore(m.id); } catch { /* noop */ } }
-    setMisses(x => x.filter(y => y.id !== m.id));
+    if (mode !== 'server') { setMisses(x => x.filter(y => y.id !== m.id)); return; }
+    setBusyId(m.id); setErr(null);
+    try { await knowledgeAPI.ignore(m.id); setMisses(x => x.filter(y => y.id !== m.id)); }
+    catch (e: any) { setErr(e?.message || 'تعذّر التجاهل'); }
+    setBusyId(null);
   };
 
   // Candidate → Validated (اعتماد يدويّ فقط، بلا اعتماد آليّ)
@@ -163,6 +181,11 @@ export default function KnowledgeStudio() {
           كلمات ينتظر التطبيق أن يتعلّمها {misses.length > 0 && <span style={{ color: 'var(--ember,#FF6A00)' }}>· {misses.length}</span>}
         </div>
 
+        {err && (
+          <div style={{ margin: '10px 16px 0', padding: '9px 12px', borderRadius: 10, border: '1px solid rgba(239,68,68,.35)', background: 'rgba(239,68,68,.07)', color: '#FCA5A5', fontSize: 12.5, fontWeight: 650 }}>
+            {err}
+          </div>
+        )}
         {mode === 'loading' && <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink3,#7E877F)', fontSize: 13 }}>جاري التحميل…</div>}
         {mode !== 'loading' && misses.length === 0 && (
           <div style={{ padding: 28, textAlign: 'center', color: 'var(--ink3,#7E877F)', fontSize: 13.5 }}>ما كاين حتى كلمة غامضة دابا 👌<br />العقل فاهم كل شي.</div>
@@ -176,11 +199,11 @@ export default function KnowledgeStudio() {
             </div>
             <ConceptPicker value={cat[m.id] || null} onChange={v => setCat(c => ({ ...c, [m.id]: v }))} />
             <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
-              <button onClick={() => approve(m)} disabled={!cat[m.id]} title="اعتمد"
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 13px', borderRadius: 10, border: 'none', background: cat[m.id] ? 'var(--mint,#12A150)' : 'var(--border2,rgba(255,255,255,0.12))', color: '#fff', fontSize: 12.5, fontWeight: 800, fontFamily: 'inherit', cursor: cat[m.id] ? 'pointer' : 'default' }}>
-                <Check size={14} /> اعتمد
+              <button onClick={() => approve(m)} disabled={!cat[m.id] || busyId === m.id} title="أضِف الكلمة إلى المفهوم — يفهمها المحرّك بعدها دائمًا"
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 13px', borderRadius: 10, border: 'none', background: cat[m.id] ? 'var(--mint,#12A150)' : 'var(--border2,rgba(255,255,255,0.12))', color: '#fff', fontSize: 12.5, fontWeight: 800, fontFamily: 'inherit', cursor: cat[m.id] && busyId !== m.id ? 'pointer' : 'default', opacity: busyId === m.id ? .6 : 1 }}>
+                <Check size={14} /> {busyId === m.id ? 'كيتعلّم…' : 'علّمه'}
               </button>
-              <button onClick={() => reject(m)} title="رفض"
+              <button onClick={() => reject(m)} disabled={busyId === m.id} title="رفض"
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 11px', borderRadius: 10, border: BORDER, background: 'transparent', color: 'var(--ink3,#7E877F)', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
                 <X size={14} />
               </button>
