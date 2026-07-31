@@ -21,8 +21,59 @@ router.get('/:id', auth, async (req, res) => {
     if (!p) return res.status(404).json({ error: 'Not found' });
     p.services = await db.getProviderServices(p.id);
     p.availability = await db.getAvailabilityTemplates(p.id);
+    p.concepts = await db.getProviderConcepts(p.id);
     res.json(p);
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// ══ الجسرُ المفقود: مزوّدٌ ⇄ مفهوم ═══════════════════════════
+//
+//  المحرّك يفهم «بغيت نشري ورد» ⇒ flower_shop. ولم يكن يعرف **أيُّ مزوّدٍ**
+//  بائعُ ورد — فيتوقّف الفهمُ عند حدود الفهم ولا يصل إلى إنسان. هذا هو الشرطُ
+//  الوحيد لجملة «أيُّ محلٍّ كيفما كان نوعه».
+//
+//  متعدّد لا واحد: المخبزةُ تبيع خبزًا وقهوةً وحلويّات. والنشاطُ الواحد حالةٌ
+//  خاصّةٌ من المتعدّد؛ والعكسُ غيرُ صحيح.
+router.put('/:id/concepts', auth, async (req, res) => {
+  try {
+    const p = await db.getProvider(req.user.id, req.params.id);
+    if (!p) return res.status(404).json({ error: 'Not found' });
+    const items = Array.isArray(req.body?.concepts) ? req.body.concepts : [];
+    if (items.length > 12) return res.status(400).json({ error: 'أكثرُ من ١٢ نشاطًا يعني أنّ المحلّ غيرُ محدَّد — اختر الأهمّ' });
+    // مفهومٌ لا وجودَ له = رابطٌ ميّتٌ من لحظة إنشائه. نرفضه عند الباب لا بعده.
+    const known = require('../generated/builtin-variants.json');
+    const builtinIds = new Set(Object.values(known));
+    const custom = new Set((await db.listCustomConcepts()).map(r => r.id));
+    for (const it of items) {
+      const raw = String(it?.conceptId ?? it?.concept_id ?? it ?? '').trim();
+      if (!raw) return res.status(400).json({ error: 'مفهومٌ فارغ' });
+      const live = await db.resolveConceptAlias(raw);
+      if (!builtinIds.has(live) && !custom.has(live)) {
+        return res.status(400).json({ error: `المفهوم «${raw}» غيرُ موجود — أضِفه أوّلًا في المعرفة` });
+      }
+    }
+    res.json({ concepts: await db.setProviderConcepts(p.id, items) });
+  } catch (e) { console.error('[providers]', e.message); res.status(500).json({ error: 'Server error' }); }
+});
+
+// «شكون كيبيع الورد فالدار البيضاء؟» — عامٌّ: البحثُ يخصّ الناس لا الأدمن.
+router.get('/by-concept/:conceptId', async (req, res) => {
+  try {
+    const rows = await db.providersByConcept({
+      conceptId: req.params.conceptId,
+      city: req.query.city || null,
+      limit: Math.min(parseInt(req.query.limit, 10) || 20, 50),
+    });
+    // لا نُسرّب ما لا يخصّ الباحث: لا user_id ولا admin_note.
+    res.json({
+      providers: rows.map(p => ({
+        id: p.id, name: p.name, bio: p.bio, city: p.city, phone: p.phone,
+        avatar_url: p.avatar_url, latitude: p.latitude, longitude: p.longitude,
+        is_verified: p.is_verified, rating_avg: p.rating_avg, rating_count: p.rating_count,
+        is_primary: p.is_primary,
+      })),
+    });
+  } catch (e) { console.error('[providers]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
 router.post('/', auth, sanitizeBody, async (req, res) => {

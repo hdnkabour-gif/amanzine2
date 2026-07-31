@@ -88,7 +88,7 @@ router.post('/misses/:id/resolve', auth, admin, async (req, res) => {
       const c = normalizeConcept({ ...base, variants: merged, status: 'published' });
       const errors = await conceptConflicts(c, conceptId);
       if (errors.length) return res.status(409).json({ error: errors[0], errors });
-      saved = await db.upsertCustomConcept({ ...c, createdBy: base.created_by || req.user.id });
+      saved = await db.upsertCustomConcept({ ...c, source: base.source || 'admin', createdBy: base.created_by || req.user.id, reason: `miss:${miss.id}` });
     } else if (newId && concept?.ar) {
       // ② مفهومٌ جديدٌ كامل.
       const c = normalizeConcept({
@@ -98,7 +98,7 @@ router.post('/misses/:id/resolve', auth, admin, async (req, res) => {
       if (!/^[a-z][a-z0-9_]*$/.test(c.id)) return res.status(400).json({ error: 'المعرّف يجب أن يكون حروفًا لاتينيّةً صغيرةً و_ فقط' });
       const errors = await conceptConflicts(c, c.id);
       if (errors.length) return res.status(409).json({ error: errors[0], errors });
-      saved = await db.upsertCustomConcept({ ...c, createdBy: req.user.id });
+      saved = await db.upsertCustomConcept({ ...c, createdBy: req.user.id, reason: `miss:${miss.id}` });
     } else {
       return res.status(400).json({ error: 'أرسِل conceptId (إثراء) أو id+concept.ar (مفهومٌ جديد) — أو status:"ignored"' });
     }
@@ -242,8 +242,46 @@ router.put('/concepts/:id', auth, admin, async (req, res) => {
     if (!Object.keys(c.variants).length) errors.push('أضِف مرادفًا واحدًا على الأقلّ');
     if (!errors.length) errors.push(...await conceptConflicts(c, id));
     if (errors.length) return res.status(400).json({ error: errors[0], errors });
-    res.json({ concept: await db.upsertCustomConcept({ ...c, createdBy: existing.created_by || req.user.id }) });
+    res.json({ concept: await db.upsertCustomConcept({ ...c, source: existing.source, createdBy: existing.created_by || req.user.id }) });
   } catch (e) { console.error('[knowledge]', e.message); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── النسخُ والتراجع ──────────────────────────────────────────
+// «لماذا تغيّر هذا المفهوم؟» سؤالٌ لا جوابَ له بلا تاريخ. و`reason` يُملأ
+// آليًّا (miss:<id> · merge:<id> · revert:<id>)، فيُجيب السؤالَ بنفسه.
+router.get('/concepts/:id/versions', auth, admin, async (req, res) => {
+  try { res.json({ versions: await db.listConceptVersions(req.params.id, 50) }); }
+  catch (e) { console.error('[knowledge]', e.message); res.status(500).json({ error: 'Server error' }); }
+});
+
+router.post('/concepts/:id/revert/:versionId', auth, admin, async (req, res) => {
+  try {
+    const v = await db.revertConcept(Number(req.params.versionId), req.user.id);
+    if (!v) return res.status(404).json({ error: 'نسخةٌ غير موجودة' });
+    res.json({ concept: v });
+  } catch (e) { console.error('[knowledge]', e.message); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── الدمج ────────────────────────────────────────────────────
+// «مبيض ⇒ painter | plasterer | house_painter» — قرارُ معنًى لا قرارُ كود.
+// وحين يُتَّخذ، الدمجُ **غيرُ مُتلِف**: مزوّدو الخاسر يُحوَّلون، وصفُّه يُحفَظ
+// نسخةً، ويُسجَّل اسمٌ بديل — فتبقى كلُّ إشارةٍ قديمةٍ صالحةً للأبد.
+router.post('/concepts/merge', auth, admin, async (req, res) => {
+  try {
+    const { fromId, toId, reason } = req.body || {};
+    if (!fromId || !toId) return res.status(400).json({ error: 'fromId و toId مطلوبان' });
+    if (fromId === toId) return res.status(400).json({ error: 'لا يُدمَج مفهومٌ في نفسه' });
+    // دورة: a→b ثمّ b→a تُجمّد resolveConceptAlias. تُمنَع عند الباب.
+    if (await db.resolveConceptAlias(toId) === String(fromId)) {
+      return res.status(409).json({ error: `«${toId}» مدموجٌ أصلًا في «${fromId}» — الدمجُ العكسيّ يصنع حلقة` });
+    }
+    res.json({ merged: await db.mergeConcepts({ fromId, toId, reason, by: req.user.id }) });
+  } catch (e) { console.error('[knowledge]', e.message); res.status(400).json({ error: e.message }); }
+});
+
+router.get('/aliases', auth, admin, async (_req, res) => {
+  try { res.json({ aliases: await db.listConceptAliases() }); }
+  catch (e) { console.error('[knowledge]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
 router.delete('/concepts/:id', auth, admin, async (req, res) => {
