@@ -5,6 +5,8 @@ const auth   = require('../middleware/auth');
 const crypto = require('crypto');
 const { db } = require('../database');
 const sync   = require('../sync');
+const fetch  = require('node-fetch'); // ⬅️ استيراد fetch للاستدعاء الداخلي
+
 let pushNotify;
 try { pushNotify = require('../routes/push').notifyUser; } catch { pushNotify = () => Promise.resolve(); }
 
@@ -42,10 +44,8 @@ router.put('/:id', auth, async (req, res) => {
   } catch (e) { console.error('[orders]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
+// ── إشعار الزبون ──────────────────────────────────────────────────────────────
 
-// إشعار الزبون تلقائياً عبر WhatsApp API عند تغيّر حالة طلبه —
-// وإن لم يكن API مربوطاً: إشعار للتاجر برابط wa.me جاهز للإرسال اليدوي
-// إرسال إيميل حقيقي عبر Brevo (إن كان مفتاحه مربوطاً)
 function _sendBrevoEmail(apiKey, toEmail, toName, subject, html) {
   return new Promise(resolve => {
     if (!apiKey || !toEmail) return resolve(false);
@@ -63,7 +63,6 @@ function _sendBrevoEmail(apiKey, toEmail, toName, subject, html) {
   });
 }
 
-// تحقق hCaptcha على الخادم — لا تُقبل الطلبات الآلية إن كانت الحماية مفعلة
 function _verifyHCaptcha(secret, token) {
   return new Promise(resolve => {
     const httpsH = require('https');
@@ -108,6 +107,8 @@ async function _notifyCustomer(userId, order, stage) {
   } catch (e) { console.warn('[notifyCustomer]', e.message); }
 }
 
+// ── الموافقة على الطلب ──────────────────────────────────────────────────────
+
 router.put('/:id/approve', auth, async (req, res) => {
   try {
     const order = await db.getOrder(req.params.id);
@@ -129,7 +130,6 @@ router.put('/:id/approve', auth, async (req, res) => {
     for (const item of (order.items || [])) {
       if (!item.productId) continue;
       const p = await db.getProduct(item.productId);
-      // H-6: لا يُعدّل المخزون إلا لمنتجات هذا المتجر
       if (p && p.userId === req.user.id) await db.updateProduct(p.id, {
         stock: Math.max(0, (p.stock || 0) - (item.quantity || 1)),
         sales: (p.sales || 0) + (item.quantity || 1),
@@ -138,14 +138,36 @@ router.put('/:id/approve', auth, async (req, res) => {
 
     _notifyCustomer(req.user.id, { ...order, status: 'approved' }, 'approved');
 
-    // Auto-delivery
+    // ── Auto-delivery — استدعاء خدمة التوصيل الفعلية ──────────────────────
     const settings = await db.getSettings(req.user.id) || {};
     const providers = (await db.getDeliveryProviders(req.user.id)).filter(p => p.enabled);
     if (settings.delivery?.autoSendOnApproval && providers.length > 0) {
-      const prov = providers[0];
-      const tracking = `TRK-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-      await db.updateOrder(order.id, { userId: req.user.id, status: 'processing', deliveryProvider: prov.name, trackingNumber: tracking });
-      await db.addLog({ userId: req.user.id, user: 'System', action: `Sent to delivery: ${order.id}`, details: `${prov.name} — ${tracking}`, type: 'delivery', severity: 'info' });
+      try {
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const deliveryRes = await fetch(`${baseUrl}/api/delivery/create/${order.id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': req.headers.authorization || '',
+            'Content-Type': 'application/json'
+          }
+        });
+        const deliveryResult = await deliveryRes.json();
+        if (deliveryResult.success) {
+          await db.addLog({
+            userId: req.user.id,
+            user: 'System',
+            action: `Auto-delivery triggered for order ${order.id}`,
+            details: deliveryResult.real ? 'شحنة حقيقية' : 'محاكاة (راجع السجل)',
+            type: 'delivery',
+            severity: 'info'
+          });
+        } else {
+          console.warn('Auto-delivery failed:', deliveryResult.error);
+        }
+      } catch (e) {
+        console.error('Auto-delivery internal error:', e.message);
+        // لا نوقف العملية
+      }
     }
 
     // Add loyalty points to customer
@@ -210,6 +232,8 @@ router.put('/:id/approve', auth, async (req, res) => {
     res.json(finalOrder);
   } catch (e) { console.error('[orders/approve]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
+
+// ── باقي المسارات (reject, ship, deliver, public, track) ────────────────────
 
 router.put('/:id/reject', auth, async (req, res) => {
   try {
@@ -281,27 +305,21 @@ router.put('/:id/deliver', auth, async (req, res) => {
 });
 
 // POST /api/orders/public — create order from storefront (no auth)
-// المجموع يُعاد حسابه بالكامل على الخادم (حماية التاجر):
-// الأسعار من قاعدة البيانات، خصم واحد أفضل (باقة أو كوبون)، توصيل مجاني
-// فوق العتبة، وحارس هامش الربح يمنع أي خصم يأكل أكثر من 80% من الهامش.
 router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
   const { userId, items, customerName, customerPhone, city, address, notes, source, couponCode, deliveryCost, captchaToken, customerEmail } = req.body;
   if (!userId || !items?.length || !customerName || !customerPhone)
     return res.status(400).json({ error: 'userId, items, name, phone required' });
   try {
-    // 0) حماية البوتات: إن فعّل التاجر hCaptcha يجب أن يمر كل طلب بالتحقق
     const preSettings = await db.getSettings(userId) || {};
     if (preSettings.security?.hcaptchaSecret) {
       const human = await _verifyHCaptcha(preSettings.security.hcaptchaSecret, captchaToken);
       if (!human) return res.status(400).json({ error: 'فشل التحقق الأمني — حدّث الصفحة وأعد المحاولة' });
     }
 
-    // 1) الأسعار الحقيقية من قاعدة البيانات وليس من المتصفح
     let subtotal = 0, totalCost = 0, giftFees = 0, itemCount = 0;
     const safeItems = [];
     for (const it of items) {
       let p = null;
-      // H-6: لا تُستعمل أسعار/مخزون منتج يخص متجراً آخر
       if (it.productId) { try { p = await db.getProduct(it.productId); if (p && p.userId !== userId) p = null; } catch {} }
       const price = p ? +p.price : Math.max(0, +it.price || 0);
       const qty = Math.max(1, +it.quantity || 1);
@@ -313,7 +331,6 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     }
     subtotal += giftFees;
 
-    // 2) إعدادات العروض من المتجر (بقيم آمنة محصورة)
     const settings = await db.getSettings(userId) || {};
     const promo = settings.promotions || {};
     const bundleEnabled = promo.bundle?.enabled !== false;
@@ -324,31 +341,26 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     const bundleDiscount = bundleEnabled && itemCount >= bundleMin
       ? Math.round(subtotal * bundlePct / 100) : 0;
 
-    // 3) الكوبون يُتحقق منه على الخادم — لا ثقة بقيمة الخصم القادمة من المتصفح
     let couponDiscount = 0, couponFreeShip = false, couponId = null;
     if (couponCode) {
       const v = await db.validateCoupon(userId, couponCode, subtotal);
       if (v.valid) { couponDiscount = v.discount; couponFreeShip = !!v.freeShipping; couponId = v.couponId; }
     }
 
-    // 4) خصم واحد فقط — الأفضل للزبون، بلا تراكم يخسّر التاجر
     let discount = Math.max(bundleDiscount, couponDiscount);
     const discountSource = discount === 0 ? ''
       : bundleDiscount >= couponDiscount ? `باقة ${bundleMin}+ قطع (${bundlePct}%)` : `كوبون ${String(couponCode).toUpperCase()}`;
 
-    // 5) حارس هامش الربح: لا يتجاوز الخصم 80% من الهامش الإجمالي المعروف
     if (totalCost > 0) {
       const maxSafe = Math.max(0, Math.round((subtotal - giftFees - totalCost) * 0.8));
       if (discount > maxSafe) discount = maxSafe;
     }
 
-    // 6) التوصيل: مجاني بكوبون شحن أو فوق العتبة — وإلا قيمة المدينة (محصورة 0-100)
     const afterDiscount = Math.max(0, subtotal - discount);
     const freeShipping = couponFreeShip || afterDiscount >= freeShipThreshold;
     const delivery = freeShipping ? 0 : Math.min(Math.max(+deliveryCost || 0, 0), 100);
     const serverTotal = afterDiscount + delivery;
 
-    // استهلاك الكوبون فقط عندما يُطبق فعلاً في طلب حقيقي
     const couponApplied = couponFreeShip || (couponDiscount > 0 && couponDiscount >= bundleDiscount);
     if (couponId && couponApplied) { try { await db.incrementCouponUse(couponId); } catch {} }
 
@@ -357,10 +369,8 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
       freeShipping ? 'توصيل مجاني 🚚' : '',
     ].filter(Boolean).join(' · ');
 
-    // crypto.randomBytes: 8 hex chars, ~40 bits entropy — brute-force resistant
     const customerCode = crypto.randomBytes(4).toString('hex').toUpperCase();
 
-    // Atomic transaction: both order + customer succeed or both roll back
     const { order, customer } = await db.createOrderWithCustomer(
       { userId, customerName, customerPhone, city: city||'', address: address||'',
         items: safeItems, total: serverTotal, source: source||'Storefront',
@@ -371,7 +381,6 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
 
     await db.addNotification({ userId, type: 'info', message: `🛒 طلب جديد من ${customerName} — ${order.total} MAD` });
 
-    // إيميلات Brevo الحقيقية: نسخة للتاجر + تأكيد للزبون إن ترك بريده
     const brevoKey = settings.marketing?.brevoApiKey;
     if (brevoKey) {
       const itemsHtml = (safeItems || []).map(i => `<li>${i.productName} × ${i.quantity || 1} — ${i.price} MAD</li>`).join('');
@@ -397,8 +406,6 @@ router.get('/track/:phone', async (req, res) => {
   const { phone } = req.params;
   const { userId } = req.query;
   if (!phone || !userId) return res.status(400).json({ error: 'phone and userId required' });
-  // C-2: مطابقة تامّة على آخر 9 أرقام (الرقم الوطني) بدل includes —
-  // يمنع تعداد بيانات الزبائن (PII) عبر رقم جزئي قصير
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 9) return res.status(400).json({ error: 'أدخل رقم الهاتف كاملاً للتتبّع' });
   const last9 = digits.slice(-9);
@@ -408,8 +415,6 @@ router.get('/track/:phone', async (req, res) => {
       return ph.length >= 9 && ph.slice(-9) === last9;
     });
     const STATUS_AR = { pending:'⏳ بانتظار التأكيد', approved:'✅ تم التأكيد', processing:'⚙️ جارٍ التحضير', shipped:'🚚 في الطريق', delivered:'📦 وصل', cancelled:'❌ ملغي' };
-    // خصوصية (C‑2): التتبّع بالهاتف لا يكشف customerCode (السرّ الذي يمنح
-    // وصولاً كاملاً عبر /track-code) — يبقى للزبون حالته وتفاصيل طلبه فقط.
     res.json(orders.map(o => ({
       id: o.id, status: o.status, statusAr: STATUS_AR[o.status] || o.status,
       total: o.total,
