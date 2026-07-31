@@ -39,15 +39,75 @@ router.get('/brain', auth, admin, async (req, res) => {
   } catch (e) { console.error('[knowledge]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
-// ربط عنقود بحث بفئة (resolve) أو تجاهله (ignore).
+// ══ إغلاقُ حلقة التعلّم ══════════════════════════════════════
+//
+//  كان هذا المسار يكتب `resolved_category` — نصًّا حرًّا، ليس حتّى مفتاحًا
+//  خارجيًّا لفئةٍ حقيقيّة — ثمّ ينتهي. لا يمسّ custom_concepts، ولا يضيف
+//  مرادفًا، ولا يتغيّر شيءٌ في الفهم. فيكتبها إنسانٌ آخر غدًا ولا نفهمها.
+//  زرٌّ اسمه «حلّ» ولا يحلّ شيئًا: يُشعر بالتقدّم بينما المحرّك ثابتٌ مكانه —
+//  نفسُ عطبِ «نُشِر ✦» بلا إعلان، وزرِّ الصور الذي يقول «أضيفت» بلا صورة.
+//
+//  الآن للمسار ثلاثةُ أوضاع، وواحدٌ فقط منها يُسمّى تعلّمًا:
+//    • { status:'ignored' }                    ⇒ تجاهل (ضجيج/عبث)
+//    • { conceptId, variants? }                ⇒ يتعلّم: يُضاف المرادفُ لمفهومٍ قائم
+//    • { concept:{ar,…}, id, category, … }     ⇒ يتعلّم: مفهومٌ جديدٌ منشور
+//  وفي وضعَي التعلّم يمرّ الطلبُ بـ conceptConflicts: لا يُسرَق مرادفٌ أبدًا.
+//  الردُّ يحمل `learned` — فالواجهةُ لا تقول «تعلَّم» إلّا إذا تعلَّم فعلًا.
 router.post('/misses/:id/resolve', auth, admin, async (req, res) => {
   try {
-    const { category, status } = req.body || {};
-    const st = status === 'ignored' ? 'ignored' : 'resolved';
-    if (st === 'resolved' && !category) return res.status(400).json({ error: 'category required' });
-    const row = await knowledge.resolveMiss(req.params.id, { category, status: st, adminId: req.user.id });
-    if (!row) return res.status(404).json({ error: 'Not found' });
-    res.json({ miss: row });
+    const { status, conceptId, concept, variants, category, id: newId, lang } = req.body || {};
+
+    if (status === 'ignored') {
+      const row = await knowledge.resolveMiss(req.params.id, { status: 'ignored', adminId: req.user.id });
+      if (!row) return res.status(404).json({ error: 'Not found' });
+      return res.json({ miss: row, learned: null });
+    }
+
+    const miss = await db.getSearchMiss(req.params.id);
+    if (!miss) return res.status(404).json({ error: 'Not found' });
+
+    // المرادفاتُ المُتعلَّمة: ما أرسله الأدمن، وإلّا نصُّ الـmiss كما كتبه الإنسان.
+    const learn = arr(variants).length ? arr(variants) : [String(miss.raw || '').trim()].filter(Boolean);
+    if (!learn.length) return res.status(400).json({ error: 'لا يوجد ما يُتعلَّم — أرسِل مرادفًا أو تجاهل الطلب' });
+    const L = ['ar', 'darija', 'fr', 'en', 'arabizi'].includes(lang) ? lang
+      : (/[؀-ۿ]/.test(learn[0]) ? 'darija' : 'en');
+
+    let saved;
+    if (conceptId) {
+      // ① إثراءُ مفهومٍ قائم — الحالةُ الغالبة. المفهومُ قد يكون مدمجًا (plumber)
+      //    فلا صفَّ له في custom_concepts: نُنشئ صفَّ إثراءٍ بنفس المعرّف، وهو
+      //    ما يدمجه concepts.ts اتّحادًا لا استبدالًا.
+      const existing = await db.getCustomConcept(conceptId);
+      const base = existing || {
+        id: conceptId, category: String(category || '').trim(),
+        concept: concept && concept.ar ? concept : { ar: conceptId },
+        variants: {}, stance: {}, asks: {}, links: {}, services: [], examples: [],
+      };
+      const merged = { ...base.variants };
+      merged[L] = Array.from(new Set([...(merged[L] || []), ...learn]));
+      const c = normalizeConcept({ ...base, variants: merged, status: 'published' });
+      const errors = await conceptConflicts(c, conceptId);
+      if (errors.length) return res.status(409).json({ error: errors[0], errors });
+      saved = await db.upsertCustomConcept({ ...c, createdBy: base.created_by || req.user.id });
+    } else if (newId && concept?.ar) {
+      // ② مفهومٌ جديدٌ كامل.
+      const c = normalizeConcept({
+        id: newId, category, concept, status: 'published',
+        variants: { [L]: learn },
+      });
+      if (!/^[a-z][a-z0-9_]*$/.test(c.id)) return res.status(400).json({ error: 'المعرّف يجب أن يكون حروفًا لاتينيّةً صغيرةً و_ فقط' });
+      const errors = await conceptConflicts(c, c.id);
+      if (errors.length) return res.status(409).json({ error: errors[0], errors });
+      saved = await db.upsertCustomConcept({ ...c, createdBy: req.user.id });
+    } else {
+      return res.status(400).json({ error: 'أرسِل conceptId (إثراء) أو id+concept.ar (مفهومٌ جديد) — أو status:"ignored"' });
+    }
+
+    const row = await knowledge.resolveMiss(req.params.id, {
+      category: saved.category || category || null, status: 'resolved', adminId: req.user.id,
+    });
+    console.log(`[knowledge] تعلَّم «${learn.join('، ')}» ⇒ ${saved.id}`);
+    res.json({ miss: row, learned: { id: saved.id, variants: learn, lang: L } });
   } catch (e) { console.error('[knowledge]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -59,6 +119,45 @@ const normTerm = (x) => String(x || '').toLowerCase().trim()
 
 const LANGS = ['ar', 'darija', 'fr', 'en', 'arabizi'];
 const arr = (v) => (Array.isArray(v) ? v.map(x => String(x).trim()).filter(Boolean) : []);
+
+// المفاهيمُ المدمجة (١٨٣ مفهومًا في src/lib/akg/kb) — يولّدها
+// `npm run gen:variants`. بدونها كان الحارسُ أدناه يقارن بـ custom_concepts
+// وحدها، فيسمح لمفهومٍ جديدٍ بسرقة «سبّاك» من `plumber` المدمج بلا اعتراض.
+let BUILTIN = null;
+function builtinVariants() {
+  if (BUILTIN) return BUILTIN;
+  try { BUILTIN = require('../generated/builtin-variants.json'); }
+  catch { BUILTIN = {}; console.warn('[knowledge] ⚠️  لا فهرسَ للمرادفات المدمجة — شغّل `npm run gen:variants`'); }
+  return BUILTIN;
+}
+
+// حارسُ التعارض — مصدرٌ واحد. كان مكرَّرًا في POST وPUT، وكان يفحص
+// custom_concepts فقط. المرادفُ الذي يملكه مفهومان يجعل الفهم عشوائيًّا:
+// فهرسُ التنفيذ عالميٌّ عبر اللغات، وأوّلُ إصابةٍ تفوز — فالمفهومُ الثاني
+// يصير غيرَ قابلٍ للوصول إليه بتلك الكلمة، بلا أيّ رسالةٍ لأحد.
+async function conceptConflicts(c, selfId) {
+  const terms = (o) => {
+    const out = new Set();
+    for (const k of LANGS) for (const w of (o?.[k] || [])) out.add(normTerm(w));
+    return out;
+  };
+  const mine = terms(c.variants);
+  for (const v of Object.values(c.concept || {})) if (v) mine.add(normTerm(String(v)));
+
+  const errors = [];
+  const bi = builtinVariants();
+  for (const w of mine) {
+    const ownerId = bi[w];
+    if (ownerId && ownerId !== selfId) errors.push(`«${w}» يملكه المفهوم المدمج «${ownerId}» — أضِفه إليه بدل إنشاء مفهومٍ ينازعه`);
+  }
+  for (const row of await db.listCustomConcepts()) {
+    if (row.id === selfId) continue;   // تعديلُ النفس ليس تعارضًا
+    const theirs = terms(row.variants);
+    for (const v of Object.values(row.concept || {})) if (v) theirs.add(normTerm(String(v)));
+    for (const w of mine) if (theirs.has(w)) errors.push(`«${w}» يستعمله المفهوم «${row.id}» (اسمًا أو مرادفًا) — اختر كلمةً أدقّ`);
+  }
+  return errors;
+}
 
 function normalizeConcept(body) {
   const variants = {};
@@ -120,21 +219,7 @@ router.post('/concepts', auth, admin, async (req, res) => {
 
     // تعارضٌ مع مفاهيمَ أخرى: يشمل **الأسماء** لا المرادفات وحدها. اسمٌ يطابق
     // مرادفَ مفهومٍ آخر يجعل الفهم عشوائيًّا تمامًا كما يفعل المرادف المكرّر.
-    if (!errors.length) {
-      const terms = (o, keys) => {
-        const out = new Set();
-        for (const k of keys) for (const w of (o?.[k] || [])) out.add(normTerm(w));
-        return out;
-      };
-      const mine = terms(c.variants, LANGS);
-      for (const v of Object.values(c.concept)) if (v) mine.add(normTerm(v));
-      for (const row of await db.listCustomConcepts()) {
-        if (row.id === c.id) continue;   // تعديلُ النفس ليس تعارضًا
-        const theirs = terms(row.variants, LANGS);
-        for (const v of Object.values(row.concept || {})) if (v) theirs.add(normTerm(String(v)));
-        for (const w of mine) if (theirs.has(w)) errors.push(`«${w}» يستعمله المفهوم «${row.id}» (اسمًا أو مرادفًا) — اختر كلمةً أدقّ`);
-      }
-    }
+    if (!errors.length) errors.push(...await conceptConflicts(c, c.id));
     if (errors.length) return res.status(400).json({ error: errors[0], errors });
 
     const saved = await db.upsertCustomConcept({ ...c, createdBy: req.user.id });
@@ -155,21 +240,7 @@ router.put('/concepts/:id', auth, admin, async (req, res) => {
     if (!c.category) errors.push('الفئة مطلوبة');
     if (!c.concept.ar) errors.push('الاسم بالعربيّة مطلوب');
     if (!Object.keys(c.variants).length) errors.push('أضِف مرادفًا واحدًا على الأقلّ');
-    if (!errors.length) {
-      const terms = (o, keys) => {
-        const out = new Set();
-        for (const k of keys) for (const w of (o?.[k] || [])) out.add(normTerm(w));
-        return out;
-      };
-      const mine = terms(c.variants, LANGS);
-      for (const v of Object.values(c.concept)) if (v) mine.add(normTerm(v));
-      for (const row of await db.listCustomConcepts()) {
-        if (row.id === id) continue;
-        const theirs = terms(row.variants, LANGS);
-        for (const v of Object.values(row.concept || {})) if (v) theirs.add(normTerm(String(v)));
-        for (const w of mine) if (theirs.has(w)) errors.push(`«${w}» يستعمله المفهوم «${row.id}» — اختر كلمةً أدقّ`);
-      }
-    }
+    if (!errors.length) errors.push(...await conceptConflicts(c, id));
     if (errors.length) return res.status(400).json({ error: errors[0], errors });
     res.json({ concept: await db.upsertCustomConcept({ ...c, createdBy: existing.created_by || req.user.id }) });
   } catch (e) { console.error('[knowledge]', e.message); res.status(500).json({ error: 'Server error' }); }
