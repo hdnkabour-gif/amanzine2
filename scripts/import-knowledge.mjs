@@ -100,7 +100,11 @@ function existingIds() {
 // مرادفاتُ المعرفة الحاليّة: مرادفٌ يسرقه مفهومٌ جديدٌ من قديمٍ يكسر الفهم بصمت،
 // لذلك نفحصه قبل الكتابة لا بعدها. نقرأ الشكلين: JSON المولَّد وكائنات TS.
 function existingVariants() {
-  const map = new Map();   // «lang:مرادف مطبَّع» → id
+  // المفتاحُ **المرادفُ وحده**، بلا لغة. كان `lang:مرادف`، وهو أضعفُ من الواقع:
+  // فهرسا التنفيذ (arIndex/latIndex في knowledge.ts) يدمجان كلّ اللغات في قائمةٍ
+  // واحدةٍ مرتّبةٍ بالطول، وأوّلُ إصابةٍ تفوز. فمرادفٌ في `fr` يحجب نظيرَه في
+  // `darija` حجبًا كاملًا، والحارسُ الموسوم باللغة كان يمرّره صامتًا.
+  const map = new Map();   // مرادفٌ مطبَّع → id
   for (const f of ['knowledgeData.ts', 'knowledgeExtra.ts']) {
     const p = join(ROOT, 'src/lib/akg/kb', f);
     if (!existsSync(p)) continue;
@@ -108,13 +112,13 @@ function existingVariants() {
     for (const m of src.matchAll(/"id"\s*:\s*"([a-z0-9_]+)"\s*,[\s\S]{0,80}?"variants"\s*:\s*(\{[\s\S]*?\})\s*,\s*"services"/g)) {
       try {
         const obj = JSON.parse(m[2]);
-        for (const [lang, arr] of Object.entries(obj))
-          for (const w of arr || []) map.set(`${lang}:${norm(w)}`, m[1]);
+        for (const arr of Object.values(obj))
+          for (const w of arr || []) if (!map.has(norm(w))) map.set(norm(w), m[1]);
       } catch { /* تجاهل ما لا يُحلَّل */ }
     }
     for (const m of src.matchAll(/C\('([a-z0-9_]+)'[\s\S]*?\{\s*(darija|ar|fr|en|arabizi)[\s\S]*?\}/g)) {
       const id = m[1];
-      for (const q of m[0].matchAll(/'([^']{2,40})'/g)) map.set(`any:${norm(q[1])}`, id);
+      for (const q of m[0].matchAll(/'([^']{2,40})'/g)) if (!map.has(norm(q[1]))) map.set(norm(q[1]), id);
     }
   }
   return map;
@@ -136,17 +140,25 @@ rows.forEach((r, i) => {
   for (const c of REQUIRED) if (!get(r, c)) errors.push(`سطر ${line}: العمود «${c}» مطلوب`);
   if (known.has(id)) warnings.push(`سطر ${line}: «${id}» موجودٌ في المعرفة الحاليّة ⇒ سيُعامَل كإثراء (union) لا كإضافة`);
 
+  // فئةٌ = رأسُ جدولٍ لُصق من Markdown/CSV. مرّت مرّةً على ٩٠ صفًّا، وبما أنّها
+  // نصٌّ غيرُ فارغ حجبت CATEGORY_BY_ID فصارت التسعون «نفس الفئة» — فعُرضت
+  // مغسلةُ سيّاراتٍ كخدمةٍ مرتبطةٍ بالصيدليّة. تُرفَض عند الباب.
+  const cat = get(r, 'category');
+  if (/\||الدارجة\s*\|/.test(cat)) errors.push(`سطر ${line}: «category» يبدو رأسَ جدولٍ ملصوقًا («${cat.slice(0, 34)}…») — ضع فئةً حقيقيّة أو اتركها فارغة`);
+
   const variants = {};
   for (const lang of ['ar', 'darija', 'fr', 'en', 'arabizi']) {
     const v = list(get(r, `variants_${lang}`));
     if (v.length) variants[lang] = v;
     for (const w of v) {
-      const k = `${lang}:${norm(w)}`;
+      if (/^[\d`\s]+$/.test(w) || /`/.test(w)) { errors.push(`سطر ${line}: المرادف «${w}» ليس كلامًا (رقم/كود) — يُطابَق ولا يعني شيئًا`); continue; }
+      if ((lang === 'fr' || lang === 'en') && /[؀-ۿ]/.test(w)) { errors.push(`سطر ${line}: «${w}» عربيٌّ في قائمة ${lang} — المطابقةُ اللاتينيّة لن تصله أبدًا؛ ضعه في darija`); continue; }
+      const k = norm(w);
       const owner = seenVariant.get(k);
-      if (owner && owner !== id) errors.push(`سطر ${line}: المرادف «${w}» (${lang}) مستعمَلٌ في «${owner}» — يجعل الفهم عشوائيًّا`);
+      if (owner && owner !== id) errors.push(`سطر ${line}: المرادف «${w}» مستعمَلٌ في «${owner}» — يجعل الفهم عشوائيًّا`);
       else seenVariant.set(k, id);
       // تعارضٌ مع المعرفة الحاليّة (مفهومٌ آخر يملك المرادف أصلًا)
-      const prior = knownVariants.get(k) || knownVariants.get(`any:${norm(w)}`);
+      const prior = knownVariants.get(k);
       if (prior && prior !== id) errors.push(`سطر ${line}: المرادف «${w}» يملكه «${prior}» في المعرفة الحاليّة — اختر كلمةً أدقّ`);
     }
   }
