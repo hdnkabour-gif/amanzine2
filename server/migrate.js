@@ -69,6 +69,9 @@ async function migrate() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )`);
 
+    // ⬇️ إضافة عمود livo_order_id لدعم Livo API
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS livo_order_id TEXT DEFAULT ''`);
+
     await client.query(`CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
