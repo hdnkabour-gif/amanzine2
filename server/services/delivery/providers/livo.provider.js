@@ -3,8 +3,6 @@
 // Livo API integration provider
 // Documentation: https://rest.livo.ma
 
-const fetch = require('node-fetch');
-
 /**
  * اختبار اتصال Livo API باستخدام مفتاح API
  * @param {string} apiKey - مفتاح API من لوحة Livo
@@ -44,9 +42,6 @@ async function createOrder(orderData, apiKey, baseUrl = 'https://rest.livo.ma') 
       address: orderData.address || '',
       cod: orderData.codAmount || orderData.total || 0,
       notes: orderData.notes || '',
-      // يمكن إضافة حقول إضافية حسب الحاجة
-      // weight: orderData.weight || 0,
-      // items: orderData.items || [],
     };
 
     const response = await fetch(`${baseUrl}/orders`, {
@@ -65,7 +60,6 @@ async function createOrder(orderData, apiKey, baseUrl = 'https://rest.livo.ma') 
       return { success: false, error: result.message || 'فشل إنشاء الشحنة في Livo' };
     }
 
-    // يفترض أن Livo ترجع { success: true, data: { _id: "...", tracking_number: "..." } }
     if (result.success && result.data) {
       return {
         success: true,
@@ -105,7 +99,6 @@ async function getOrderStatus(orderId, apiKey, baseUrl = 'https://rest.livo.ma')
       return { success: false, error: result.message || 'فشل جلب حالة الشحنة' };
     }
 
-    // يفترض أن Livo ترجع { success: true, data: { status: "...", ... } }
     if (result.success && result.data) {
       return {
         success: true,
