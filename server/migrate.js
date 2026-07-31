@@ -472,6 +472,63 @@ async function migrate() {
     )`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_custom_concepts_status ON custom_concepts(status, updated_at DESC)`);
 
+    // ── استقرارُ المفهوم ─────────────────────────────────────
+    // ثلاثُ إضافاتٍ صغيرة تجعل المعرفة قابلةً للنموّ سنواتٍ بلا إعادة تصميم.
+    //
+    // ① source — مَن أضاف هذا المفهوم؟ system | admin | ai | community.
+    //    ليس ترفًا: طبقةُ الاقتراح الآليّ لا يجوز أن تُخلط باليدويّ، وإلّا صار
+    //    التراجعُ عن دفعةِ ذكاءٍ اصطناعيٍّ سيّئةٍ مستحيلًا (لا نعرف ما هي).
+    // ② status يقبل `candidate` — «اقتُرح ولم يُراجَع». بدونها يكون اقتراحُ
+    //    الـAI إمّا منشورًا (خطر) أو مسوّدةً (لا يُفرَّق عن عملِ إنسانٍ ناقص).
+    await client.query(`ALTER TABLE custom_concepts ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'admin'`);
+
+    // ③ نسخُ المفهوم — لقطةٌ قبل كلّ كتابة. هي **شرطُ** النشر الآليّ لا رفاهيةٌ
+    //    بعده: السرعةُ تصير آمنةً حين يكون التراجعُ ممكنًا. والسببُ يُملأ آليًّا
+    //    بمعرّف الـmiss الذي سبّب التعديل، فيُجيب سؤال «لماذا تغيّر هذا؟» بنفسه.
+    await client.query(`CREATE TABLE IF NOT EXISTS concept_versions (
+      id BIGSERIAL PRIMARY KEY,
+      concept_id TEXT NOT NULL,
+      snapshot JSONB NOT NULL,          -- الصفُّ كاملًا قبل التعديل
+      reason TEXT,                      -- miss:<id> · merge:<id> · manual
+      changed_by TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_concept_versions ON concept_versions(concept_id, id DESC)`);
+
+    // ④ الأسماءُ البديلة — الدمجُ بلا كسر. حين يُدمَج «auto_mechanic» في
+    //    «mechanic» يختفي المعرّفُ الأوّل، فينقطع كلُّ ما يشير إليه (وأهمُّه
+    //    provider_concepts). هنا يُسجَّل التحويل، ويُحلّ عند القراءة، فتبقى
+    //    كلُّ إشارةٍ قديمةٍ صالحةً للأبد. هذا هو «المعرّف الثابت» عمليًّا —
+    //    بلا تحويلِ ٧٨ إشارةً في الكود إلى رموزٍ مبهمةٍ لا تُقرأ.
+    await client.query(`CREATE TABLE IF NOT EXISTS concept_aliases (
+      from_id TEXT PRIMARY KEY,
+      to_id   TEXT NOT NULL,
+      reason  TEXT,
+      merged_by TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_concept_aliases_to ON concept_aliases(to_id)`);
+
+    // ── الجسرُ المفقود: مزوّدٌ ⇄ مفهوم ──────────────────────
+    // المحرّك يفهم «الورد»، ولا يعرف أيُّ مزوّدٍ بائعُ ورد. هذا الجدولُ هو
+    // الشرطُ الوحيد لجملة «أيّ محلٍّ كيفما كان نوعه».
+    //
+    // ولماذا جدولٌ لا عمود؟ لأنّ المحلّ نادرًا ما يكون شيئًا واحدًا: المخبزةُ
+    // تبيع خبزًا وقهوة، والميكانيكيّ يفعل تشخيصًا وعجلات. النشاطُ الواحد حالةٌ
+    // خاصّةٌ من المتعدّد، والعكسُ غيرُ صحيح — فلو بدأنا بعمودٍ لاحتجنا هجرةً
+    // مؤلمةً بعد شهر. و`is_primary` يبقي «ما هو هذا المحلّ أساسًا؟» مُجابًا.
+    await client.query(`CREATE TABLE IF NOT EXISTS provider_concepts (
+      provider_id TEXT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+      concept_id  TEXT NOT NULL,
+      is_primary  BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at  TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (provider_id, concept_id)
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_provider_concepts_concept ON provider_concepts(concept_id)`);
+    // نشاطٌ أساسيٌّ واحدٌ لكلّ مزوّد — لا اثنان. «أساسيّان» = لا أساسيّ.
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_primary
+      ON provider_concepts(provider_id) WHERE is_primary`);
+
     // Learning Loop — تجميع يومي مجهّل لمراحل القمع (DR-0004). لا هوية مستخدم.
     // شكل طويل (day, stage) → إضافة مرحلة جديدة بلا هجرة (القانون ٩).
     await client.query(`CREATE TABLE IF NOT EXISTS learning_daily (

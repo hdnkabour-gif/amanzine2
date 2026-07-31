@@ -1347,28 +1347,164 @@ db.listCustomConcepts = async ({ status } = {}) => {
   return rows;
 };
 
+// يُحلّ الاسمُ البديل: طلبُ مفهومٍ مدموجٍ يُعيد المفهومَ الحيّ، لا فراغًا.
+// بدون هذا كان الدمجُ يكسر كلّ رابطٍ قديم — وهو سببُ اقتراح «معرّفاتٍ ثابتة»
+// أصلًا. هنا نحصل على الاستقرار نفسِه مع إبقاء المعرّفات مقروءة.
 db.getCustomConcept = async (id) => {
-  const { rows } = await pool.query('SELECT * FROM custom_concepts WHERE id = $1', [id]);
+  const direct = await pool.query('SELECT * FROM custom_concepts WHERE id = $1', [id]);
+  if (direct.rows[0]) return direct.rows[0];
+  const live = await db.resolveConceptAlias(id);
+  if (live === String(id)) return null;
+  const { rows } = await pool.query('SELECT * FROM custom_concepts WHERE id = $1', [live]);
   return rows[0] || null;
 };
 
 // upsert: نفس الـid يُحدَّث لا يُكرَّر (نفس قاعدة الدمج في concepts.ts).
+const CONCEPT_STATUS = ['draft', 'candidate', 'published'];
+
 db.upsertCustomConcept = async (c) => {
   const j = (v, d) => JSON.stringify(v == null ? d : v);
+  // لقطةٌ قبل كلّ كتابة. بدونها لا يمكن التراجعُ عن تعديلٍ خفض الفهم، ولا
+  // يجوز إذن أيُّ نشرٍ آليّ. السببُ يُملأ آليًّا (miss:<id> · merge:<id>).
+  const before = (await pool.query('SELECT * FROM custom_concepts WHERE id = $1', [String(c.id)])).rows[0];
+  if (before) {
+    await pool.query(
+      `INSERT INTO concept_versions (concept_id, snapshot, reason, changed_by) VALUES ($1,$2::jsonb,$3,$4)`,
+      [before.id, JSON.stringify(before), c.reason || 'manual', c.createdBy || null]
+    );
+  }
   const { rows } = await pool.query(
-    `INSERT INTO custom_concepts (id, category, concept, variants, stance, asks, links, services, examples, status, created_by, updated_at)
-       VALUES ($1,$2,$3::jsonb,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10,$11,NOW())
+    `INSERT INTO custom_concepts (id, category, concept, variants, stance, asks, links, services, examples, status, source, created_by, updated_at)
+       VALUES ($1,$2,$3::jsonb,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10,$11,$12,NOW())
      ON CONFLICT (id) DO UPDATE SET
        category = EXCLUDED.category, concept = EXCLUDED.concept, variants = EXCLUDED.variants,
        stance = EXCLUDED.stance, asks = EXCLUDED.asks, links = EXCLUDED.links,
        services = EXCLUDED.services, examples = EXCLUDED.examples,
-       status = EXCLUDED.status, updated_at = NOW()
+       status = EXCLUDED.status, source = EXCLUDED.source, updated_at = NOW()
      RETURNING *`,
     [String(c.id), String(c.category || ''), j(c.concept, {}), j(c.variants, {}), j(c.stance, {}),
      j(c.asks, {}), j(c.links, {}), j(c.services, []), j(c.examples, []),
-     c.status === 'published' ? 'published' : 'draft', c.createdBy || null]
+     CONCEPT_STATUS.includes(c.status) ? c.status : 'draft',
+     ['system', 'admin', 'ai', 'community'].includes(c.source) ? c.source : 'admin',
+     c.createdBy || null]
   );
   return rows[0];
+};
+
+// ── النسخ ────────────────────────────────────────────────────
+db.listConceptVersions = async (conceptId, limit = 20) => {
+  const { rows } = await pool.query(
+    `SELECT id, concept_id, reason, changed_by, created_at FROM concept_versions
+      WHERE concept_id = $1 ORDER BY id DESC LIMIT $2`, [String(conceptId), Math.min(limit, 100)]);
+  return rows;
+};
+
+// التراجُع: نُعيد اللقطة عبر upsert نفسِه — فتُسجَّل الحالةُ الحاليّة نسخةً
+// جديدةً قبل الاستبدال. التراجعُ نفسُه حدثٌ يُتراجَع عنه، لا محوٌ للتاريخ.
+db.revertConcept = async (versionId, changedBy) => {
+  const { rows } = await pool.query('SELECT * FROM concept_versions WHERE id = $1', [versionId]);
+  const v = rows[0];
+  if (!v) return null;
+  const s = v.snapshot;
+  return db.upsertCustomConcept({
+    id: s.id, category: s.category, concept: s.concept, variants: s.variants,
+    stance: s.stance, asks: s.asks, links: s.links, services: s.services,
+    examples: s.examples, status: s.status, source: s.source,
+    createdBy: changedBy, reason: `revert:${versionId}`,
+  });
+};
+
+// ── الأسماءُ البديلة (الدمجُ بلا كسر) ─────────────────────────
+// سلسلةٌ لا حلقة: a→b→c يُحلّ إلى c. والحدُّ الأقصى يمنع دورةً لانهائيّةً
+// لو أُدخل a→b و b→a بخطأٍ يدويّ — الحلقةُ هنا تُجمّد الخادم، لا تُخطئ فقط.
+db.resolveConceptAlias = async (id) => {
+  let cur = String(id);
+  for (let i = 0; i < 10; i++) {
+    const { rows } = await pool.query('SELECT to_id FROM concept_aliases WHERE from_id = $1', [cur]);
+    if (!rows[0]) return cur;
+    cur = rows[0].to_id;
+  }
+  console.warn('[concepts] سلسلةُ أسماءٍ بديلةٍ أطولُ من ١٠ — يُرجَّح وجودُ حلقة:', id);
+  return cur;
+};
+
+db.listConceptAliases = async () => (await pool.query('SELECT * FROM concept_aliases ORDER BY created_at DESC')).rows;
+
+// الدمج: كلُّ ما يشير إلى from يُحوَّل إلى to، ثمّ يُسجَّل التحويل.
+// نُحوّل provider_concepts أوّلًا لأنّ تركها يعني مزوّدين بمفهومٍ لا وجودَ له.
+db.mergeConcepts = async ({ fromId, toId, reason, by }) => {
+  const from = String(fromId), to = String(toId);
+  if (from === to) throw new Error('لا يُدمَج مفهومٌ في نفسه');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // مزوّدٌ عنده الاثنان: ندمج بلا تكرارٍ ونُبقي أعلى امتياز (is_primary).
+    await client.query(
+      `INSERT INTO provider_concepts (provider_id, concept_id, is_primary)
+         SELECT provider_id, $2, FALSE FROM provider_concepts WHERE concept_id = $1
+       ON CONFLICT (provider_id, concept_id) DO NOTHING`, [from, to]);
+    await client.query('DELETE FROM provider_concepts WHERE concept_id = $1', [from]);
+    const old = (await client.query('SELECT * FROM custom_concepts WHERE id = $1', [from])).rows[0];
+    if (old) {
+      await client.query(
+        `INSERT INTO concept_versions (concept_id, snapshot, reason, changed_by) VALUES ($1,$2::jsonb,$3,$4)`,
+        [from, JSON.stringify(old), `merged_into:${to}`, by || null]);
+      await client.query('DELETE FROM custom_concepts WHERE id = $1', [from]);
+    }
+    await client.query(
+      `INSERT INTO concept_aliases (from_id, to_id, reason, merged_by) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (from_id) DO UPDATE SET to_id = EXCLUDED.to_id`, [from, to, reason || null, by || null]);
+    await client.query('COMMIT');
+    return { from, to };
+  } catch (e) { await client.query('ROLLBACK'); throw e; }
+  finally { client.release(); }
+};
+
+// ── الجسر: مزوّدٌ ⇄ مفهوم ────────────────────────────────────
+db.setProviderConcepts = async (providerId, items) => {
+  const pid = String(providerId);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM provider_concepts WHERE provider_id = $1', [pid]);
+    let primaryTaken = false;
+    for (const it of items) {
+      // الاسمُ البديل يُحلّ **عند الكتابة** أيضًا: مزوّدٌ يختار مفهومًا مدموجًا
+      // يُربَط بالحيّ لا بالميّت، وإلّا وُلد الرابطُ معطوبًا.
+      const cid = await db.resolveConceptAlias(it.conceptId ?? it.concept_id ?? it);
+      const primary = !primaryTaken && !!(it.isPrimary ?? it.is_primary);
+      if (primary) primaryTaken = true;
+      await client.query(
+        `INSERT INTO provider_concepts (provider_id, concept_id, is_primary) VALUES ($1,$2,$3)
+         ON CONFLICT (provider_id, concept_id) DO UPDATE SET is_primary = EXCLUDED.is_primary`,
+        [pid, cid, primary]);
+    }
+    await client.query('COMMIT');
+  } catch (e) { await client.query('ROLLBACK'); throw e; }
+  finally { client.release(); }
+  return db.getProviderConcepts(pid);
+};
+
+db.getProviderConcepts = async (providerId) => {
+  const { rows } = await pool.query(
+    `SELECT concept_id, is_primary FROM provider_concepts WHERE provider_id = $1
+      ORDER BY is_primary DESC, concept_id`, [String(providerId)]);
+  return rows;
+};
+
+// «شكون كيبيع الورد فالدار البيضاء؟» — الجملةُ التي لم يكن النظام يقدر عليها.
+db.providersByConcept = async ({ conceptId, city, limit = 20 } = {}) => {
+  const cid = await db.resolveConceptAlias(conceptId);
+  const { rows } = await pool.query(
+    `SELECT p.*, pc.is_primary
+       FROM provider_concepts pc
+       JOIN providers p ON p.id = pc.provider_id
+      WHERE pc.concept_id = $1
+        AND ($2::text IS NULL OR p.city = $2)
+        AND p.status = 'active'
+      ORDER BY pc.is_primary DESC, p.is_verified DESC, p.rating_avg DESC NULLS LAST
+      LIMIT $3`, [cid, city || null, Math.min(limit, 100)]);
+  return rows;
 };
 
 db.deleteCustomConcept = async (id) => {
