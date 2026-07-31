@@ -492,8 +492,14 @@ export const knowledgeAPI = {
   deleteConcept: (id: string) => request<{ ok: boolean }>('DELETE', `/knowledge/concepts/${encodeURIComponent(id)}`),
   brain:  (days = 30) => request<BrainStats>('GET', `/knowledge/brain?days=${days}`),
   misses: (status = 'open', limit = 100) => request<{ misses: KnowledgeMiss[] }>('GET', `/knowledge/misses?status=${status}&limit=${limit}`),
-  resolve: (id: string, category: string) => request<{ miss: KnowledgeMiss }>('POST', `/knowledge/misses/${encodeURIComponent(id)}/resolve`, { category }),
-  ignore:  (id: string) => request<{ miss: KnowledgeMiss }>('POST', `/knowledge/misses/${encodeURIComponent(id)}/resolve`, { status: 'ignored' }),
+  // «حلّ» كان يكتب وسمَ فئةٍ ثمّ ينتهي — فيكتبها إنسانٌ آخر غدًا ولا نفهمها.
+  // الآن الحلُّ **تعلُّم**: يُضاف المرادفُ إلى مفهوم. الردّ يحمل `learned`،
+  // فلا تقول الواجهةُ «تعلَّم» إلّا إذا تعلَّم فعلًا (القاعدة ①).
+  learn: (id: string, body: { conceptId?: string; id?: string; concept?: Record<string, string>;
+    category?: string; variants?: string[]; lang?: string }) =>
+    request<{ miss: KnowledgeMiss; learned: { id: string; variants: string[]; lang: string } | null }>(
+      'POST', `/knowledge/misses/${encodeURIComponent(id)}/resolve`, body),
+  ignore:  (id: string) => request<{ miss: KnowledgeMiss; learned: null }>('POST', `/knowledge/misses/${encodeURIComponent(id)}/resolve`, { status: 'ignored' }),
 };
 
 // ── Demand Capture — «ما لقيناش» تصير طلبًا مؤكّدًا ───────────
