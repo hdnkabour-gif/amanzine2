@@ -6,6 +6,7 @@
 // ============================================================
 
 import { CONCEPTS } from './concepts';
+import { categoryFor } from './knowledge';
 
 export interface BookingFlow { steps: string[]; requires_visit: boolean; estimated_duration: number; }
 export interface RelatedRef { id: string; name: string; }
@@ -110,7 +111,16 @@ export function conceptGraph(id: string, stance?: 'offer' | 'seek' | 'unknown'):
     ? c.links.related
     : CURATED_R[id]?.length
       ? CURATED_R[id]
-      : CONCEPTS.filter(x => x.id !== id && x.category && x.category === c.category).slice(0, 4).map(x => x.id);
+      : (() => {
+        // «نفس الفئة» بالفئة **الفعّالة** (categoryFor)، لا الخام. أغلبُ الصفوف
+        // تركت الفئة فارغةً وتأتي من CATEGORY_BY_ID، فالمقارنةُ الخام كانت
+        // تُرجع لا شيء لمعظم المفاهيم. والفراغُ لا يُطابِق الفراغ: مفهومان
+        // بلا فئةٍ ليسا مرتبطين — كانا سيصيران كتلةً واحدةً بلا معنى.
+        const mine = categoryFor(id, c.category);
+        return mine
+          ? CONCEPTS.filter(x => x.id !== id && categoryFor(x.id, x.category) === mine).slice(0, 4).map(x => x.id)
+          : [];
+      })();
   const related: RelatedRef[] = relIds
     .map(rid => { const rc = CONCEPTS.find(x => x.id === rid); return rc ? { id: rid, name: rc.concept.ar || rid } : null; })
     .filter((r): r is RelatedRef => !!r)

@@ -123,8 +123,17 @@ const CATEGORY_BY_ID: Record<string, string> = {
   phone_repair: 'electronics', graphic_designer: 'digital', recruitment_agency: 'services',
   florist: 'retail', blacksmith: 'home_services',
 };
-function categoryFor(id: string, dataCat: string): string {
-  return dataCat || CATEGORY_BY_ID[id] || '';
+// الفئةُ الفعّالة لمفهوم. تُصدَّر لأنّ conceptGraph كان يقارن الفئة **الخام**،
+// فيرى فئتين مختلفتين لنفس المعنى. مصدرٌ واحدٌ للفئة يمنع هذا الانقسام.
+//
+// والحارس: كانت ٩٠ مهنةً تحمل رأسَ جدولٍ من CSV («| الدارجة | العربية | …»)
+// كفئة. وهو نصٌّ غيرُ فارغ، فكان يسبق CATEGORY_BY_ID ويجعل التسعين كلَّها
+// «نفس الفئة» — فتُعرَض مغسلةُ سيّاراتٍ كخدمةٍ مرتبطةٍ بالصيدليّة. نُظِّفت
+// البيانات، والحارسُ هنا يمنع عودة العطب من أيّ استيرادٍ قادم.
+const CAT_JUNK = /\||الدارجة\s*\||^\s*$/;
+export function categoryFor(id: string, dataCat: string): string {
+  const c = String(dataCat || '').trim();
+  return (c && !CAT_JUNK.test(c) ? c : '') || CATEGORY_BY_ID[id] || '';
 }
 
 // resolveConcept — يفهم المفهوم (خدمة/مهنة) من نصٍّ بأيّ لغة/كتابة.
