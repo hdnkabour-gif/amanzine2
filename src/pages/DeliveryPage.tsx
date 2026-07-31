@@ -25,7 +25,7 @@ function ShipmentsLog() {
   const kind = (l: any): { label: string; color: string; bg: string } => {
     const t = `${l.action || ''} ${l.details || ''}`;
     if (/محاكاة|simulated|SIMULATED/i.test(t)) return { label: '⚠️ محاكاة — أدخل يدوياً', color: '#fbbf24', bg: 'rgba(245,158,11,0.1)' };
-    if (/حقيقية|Amana|Jibli|Webhook|automation/i.test(t)) return { label: '✅ شحنة حقيقية', color: '#34d399', bg: 'rgba(16,185,129,0.1)' };
+    if (/حقيقية|Amana|Jibli|Livo|Webhook|automation/i.test(t)) return { label: '✅ شحنة حقيقية', color: '#34d399', bg: 'rgba(16,185,129,0.1)' };
     return { label: 'ℹ️ حدث توصيل', color: 'var(--txt-3)', bg: 'rgba(255,255,255,0.05)' };
   };
 
@@ -67,7 +67,7 @@ const TEMPLATES = [
   { name: 'Amana', logo: '📦', url: 'https://www.amana.ma', loginUrl: 'https://www.amana.ma/auth', addOrder: 'https://www.amana.ma/orders/create', guide: 'أنشئ حساباً تجارياً على amana.ma' },
   { name: 'Jibli Maroc', logo: '🚚', url: 'https://app.jibli.ma', loginUrl: 'https://app.jibli.ma/auth/login', addOrder: 'https://app.jibli.ma/shipments/create', guide: 'سجل على jibli.ma كبائع' },
   { name: 'Naqel', logo: '⚡', url: 'https://www.naqelexpress.com', loginUrl: 'https://merchant.naqelexpress.com/login', addOrder: '', guide: 'أنشئ حساب تاجر على naqelexpress.com' },
-  { name: 'Livo', logo: '🛵', url: 'https://my.livo.ma', loginUrl: '', addOrder: '', apiEndpoint: 'https://my.livo.ma/api', guide: 'REST API بمفتاح — الوثائق: my.livo.ma/api-docs' },
+  { name: 'Livo', logo: '🛵', url: 'https://my.livo.ma', loginUrl: '', addOrder: '', apiEndpoint: 'https://rest.livo.ma', guide: 'REST API بمفتاح — الوثائق: my.livo.ma/api-docs' },
   { name: 'أخرى', logo: '🏢', url: '', loginUrl: '', addOrder: '', guide: 'أدخل بيانات شركتك يدوياً' },
 ];
 
@@ -97,7 +97,7 @@ const DEFAULT_FIELD_ROWS: { key: string; label: string; placeholder: string }[] 
 const EMPTY_API: Partial<DeliveryProviderConfig> = {
   name: '', logo: '🚚', websiteUrl: '', loginUrl: '', username: '', password: '',
   addOrderPage: '', livraisonBonPage: '', ramassagePage: '',
-  apiKey: '', apiEndpoint: '',
+  apiKey: '', apiEndpoint: '', apiType: '',
   enabled: true, mode: 'api', fields: {},
 };
 
@@ -574,8 +574,8 @@ export default function DeliveryPage() {
       username: config.username || '', password: config.password || '',
       addOrderPage: config.addOrderPage || '', livraisonBonPage: config.livraisonBonPage || '',
       ramassagePage: config.ramassagePage || '',
-      // كانا مصفّرين هنا، فيضيع ما يكتبه المستخدم مهما ملأ.
       apiKey: config.apiKey || '', apiEndpoint: config.apiEndpoint || '',
+      apiType: config.apiType || '',   // ⬅️ تمت إضافة apiType
       fields: config.fields as any,
     };
     updateSettings('delivery', { ...settings.delivery, providers: [...providers, np], defaultProvider: np.name });
@@ -744,7 +744,7 @@ export default function DeliveryPage() {
         <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--mint)', marginBottom: 10 }}>🔍 كيف أعرف أن طلب الشحن أُنشئ فعلاً لدى الشركة؟</p>
         <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.9 }}>
           <b style={{ color: 'var(--ink1)' }}>إضافة الشركة هنا تحفظ بياناتها فقط — لا تُنشئ أي شحنة.</b> الشحنة تُنشأ عند ضغط «شحن» على طلب في صفحة الطلبات، وحينها يخبرك النظام بصدق بإحدى حالتين:<br/>
-          <span style={{ color: '#34d399', fontWeight: 700 }}>✅ شحنة حقيقية</span> — فقط إذا هيأتَ للشركة: مفتاح API (أمانة/جيبلي) أو رابط Webhook أو وصفة أتمتة URL. عندها يُرسل الطلب فعلياً لنظام الشركة ويعود رقم تتبع حقيقي منها.<br/>
+          <span style={{ color: '#34d399', fontWeight: 700 }}>✅ شحنة حقيقية</span> — فقط إذا هيأتَ للشركة: مفتاح API (أمانة/جيبلي/Livo) أو رابط Webhook أو وصفة أتمتة URL. عندها يُرسل الطلب فعلياً لنظام الشركة ويعود رقم تتبع حقيقي منها.<br/>
           <span style={{ color: '#fbbf24', fontWeight: 700 }}>⚠️ محاكاة</span> — إذا أضفت الشركة بالاسم والرابط فقط (بدون API). يُولَّد رقم تتبع داخلي للتنظيم، <b>وعليك إدخال الطلب يدوياً في موقع الشركة</b>. ستصلك رسالة تحذير صريحة بذلك مع سبب عدم الإرسال.<br/>
           والسجل أدناه يعرض تاريخ كل شحنة وما حدث فيها بالضبط.
         </div>
@@ -983,7 +983,18 @@ export default function DeliveryPage() {
                     <>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
                         {TEMPLATES.map(t => (
-                          <button key={t.name} onClick={() => setConfig(p => ({ ...p, name: t.name, logo: t.logo, websiteUrl: t.url, loginUrl: t.loginUrl, addOrderPage: t.addOrder, apiEndpoint: (t as any).apiEndpoint || '' }))}
+                          <button
+                            key={t.name}
+                            onClick={() => setConfig(p => ({
+                              ...p,
+                              name: t.name,
+                              logo: t.logo,
+                              websiteUrl: t.url,
+                              loginUrl: t.loginUrl,
+                              addOrderPage: t.addOrder,
+                              apiEndpoint: (t as any).apiEndpoint || '',
+                              apiType: t.name === 'Livo' ? 'livo' : '', // ⬅️ تعيين apiType تلقائياً
+                            }))}
                             style={{ padding: '12px 8px', borderRadius: 12, textAlign: 'center', cursor: 'pointer', border: `1.5px solid ${config.name === t.name ? 'rgba(99,102,241,0.45)' : 'var(--clr-border)'}`, background: config.name === t.name ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)' }}>
                             <div style={{ fontSize: 22, marginBottom: 5 }}>{t.logo}</div>
                             <p style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--txt-2)' }}>{t.name}</p>
@@ -1000,7 +1011,7 @@ export default function DeliveryPage() {
                           <Input label="مفتاح API (Bearer/Token)" value={config.apiKey || ''} onChange={v => setConfig(p => ({ ...p, apiKey: v }))} ph="sk_live_..." secret />
                         </div>
                         <div style={{ gridColumn: '1/-1' }}>
-                          <Input label="نقطة نهاية API" value={config.apiEndpoint || ''} onChange={v => setConfig(p => ({ ...p, apiEndpoint: v }))} ph="https://my.livo.ma/api" />
+                          <Input label="نقطة نهاية API" value={config.apiEndpoint || ''} onChange={v => setConfig(p => ({ ...p, apiEndpoint: v }))} ph="https://rest.livo.ma" />
                         </div>
                         <Input label="اسم المستخدم / البريد *" value={config.username || ''} onChange={v => setConfig(p => ({ ...p, username: v }))} ph="email@..." mono={false} />
                         <Input label="كلمة المرور *" value={config.password || ''} onChange={v => setConfig(p => ({ ...p, password: v }))} ph="••••••••" secret mono={false} />
