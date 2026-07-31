@@ -317,6 +317,20 @@ export const providersAPI = {
   // Public storefront discovery — approved providers of a store
   discover: (storeUserId: string, q?: string) =>
     request<Provider[]>('GET', `/providers/public/${storeUserId}${q ? '?q=' + encodeURIComponent(q) : ''}`),
+
+  // ── الجسر: مزوّدٌ ⇄ مفهوم ──
+  // المحرّك كان يفهم «بغيت نشري ورد» ثمّ يقف: يفهم ولا يصل إلى إنسان.
+  // متعدّدٌ لا واحد — المخبزةُ تبيع خبزًا وقهوةً وحلويّات.
+  setConcepts: (id: string, concepts: { conceptId: string; isPrimary?: boolean }[]) =>
+    request<{ concepts: { concept_id: string; is_primary: boolean }[] }>('PUT', `/providers/${id}/concepts`, { concepts }),
+  // عامّ: «شكون كيبيع الورد فالدار البيضاء؟» — البحثُ يخصّ الناس لا الأدمن.
+  byConcept: (conceptId: string, opts?: { city?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (opts?.city) qs.set('city', opts.city);
+    if (opts?.limit) qs.set('limit', String(opts.limit));
+    return request<{ providers: Provider[] }>('GET',
+      `/providers/by-concept/${encodeURIComponent(conceptId)}${qs.toString() ? '?' + qs : ''}`);
+  },
 };
 
 export const bookingsAPI = {
@@ -475,14 +489,29 @@ export interface BrainStats {
   topTerms?: TopTerm[];    // أفضل خدمة (من search_terms_daily)
   fresh?: FreshCounts | null;  // الجديد خلال المدّة (مستخدمون · منتجات · خدمات…)
 }
+// `candidate` = اقتُرح ولم يُراجَع بعد. بدونها يكون اقتراحُ الذكاء الاصطناعيّ
+// إمّا منشورًا (خطر) أو مسوّدةً (لا يُفرَّق عن عملِ إنسانٍ لم يُكمِله).
+export type ConceptStatus = 'draft' | 'candidate' | 'published';
+// المصدرُ يجعل دفعةً آليّةً سيّئةً قابلةً للتمييز — ومن ثَمّ للتراجع.
+export type ConceptSource = 'system' | 'admin' | 'ai' | 'community';
+
 export interface CustomConcept {
-  id: string; category: string; status: 'draft' | 'published';
+  id: string; category: string; status: ConceptStatus; source?: ConceptSource;
   concept: Record<string, string>; variants: Record<string, string[]>;
   stance?: any; asks?: any; links?: any; services?: string[]; examples?: string[];
 }
+export interface ConceptVersion {
+  id: number; concept_id: string; reason: string | null;
+  changed_by: string | null; created_at: string;
+}
+export interface ConceptAlias {
+  from_id: string; to_id: string; reason: string | null;
+  merged_by: string | null; created_at: string;
+}
+
 export const knowledgeAPI = {
   // مفاهيمُ الأدمن — تُضاف من الواجهة بدل CSV
-  listConcepts: (status?: 'draft' | 'published') =>
+  listConcepts: (status?: ConceptStatus) =>
     request<{ concepts: CustomConcept[] }>('GET', `/knowledge/concepts${status ? `?status=${status}` : ''}`),
   // المنشورةُ فقط، بلا حساب — يستدعيها الإقلاع لكلّ زائر. استدعاءُ المسار
   // المحميّ هنا كان يرجع 401 فيدفع العميلُ إلى /login في حلقةٍ لا نهائيّة.
@@ -500,6 +529,17 @@ export const knowledgeAPI = {
     request<{ miss: KnowledgeMiss; learned: { id: string; variants: string[]; lang: string } | null }>(
       'POST', `/knowledge/misses/${encodeURIComponent(id)}/resolve`, body),
   ignore:  (id: string) => request<{ miss: KnowledgeMiss; learned: null }>('POST', `/knowledge/misses/${encodeURIComponent(id)}/resolve`, { status: 'ignored' }),
+
+  // ── نواةُ المفهوم: نسخٌ · تراجع · دمج ──
+  // «لماذا تغيّر هذا المفهوم؟» و«رُدَّه كما كان» سؤالان بلا جوابٍ قبل هذا.
+  // و`reason` يُملأ آليًّا (miss:… · merge:… · revert:…) فيُجيب الأوّلَ بنفسه.
+  versions: (id: string) => request<{ versions: ConceptVersion[] }>('GET', `/knowledge/concepts/${encodeURIComponent(id)}/versions`),
+  revert: (id: string, versionId: number) =>
+    request<{ concept: CustomConcept }>('POST', `/knowledge/concepts/${encodeURIComponent(id)}/revert/${versionId}`),
+  // الدمجُ غيرُ مُتلِف: مزوّدو الخاسر يُحوَّلون، وصفُّه يُحفَظ، ويُسجَّل اسمٌ بديل.
+  merge: (fromId: string, toId: string, reason?: string) =>
+    request<{ merged: { from: string; to: string } }>('POST', '/knowledge/concepts/merge', { fromId, toId, reason }),
+  aliases: () => request<{ aliases: ConceptAlias[] }>('GET', '/knowledge/aliases'),
 };
 
 // ── Demand Capture — «ما لقيناش» تصير طلبًا مؤكّدًا ───────────
