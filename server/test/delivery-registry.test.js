@@ -13,8 +13,18 @@ const { validateProvider, normalizeCapabilities, makeQuote } = require('../servi
 
 test('السجلّ يكتشف المزوّدين بمسح المجلّد بلا خريطةٍ ثابتة', () => {
   const ids = registry.list().map(p => p.id).sort();
-  for (const expected of ['amana', 'jibli', 'livo', 'webhook']) {
+  for (const expected of ['amana', 'jibli', 'livo']) {
     assert.ok(ids.includes(expected), `${expected} يجب أن يُكتشف تلقائيًّا`);
+  }
+  // webhook وسيلةُ اتصالٍ لا شركة ⇒ خارج قائمة المزوّدين
+  assert.ok(!ids.includes('webhook'), 'webhook ليس شركةَ توصيل');
+});
+
+test('الوسائل تُكتشف في مجلّدها المستقلّ', () => {
+  const ids = registry.listAdapters().map(a => a.id).sort();
+  assert.deepEqual(ids, ['url-recipe', 'webhook']);
+  for (const a of registry.listAdapters()) {
+    assert.equal(a.kind, 'adapter', `${a.id} يجب أن يُعلن أنّه وسيلة`);
   }
 });
 
@@ -30,15 +40,29 @@ test('كلُّ مزوّدٍ مسجَّلٍ يُعلن قدراتِه كاملة�
   }
 });
 
-test('resolve يختار بـ api_type بلا حساسيّةٍ لحالة الأحرف', () => {
-  assert.equal(registry.resolve({ apiType: 'livo' })?.meta.id, 'livo');
-  assert.equal(registry.resolve({ apiType: 'LIVO' })?.meta.id, 'livo');
-  assert.equal(registry.resolve({ apiType: ' Livo ' })?.meta.id, 'livo');
+test('resolve يختار الشركةَ بـ api_type بلا حساسيّةٍ لحالة الأحرف', () => {
+  for (const t of ['livo', 'LIVO', ' Livo ']) {
+    const r = registry.resolve({ apiType: t });
+    assert.equal(r?.handler.meta.id, 'livo');
+    assert.equal(r?.kind, 'provider');
+  }
 });
 
-test('resolve يسقط إلى webhook عامٍّ عند نوعٍ مجهولٍ مع رابطٍ مُهيّأ', () => {
-  assert.equal(registry.resolve({ apiType: 'chronodiali', webhookUrl: 'https://x.io/h' })?.meta.id, 'webhook');
-  // بلا رابطٍ ولا نوعٍ معروف ⇒ لا مزوّد (فيسقط المتصل للمحاكاة، لا انهيار)
+test('شركةٌ بلا مزوّد تُنفَّذ عبر وسيلةٍ وتحتفظ باسمها', () => {
+  const r = registry.resolve({ apiType: 'chronodiali', webhookUrl: 'https://x.io/h', name: 'Chronodiali' });
+  assert.equal(r?.handler.meta.id, 'webhook');
+  assert.equal(r?.kind, 'adapter');
+  // جوهرُ الفصل: الاسمُ المعروض اسمُ الشركة لا اسمُ الوسيلة.
+  assert.match(r.label, /Chronodiali/);
+});
+
+test('وصفةُ URL تُحَلّ كوسيلةٍ مسجَّلة لا كمسارٍ خارج السجلّ', () => {
+  const r = registry.resolve({ apiType: 'url-recipe', name: 'شركة محلّيّة' });
+  assert.equal(r?.handler.meta.id, 'url-recipe');
+  assert.equal(r?.kind, 'adapter');
+});
+
+test('بلا نوعٍ معروفٍ ولا رابط ⇒ لا شيء (محاكاة، لا انهيار)', () => {
   assert.equal(registry.resolve({ apiType: 'chronodiali' }), null);
   assert.equal(registry.resolve(null), null);
 });
@@ -77,16 +101,19 @@ test('تسعيرُ Livo قاعدةٌ محلّيّةٌ محبوسةٌ داخل ا
   assert.equal(casa.currency, 'MAD');
 });
 
-test('مزوّدٌ بلا مصدرِ ثمنٍ يُعلن عدمَ الدعم بدل اختلاق رقم', async () => {
-  for (const id of ['amana', 'jibli', 'webhook']) {
-    const q = await registry.get(id).calculateQuote({ city: 'الرباط' }, {});
+test('مَن لا مصدرَ ثمنٍ لديه يُعلن عدمَ الدعم بدل اختلاق رقم', async () => {
+  const all = [registry.get('amana'), registry.get('jibli'),
+               registry.getAdapter('webhook'), registry.getAdapter('url-recipe')];
+  for (const mod of all) {
+    const id = mod.meta.id;
+    const q = await mod.calculateQuote({ city: 'الرباط' }, {});
     assert.equal(q.supported, false, `${id} يجب أن يُعلن supported=false`);
     assert.ok(q.reason, `${id} يجب أن يُعطي سببًا`);
   }
 });
 
 test('webhook يحجب SSRF نحو الشبكة الداخليّة وغيرَ HTTPS', () => {
-  const { _assertSafeUrl } = require('../services/delivery/providers/webhook.provider');
+  const { _assertSafeUrl } = require('../services/delivery/adapters/webhook.adapter');
   for (const bad of [
     'http://example.com/hook',          // غير HTTPS
     'https://localhost/hook',

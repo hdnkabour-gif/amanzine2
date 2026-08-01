@@ -120,9 +120,10 @@ router.post('/create/:orderId', auth, async (req, res) => {
     // لا فروعَ باسم شركة: السجلُّ يختار المزوّدَ من api_type (أو webhook عامًّا)،
     // والنتيجةُ تخرج بشكلٍ واحدٍ مهما اختلفت الشركة. إضافةُ شركةٍ = ملفٌّ جديد
     // في services/delivery/providers، بلا لمسِ هذا المسار.
-    const plugin = registry.resolve(prov);
-    if (plugin) {
-      const label = `إرسال بيانات الشحنة إلى ${prov.name} (${plugin.meta.name})`;
+    const chosen = registry.resolve(prov);
+    if (chosen) {
+      const plugin = chosen.handler;
+      const label = `إرسال بيانات الشحنة إلى ${prov.name} (${chosen.label})`;
       try {
         const result = await plugin.createShipment(
           { ...order, currency: settings.brand?.currency || 'MAD' },
@@ -143,7 +144,7 @@ router.post('/create/:orderId', auth, async (req, res) => {
           });
           await db.addLog({
             userId: req.user.id, user: 'System',
-            action: `✅ شحنة حقيقية عبر ${plugin.meta.name}: ${order.id}`,
+            action: `✅ شحنة حقيقية عبر ${chosen.label}: ${order.id}`,
             details: `تتبع: ${realTracking}`, type: 'delivery', severity: 'success',
           });
           await db.addNotification({
@@ -155,11 +156,11 @@ router.post('/create/:orderId', auth, async (req, res) => {
             via: plugin.meta.id, steps, manual: { copyText: manualCopy, openUrl },
           });
         }
-        failures.push(`${plugin.meta.name}: ${result.error}`);
+        failures.push(`${chosen.label}: ${result.error}`);
         steps.push({ label, ok: false, error: result.error });
       } catch (e) {
         console.error(`[Delivery/${plugin.meta.id}]`, e.message);
-        failures.push(`${plugin.meta.name}: ${e.message}`);
+        failures.push(`${chosen.label}: ${e.message}`);
         steps.push({ label, ok: false, error: e.message });
       }
     }
@@ -224,7 +225,8 @@ router.post('/test-connection', auth, async (req, res) => {
 async function _pickCapable(userId, capability, mode) {
   const providers = (await db.getDeliveryProviders(userId)).filter(p => p.enabled);
   for (const row of providers) {
-    const plugin = registry.resolve(row);
+    const chosen = registry.resolve(row);
+    const plugin = chosen?.handler;
     if (plugin && plugin.capabilities?.[capability] === mode) return { row, plugin };
   }
   return null;
@@ -253,7 +255,8 @@ router.get('/quote', auth, async (req, res) => {
     const city = String(req.query.city || '');
     const quotes = [];
     for (const row of providers) {
-      const plugin = registry.resolve(row);
+      const chosen = registry.resolve(row);
+      const plugin = chosen?.handler;
       if (!plugin || typeof plugin.calculateQuote !== 'function') continue;
       try {
         const q = await plugin.calculateQuote({ city, total: +req.query.total || 0 }, row);
