@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { db } = require('../database');
 const sync   = require('../sync');
 const fetch  = require('node-fetch');
+const { resolveDeliveryFee } = require('../lib/deliveryPricing');
 
 let pushNotify;
 try { pushNotify = require('../routes/push').notifyUser; } catch { pushNotify = () => Promise.resolve(); }
@@ -265,7 +266,9 @@ router.put('/:id/ship', auth, async (req, res) => {
     if (!o || o.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
     const tracking = req.body.trackingNumber || `TRK-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
     const shipSettings = await db.getSettings(req.user.id) || {};
-    const prov = req.body.provider || shipSettings.delivery?.defaultProvider || 'Amana';
+    // بلا اسمِ شركةٍ مكتوبٍ في الكود: إن لم يُحدَّد شيءٌ نترك الحقلَ فارغًا
+    // بدل نسبةِ الشحنة إلى «Amana» لتاجرٍ لا يتعامل معها أصلًا.
+    const prov = req.body.provider || shipSettings.delivery?.defaultProvider || '';
     await db.updateOrder(o.id, { userId: req.user.id, status: 'shipped', trackingNumber: tracking, deliveryProvider: prov });
     await db.addLog({ userId: req.user.id, user: 'Manager', action: `Shipped: ${o.id}`, details: tracking, type: 'delivery', severity: 'success' });
     await db.addNotification({ userId: req.user.id, type: 'success', message: `🚚 Shipped — ${tracking}` });
@@ -317,7 +320,8 @@ router.put('/:id/deliver', auth, async (req, res) => {
 });
 
 router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
-  const { userId, items, customerName, customerPhone, city, address, notes, source, couponCode, deliveryCost, captchaToken, customerEmail } = req.body;
+  // ملاحظة: `deliveryCost` القادم من العميل يُتجاهَل عمدًا — الخادم يحسبه بنفسه أدناه.
+  const { userId, items, customerName, customerPhone, city, address, notes, source, couponCode, captchaToken, customerEmail } = req.body;
   if (!userId || !items?.length || !customerName || !customerPhone)
     return res.status(400).json({ error: 'userId, items, name, phone required' });
   try {
@@ -369,7 +373,7 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
 
     const afterDiscount = Math.max(0, subtotal - discount);
     const freeShipping = couponFreeShip || afterDiscount >= freeShipThreshold;
-    const delivery = freeShipping ? 0 : Math.min(Math.max(+deliveryCost || 0, 0), 100);
+    const delivery = freeShipping ? 0 : resolveDeliveryFee(city, settings.deliveryCosts);
     const serverTotal = afterDiscount + delivery;
 
     const couponApplied = couponFreeShip || (couponDiscount > 0 && couponDiscount >= bundleDiscount);
@@ -385,7 +389,8 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     const { order, customer } = await db.createOrderWithCustomer(
       { userId, customerName, customerPhone, city: city||'', address: address||'',
         items: safeItems, total: serverTotal, source: source||'Storefront',
-        status: 'pending', notes: [notes||'', promoNotes].filter(Boolean).join(' · '), customerCode },
+        status: 'pending', notes: [notes||'', promoNotes].filter(Boolean).join(' · '), customerCode,
+        deliveryFee: delivery },
       { userId, name: customerName, phone: customerPhone,
         city: city||'', address: address||'', source: source||'Storefront' }
     );
@@ -408,7 +413,9 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     }
     await db.addLog({ userId, user: 'Storefront', action: `New order: ${customerName}`, details: `${city} — ${serverTotal} MAD${promoNotes ? ' · ' + promoNotes : ''}`, type: 'order', severity: 'info' });
 
-    res.status(201).json({ order, customerId: customer.id, applied: { discount, discountSource, freeShipping, total: serverTotal } });
+    // `deliveryFee` يُعاد للواجهة كي تعرض الرقم الذي احتسبه الخادم فعلًا،
+    // لا الرقم الذي قدّرته هي محلّيًّا.
+    res.status(201).json({ order, customerId: customer.id, applied: { discount, discountSource, freeShipping, deliveryFee: delivery, total: serverTotal } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

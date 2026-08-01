@@ -1,15 +1,60 @@
 'use strict';
 const router = require('express').Router();
 const auth   = require('../middleware/auth');
-const https  = require('https');
 const crypto = require('crypto');
 const { db } = require('../database');
 
-// استيراد مزود Livo
-const livoProvider = require('../services/delivery/providers/livo.provider');
+// سجلُّ المزوّدين — يكتشفهم بمسح المجلّد. لا استيرادَ باسم شركةٍ هنا.
+const registry = require('../services/delivery/registry');
+
+// ── ترحيلٌ لمرّةٍ واحدة: settings.delivery.providers ⇒ delivery_providers ──────
+// شركاتٌ أُضيفت عبر «البسيط» أو «واتساب» أو «وصفة URL» كانت تُحفَظ في الإعدادات
+// فقط ولا تصل الجدول ⇒ يراها التاجر مفعّلةً بينما الخادمُ لا يراها إطلاقًا.
+// يُنفَّذ كسولًا عند أوّل قراءة، وهو فعلٌ عديمُ الأثر إن أُعيد (idempotent).
+async function _absorbLegacyProviders(userId, existing) {
+  let settings;
+  try { settings = await db.getSettings(userId); } catch { return existing; }
+  const legacy = settings?.delivery?.providers;
+  if (!Array.isArray(legacy) || !legacy.length) return existing;
+
+  const seen = new Set(existing.map(p => String(p.name || '').trim().toLowerCase()));
+  for (const lp of legacy) {
+    const key = String(lp?.name || '').trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    try {
+      await db.upsertDeliveryProvider({
+        userId,
+        name: lp.name, logo: lp.logo || '🚚', mode: lp.mode || 'api',
+        enabled: lp.enabled !== false,
+        websiteUrl: lp.websiteUrl || '', loginUrl: lp.loginUrl || '',
+        username: lp.username || '', password: lp.password || '',
+        addOrderPage: lp.addOrderPage || '', livraisonBonPage: lp.livraisonBonPage || '',
+        ramassagePage: lp.ramassagePage || '',
+        apiKey: lp.apiKey || '', apiEndpoint: lp.apiEndpoint || '',
+        // وضعُ «وصفة URL» كان يخبّئ نوعَه ورابطَه داخل fields — نرفعهما لعموديهما
+        // كي يجدهما delivery-auto.js، فهو يبحث في الجدول لا في الإعدادات.
+        apiType: lp.apiType || lp.fields?.apiType || '',
+        webhookUrl: lp.webhookUrl || lp.fields?.webhookUrl || '',
+        fields: lp.fields || {},
+      });
+      seen.add(key);
+    } catch (e) { console.warn('[delivery/absorb]', lp?.name, e.message); }
+  }
+
+  // الإعدادات تفقد نسختها ⇒ مصدرُ حقيقةٍ واحدٌ من الآن.
+  try {
+    await db.saveSettings(userId, { ...settings, delivery: { ...settings.delivery, providers: [] } });
+  } catch (e) { console.warn('[delivery/absorb] settings cleanup', e.message); }
+
+  return db.getDeliveryProviders(userId);
+}
 
 router.get('/', auth, async (req, res) => {
-  try { res.json(await db.getDeliveryProviders(req.user.id)); }
+  try {
+    let rows = await db.getDeliveryProviders(req.user.id);
+    rows = await _absorbLegacyProviders(req.user.id, rows);
+    res.json(rows);
+  }
   catch (e) { console.error('[delivery]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -28,8 +73,8 @@ router.delete('/:id', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
-// POST /api/delivery/create/:orderId — create real delivery shipment
-// Supports: Amana, Jibli, Livo, generic webhook, or falls back to simulation
+// POST /api/delivery/create/:orderId — إنشاءُ شحنةٍ حقيقيّة.
+// المزوّدُ يُحدَّد من السجلّ لا من فروعٍ باسم شركة؛ وعند غيابه تُستعمل المحاكاة.
 router.post('/create/:orderId', auth, async (req, res) => {
   try {
     const order = await db.getOrder(req.params.orderId);
@@ -38,13 +83,21 @@ router.post('/create/:orderId', auth, async (req, res) => {
     const providers = (await db.getDeliveryProviders(req.user.id)).filter(p => p.enabled);
     if (!providers.length) return res.status(400).json({ error: 'No delivery provider configured' });
 
-    // 🔹 اختيار Livo أولاً إذا كان موجوداً، وإلا استخدم الأول
-    let prov = providers.find(p => p.apiType === 'livo');
-    if (!prov) prov = providers[0];
+    // اختيارُ الشركة: ما طلبه التاجرُ صراحةً، ثمّ الافتراضيّةُ في الإعدادات،
+    // ثمّ الأولى. كان الاختيارُ يُفضّل Livo بالقوّة ويتجاهل `req.body` تمامًا،
+    // فيُنشئ الشحنةَ لدى شركةٍ غير التي اختارها التاجر.
+    const preSettings = await db.getSettings(req.user.id) || {};
+    const wanted = String(req.body?.provider || req.body?.providerId || '').trim().toLowerCase();
+    const prov =
+      (wanted && providers.find(p => p.id === req.body?.providerId
+                                  || String(p.name).toLowerCase() === wanted
+                                  || String(p.apiType).toLowerCase() === wanted)) ||
+      providers.find(p => p.name === preSettings.delivery?.defaultProvider) ||
+      providers[0];
 
     console.log(`[Delivery] Using provider: ${prov.name} (apiType: ${prov.apiType})`);
 
-    const settings = await db.getSettings(req.user.id) || {};
+    const settings = preSettings;
     const tracking = 'TRK-' + crypto.randomBytes(3).toString('hex').toUpperCase();
     const failures = [];
     const steps = [{
@@ -63,149 +116,51 @@ router.post('/create/:orderId', auth, async (req, res) => {
     ].join('\n');
     const openUrl = prov.addOrderPage || prov.websiteUrl || '';
 
-    // ── Livo API ──────────────────────────────────────────────────
-    if (prov.apiType === 'livo' && prov.apiKey) {
-      console.log('[Delivery] Entering Livo branch');
+    // ── قناةُ الربط عبر السجلّ ─────────────────────────────────────
+    // لا فروعَ باسم شركة: السجلُّ يختار المزوّدَ من api_type (أو webhook عامًّا)،
+    // والنتيجةُ تخرج بشكلٍ واحدٍ مهما اختلفت الشركة. إضافةُ شركةٍ = ملفٌّ جديد
+    // في services/delivery/providers، بلا لمسِ هذا المسار.
+    const plugin = registry.resolve(prov);
+    if (plugin) {
+      const label = `إرسال بيانات الشحنة إلى ${prov.name} (${plugin.meta.name})`;
       try {
-        const livoData = {
-          customerName: order.customerName,
-          phone: order.customerPhone,
-          city: order.city,
-          address: order.address,
-          codAmount: order.total,
-          notes: order.notes || '',
-        };
-        console.log('[Delivery] Calling Livo createOrder with data:', livoData);
-        const result = await livoProvider.createOrder(livoData, prov.apiKey, prov.apiEndpoint || 'https://rest.livo.ma');
-        console.log('[Delivery] Livo result:', result);
+        const result = await plugin.createShipment(
+          { ...order, currency: settings.brand?.currency || 'MAD' },
+          prov
+        );
         if (result.success) {
-          const realTracking = result.trackingNumber;
-          steps.push({ label: `إرسال بيانات الشحنة إلى ${prov.name} (Livo API)`, ok: true, detail: `POST ${prov.apiEndpoint || 'https://rest.livo.ma'}/orders` });
+          const realTracking = result.trackingNumber || tracking;
+          steps.push({ label, ok: true, detail: plugin.meta.id });
           steps.push({ label: 'استلام رقم التتبع من الشركة', ok: true, detail: realTracking });
           await db.updateOrder(order.id, {
             status: 'processing',
             trackingNumber: realTracking,
             deliveryProvider: prov.name,
-            livoOrderId: result.livoOrderId,
+            providerId: plugin.meta.id,
+            providerShipmentId: result.shipmentId || '',
+            // العمودُ القديم يُملأ معه حتى تتوقّف القراءاتُ القديمة عنه.
+            livoOrderId: result.shipmentId || '',
           });
           await db.addLog({
-            userId: req.user.id,
-            user: 'System',
-            action: `✅ شحنة حقيقية عبر Livo API: ${order.id}`,
-            details: `تتبع: ${realTracking}`,
-            type: 'delivery',
-            severity: 'success'
+            userId: req.user.id, user: 'System',
+            action: `✅ شحنة حقيقية عبر ${plugin.meta.name}: ${order.id}`,
+            details: `تتبع: ${realTracking}`, type: 'delivery', severity: 'success',
           });
           await db.addNotification({
-            userId: req.user.id,
-            type: 'success',
-            message: `📦 أُنشئت شحنة حقيقية لدى ${prov.name} — تتبع: ${realTracking}`
+            userId: req.user.id, type: 'success',
+            message: `📦 أُنشئت شحنة حقيقية لدى ${prov.name} — تتبع: ${realTracking}`,
           });
-          return res.json({ success: true, tracking: realTracking, provider: prov.name, real: true, via: 'livo-api', steps, manual: { copyText: manualCopy, openUrl } });
-        } else {
-          failures.push(`Livo API: ${result.error}`);
-          steps.push({ label: `إرسال بيانات الشحنة إلى ${prov.name} (Livo API)`, ok: false, error: result.error });
+          return res.json({
+            success: true, tracking: realTracking, provider: prov.name, real: true,
+            via: plugin.meta.id, steps, manual: { copyText: manualCopy, openUrl },
+          });
         }
+        failures.push(`${plugin.meta.name}: ${result.error}`);
+        steps.push({ label, ok: false, error: result.error });
       } catch (e) {
-        console.error('[Delivery/Livo]', e.message);
-        failures.push(`Livo API: ${e.message}`);
-        steps.push({ label: `إرسال بيانات الشحنة إلى ${prov.name} (Livo API)`, ok: false, error: e.message });
-      }
-    }
-
-    // ── Amana API ──────────────────────────────────────────────────
-    if (prov.apiType === 'amana' && prov.apiKey) {
-      try {
-        const payload = JSON.stringify({
-          apiKey: prov.apiKey,
-          reference: order.id,
-          receiverName: order.customerName,
-          receiverPhone: order.customerPhone,
-          receiverAddress: `${order.address}, ${order.city}`,
-          description: (order.items || []).map(i => `${i.productName} x${i.quantity}`).join(', '),
-          cod: order.total,
-          weight: 0.5,
-        });
-        const result = await _post(prov.apiEndpoint || 'api.amana.ma', '/api/v1/parcels', {
-          'Authorization': `Bearer ${prov.apiKey}`,
-        }, payload);
-        const data = JSON.parse(result);
-        const realTracking = data.trackingNumber || data.tracking_number || tracking;
-        steps.push({ label: `إرسال بيانات الشحنة إلى ${prov.name} (Amana API)`, ok: true, detail: `POST ${prov.apiEndpoint || 'api.amana.ma'}/api/v1/parcels` });
-        steps.push({ label: 'استلام رقم التتبع من الشركة', ok: true, detail: realTracking });
-        await db.updateOrder(order.id, { status: 'processing', trackingNumber: realTracking, deliveryProvider: prov.name });
-        await db.addLog({ userId: req.user.id, user: 'System', action: `✅ شحنة حقيقية عبر Amana API: ${order.id}`, details: `تتبع: ${realTracking}`, type: 'delivery', severity: 'success' });
-        await db.addNotification({ userId: req.user.id, type: 'success', message: `📦 أُنشئت شحنة حقيقية لدى ${prov.name} — تتبع: ${realTracking}` });
-        return res.json({ success: true, tracking: realTracking, provider: prov.name, real: true, via: 'amana-api', steps, manual: { copyText: manualCopy, openUrl } });
-      } catch (e) {
-        console.warn('[Delivery/Amana]', e.message);
-        failures.push(`Amana API: ${e.message}`);
-        steps.push({ label: `إرسال بيانات الشحنة إلى ${prov.name} (Amana API)`, ok: false, error: e.message });
-      }
-    }
-
-    // ── Jibli API ──────────────────────────────────────────────────
-    if (prov.apiType === 'jibli' && prov.apiKey) {
-      try {
-        const payload = JSON.stringify({
-          token: prov.apiKey,
-          order_ref: order.id,
-          customer_name: order.customerName,
-          customer_phone: order.customerPhone,
-          city: order.city,
-          address: order.address,
-          price: order.total,
-          products: (order.items || []).map(i => ({ name: i.productName, qty: i.quantity })),
-        });
-        const result = await _post(prov.apiEndpoint || 'api.jibli.ma', '/v1/orders/create', {
-          'X-API-Key': prov.apiKey,
-        }, payload);
-        const data = JSON.parse(result);
-        const realTracking = data.tracking || data.code || tracking;
-        steps.push({ label: `إرسال بيانات الشحنة إلى ${prov.name} (Jibli API)`, ok: true, detail: `POST ${prov.apiEndpoint || 'api.jibli.ma'}/v1/orders/create` });
-        steps.push({ label: 'استلام رقم التتبع من الشركة', ok: true, detail: realTracking });
-        await db.updateOrder(order.id, { status: 'processing', trackingNumber: realTracking, deliveryProvider: prov.name });
-        await db.addLog({ userId: req.user.id, user: 'System', action: `✅ شحنة حقيقية عبر Jibli API: ${order.id}`, details: `تتبع: ${realTracking}`, type: 'delivery', severity: 'success' });
-        await db.addNotification({ userId: req.user.id, type: 'success', message: `📦 أُنشئت شحنة حقيقية لدى ${prov.name} — تتبع: ${realTracking}` });
-        return res.json({ success: true, tracking: realTracking, provider: prov.name, real: true, via: 'jibli-api', steps, manual: { copyText: manualCopy, openUrl } });
-      } catch (e) {
-        console.warn('[Delivery/Jibli]', e.message);
-        failures.push(`Jibli API: ${e.message}`);
-        steps.push({ label: `إرسال بيانات الشحنة إلى ${prov.name} (Jibli API)`, ok: false, error: e.message });
-      }
-    }
-
-    // ── Generic webhook ────────────────────────────────────────────
-    if (prov.webhookUrl) {
-      try {
-        const u = new URL(prov.webhookUrl);
-        const host = u.hostname;
-        const BLOCKED = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1|0\.0\.0\.0|metadata\.google|169\.254\.169\.254)/i;
-        if (u.protocol !== 'https:' || BLOCKED.test(host)) {
-          console.warn('[Delivery/Webhook] Blocked SSRF attempt to:', prov.webhookUrl);
-          throw new Error('Blocked: internal or non-HTTPS URL');
-        }
-        const payload = JSON.stringify({
-          event: 'order.created',
-          orderId: order.id,
-          tracking,
-          customer: { name: order.customerName, phone: order.customerPhone, city: order.city, address: order.address },
-          items: order.items,
-          total: order.total,
-          currency: settings.brand?.currency || 'MAD',
-        });
-        await _post(u.hostname, u.pathname, {
-          'X-Webhook-Secret': prov.apiKey || '',
-        }, payload);
-        await db.updateOrder(order.id, { status: 'processing', trackingNumber: tracking, deliveryProvider: prov.name });
-        steps.push({ label: `إرسال الطلب إلى نظام ${prov.name} (Webhook)`, ok: true, detail: u.hostname });
-        await db.addLog({ userId: req.user.id, user: 'System', action: `✅ شحنة حقيقية عبر Webhook: ${order.id}`, details: `تتبع: ${tracking}`, type: 'delivery', severity: 'success' });
-        await db.addNotification({ userId: req.user.id, type: 'success', message: `📦 أُرسل الطلب لنظام ${prov.name} عبر Webhook — تتبع: ${tracking}` });
-        return res.json({ success: true, tracking, provider: prov.name, real: true, via: 'webhook', steps, manual: { copyText: manualCopy, openUrl } });
-      } catch (e) {
-        console.warn('[Delivery/Webhook]', e.message);
-        failures.push(`Webhook: ${e.message}`);
-        steps.push({ label: `إرسال الطلب إلى نظام ${prov.name} (Webhook)`, ok: false, error: e.message });
+        console.error(`[Delivery/${plugin.meta.id}]`, e.message);
+        failures.push(`${plugin.meta.name}: ${e.message}`);
+        steps.push({ label, ok: false, error: e.message });
       }
     }
 
@@ -263,62 +218,75 @@ router.post('/test-connection', auth, async (req, res) => {
   }
 });
 
-// ── Livo-specific endpoints (optional) ──────────────────────────────────────
+// ── نقاطٌ تعتمد على القدرات لا على اسم الشركة ────────────────────────────────
 
-// GET /api/delivery/cities — fetch cities from Livo
+/** يختار أوّلَ مزوّدٍ مفعّلٍ يملك القدرةَ المطلوبة بالوضع المطلوب. */
+async function _pickCapable(userId, capability, mode) {
+  const providers = (await db.getDeliveryProviders(userId)).filter(p => p.enabled);
+  for (const row of providers) {
+    const plugin = registry.resolve(row);
+    if (plugin && plugin.capabilities?.[capability] === mode) return { row, plugin };
+  }
+  return null;
+}
+
+// GET /api/delivery/cities — من أيّ مزوّدٍ يُعلن cities:'api'
 router.get('/cities', auth, async (req, res) => {
   try {
-    const providers = await db.getDeliveryProviders(req.user.id);
-    const prov = providers.find(p => p.enabled && p.apiType === 'livo');
-    if (!prov) return res.status(404).json({ error: 'لا يوجد مزود Livo مفعل' });
-    const result = await livoProvider.getCities(prov.apiKey, prov.apiEndpoint || 'https://rest.livo.ma');
-    if (result.success) {
-      return res.json({ success: true, cities: result.cities });
-    }
-    return res.status(500).json({ error: result.error || 'فشل جلب المدن من Livo' });
+    const found = await _pickCapable(req.user.id, 'cities', 'api');
+    if (!found) return res.status(404).json({ error: 'لا يوجد مزوّد مفعّل يدعم جلب المدن' });
+    const result = await found.plugin.getCities(found.row);
+    if (result.success) return res.json({ success: true, provider: found.plugin.meta.id, cities: result.cities });
+    return res.status(502).json({ error: result.error || 'فشل جلب المدن' });
   } catch (e) {
     console.error('[delivery/cities]', e.message);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET /api/delivery/fees — fetch public fees from Livo
-router.get('/fees', auth, async (req, res) => {
+// GET /api/delivery/quote — عرضُ سعرٍ موحَّد (DeliveryQuote) لمدينةٍ ما.
+// حلّ محلّ /fees الذي كان يُرجع شكلَ Livo الخام.
+router.get('/quote', auth, async (req, res) => {
   try {
-    const providers = await db.getDeliveryProviders(req.user.id);
-    const prov = providers.find(p => p.enabled && p.apiType === 'livo');
-    if (!prov) return res.status(404).json({ error: 'لا يوجد مزود Livo مفعل' });
-    const result = await livoProvider.getFees(prov.apiKey, prov.apiEndpoint || 'https://rest.livo.ma');
-    if (result.success) {
-      return res.json({ success: true, fees: result.fees });
+    const providers = (await db.getDeliveryProviders(req.user.id)).filter(p => p.enabled);
+    if (!providers.length) return res.status(400).json({ error: 'No delivery provider configured' });
+    const city = String(req.query.city || '');
+    const quotes = [];
+    for (const row of providers) {
+      const plugin = registry.resolve(row);
+      if (!plugin || typeof plugin.calculateQuote !== 'function') continue;
+      try {
+        const q = await plugin.calculateQuote({ city, total: +req.query.total || 0 }, row);
+        quotes.push({ providerId: plugin.meta.id, providerName: row.name, ...q });
+      } catch (e) {
+        quotes.push({ providerId: plugin.meta.id, providerName: row.name, supported: false, reason: e.message });
+      }
     }
-    return res.status(500).json({ error: result.error || 'فشل جلب الرسوم من Livo' });
+    res.json({ success: true, city, quotes });
   } catch (e) {
-    console.error('[delivery/fees]', e.message);
+    console.error('[delivery/quote]', e.message);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// POST /api/delivery/track/:orderId — يجلب الحالة الحيّة من Livo عند الطلب (يدوي، بدون polling تلقائي)
+// POST /api/delivery/track/:orderId — حالةٌ حيّةٌ من أيّ مزوّدٍ يُعلن tracking:'api'
 router.post('/track/:orderId', auth, async (req, res) => {
   try {
     const order = await db.getOrder(req.params.orderId);
     if (!order || order.userId !== req.user.id) return res.status(404).json({ error: 'Order not found' });
 
-    if (!order.livoOrderId) {
+    const shipmentId = order.providerShipmentId || order.livoOrderId;
+    if (!shipmentId) {
       return res.status(400).json({
-        error: order.deliveryProvider === 'Livo'
-          ? 'هذه الشحنة أُنشئت قبل تفعيل التتبع — لا يوجد معرف Livo محفوظ لها'
-          : 'هذا الطلب غير مرتبط بشحنة Livo حقيقية'
+        error: 'هذه الشحنة لا تحمل معرّفًا لدى الشركة — أُنشئت قبل تفعيل التتبّع أو لم تُرسل فعليًّا'
       });
     }
 
-    const providers = await db.getDeliveryProviders(req.user.id);
-    const prov = providers.find(p => p.enabled && p.apiType === 'livo');
-    if (!prov) return res.status(400).json({ error: 'لا يوجد مزود Livo مفعل' });
+    const found = await _pickCapable(req.user.id, 'tracking', 'api');
+    if (!found) return res.status(400).json({ error: 'لا يوجد مزوّد مفعّل يدعم التتبّع' });
 
-    const result = await livoProvider.getOrderStatus(order.livoOrderId, prov.apiKey, prov.apiEndpoint || 'https://rest.livo.ma');
-    if (!result.success) return res.status(502).json({ error: result.error || 'تعذّر جلب الحالة من Livo' });
+    const result = await found.plugin.trackShipment(shipmentId, found.row);
+    if (!result.success) return res.status(502).json({ error: result.error || 'تعذّر جلب الحالة' });
 
     await db.updateOrder(order.id, {
       deliveryStatus: result.status || '',
@@ -326,35 +294,25 @@ router.post('/track/:orderId', auth, async (req, res) => {
     });
     await db.addLog({
       userId: req.user.id, user: 'System',
-      action: `تحديث حالة Livo: ${order.id}`, details: result.status || '(بدون حالة)',
-      type: 'delivery', severity: 'info'
+      action: `تحديث حالة ${found.plugin.meta.name}: ${order.id}`,
+      details: result.status || '(بدون حالة)', type: 'delivery', severity: 'info'
     });
 
-    res.json({ success: true, status: result.status || '', history: result.history || [], trackingNumber: result.trackingNumber || order.trackingNumber });
+    res.json({
+      success: true, status: result.status || '', history: result.history || [],
+      trackingNumber: result.trackingNumber || order.trackingNumber,
+    });
   } catch (e) {
     console.error('[delivery/track]', e.message);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// ── Helper ────────────────────────────────────────────────────────────────────
+// GET /api/delivery/registry — المزوّدون المتاحون وقدراتُهم (للوحة الإدارة)
+router.get('/registry', auth, (req, res) => {
+  res.json({ providers: registry.list(), rejected: registry.rejected() });
+});
 
-function _post(hostname, path, extraHeaders, body) {
-  return new Promise((resolve, reject) => {
-    const opts = {
-      hostname, path, method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...extraHeaders },
-    };
-    const r = https.request(opts, res => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => resolve(data));
-    });
-    r.on('error', reject);
-    r.setTimeout(10000, () => { r.destroy(); reject(new Error('Timeout')); });
-    r.write(body);
-    r.end();
-  });
-}
+// ── Helper ────────────────────────────────────────────────────────────────────
 
 module.exports = router;
