@@ -79,6 +79,22 @@ async function migrate() {
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT ''`).catch(() => {});
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_synced_at TIMESTAMPTZ`).catch(() => {});
 
+    // 💰 اقتصادُ الطلب: ثمنُ التوصيل كان يُدمَج داخل `total` ثمّ يختفي، فلا يستطيع
+    // التاجر معرفةَ ربحه الحقيقيّ ولا مطابقةَ فاتورة شركة التوصيل. ومُعرِّفا المزوّد
+    // والمدينة عنده يُحفظان لأنّ اسم المدينة النصّيّ لا يكفي لإعادة بناء الشحنة لاحقًا.
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee NUMERIC DEFAULT 0`).catch(() => {});
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS cod_fee NUMERIC DEFAULT 0`).catch(() => {});
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_id TEXT DEFAULT ''`).catch(() => {});
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_city_id TEXT DEFAULT ''`).catch(() => {});
+
+    // مُعرِّفُ الشحنة عند الشركة — كان اسمُه livo_order_id رغم أنّه عامّ لكلّ
+    // مزوّد. العمودُ القديم يبقى للتوافق ويُملأ معه، والقراءةُ تُفضّل الجديد.
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_shipment_id TEXT DEFAULT ''`).catch(() => {});
+    await client.query(
+      `UPDATE orders SET provider_shipment_id = livo_order_id
+       WHERE COALESCE(provider_shipment_id,'') = '' AND COALESCE(livo_order_id,'') <> ''`
+    ).catch(() => {});
+
     await client.query(`CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -135,6 +151,23 @@ async function migrate() {
       webhook_url TEXT DEFAULT '',
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`);
+
+    // 🚚 مصدرُ حقيقةٍ واحد: كان الجدول يعرف الحقول التقنيّة فقط، فبقيت بقيّةُ
+    // تعريف الشركة (الشعار، وضعُ التشغيل، صفحاتُ الموقع، بيانات الدخول) حبيسةَ
+    // `settings.delivery.providers` في المتصفّح. النتيجة: ثلاثةٌ من أربعة مسارات
+    // إضافةٍ لا تصل الخادمَ أصلًا ⇒ «لا توجد شركة توصيل مفعّلة» رغم ظهورها مفعّلة.
+    for (const col of [
+      `logo TEXT DEFAULT ''`,
+      `mode TEXT DEFAULT 'api'`,
+      `login_url TEXT DEFAULT ''`,
+      `username TEXT DEFAULT ''`,
+      `password TEXT DEFAULT ''`,
+      `livraison_bon_page TEXT DEFAULT ''`,
+      `ramassage_page TEXT DEFAULT ''`,
+      `fields JSONB DEFAULT '{}'`,
+    ]) {
+      await client.query(`ALTER TABLE delivery_providers ADD COLUMN IF NOT EXISTS ${col}`).catch(() => {});
+    }
 
     await client.query(`CREATE TABLE IF NOT EXISTS broadcasts (
       id TEXT PRIMARY KEY,
