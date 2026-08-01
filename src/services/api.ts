@@ -299,6 +299,37 @@ export interface Booking {
   price?: number; notes?: string; createdAt?: string;
 }
 
+export interface FieldVisitInput {
+  shop: { name: string; phone: string; email?: string; city?: string; bio?: string; latitude?: number; longitude?: number };
+  servicesRaw?: string;
+  concepts?: { conceptId: string; isPrimary?: boolean }[];
+  customerLines?: string[];
+  pricingAsks?: string[];
+  words?: { term: string; conceptId: string }[];
+  notes?: string;
+  // الزيارةُ كيانٌ يُعاد ويُقارَن: الإحداثيّاتُ والمدّةُ تجعلها قابلةً للمراجعة.
+  gpsLat?: number; gpsLng?: number; durationSec?: number;
+}
+export interface FieldVisitResult {
+  provider: { id: string; name: string; status?: 'verified' | 'vouched'; vouchedBy?: string | null };
+  loginCode: string | null;      // يُعرَض مرّةً واحدة. null ⇒ للحساب مالكٌ من قبل
+  email: string;
+  learned: { concepts: number; words: number; needsReview: number; customerLines: number; pricingAsks: number };
+  words: { term: string; conceptId: string; status: string; reason?: string }[];
+  visitId: string;
+}
+export interface ProviderVerification {
+  kind: 'business' | 'identity' | 'location' | 'phone';
+  verified_by: string | null; verified_at: string; note: string | null;
+}
+export interface FieldHarvest { visits: number; lines: number; asks: number; words: number; links: number }
+export interface MyVouches {
+  canVouch: boolean; reason?: string;
+  me?: { id: string; name: string; verified: boolean; depth: number };
+  quota?: number; used?: number; left?: number;
+  vouched: { id: string; name: string; city: string; is_verified: boolean; depth: number; created_at: string }[];
+}
+
 export const providersAPI = {
   list:   (params?: { status?: string; q?: string }) => {
     const qs = new URLSearchParams(); if (params?.status) qs.set('status', params.status); if (params?.q) qs.set('q', params.q);
@@ -323,6 +354,19 @@ export const providersAPI = {
   // متعدّدٌ لا واحد — المخبزةُ تبيع خبزًا وقهوةً وحلويّات.
   setConcepts: (id: string, concepts: { conceptId: string; isPrimary?: boolean }[]) =>
     request<{ concepts: { concept_id: string; is_primary: boolean }[] }>('PUT', `/providers/${id}/concepts`, { concepts }),
+  // ── الزيارة الميدانيّة ──
+  // عمليّةٌ واحدة: حساب + محلّ + روابط + كلمات + أسئلة تسعير. والردّ يحمل
+  // `learned` — فلا تقول الشاشةُ «تعلَّمنا» إلّا بما تعلَّمه الخادمُ فعلًا،
+  // و`needsReview` تُعلن ما رُدّ بسبب تعارضٍ بدل أن يُبتلَع صامتًا.
+  fieldVisit: (v: FieldVisitInput) => request<FieldVisitResult>('POST', '/providers/field-visit', v),
+  fieldVisits: () => request<{ harvest: FieldHarvest; visits: any[] }>('GET', '/providers/field-visits'),
+  // «شكون سجّلت؟» — المزكِّي يرى سلسلته وحصّته. التزكيةُ اسمٌ يتحمّل.
+  myVouches: () => request<MyVouches>('GET', '/providers/my-vouches'),
+  // التحقّقُ **وقائعُ** لا صفةٌ واحدة: business | identity | location | phone.
+  verify: (id: string, kind: string, opts?: { note?: string; remove?: boolean }) =>
+    request<{ verifications: ProviderVerification[] }>('POST', `/providers/${id}/verify`, { kind, ...opts }),
+  visits: (id: string) => request<{ visits: any[]; verifications: ProviderVerification[] }>('GET', `/providers/${id}/visits`),
+
   // عامّ: «شكون كيبيع الورد فالدار البيضاء؟» — البحثُ يخصّ الناس لا الأدمن.
   byConcept: (conceptId: string, opts?: { city?: string; limit?: number }) => {
     const qs = new URLSearchParams();
@@ -504,6 +548,12 @@ export interface ConceptVersion {
   id: number; concept_id: string; reason: string | null;
   changed_by: string | null; created_at: string;
 }
+export interface ConceptCoverage {
+  concept_id: string; label: string;
+  providers: number; variants: number; asks: number; unmet: number;
+  maturity: number;                  // 0..5 — مشتقٌّ من الخام، لا وسمٌ يُكتب
+  gap: 'urgent' | 'thin' | null;     // urgent = طلبٌ بلا محلّ
+}
 export interface ConceptAlias {
   from_id: string; to_id: string; reason: string | null;
   merged_by: string | null; created_at: string;
@@ -540,6 +590,9 @@ export const knowledgeAPI = {
   merge: (fromId: string, toId: string, reason?: string) =>
     request<{ merged: { from: string; to: string } }>('POST', '/knowledge/concepts/merge', { fromId, toId, reason }),
   aliases: () => request<{ aliases: ConceptAlias[] }>('GET', '/knowledge/aliases'),
+  // «وين نمشي غدًا؟» — محسوبٌ من الخام لا مُخترَع. `empty` صدقُ الصفر.
+  coverage: (limit = 40) => request<{ coverage: ConceptCoverage[]; gaps: ConceptCoverage[]; empty: boolean }>(
+    'GET', `/knowledge/coverage?limit=${limit}`),
 };
 
 // ── Demand Capture — «ما لقيناش» تصير طلبًا مؤكّدًا ───────────

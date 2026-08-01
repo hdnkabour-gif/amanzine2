@@ -23,11 +23,13 @@ export { CITIES } from './knowledgeData';
 export type { CityData } from './knowledgeData';
 export * from './concepts';
 export * from './knowledge';
+export * from './ambiguity';
 export * from './knowledgeGraph';
 
 import { conceptsIn, normalize, type VocabEntry } from './vocabulary';
 import { deArabizi } from './arabizi';
 import { resolveConcept, resolveCity } from './knowledge';
+import { detectAmbiguity, type Ambiguity } from './ambiguity';
 import { getProblem, type Problem } from './problems';
 import { findProblemBySymptom } from './symptomGraph';
 import { getProfession, findProfessionByLabel, type Profession } from './professions';
@@ -49,6 +51,10 @@ export interface Understanding {
   reasoning: string[];             // خطوات الاستدلال (تفسير)
   learned?: { phrase: string; concept: string }; // معرفة معتمَدة بشريًّا طُبِّقت
   stance?: Stance;                 // يَعرض أم يطلب؟ «أنا حدّاد» ≠ «بغيت حدّاد»
+  // غموضٌ معجميّ: كلمةٌ لمعنيَين بلا قرينةٍ حاسمة («موطور» = محرّك ولا درّاجة؟).
+  // حين تُملأ، **يُسأل الإنسانُ ولا يُخمَّن له** — التخمينُ يأخذه للمكان الخطأ
+  // بلا أثرٍ يُراجَع، والسؤالُ يُنهي الأمرَ في ثانية.
+  ambiguity?: Ambiguity;
 }
 
 // الاتّجاه: بدونه كان «أنا حدّاد» يُفهَم كطلبٍ لحدّاد، فيردّ التطبيق «نقلبو عليه»
@@ -66,6 +72,9 @@ const SEEK_MARKS = [
   // ضُمَّت من قائمة needEngine.WANT: كانت هناك إشاراتٌ طلبٍ لا يعرفها الاتّجاه،
   // فيختلف العقلان على نفس الجملة. المصدر واحدٌ الآن.
   'باغي', 'خصني', 'نقلب', 'وين', 'فين', 'علاش', 'شحال ثمن', 'عندكم',
+  // «شي واحد يصايب ليا…» من أكثر صيغ الطلب نطقًا في الدارجة، ولم تكن معروفة:
+  // فتُقرأ الجملةُ بلا اتّجاه، فيُعامَل الطالبُ معاملةَ مستفسِرٍ عابر.
+  'شي واحد', 'شي حد', 'شي شخص', 'شي مول', 'شكون يقدر', 'شكون كيدير',
 ];
 
 // شكوى: «عندي مشكل» تبدأ بعلامة عرض («عندي») لكنّها طلبُ مساعدة.
@@ -80,11 +89,32 @@ const COMPLAINT = [
   'تخربق', 'تخربقات', 'تعطل', 'تعطلات', 'حبس', 'حبسات',
 ];
 
+// «عندي» + عيبٌ = شكوى، لا عرض. «عندي خدش فالبارشوك» كان يُقرأ **عرضًا**
+// لأنّ «عندي» علامةُ عرض — فيُرسَل صاحبُ الخدش لينشر إعلانًا بدل أن يجد
+// مَن يُصلحه. الشكوى نادرًا ما تقول «مشكل»؛ تقول اسمَ العيب مباشرةً.
+// أسماءُ العيوب كما ينطقها الناسُ في الورشة، لا كما تُكتب في قاموس:
+// «شرطة» و«ضربة» و«خدشة» — ثلاثتُها كانت تُقرأ **عرضًا** لأنّ «عندي» علامةُ
+// عرض، فيُرسَل صاحبُ الضربة لينشر إعلانًا بدل أن يجد مَن يُصلحها.
+const DEFECT = [
+  'خدش', 'خدشة', 'خدوش', 'خديشة', 'شرطة', 'شرط', 'شرطات', 'ضربة', 'ضربات',
+  'طق', 'بوسة', 'صدمة', 'كسر', 'مكسور', 'مهرس', 'مهرسة', 'طبعة', 'بقعة',
+  'ثقب', 'تقب', 'تسرب', 'تسريب', 'كيسيل', 'كيقطر', 'عطل', 'عيب', 'شق', 'شقوق',
+];
+// الوسخُ شكوى أيضًا: «الزربية موسخة» طلبُ تنظيفٍ لا عرضُ زربيّة. وكانت
+// تُقرأ بلا اتّجاهٍ أصلًا، فتُعامَل معاملةَ استعلامٍ عامّ.
+const DIRTY = ['موسخ', 'موسخة', 'موسّخ', 'مّوسخ', 'مسخة', 'متسخة', 'متسخ', 'وسخة',
+  'عامر بالزيت', 'عامر بالوسخ', 'مليان وسخ', 'ديال الوسخ'];
+
 // أفعالُ العرض بصيغة المتكلّم — تغلب أداةَ الطلب حين تجتمعان.
 const SELF_OFFER = ['نبيع', 'كنبيع', 'نسوق', 'نسوّق', 'باغي نبيع', 'بغيت نبيع'];
 
+const HAS = ['عندي', 'عندنا', 'فيا', 'لدي', 'لديّ'];
+
 function detectStance(t: string, c?: { stance?: { offer?: string[]; seek?: string[] } }): Stance {
   if (COMPLAINT.some(w => t.includes(w))) return 'seek';
+  // «عندي» + عيب ⇒ شكوى. و«موسخ» شكوى بذاتها بلا «عندي».
+  if (HAS.some(h => t.includes(h)) && DEFECT.some(d => t.includes(d))) return 'seek';
+  if (DIRTY.some(w => t.includes(w))) return 'seek';
   // عباراتُ المفهوم أدقّ من العلامات العامّة ⇒ تُفحَص أوّلًا.
   for (const ph of c?.stance?.offer || []) if (ph && t.includes(ph)) return 'offer';
   for (const ph of c?.stance?.seek  || []) if (ph && t.includes(ph)) return 'seek';
@@ -202,7 +232,11 @@ export function understand(input: string): Understanding {
   const stance = detectStance(t, stanceConcept);
   if (stance !== 'unknown') reasoning.push(stance === 'offer' ? '🧭 اتّجاه: يَعرض' : '🧭 اتّجاه: يطلب');
 
-  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance };
+  // الغموضُ يُفحَص أخيرًا وعلى النصّ الأصليّ: لو حُسم بقرينةٍ فلا شيءَ يُضاف،
+  // ولو بقي غامضًا فالجوابُ الصحيح **سؤال** لا نتيجة. لا نُلغي ما فُهم — نُرفقه.
+  const ambiguity = detectAmbiguity(text) || undefined;
+  if (ambiguity) reasoning.push(`❓ «${ambiguity.term}» تحتمل معنيَين — نسأل بدل أن نُخمّن`);
+  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity };
 }
 
 export function resolveTerm(term: string) { return normalize(term); }

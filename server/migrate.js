@@ -69,9 +69,6 @@ async function migrate() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )`);
 
-    // ⬇️ إضافة عمود livo_order_id لدعم Livo API
-    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS livo_order_id TEXT DEFAULT ''`);
-
     await client.query(`CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -531,6 +528,81 @@ async function migrate() {
     // نشاطٌ أساسيٌّ واحدٌ لكلّ مزوّد — لا اثنان. «أساسيّان» = لا أساسيّ.
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_primary
       ON provider_concepts(provider_id) WHERE is_primary`);
+
+    // ── الزيارة الميدانيّة ───────────────────────────────────
+    // الحسابُ يُنشَأ نيابةً عن الحرفيّ، فيدخل برمزٍ مؤقّت. وبلا إجبارٍ على
+    // تغييره يبقى رمزٌ يعرفه شخصان — وهذا حسابُ إنسانٍ حقيقيّ لا حسابُ تجربة.
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE`);
+
+    // المحصولُ الحقيقيُّ للزيارة ليس صفَّ المحلّ — بل **اللغة**: جملُ الزبناء،
+    // وأسئلةُ التسعير، والكلماتُ التي لا يعرفها أيُّ قاموس. ولو خُزّنت هذه
+    // متناثرةً لضاعت؛ ولو لم تُخزَّن خامًّا لما أمكن مراجعةُ ما فهمناه منها.
+    // فالجدولُ يحفظ **ما قيل** كما قيل، والتعلّمُ منه فعلٌ لاحقٌ قابلٌ للمراجعة.
+    await client.query(`CREATE TABLE IF NOT EXISTS field_visits (
+      id TEXT PRIMARY KEY,
+      provider_id TEXT REFERENCES providers(id) ON DELETE SET NULL,
+      agent_id TEXT,                    -- مَن زار
+      services_raw TEXT,                -- «عندي لافاج، طولوري، صباغة» كما نُطقت
+      concepts JSONB NOT NULL DEFAULT '[]'::jsonb,
+      customer_lines JSONB NOT NULL DEFAULT '[]'::jsonb,  -- «شنو كيقولو لك الزبناء؟»
+      pricing_asks  JSONB NOT NULL DEFAULT '[]'::jsonb,   -- «شنو كتسول قبل الثمن؟»
+      words         JSONB NOT NULL DEFAULT '[]'::jsonb,   -- [{term, conceptId, status}]
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_field_visits_at ON field_visits(created_at DESC)`);
+
+    // ── سلسلةُ التزكية ───────────────────────────────────────
+    // «المحلّاتُ اللي كنسجّل أنا يوليو معتمدين، ويقدروا هوما يسجّلو محلّاتٍ
+    // أخرى بنفس الطريقة.» فكرةٌ قويّة — وفيها فخٌّ يقتلها إن لم يُسدّ:
+    //
+    //   لو **ورِث** الاعتمادُ، لصار كلُّ من في السلسلة معتمَدًا بعد شهر،
+    //   ولا يعني «معتمَد» شيئًا. والوسمُ الذي لا يميّز أحدًا أسوأُ من غيابه:
+    //   يبيع ثقةً لا تقابلها معرفة.
+    //
+    // فالقاعدة: **الاعتمادُ لا يُورَث.**
+    //   depth 0 = الأدمن.
+    //   depth 1 = محلٌّ زرتُه بنفسي  ⇒ معتمَد، وله حقُّ تزكية غيره.
+    //   depth 2 = محلٌّ زكّاه محلّ    ⇒ **مُزكًّى لا معتمَد**، وينتظر مراجعة.
+    //   depth 3 = ممنوع. السلسلةُ الطويلةُ تُخفّف المسؤوليّة حتّى تنعدم.
+    //
+    // و`vouched_by` مكتوبٌ دائمًا: التزكيةُ اسمٌ يتحمّل، لا زرٌّ مجهول.
+    await client.query(`ALTER TABLE providers ADD COLUMN IF NOT EXISTS depth INTEGER NOT NULL DEFAULT 1`);
+    await client.query(`ALTER TABLE providers ADD COLUMN IF NOT EXISTS vouched_by TEXT REFERENCES providers(id) ON DELETE SET NULL`);
+    // حصّةُ التزكية: عددٌ محدود. «بلا حدّ» تعني ٢٠٠ محلٍّ وهميٍّ في ليلة.
+    await client.query(`ALTER TABLE providers ADD COLUMN IF NOT EXISTS invite_quota INTEGER NOT NULL DEFAULT 0`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_providers_vouched ON providers(vouched_by)`);
+
+    // ── أنواعُ التحقّق ───────────────────────────────────────
+    // `is_verified` بتٌّ واحدٌ يحمل **عدّة وقائعَ مختلفة**: هل وُجد المحلّ
+    // فعلًا؟ هل الرجلُ صاحبُه؟ هل الموقعُ صحيح؟ هل الهاتفُ يردّ؟ وجمعُها في
+    // بتٍّ واحدٍ يُفقد التفصيل: لا يمكن غدًا أن تقول «وريني اللي زرتُهم أنا
+    // بنفسي» أو «اللي تأكّدنا من موقعهم». وهو نفسُ صنفِ الخطأ الذي أصلحناه
+    // مرارًا: شيئان مختلفان في حقلٍ واحد.
+    //
+    // فالتحقّقُ **وقائعُ** لكلٍّ منها صاحبٌ ووقت، لا صفةٌ واحدة.
+    // و`is_verified` يبقى **مشتقًّا**: صحيحٌ متى وُجدت واقعةُ `business`.
+    // مشتقٌّ لا مصدرٌ ثانٍ — كاتبٌ واحدٌ يضبطه (db.verifyProvider).
+    //
+    // وسمعةُ الزبائن ليست تحقّقًا: هي `rating_avg`/`reviews` وموجودةٌ أصلًا.
+    // إدراجُها هنا تكرارٌ لمصدرٍ قائم.
+    await client.query(`CREATE TABLE IF NOT EXISTS provider_verifications (
+      provider_id TEXT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,               -- business | identity | location | phone
+      verified_by TEXT,
+      verified_at TIMESTAMPTZ DEFAULT NOW(),
+      note TEXT,
+      PRIMARY KEY (provider_id, kind)
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_pverif_kind ON provider_verifications(kind, verified_at DESC)`);
+
+    // الزيارةُ كيانٌ قائم: تُعاد، وتُقارَن، ويُعرَف من قام بها. الإحداثيّاتُ
+    // والمدّةُ يجعلانها قابلةً للمراجعة — «واش فعلًا مشى للمحلّ؟» سؤالٌ
+    // مشروعٌ حين يكبر الفريق، وجوابُه لا يُخترَع بعد سنة.
+    await client.query(`ALTER TABLE field_visits ADD COLUMN IF NOT EXISTS gps_lat DOUBLE PRECISION`);
+    await client.query(`ALTER TABLE field_visits ADD COLUMN IF NOT EXISTS gps_lng DOUBLE PRECISION`);
+    await client.query(`ALTER TABLE field_visits ADD COLUMN IF NOT EXISTS duration_sec INTEGER`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_field_visits_provider ON field_visits(provider_id, created_at DESC)`);
 
     // Learning Loop — تجميع يومي مجهّل لمراحل القمع (DR-0004). لا هوية مستخدم.
     // شكل طويل (day, stage) → إضافة مرحلة جديدة بلا هجرة (القانون ٩).

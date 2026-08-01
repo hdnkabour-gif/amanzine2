@@ -111,6 +111,19 @@ router.post('/misses/:id/resolve', auth, admin, async (req, res) => {
   } catch (e) { console.error('[knowledge]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
+// «وين نمشي غدًا؟» — تغطيةُ المفاهيم محسوبةً من الخام. الفجوةُ = طلبٌ
+// بلا محلّ. وبلا بياناتٍ يُرجع فارغًا، وهو الصدقُ الوحيد الممكن عند الصفر.
+router.get('/coverage', auth, admin, async (req, res) => {
+  try {
+    const rows = await db.conceptCoverage({ limit: parseInt(req.query.limit, 10) || 40 });
+    res.json({
+      coverage: rows,
+      gaps: rows.filter(r => r.gap === 'urgent').slice(0, 10),
+      empty: rows.length === 0,
+    });
+  } catch (e) { console.error('[coverage]', e.message); res.status(500).json({ error: 'Server error' }); }
+});
+
 // ── مفاهيم الأدمن (custom_concepts) ───────────────────────────
 // نفس ضمانات مستورد CSV، لكن من الواجهة: لا يُحفَظ مفهومٌ يسرق مرادفًا من آخر،
 // لأنّ ذلك يجعل الفهم عشوائيًّا بلا رسالة خطأ.
@@ -292,4 +305,8 @@ router.delete('/concepts/:id', auth, admin, async (req, res) => {
   } catch (e) { console.error('[knowledge]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
+// يُصدَّر الحارسُ والمُطبِّع مع الموجّه: الزيارةُ الميدانيّة تكتب في المعرفة
+// أيضًا، ويجب أن تمرّ بنفس الحارس بالضبط. حارسان متشابهان يفترقان يومًا.
 module.exports = router;
+module.exports.conceptConflicts = conceptConflicts;
+module.exports.normalizeConcept = normalizeConcept;

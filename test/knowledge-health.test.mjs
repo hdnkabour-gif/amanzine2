@@ -23,7 +23,7 @@ const R = JSON.parse(execFileSync('node', [join(ROOT, 'scripts/knowledge-audit.m
   { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }));
 
 // السقوفُ الحاليّة. حين تُصلَح دفعةٌ من التعارضات، أنزِل الرقم — لا ترفعه أبدًا.
-const MAX = { conflicts: 146, dead: 2, shadowed: 52, duplicates: 7 };
+const MAX = { conflicts: 144, dead: 2, shadowed: 51, duplicates: 7 };
 
 test('لا فئةً فاسدة (رأسُ جدولٍ ملصوقٌ من CSV)', () => {
   assert.deepEqual(R.badCategory, [],
@@ -69,7 +69,7 @@ test('التسمياتُ المزدوجة لا تزيد', () => {
 test('السقوفُ نفسُها لا تُرفَع تسلُّلًا', () => {
   // لو رفع أحدٌ MAX ليُمرّر تعديلًا، هذا الاختبار يكشفه: الأرقامُ التي وُضعت
   // يومَ التنظيف مكتوبةٌ هنا مرّتين، ومقارنتُها تجعل الرفعَ فعلًا واعيًا لا صامتًا.
-  assert.deepEqual(MAX, { conflicts: 146, dead: 2, shadowed: 52, duplicates: 7 },
+  assert.deepEqual(MAX, { conflicts: 144, dead: 2, shadowed: 51, duplicates: 7 },
     'رُفع سقفٌ — إن كان مقصودًا فحدِّث هذا الاختبار واذكر السبب في الالتزام');
 });
 

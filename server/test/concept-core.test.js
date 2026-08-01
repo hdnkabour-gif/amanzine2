@@ -192,3 +192,32 @@ test('المفاهيمُ المدمجة تُحلّ عند الكتابة أيض�
   assert.deepEqual(pc.map(x => x.concept_id), ['tst_flower'],
     'رابطٌ وُلد معطوبًا: كُتب المعرّفُ الميّت بدل الحيّ');
 });
+
+// ── تغطيةُ المفاهيم: «وين نمشي غدًا؟» ────────────────────────
+// بعد عشرين زيارةً يصير السؤالُ عمليًّا. والجوابُ لا يُخمَّن — يُحسَب من
+// الخام: كم محلًّا؟ كم طلبًا بلا جواب؟ كم مرادفًا وسؤالَ تسعير؟
+
+test('التغطيةُ محسوبةٌ من الخام — والصفرُ يبقى صفرًا', async () => {
+  const r = await req('GET', '/api/knowledge/coverage');
+  assert.equal(r.status, 200, r.body?.error);
+  const row = r.body.coverage.find(x => x.concept_id === 'tst_flower');
+  assert.ok(row, 'المفهومُ المربوطُ بمحلٍّ غائبٌ عن التغطية');
+  assert.ok(row.providers >= 1, `providers = ${row.providers}`);
+  // النضجُ مشتقٌّ لا وسمٌ يُكتب.
+  assert.ok(row.maturity >= 1 && row.maturity <= 5, `maturity = ${row.maturity}`);
+});
+
+test('صفرُ محلّاتٍ ⇒ صفرُ نضجٍ مهما كثرت الكلمات', async () => {
+  // المعرفةُ بلا مَن يُشبع الحاجة لا تنفع أحدًا. مفهومٌ بمرادفاتٍ كثيرةٍ
+  // وبلا محلٍّ واحد يبقى عند صفر — وإلّا أوهم النضجُ بتغطيةٍ ليست موجودة.
+  await db.upsertCustomConcept({
+    id: 'tst_lonely', category: 'products', concept: { ar: 'مفهومٌ بلا محلّ' },
+    variants: { darija: ['واحد', 'جوج', 'تلاتة', 'ربعة', 'خمسة', 'ستة', 'سبعة', 'تمنية'] },
+    status: 'published', createdBy: userId,
+  });
+  const r = await req('GET', '/api/knowledge/coverage?limit=200');
+  const row = r.body.coverage.find(x => x.concept_id === 'tst_lonely');
+  assert.ok(row, 'المفهومُ غائبٌ عن التغطية');
+  assert.equal(row.providers, 0);
+  assert.equal(row.maturity, 0, 'نضجٌ بلا محلّ — وهمُ تغطية');
+});

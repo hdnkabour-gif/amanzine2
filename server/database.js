@@ -94,7 +94,6 @@ function _mapOrder(o) {
     source:           o.source          || 'manual',
     deliveryProvider: o.delivery_provider || '',
     trackingNumber:   o.tracking_number  || '',
-    livoOrderId:      o.livo_order_id   || '',   // ⬅️ جديد
     needsReview:      !!o.needs_review,
     reviewReason:     o.review_reason    || '',
     customerCode:     o.customer_code    || '',
@@ -183,9 +182,11 @@ const db = {
   // ── Settings ─────────────────────────────────────────────────
   async getSettings(userId) {
     const { rows } = await pool.query('SELECT data FROM settings WHERE user_id = $1', [userId]);
+    // فك تشفير الأسرار at-rest (H-1) — passthrough للقيم غير المشفّرة
     return rows[0] ? secrets.decryptSettings(rows[0].data) : null;
   },
   async saveSettings(userId, data) {
+    // تشفير الأسرار قبل التخزين (H-1) — دون تعديل كائن المتصل
     await pool.query(
       `INSERT INTO settings (user_id, data, updated_at) VALUES ($1,$2,NOW())
        ON CONFLICT (user_id) DO UPDATE SET data = $2, updated_at = NOW()`,
@@ -261,6 +262,7 @@ const db = {
     }
     if (!parts.length) return this.getProduct(id);
     parts.push(`updated_at = NOW()`);
+    // userId guard: only the owning user can update
     if (u.userId) { vals.push(u.userId); await pool.query(`UPDATE products SET ${parts.join(', ')} WHERE id = $1 AND user_id = $${idx}`, vals); }
     else await pool.query(`UPDATE products SET ${parts.join(', ')} WHERE id = $1`, vals);
     return this.getProduct(id);
@@ -355,6 +357,7 @@ const db = {
     const { rows } = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
     return _mapOrder(rows[0]) || null;
   },
+  // تتبّع الطلب بالكود السرّي — مُقيَّد بالمتجر (C-5: كانت غير معرّفة)
   async findOrderByCode(userId, code) {
     const { rows } = await pool.query(
       'SELECT * FROM orders WHERE user_id = $1 AND UPPER(customer_code) = UPPER($2) LIMIT 1',
@@ -393,7 +396,6 @@ const db = {
       trackingNumber:   'tracking_number',  notes:           'notes',
       needsReview:      'needs_review',     reviewReason:    'review_reason',
       customerCode:     'customer_code',
-      livoOrderId:      'livo_order_id',   // ⬅️ جديد
     };
     const parts = []; const vals = [id]; let idx = 2;
     for (const [jsKey, pgCol] of Object.entries(map)) {
@@ -404,6 +406,9 @@ const db = {
     }
     if (!parts.length) return this.getOrder(id);
     parts.push(`updated_at = NOW()`);
+    // دفاعٌ في العمق: المسارات تتحقّق من الملكيّة أصلًا، لكن حين يُمرَّر userId
+    // نُقيّد الاستعلام به أيضًا (نفس نمط updateProduct). userId ليس في القائمة
+    // البيضاء أعلاه ⇒ لا يُكتَب كعمود أبدًا، يُستعمل للتقييد فقط.
     if (u.userId) {
       vals.push(u.userId);
       await pool.query(`UPDATE orders SET ${parts.join(', ')} WHERE id = $1 AND user_id = $${idx}`, vals);
@@ -533,7 +538,9 @@ const db = {
     await pool.query('DELETE FROM conversations WHERE id = $1', [id]);
   },
 
-  // ── Abandoned-cart reminders ────────────────────────────────
+  // ── Abandoned-cart reminders (H-4) ───────────────────────────
+  // بديل موثوق لمؤقّتات setTimeout في الذاكرة: استعلام مجدول يجد
+  // المحادثات المهجورة (>24س، نشطة، بلا طلب لاحق، ولم تُذكَّر بعد).
   async getAbandonedConversations(limit = 200) {
     const { rows } = await pool.query(
       `SELECT c.* FROM conversations c
@@ -639,10 +646,12 @@ const db = {
     );
     return rows[0] || null;
   },
+  // جلب كوبون بالمعرّف — للتحقّق من الملكية في الـ routes (C-1)
   async getCoupon(id) {
     const { rows } = await pool.query('SELECT * FROM coupons WHERE id = $1', [id]);
     return _mapCoupon(rows[0]) || null;
   },
+  // التحقق الحقيقي من الكوبون: الوجود، التفعيل، الصلاحية، حد الاستخدام، الحد الأدنى للطلب
   async validateCoupon(userId, code, orderTotal = 0) {
     const c = await this.getCouponByCode(userId, code);
     if (!c) return { valid: false, discount: 0, message: 'الكود غير صحيح' };
@@ -655,8 +664,8 @@ const db = {
       return { valid: false, discount: 0, message: `الحد الأدنى للطلب ${+c.min_order} درهم` };
     let discount = 0;
     if (c.type === 'fixed') discount = Math.min(+c.value, orderTotal);
-    else if (c.type === 'shipping') discount = 0;
-    else discount = Math.round(orderTotal * (+c.value / 100));
+    else if (c.type === 'shipping') discount = 0; // الشحن المجاني يُطبق على التوصيل وليس على المجموع
+    else discount = Math.round(orderTotal * (+c.value / 100)); // percentage
     return { valid: true, discount, type: c.type, value: +c.value, couponId: c.id, freeShipping: c.type === 'shipping' };
   },
   async incrementCouponUse(id) {
@@ -689,10 +698,12 @@ const db = {
       parts.push(`${pgCol} = $${idx++}`); vals.push(u[jsKey]);
     }
     if (!parts.length) return;
+    // حارس المستأجر (C-1): لا يُعدّل إلا صاحب الكوبون
     if (userId) { vals.push(userId); await pool.query(`UPDATE coupons SET ${parts.join(', ')} WHERE id = $1 AND user_id = $${idx}`, vals); }
     else await pool.query(`UPDATE coupons SET ${parts.join(', ')} WHERE id = $1`, vals);
   },
   async deleteCoupon(id, userId) {
+    // حارس المستأجر (C-1): لا يُحذف إلا صاحب الكوبون
     if (userId) await pool.query('DELETE FROM coupons WHERE id = $1 AND user_id = $2', [id, userId]);
     else await pool.query('DELETE FROM coupons WHERE id = $1', [id]);
   },
@@ -786,7 +797,7 @@ const db = {
   },
 };
 
-// ── OTP functions ──────────────────────────────────────────────
+// ── OTP functions (Fix #3) ────────────────────────────────────────────────────
 db.createOTP = async ({ email, code, expiresAt }) => {
   await pool.query(
     `INSERT INTO otp_tokens (email, code, expires_at) VALUES ($1, $2, $3)`,
@@ -804,7 +815,7 @@ db.invalidateOTPs = async (email) => {
   await pool.query(`UPDATE otp_tokens SET used=TRUE WHERE email=$1`, [email.toLowerCase()]);
 };
 
-// ── Refresh token functions ────────────────────────────────────
+// ── Refresh token functions (Fix #12) ─────────────────────────────────────────
 db.createRefreshToken = async (userId, tokenHash, expiresAt) => {
   await pool.query(
     `INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
@@ -825,7 +836,7 @@ db.revokeAllRefreshTokens = async (userId) => {
   await pool.query(`UPDATE refresh_tokens SET revoked=TRUE WHERE user_id=$1`, [userId]);
 };
 
-// ── Nested aliases ─────────────────────────────────────────────
+// ── Nested aliases for routes that use db.users.*, db.settings.*, etc. ───────
 db.users = {
   listUsers:   () => db.listUsers(),
   get:         (id) => db.getUser(id),
@@ -849,7 +860,7 @@ db.notifications = {
   add: (n) => db.addNotification(n),
 };
 
-// ── Marketplace listings ──────────────────────────────────────
+// ── Marketplace listings (additive — separate table, does not touch products) ──
 function _mapListing(l) {
   if (!l) return null;
   return {
@@ -900,6 +911,7 @@ db.getPublicListings = async ({ city, type, q, limit = 60 } = {}) => {
   );
   return rows.map(_mapListing);
 };
+// إحصائيات عامة حقيقية لصفحة الهبوط — كل استعلام معزول بأمان (لا 500 عند نقص عمود)
 db.getPublicStats = async () => {
   const one = async (sql) => {
     try { const { rows } = await pool.query(sql); return +(rows[0]?.n) || 0; }
@@ -942,6 +954,7 @@ db.setListingStatus = async (id, status, reason = '') => {
 db.incrementListingViews = async (id) => {
   await pool.query('UPDATE listings SET views = COALESCE(views,0)+1 WHERE id = $1', [id]).catch(() => {});
 };
+// ── Reviews (trust signals on listings) ──
 db.addReview = async (r) => {
   const id = uid();
   const { rows } = await pool.query(
@@ -964,7 +977,8 @@ db.getListingRating = async (listingId) => {
   return { avg: +r.avg || 0, count: +r.count || 0 };
 };
 
-// ── Learning loop ──────────────────────────────────────────────
+// ── Learning loop: «ما لم نفهمه» (unknown queries) — كنز تطوير المعرفة ──
+// يبلّغه العميل عند فشل القواعد؛ الأدمن يراجعه ويضيف المفردات إلى knowledgeExtra.
 db.bumpUnknownText = async (text) => {
   const t = String(text || '').trim().slice(0, 200);
   if (t.length < 2) return;
@@ -972,7 +986,7 @@ db.bumpUnknownText = async (text) => {
     await pool.query(
       `INSERT INTO learning_unknowns (text, count) VALUES ($1, 1)
        ON CONFLICT (text) DO UPDATE SET count = learning_unknowns.count + 1, last_seen = NOW()`, [t]);
-  } catch { /* ignore */ }
+  } catch { /* الجدول قد لا يوجد بعد — نتجاهل بلا كسر */ }
 };
 db.topUnknownTexts = async (limit = 100) => {
   try {
@@ -993,6 +1007,7 @@ db.getWalletTx = async (userId, limit = 50) => {
   const { rows } = await pool.query('SELECT * FROM wallet_transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2', [userId, Math.min(+limit || 50, 200)]);
   return rows.map(t => ({ id: t.id, type: t.type, amount: +t.amount, ref: t.ref || '', note: t.note || '', createdAt: t.created_at ? new Date(t.created_at).toISOString() : now() }));
 };
+// معاملة ذرّية: تحديث الرصيد + تسجيل الحركة (يمنع الرصيد السالب على الخصم)
 db.walletApply = async (userId, { type, amount, ref = '', note = '' }) => {
   const client = await pool.connect();
   try {
@@ -1020,12 +1035,16 @@ db.createPayment = async (p) => {
 db.updatePaymentStatus = async (id, status) => {
   await pool.query('UPDATE payments SET status = $1 WHERE id = $2', [status, id]);
 };
+
+// مقدّم خدمة عام بمعرّفه (للملف الموحّد) — معتمَد فقط
 db.getProviderById = async (id) => {
   const { rows } = await pool.query("SELECT * FROM providers WHERE id = $1 AND status = 'approved'", [id]);
   return _mapProvider(rows[0]);
 };
 
-// ── Discover ───────────────────────────────────────────────────
+// ── Discover — الطبقة الجامعة عبر كل المتاجر (Super App) ───────
+// قراءة عامة فقط لما هو منشور/معتمد صراحةً: منتجات published،
+// مقدّمون approved، ومتاجر لها كتالوج عام. لا PII، لا أسرار.
 db.discoverProducts = async ({ city, q, limit = 24 } = {}) => {
   const conds = ["p.status = 'published'"]; const vals = []; let i = 1;
   if (city) { conds.push(`s.data->'brand'->>'city' = $${i++}`); vals.push(city); }
@@ -1046,6 +1065,7 @@ db.discoverProducts = async ({ city, q, limit = 24 } = {}) => {
     storeName: r.store_name || '', storeCity: r.store_city || '', storeLogo: r.store_logo || '',
   }));
 };
+
 db.discoverProviders = async ({ city, q, limit = 24 } = {}) => {
   const conds = ["pr.status = 'approved'"]; const vals = []; let i = 1;
   if (city) { conds.push(`pr.city = $${i++}`); vals.push(city); }
@@ -1070,6 +1090,7 @@ db.discoverProviders = async ({ city, q, limit = 24 } = {}) => {
     serviceLabels: Array.isArray(r.service_labels) ? r.service_labels : [],
   }));
 };
+
 db.discoverStores = async ({ city, q, limit = 24 } = {}) => {
   const conds = ['TRUE']; const vals = []; let i = 1;
   if (city) { conds.push(`s.data->'brand'->>'city' = $${i++}`); vals.push(city); }
@@ -1096,7 +1117,7 @@ db.discoverStores = async ({ city, q, limit = 24 } = {}) => {
   }));
 };
 
-// ── Services Marketplace ──────────────────────────────────────
+// ── Services Marketplace (alloservix) ─────────────────────────
 function _mapProvider(p) {
   if (!p) return null;
   return {
@@ -1120,6 +1141,8 @@ function _mapBooking(b) {
     notes: b.notes || '', createdAt: b.created_at ? new Date(b.created_at).toISOString() : now(),
   };
 }
+
+// Providers — كلها مقيَّدة بـ userId (المستأجر)
 db.getProviders = async (userId, { status, q } = {}) => {
   const cond = ['user_id = $1'], args = [userId];
   if (status) { cond.push(`status = $${args.length + 1}`); args.push(status); }
@@ -1155,6 +1178,8 @@ db.deleteProvider = async (userId, id) => {
   const { rowCount } = await pool.query('DELETE FROM providers WHERE id = $1 AND user_id = $2', [id, userId]);
   return rowCount > 0;
 };
+
+// Provider services
 db.getProviderServices = async (providerId) => {
   const { rows } = await pool.query('SELECT * FROM provider_services WHERE provider_id = $1 ORDER BY created_at', [providerId]);
   return rows.map(s => ({ id: s.id, providerId: s.provider_id, serviceKey: s.service_key, serviceLabel: s.service_label,
@@ -1173,6 +1198,8 @@ db.removeProviderService = async (providerId, id) => {
   const { rowCount } = await pool.query('DELETE FROM provider_services WHERE id = $1 AND provider_id = $2', [id, providerId]);
   return rowCount > 0;
 };
+
+// Availability
 db.getAvailabilityTemplates = async (providerId) => {
   const { rows } = await pool.query('SELECT * FROM availability_templates WHERE provider_id = $1 ORDER BY weekday, start_time', [providerId]);
   return rows.map(t => ({ id: t.id, providerId: t.provider_id, weekday: +t.weekday, startTime: t.start_time, endTime: t.end_time }));
@@ -1203,6 +1230,8 @@ db.addAvailabilitySlot = async (providerId, d) => {
     [id, providerId, d.startsAt, d.endsAt, d.status || 'open']);
   return id;
 };
+
+// Bookings — مع كشف تعارض المواعيد للمقدّم
 db.getBookings = async (userId, { providerId, status } = {}) => {
   const cond = ['user_id = $1'], args = [userId];
   if (providerId) { cond.push(`provider_id = $${args.length + 1}`); args.push(providerId); }
@@ -1210,6 +1239,7 @@ db.getBookings = async (userId, { providerId, status } = {}) => {
   const { rows } = await pool.query(`SELECT * FROM bookings WHERE ${cond.join(' AND ')} ORDER BY scheduled_at DESC LIMIT 300`, args);
   return rows.map(_mapBooking);
 };
+// يعيد الحجوزات النشطة المتعارضة مع [start, start+duration) لنفس المقدّم
 db.findBookingConflict = async (providerId, scheduledAtISO, durationMin) => {
   const start = new Date(scheduledAtISO);
   const end = new Date(start.getTime() + (durationMin || 60) * 60000);
@@ -1238,7 +1268,8 @@ db.updateBookingStatus = async (userId, id, status) => {
   return _mapBooking(rows[0]);
 };
 
-// ── Knowledge layer: search misses ────────────────────────────
+// ── Knowledge layer: search misses (DR-0002) ──────────────────
+// تسجيل جملة بحث بلا نتيجة، مع تجميع التكرار على (normalized, city).
 db.recordSearchMiss = async ({ raw, normalized, city }) => {
   await pool.query(
     `INSERT INTO search_misses (id, raw, normalized, city, count)
@@ -1258,6 +1289,8 @@ db.listSearchMisses = async ({ status = 'open', limit = 100 } = {}) => {
   );
   return rows;
 };
+// صفٌّ واحد — يحتاجه إغلاقُ حلقة التعلّم: نصُّ ما كتبه الإنسان هو المرادفُ
+// المُتعلَّم افتراضًا، فلا بدّ من قراءته قبل الكتابة في المعرفة.
 db.getSearchMiss = async (id) => {
   const { rows } = await pool.query(`SELECT * FROM search_misses WHERE id = $1`, [id]);
   return rows[0] || null;
@@ -1271,6 +1304,8 @@ db.resolveSearchMiss = async (id, { category, adminId, status = 'resolved' } = {
   );
   return rows[0] || null;
 };
+
+// أكثر الخدمات طلبًا — عدّاد يوميّ مجهّل للمصطلح المطبَّع (بلا هوية، بلا نصّ خام).
 db.recordSearchTerm = async ({ term, hit }) => {
   const t = String(term || '').trim().slice(0, 60);
   if (t.length < 2) return;
@@ -1282,6 +1317,9 @@ db.recordSearchTerm = async ({ term, hit }) => {
     [t, hit ? 1 : 0]
   );
 };
+
+// الجديد خلال مدّة — «شكون دخل جديد؟». كانت الإحصاءات إجماليّاتٍ تراكميّة فقط،
+// فتعذّر معرفة النموّ. كلّ عدّادٍ مستقلٌّ: فشلُه (جدولٌ ناقص) لا يُسقط الباقي.
 db.getNewSince = async ({ days = 7 } = {}) => {
   const one = async (sql) => {
     try { const { rows } = await pool.query(sql, [days]); return +(rows[0]?.n) || 0; }
@@ -1300,13 +1338,18 @@ db.getNewSince = async ({ days = 7 } = {}) => {
   return { days, users, products, services, listings, providers, orders, bookings };
 };
 
-// ── Custom concepts ────────────────────────────────────────────
+// ── مفاهيمُ الأدمن (custom_concepts) ──────────────────────────
+// تُقرأ حيّةً من القاعدة، فلا تحتاج إعادة نشرٍ لتؤثّر في الفهم.
 db.listCustomConcepts = async ({ status } = {}) => {
   const { rows } = status
     ? await pool.query('SELECT * FROM custom_concepts WHERE status = $1 ORDER BY updated_at DESC', [status])
     : await pool.query('SELECT * FROM custom_concepts ORDER BY updated_at DESC');
   return rows;
 };
+
+// يُحلّ الاسمُ البديل: طلبُ مفهومٍ مدموجٍ يُعيد المفهومَ الحيّ، لا فراغًا.
+// بدون هذا كان الدمجُ يكسر كلّ رابطٍ قديم — وهو سببُ اقتراح «معرّفاتٍ ثابتة»
+// أصلًا. هنا نحصل على الاستقرار نفسِه مع إبقاء المعرّفات مقروءة.
 db.getCustomConcept = async (id) => {
   const direct = await pool.query('SELECT * FROM custom_concepts WHERE id = $1', [id]);
   if (direct.rows[0]) return direct.rows[0];
@@ -1315,9 +1358,14 @@ db.getCustomConcept = async (id) => {
   const { rows } = await pool.query('SELECT * FROM custom_concepts WHERE id = $1', [live]);
   return rows[0] || null;
 };
+
+// upsert: نفس الـid يُحدَّث لا يُكرَّر (نفس قاعدة الدمج في concepts.ts).
 const CONCEPT_STATUS = ['draft', 'candidate', 'published'];
+
 db.upsertCustomConcept = async (c) => {
   const j = (v, d) => JSON.stringify(v == null ? d : v);
+  // لقطةٌ قبل كلّ كتابة. بدونها لا يمكن التراجعُ عن تعديلٍ خفض الفهم، ولا
+  // يجوز إذن أيُّ نشرٍ آليّ. السببُ يُملأ آليًّا (miss:<id> · merge:<id>).
   const before = (await pool.query('SELECT * FROM custom_concepts WHERE id = $1', [String(c.id)])).rows[0];
   if (before) {
     await pool.query(
@@ -1342,12 +1390,17 @@ db.upsertCustomConcept = async (c) => {
   );
   return rows[0];
 };
+
+// ── النسخ ────────────────────────────────────────────────────
 db.listConceptVersions = async (conceptId, limit = 20) => {
   const { rows } = await pool.query(
     `SELECT id, concept_id, reason, changed_by, created_at FROM concept_versions
       WHERE concept_id = $1 ORDER BY id DESC LIMIT $2`, [String(conceptId), Math.min(limit, 100)]);
   return rows;
 };
+
+// التراجُع: نُعيد اللقطة عبر upsert نفسِه — فتُسجَّل الحالةُ الحاليّة نسخةً
+// جديدةً قبل الاستبدال. التراجعُ نفسُه حدثٌ يُتراجَع عنه، لا محوٌ للتاريخ.
 db.revertConcept = async (versionId, changedBy) => {
   const { rows } = await pool.query('SELECT * FROM concept_versions WHERE id = $1', [versionId]);
   const v = rows[0];
@@ -1360,6 +1413,10 @@ db.revertConcept = async (versionId, changedBy) => {
     createdBy: changedBy, reason: `revert:${versionId}`,
   });
 };
+
+// ── الأسماءُ البديلة (الدمجُ بلا كسر) ─────────────────────────
+// سلسلةٌ لا حلقة: a→b→c يُحلّ إلى c. والحدُّ الأقصى يمنع دورةً لانهائيّةً
+// لو أُدخل a→b و b→a بخطأٍ يدويّ — الحلقةُ هنا تُجمّد الخادم، لا تُخطئ فقط.
 db.resolveConceptAlias = async (id) => {
   let cur = String(id);
   for (let i = 0; i < 10; i++) {
@@ -1370,13 +1427,18 @@ db.resolveConceptAlias = async (id) => {
   console.warn('[concepts] سلسلةُ أسماءٍ بديلةٍ أطولُ من ١٠ — يُرجَّح وجودُ حلقة:', id);
   return cur;
 };
+
 db.listConceptAliases = async () => (await pool.query('SELECT * FROM concept_aliases ORDER BY created_at DESC')).rows;
+
+// الدمج: كلُّ ما يشير إلى from يُحوَّل إلى to، ثمّ يُسجَّل التحويل.
+// نُحوّل provider_concepts أوّلًا لأنّ تركها يعني مزوّدين بمفهومٍ لا وجودَ له.
 db.mergeConcepts = async ({ fromId, toId, reason, by }) => {
   const from = String(fromId), to = String(toId);
   if (from === to) throw new Error('لا يُدمَج مفهومٌ في نفسه');
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // مزوّدٌ عنده الاثنان: ندمج بلا تكرارٍ ونُبقي أعلى امتياز (is_primary).
     await client.query(
       `INSERT INTO provider_concepts (provider_id, concept_id, is_primary)
          SELECT provider_id, $2, FALSE FROM provider_concepts WHERE concept_id = $1
@@ -1397,6 +1459,8 @@ db.mergeConcepts = async ({ fromId, toId, reason, by }) => {
   } catch (e) { await client.query('ROLLBACK'); throw e; }
   finally { client.release(); }
 };
+
+// ── الجسر: مزوّدٌ ⇄ مفهوم ────────────────────────────────────
 db.setProviderConcepts = async (providerId, items) => {
   const pid = String(providerId);
   const client = await pool.connect();
@@ -1405,6 +1469,8 @@ db.setProviderConcepts = async (providerId, items) => {
     await client.query('DELETE FROM provider_concepts WHERE provider_id = $1', [pid]);
     let primaryTaken = false;
     for (const it of items) {
+      // الاسمُ البديل يُحلّ **عند الكتابة** أيضًا: مزوّدٌ يختار مفهومًا مدموجًا
+      // يُربَط بالحيّ لا بالميّت، وإلّا وُلد الرابطُ معطوبًا.
       const cid = await db.resolveConceptAlias(it.conceptId ?? it.concept_id ?? it);
       const primary = !primaryTaken && !!(it.isPrimary ?? it.is_primary);
       if (primary) primaryTaken = true;
@@ -1418,12 +1484,196 @@ db.setProviderConcepts = async (providerId, items) => {
   finally { client.release(); }
   return db.getProviderConcepts(pid);
 };
+
 db.getProviderConcepts = async (providerId) => {
   const { rows } = await pool.query(
     `SELECT concept_id, is_primary FROM provider_concepts WHERE provider_id = $1
       ORDER BY is_primary DESC, concept_id`, [String(providerId)]);
   return rows;
 };
+
+// ── سلسلةُ التزكية ───────────────────────────────────────────
+// مَن يزكّي؟ **محلٌّ معتمَدٌ فقط** (depth 1، is_verified) وله حصّةٌ باقية.
+// نُرجع الصفَّ كاملًا ليقرّر المسارُ السببَ الدقيق للرفض — «ما عندكش الحقّ»
+// و«سالات ليك الحصّة» رسالتان مختلفتان، وخلطُهما يُحيّر الحرفيّ.
+db.getVoucher = async (userId) => {
+  const { rows } = await pool.query(
+    `SELECT * FROM providers
+      WHERE user_id = $1 AND status = 'active'
+      ORDER BY is_verified DESC, depth ASC, created_at ASC LIMIT 1`, [userId]);
+  return rows[0] || null;
+};
+
+db.countVouched = async (providerId) =>
+  Number((await pool.query('SELECT COUNT(*)::int c FROM providers WHERE vouched_by = $1', [providerId])).rows[0].c);
+
+// تُستهلَك الحصّةُ بعدد المزكَّين لا بعدّادٍ منفصل: عدّادٌ ثانٍ يفترق يومًا
+// عن الحقيقة، والحقيقةُ هنا هي الصفوف نفسُها.
+db.setProviderChain = async (providerId, { depth, vouchedBy, isVerified, inviteQuota }) => {
+  const { rows } = await pool.query(
+    `UPDATE providers SET depth = $2, vouched_by = $3, is_verified = $4, invite_quota = $5
+      WHERE id = $1 RETURNING *`,
+    [providerId, depth, vouchedBy || null, !!isVerified, inviteQuota || 0]);
+  return rows[0];
+};
+
+db.listVouchedBy = async (providerId) =>
+  (await pool.query(
+    `SELECT id, name, city, phone, is_verified, depth, created_at
+       FROM providers WHERE vouched_by = $1 ORDER BY created_at DESC`, [providerId])).rows;
+
+// ── تغطيةُ المفاهيم: «وين نمشي غدًا؟» ────────────────────────
+//
+//   بعد عشرين زيارةً يصير السؤالُ عمليًّا: أيُّ مجالٍ ناقصٌ عندنا؟ والجوابُ
+//   لا يُخمَّن — يُحسَب من ثلاثة أرقامٍ خام:
+//     • كم محلًّا يقدّم هذا المفهوم؟        (provider_concepts)
+//     • كم مرّةً طلبه الناسُ ولم نجد؟       (need_requests)
+//     • كم مرادفًا وكم سؤالَ تسعيرٍ نعرف؟   (custom_concepts)
+//
+//   والفجوةُ = طلبٌ عالٍ مع تغطيةٍ منخفضة. هذا هو الترتيبُ الذي يقول لك
+//   «امشِ غدًا لمحلّات الورد» بدل أن تختار عشوائيًّا.
+//
+//   وبلا بياناتٍ يُرجع لا شيء — وهو الصدقُ الوحيد الممكن عند الصفر. عرضُ
+//   نجومٍ محسوبةٍ من العدم يُوهم بمعرفةٍ ليست موجودة.
+db.conceptCoverage = async ({ limit = 40 } = {}) => {
+  const { rows } = await pool.query(`
+    WITH shops AS (
+      SELECT pc.concept_id AS id, COUNT(DISTINCT pc.provider_id)::int AS providers
+        FROM provider_concepts pc GROUP BY pc.concept_id
+    ),
+    demand AS (
+      -- الطلبُ غيرُ الملبّى: مَن كتب حاجته ولم يجد. مفتاحُه نصُّ المفهوم.
+      SELECT concept AS label, COUNT(*)::int AS unmet
+        FROM need_requests WHERE status = 'open' AND concept IS NOT NULL
+       GROUP BY concept
+    ),
+    known AS (
+      SELECT id,
+             COALESCE((SELECT SUM(jsonb_array_length(v)) FROM jsonb_each(variants) AS t(k, v)), 0)::int AS variants,
+             COALESCE(jsonb_array_length(asks->'seek'), 0)::int AS asks,
+             concept->>'ar' AS label
+        FROM custom_concepts
+    )
+    SELECT COALESCE(s.id, k.id) AS concept_id,
+           COALESCE(k.label, COALESCE(s.id, k.id)) AS label,
+           COALESCE(s.providers, 0) AS providers,
+           COALESCE(k.variants, 0)  AS variants,
+           COALESCE(k.asks, 0)      AS asks,
+           COALESCE(d.unmet, 0)     AS unmet
+      FROM shops s
+      FULL OUTER JOIN known k ON k.id = s.id
+      LEFT JOIN demand d ON d.label = COALESCE(k.label, s.id)
+     ORDER BY COALESCE(d.unmet, 0) DESC, COALESCE(s.providers, 0) ASC
+     LIMIT $1`, [Math.min(limit, 200)]);
+
+  // النضجُ رقمٌ مشتقٌّ من الخام، لا وسمٌ يُكتب. صفرُ محلّاتٍ = صفرُ نضجٍ
+  // مهما كثرت الكلمات: المعرفةُ بلا مَن يُشبع الحاجة لا تنفع أحدًا.
+  return rows.map(r => ({
+    ...r,
+    maturity: r.providers === 0 ? 0
+      : Math.min(5, Math.round((Math.min(r.providers, 10) / 10) * 3
+        + (r.variants >= 8 ? 1 : 0) + (r.asks >= 2 ? 1 : 0))),
+    gap: r.unmet > 0 && r.providers === 0 ? 'urgent'
+      : r.unmet > r.providers ? 'thin' : null,
+  }));
+};
+
+// ── أنواعُ التحقّق ───────────────────────────────────────────
+const VERIF_KINDS = ['business', 'identity', 'location', 'phone'];
+
+// كاتبٌ **واحد**: يسجّل الواقعة، ثمّ يشتقّ `is_verified` منها. لو كتب أحدٌ
+// `is_verified` مباشرةً لصار مصدرًا ثانيًا للحقيقة يفترق عن الوقائع يومًا.
+db.verifyProvider = async (providerId, { kind, by, note } = {}) => {
+  if (!VERIF_KINDS.includes(kind)) throw new Error(`نوعُ تحقّقٍ غيرُ معروف: ${kind}`);
+  await pool.query(
+    `INSERT INTO provider_verifications (provider_id, kind, verified_by, note)
+     VALUES ($1,$2,$3,$4)
+     ON CONFLICT (provider_id, kind) DO UPDATE SET verified_by = EXCLUDED.verified_by,
+       verified_at = NOW(), note = EXCLUDED.note`, [providerId, kind, by || null, note || null]);
+  await db.syncVerifiedFlag(providerId);
+  return db.getProviderVerifications(providerId);
+};
+
+db.unverifyProvider = async (providerId, kind) => {
+  await pool.query('DELETE FROM provider_verifications WHERE provider_id = $1 AND kind = $2', [providerId, kind]);
+  await db.syncVerifiedFlag(providerId);
+  return db.getProviderVerifications(providerId);
+};
+
+// «معتمَد» = تأكّدنا أنّ المحلَّ موجودٌ فعلًا. باقي الأنواع تُثري ولا تُعتمِد:
+// معرفةُ هويّةِ الرجل لا تعني أنّ المحلّ قائم، والعكس.
+db.syncVerifiedFlag = async (providerId) => {
+  await pool.query(
+    `UPDATE providers p SET is_verified = EXISTS (
+       SELECT 1 FROM provider_verifications v
+        WHERE v.provider_id = p.id AND v.kind = 'business')
+      WHERE p.id = $1`, [providerId]);
+};
+
+db.getProviderVerifications = async (providerId) =>
+  (await pool.query(
+    `SELECT kind, verified_by, verified_at, note FROM provider_verifications
+      WHERE provider_id = $1 ORDER BY verified_at DESC`, [providerId])).rows;
+
+// «وريني اللي زرتُهم أنا بنفسي» · «اللي تأكّدنا من موقعهم» — الجملُ التي
+// كان البتُّ الواحد يمنعها.
+db.providersByVerification = async ({ kinds = ['business'], city, limit = 50 } = {}) => {
+  const { rows } = await pool.query(
+    `SELECT p.*, array_agg(v.kind) AS kinds
+       FROM providers p JOIN provider_verifications v ON v.provider_id = p.id
+      WHERE v.kind = ANY($1) AND ($2::text IS NULL OR p.city = $2) AND p.status = 'active'
+      GROUP BY p.id
+     HAVING COUNT(DISTINCT v.kind) >= $3
+      ORDER BY p.rating_avg DESC NULLS LAST LIMIT $4`,
+    [kinds, city || null, kinds.length, Math.min(limit, 200)]);
+  return rows;
+};
+
+// تاريخُ زياراتِ محلٍّ بعينه — الزيارةُ تُعاد وتُقارَن.
+db.listVisitsForProvider = async (providerId) =>
+  (await pool.query(
+    `SELECT id, agent_id, created_at, duration_sec, gps_lat, gps_lng,
+            jsonb_array_length(customer_lines) AS lines,
+            jsonb_array_length(words) AS words,
+            jsonb_array_length(pricing_asks) AS asks
+       FROM field_visits WHERE provider_id = $1 ORDER BY created_at DESC`, [providerId])).rows;
+
+// ── الزيارة الميدانيّة ───────────────────────────────────────
+// يُجبَر الحرفيُّ على تغيير الرمز المؤقّت أوّلَ دخول. بلا هذا يبقى رمزٌ
+// يعرفه شخصان على حسابِ إنسانٍ حقيقيّ — والحسابُ أُنشئ نيابةً عنه لا بطلبه.
+db.setMustChangePassword = async (userId, v = true) => {
+  await pool.query('UPDATE users SET must_change_password = $2 WHERE id = $1', [userId, !!v]);
+};
+
+db.createFieldVisit = async (v) => {
+  const id = uid();
+  const j = (x) => JSON.stringify(x || []);
+  const { rows } = await pool.query(
+    `INSERT INTO field_visits (id, provider_id, agent_id, services_raw, concepts, customer_lines, pricing_asks, words, notes, gps_lat, gps_lng, duration_sec)
+     VALUES ($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11,$12) RETURNING *`,
+    [id, v.providerId || null, v.agentId || null, v.servicesRaw || '',
+     j(v.concepts), j(v.customerLines), j(v.pricingAsks), j(v.words), v.notes || '',
+     v.gpsLat ?? null, v.gpsLng ?? null, v.durationSec ?? null]);
+  return rows[0];
+};
+
+db.listFieldVisits = async (limit = 50) =>
+  (await pool.query(`SELECT * FROM field_visits ORDER BY created_at DESC LIMIT $1`, [Math.min(limit, 200)])).rows;
+
+// «شنو تعلَّمنا من السوق؟» — الرقمُ الذي يجعل كلَّ نزولٍ ميدانيٍّ استثمارًا
+// مرئيًّا لا مجرّدَ محلٍّ يُضاف. يُحسَب من الخام، فلا يمكن تضخيمُه.
+db.fieldHarvest = async () => {
+  const { rows } = await pool.query(`
+    SELECT COUNT(*)::int                                        AS visits,
+           COALESCE(SUM(jsonb_array_length(customer_lines)),0)::int AS lines,
+           COALESCE(SUM(jsonb_array_length(pricing_asks)),0)::int   AS asks,
+           COALESCE(SUM(jsonb_array_length(words)),0)::int          AS words,
+           COALESCE(SUM(jsonb_array_length(concepts)),0)::int       AS links
+      FROM field_visits`);
+  return rows[0];
+};
+
+// «شكون كيبيع الورد فالدار البيضاء؟» — الجملةُ التي لم يكن النظام يقدر عليها.
 db.providersByConcept = async ({ conceptId, city, limit = 20 } = {}) => {
   const cid = await db.resolveConceptAlias(conceptId);
   const { rows } = await pool.query(
@@ -1437,10 +1687,13 @@ db.providersByConcept = async ({ conceptId, city, limit = 20 } = {}) => {
       LIMIT $3`, [cid, city || null, Math.min(limit, 100)]);
   return rows;
 };
+
 db.deleteCustomConcept = async (id) => {
   const { rowCount } = await pool.query('DELETE FROM custom_concepts WHERE id = $1', [id]);
   return rowCount > 0;
 };
+
+// أعلى المدن نشاطًا (من search_daily — بياناتٌ موجودةٌ أصلًا).
 db.getTopCities = async ({ days = 30, limit = 8 } = {}) => {
   const { rows } = await pool.query(
     `SELECT COALESCE(city, 'غير محدّدة') AS city,
@@ -1453,6 +1706,8 @@ db.getTopCities = async ({ days = 30, limit = 8 } = {}) => {
   );
   return rows;
 };
+
+// أكثر الخدمات طلبًا.
 db.getTopTerms = async ({ days = 30, limit = 10 } = {}) => {
   const { rows } = await pool.query(
     `SELECT term, SUM(total)::int AS total, SUM(hits)::int AS hits
@@ -1463,6 +1718,11 @@ db.getTopTerms = async ({ days = 30, limit = 10 } = {}) => {
   );
   return rows;
 };
+
+// عباراتٌ رائجة **صالحةٌ للعرض العلنيّ**. البحث نصٌّ حرّ: قد يكتب أحدُهم
+// رقم هاتفه أو عنوان داره. لذلك ثلاثةُ حرّاس قبل أن تُعرَض لأيّ زائر:
+//   ① لا أرقام إطلاقًا (هاتف/رقم منزل)  ② قصيرة (لا جملة شخصيّة طويلة)
+//   ③ بحثها ثلاثةٌ فأكثر — ما يكتبه واحدٌ فقط قد يدلّ عليه.
 db.getPublicTrendingTerms = async ({ days = 7, limit = 8, minCount = 3 } = {}) => {
   const { rows } = await pool.query(
     `SELECT term, SUM(total)::int AS total
@@ -1477,6 +1737,8 @@ db.getPublicTrendingTerms = async ({ days = 7, limit = 8, minCount = 3 } = {}) =
   );
   return rows;
 };
+
+// جودة البحث اليومية المجهّلة (DR-0003 §6.b) — عدّاد hit/miss بلا هوية.
 db.recordSearchDay = async ({ city, hit }) => {
   await pool.query(
     `INSERT INTO search_daily (day, city, total, hits, misses)
@@ -1501,6 +1763,8 @@ db.getSearchQuality = async ({ days = 30 } = {}) => {
   const successRate = r.total ? Math.round((r.hits / r.total) * 1000) / 1000 : 0;
   return { ...r, successRate, days };
 };
+
+// Learning Loop (DR-0004) — عدّاد مرحلة قمع يومي مجهّل (بلا هوية مستخدم).
 db.recordLearningStage = async (stage) => {
   await pool.query(
     `INSERT INTO learning_daily (day, stage, count) VALUES (CURRENT_DATE, $1, 1)
@@ -1519,7 +1783,8 @@ db.getLearningStages = async ({ days = 30 } = {}) => {
   const m = {}; for (const r of rows) m[r.stage] = r.count; return m;
 };
 
-// ── Demand Capture ─────────────────────────────────────────────
+// ── Demand Capture (need_requests) ────────────────────────────
+// «ما لقيناش» ليست نهايةً بل بداية: نلتقط الحاجة لنعود بها لصاحبها.
 db.createNeedRequest = async (n) => {
   const id = n.id || uid();
   const { rows } = await pool.query(
@@ -1530,6 +1795,8 @@ db.createNeedRequest = async (n) => {
   );
   return rows[0];
 };
+
+// الطلبات المفتوحة مجمّعةً: «١٧ زبونًا كيقلّبو على سبّاك فسلا» — مادّةُ الاستقطاب.
 db.needDemand = async ({ days = 30, limit = 50 } = {}) => {
   const { rows } = await pool.query(
     `SELECT COALESCE(concept,'—') AS concept, COALESCE(city,'—') AS city,
@@ -1544,6 +1811,7 @@ db.needDemand = async ({ days = 30, limit = 50 } = {}) => {
   );
   return rows;
 };
+
 db.listNeedRequests = async ({ status = 'open', concept, city, limit = 100 } = {}) => {
   const { rows } = await pool.query(
     `SELECT * FROM need_requests
@@ -1555,6 +1823,7 @@ db.listNeedRequests = async ({ status = 'open', concept, city, limit = 100 } = {
   );
   return rows;
 };
+
 db.updateNeedRequest = async (id, { status, matchedBusiness }) => {
   const { rows } = await pool.query(
     `UPDATE need_requests

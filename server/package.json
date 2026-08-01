@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon --watch . --ext js index.js",
-    "test": "node --test test/secrets.test.js test/validate.test.js test/engines.test.js test/learning-loop.test.js test/concept-core.test.js",
+    "test": "node --test test/secrets.test.js test/validate.test.js test/engines.test.js test/learning-loop.test.js test/concept-core.test.js test/field-visit.test.js",
     "postinstall": "echo 'Dependencies installed'"
   },
   "dependencies": {
@@ -26,8 +26,7 @@
     "multer": "^2.0.1",
     "web-push": "^3.6.7",
     "ws": "^8.14.2",
-    "nodemailer": "^6.9.14",
-    "node-fetch": "^2.7.0"
+    "nodemailer": "^6.9.14"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

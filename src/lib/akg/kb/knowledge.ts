@@ -97,9 +97,44 @@ export interface ConceptResolution { id: string; category: string; concept: Reco
 
 // قواعد تركيبيّة: مجموعاتٌ يجب أن تُصيب كلُّها (فعل + مفعول…) ⇒ خدمة. تحلّ ترتيب
 // الكلمات وتخلّلها: «يغسل ليا الطوموبيل» · «الماكينة ديال الخياطة». لها الأولويّة.
-const CAR = ['طوموبيل', 'طونوبيل', 'طموبيل', 'سياره', 'سيارات', 'لوطو', 'كرهبه', 'voiture', 'auto', 'car', 'tomobil'];
+// المركبة: كلُّ ما يُغسَل ويُصبَغ ويُصلَح. أُضيفت الشاحنةُ والدرّاجة من جردٍ
+// ميدانيٍّ في محلّ غسل — كان «بغيت نغسل الكاميو» لا يُفهَم أصلًا.
+const CAR = ['طوموبيل', 'طونوبيل', 'طموبيل', 'سياره', 'سيارات', 'لوطو', 'كرهبه',
+  'كاميو', 'كمييو', 'كاميون', 'شاحنه', 'فان', 'طاكسي',
+  'voiture', 'auto', 'car', 'tomobil', 'camion', 'truck'];
+
+// قِطَعُ المركبة. لا تُصبح مفاهيمَ مستقلّة (القاعدة ①: القطعةُ ليست خدمة)،
+// لكنّها **قرينةٌ** أنّ الحديث عن مركبة: «شرطة فالبارشوك» بلا ذكر طوموبيل.
+const CAR_PART = ['بارشوك', 'البارشوك', 'ليزان', 'لزان', 'فيروج', 'الفيروج', 'كابو', 'الكابو',
+  'الباب القدامي', 'الباب لوراني', 'لوراني', 'القدامي', 'الجناح', 'الرفراف', 'الصدام',
+  'كوسان', 'الكوسان', 'الكوسانات', 'بلافون', 'البلافون', 'الموكيط', 'موكيط', 'طابلو',
+  'pare choc', 'aile', 'capot', 'coussin', 'plafond', 'moquette'];
+
+// أفعالُ الخدمة تغلب اسمَ المركبة. بدون هذه القواعد كان `car` مصرفًا يبتلع
+// كلَّ جملةٍ لم تُطابَق: «بغيت بوليساج الطوموبيل» ⇒ سيّارة، فيُرسَل مَن يريد
+// تلميعًا إلى سوق شراء السيّارات. والسببُ بنيويّ: الفهرس يفوز فيه الأطول،
+// و«طوموبيل» أطولُ من «نرش» — فالاسمُ يغلب الفعل دائمًا. القاعدةُ التركيبيّة
+// تُصحّح ذلك لأنّها تُفحَص قبل الفهرس وتشترط الاثنين معًا.
+const WASH_V = ['غسل', 'يغسل', 'نغسل', 'تغسيل', 'غسله', 'غسلة', 'نظف', 'ينظف', 'نضف', 'نقي',
+  'نرش', 'يرش', 'رشة', 'سبيري', 'نسبيري', 'شامبوان',
+  'lavage', 'laver', 'wash', 'clean', 'nettoyage', 'rincage'];
+const DIRT_N = ['موسخ', 'موسخه', 'مسخه', 'متسخه', 'وسخ', 'طبعه', 'بقعه', 'تراب'];
+
 const COMPOSITE: { id: string; category: string; all: string[][] }[] = [
-  { id: 'car_wash', category: 'automotive', all: [['غسل', 'يغسل', 'نغسل', 'تغسيل', 'نظف', 'ينظف', 'نضف', 'lavage', 'laver', 'wash', 'clean'], CAR] },
+  // الأخصُّ أوّلًا: «لداخل» تُحوّل الغسلَ إلى خدمةٍ أخرى بثمنٍ ووقتٍ مختلفَين.
+  // لو جاءت قاعدةُ الغسل العامّ قبلها لابتلعت «بغيت نسبيري لداخل» — والقواعدُ
+  // تُفحَص بالترتيب، فالترتيبُ هنا **جزءٌ من المعنى** لا تفصيلُ كتابة.
+  { id: 'car_interior_cleaning', category: 'automotive', all: [WASH_V, ['لداخل', 'الداخل', 'داخلي', 'interieur', 'الكوسان', 'كوسان', 'بلافون', 'الموكيط', 'موكيط']] },
+  { id: 'car_wash', category: 'automotive', all: [WASH_V, CAR] },
+  { id: 'car_wash', category: 'automotive', all: [DIRT_N, CAR] },       // «طوموبيل عندي مسخة»
+  { id: 'car_wash', category: 'automotive', all: [WASH_V, CAR_PART] },  // «نغسل الكوسانات»
+  { id: 'car_polishing', category: 'automotive', all: [['بوليش', 'بوليساج', 'تلميع', 'نلمع', 'لمع', 'polissage', 'lustrage', 'polish'], [...CAR, ...CAR_PART]] },
+  { id: 'car_painting', category: 'automotive', all: [['صباغه', 'صباغة', 'نصبغ', 'يصبغ', 'صبغ', 'لبريون', 'لبرييون', 'ابريون', 'peinture', 'apprêt', 'appret', 'paint'], [...CAR, ...CAR_PART]] },
+  // متناظرةٌ مع صباغة السيّارة: الفعلُ نفسُه، والمفعولُ يحسم. بلا هذه كانت
+  // «بغيت نصبغ الدار» تسقط في صباغة السيّارات — أو لا تُفهَم أصلًا.
+  { id: 'painter', category: 'home_services', all: [['صباغه', 'صباغة', 'نصبغ', 'يصبغ', 'صبغ', 'مبيض', 'نبيض', 'peinture'], ['دار', 'الدار', 'بيت', 'البيت', 'حيط', 'الحيوط', 'شقه', 'الشقه', 'سقف', 'غرفه', 'الصالون', 'محل', 'المحل']] },
+  { id: 'car_wrapping', category: 'automotive', all: [['ستيكاج', 'سطيكاج', 'ستيكرز', 'تغليف', 'كوفرينغ', 'تفميم', 'stickage', 'covering', 'wrapping'], [...CAR, ...CAR_PART, 'زاج', 'الزاج']] },
+  { id: 'car_body_repair', category: 'automotive', all: [['شرطه', 'خدشه', 'خدش', 'ضربه', 'بوسه', 'صدمه', 'طق', 'مهرس', 'raye', 'rayure', 'bosse', 'dent'], [...CAR, ...CAR_PART]] },
   { id: 'mechanic', category: 'automotive', all: [['يصلح', 'صلح', 'نصلح', 'مصلح', 'عطل', 'عطب', 'خربان', 'reparer', 'repair', 'fix', 'panne', 'frein'], CAR] },
   { id: 'sewing_machine_repair', category: 'home_services', all: [['ماكينه', 'ماكينة', 'machine', 'makina'], ['خياطه', 'خياطة', 'couture', 'sewing', 'خيط']] },
 ];
@@ -178,6 +213,53 @@ export function resolveConcept(text: string): ConceptResolution | null {
     }
   }
   return null;
+}
+
+// resolveConcepts (جمع) — **كلُّ** ما تحمله الجملة، لا أوّلَ ما تصادف.
+//
+// جاء من زيارةٍ ميدانيّةٍ لمحلّ غسلٍ في الدار البيضاء. قال صاحبُه:
+//   «غسل السيارات، تلميع، طولوري، صباغة، غسل الزرابي، غسل كامل، المحرك»
+// سبعُ خدمات — وأرجع المحرّكُ `car_wash` وحدَها، لأنّ resolveConcept يقف
+// عند أوّل إصابة. فيُسجَّل المحلُّ بخدمةٍ من سبع، وستُّ خدماتٍ لا يجدها أحد.
+//
+// وهذا ما يجعل الجسرَ (provider_concepts) قابلًا للتعبئة تلقائيًّا من جملةٍ
+// واحدة: نقترح على صاحب المحلّ ما فهمناه، ويُصحّح — بدل أن نطلب منه أن
+// يختار من قائمةٍ من ١٨٣ مفهومًا.
+//
+// المطابقةُ **غيرُ متداخلة**: كلُّ مقطعٍ من النصّ يُستهلَك مرّةً واحدة، وإلّا
+// أرجعت «غسل السيارات» مفهومَي الغسل والسيّارة معًا فتضخّم الضجيج.
+export function resolveConcepts(text: string, max = 8): ConceptResolution[] {
+  if (!text) return [];
+  const out: ConceptResolution[] = [];
+  const seen = new Set<string>();
+  const ta = normArabic(text);
+  const tda = normArabic(deArabizi(text));
+  const taken: Array<[number, number]> = [];       // مقاطعُ استُهلكت
+  const free = (at: number, len: number) => !taken.some(([s, e]) => at < e && at + len > s);
+
+  for (const src of [ta, tda]) {
+    if (!src) continue;
+    for (const { term, c } of arIndex) {
+      if (out.length >= max) break;
+      if (seen.has(c.id)) continue;
+      const at = src.indexOf(term);
+      if (at < 0 || !free(at, term.length)) continue;
+      taken.push([at, at + term.length]);
+      seen.add(c.id);
+      out.push({ id: c.id, category: categoryFor(c.id, c.category), concept: c.concept, language: 'darija' });
+    }
+  }
+  const tl = normLatin(text);
+  if (tl) {
+    for (const { term, c } of latIndex) {
+      if (out.length >= max) break;
+      if (seen.has(c.id)) continue;
+      if (!new RegExp(`(^|\\s)${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`).test(tl)) continue;
+      seen.add(c.id);
+      out.push({ id: c.id, category: categoryFor(c.id, c.category), concept: c.concept, language: 'en' });
+    }
+  }
+  return out;
 }
 
 // ── المدن: فهرسُ أسماءٍ وأسماءٍ بديلةٍ (عربيّة/لاتينيّة) → مدينة قانونيّة ──
