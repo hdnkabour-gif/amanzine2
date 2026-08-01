@@ -44,7 +44,7 @@ const defaultSettings = {
     systemPrompt: 'أنت مساعد بيع ذكي لمتجر مغربي. تحدث بالدارجة المغربية بأسلوب ودود واحترافي. ساعد الزبائن في الطلب والاستفسار عن المنتجات.',
   },
   delivery: {
-    providers: [],
+    // شركاتُ التوصيل مصدرُها جدول delivery_providers وحده — لا نسخةَ هنا.
     defaultProvider: '',
     autoSendOnApproval: false,
     notifyCustomerOnShip: true,

@@ -95,8 +95,14 @@ function _mapOrder(o) {
     deliveryProvider: o.delivery_provider || '',
     trackingNumber:   o.tracking_number  || '',
     livoOrderId:      o.livo_order_id    || '',
+    /** مُعرِّفُ الشحنة عند أيّ مزوّد — يُفضَّل على livoOrderId المسمّى باسم شركة. */
+    providerShipmentId: o.provider_shipment_id || o.livo_order_id || '',
     deliveryStatus:   o.delivery_status  || '',
     deliverySyncedAt: o.delivery_synced_at ? new Date(o.delivery_synced_at).toISOString() : null,
+    deliveryFee:      +o.delivery_fee     || 0,
+    codFee:           +o.cod_fee          || 0,
+    providerId:       o.provider_id       || '',
+    providerCityId:   o.provider_city_id  || '',
     needsReview:      !!o.needs_review,
     reviewReason:     o.review_reason    || '',
     customerCode:     o.customer_code    || '',
@@ -138,9 +144,18 @@ function _mapDelivery(p) {
     cost:         +p.cost          || 0,
     enabled:      !!p.enabled,
     apiType:      p.api_type       || '',
-    apiKey:       p.api_key        || '',
+    // فكُّ التشفير passthrough للقيم القديمة غير المشفّرة ⇒ لا ينكسر صفٌّ قائم.
+    apiKey:       secrets.decrypt(p.api_key || ''),
     apiEndpoint:  p.api_endpoint   || '',
     webhookUrl:   p.webhook_url    || '',
+    logo:         p.logo           || '🚚',
+    mode:         p.mode           || 'api',
+    loginUrl:     p.login_url      || '',
+    username:     p.username       || '',
+    password:     secrets.decrypt(p.password || ''),
+    livraisonBonPage: p.livraison_bon_page || '',
+    ramassagePage:    p.ramassage_page     || '',
+    fields:       (p.fields && typeof p.fields === 'object') ? p.fields : {},
     createdAt:    p.created_at ? new Date(p.created_at).toISOString() : now(),
   };
 }
@@ -374,8 +389,9 @@ const db = {
     const { rows } = await pool.query(
       `INSERT INTO orders
         (id,user_id,customer_id,customer_name,customer_phone,city,address,
-         items,total,status,source,notes,customer_code)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+         items,total,status,source,notes,customer_code,
+         delivery_fee,cod_fee,provider_id,provider_city_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
       [
         id, o.userId, o.customerId || '', o.customerName || '',
         o.customerPhone || '', o.city || '', o.address || '',
@@ -385,6 +401,8 @@ const db = {
         o.source || 'manual',
         o.notes || '',
         customerCode,
+        +o.deliveryFee || 0, +o.codFee || 0,
+        o.providerId || '', o.providerCityId || '',
       ]
     );
     return _mapOrder(rows[0]);
@@ -400,7 +418,10 @@ const db = {
       needsReview:      'needs_review',     reviewReason:    'review_reason',
       customerCode:     'customer_code',
       livoOrderId:      'livo_order_id',    deliveryStatus:  'delivery_status',
+      providerShipmentId: 'provider_shipment_id',
       deliverySyncedAt: 'delivery_synced_at',
+      deliveryFee:      'delivery_fee',     codFee:          'cod_fee',
+      providerId:       'provider_id',      providerCityId:  'provider_city_id',
     };
     const parts = []; const vals = [id]; let idx = 2;
     for (const [jsKey, pgCol] of Object.entries(map)) {
@@ -457,8 +478,9 @@ const db = {
       const oid = uid();
       const cc = orderData.customerCode || crypto.randomBytes(4).toString('hex').toUpperCase();
       const { rows: no } = await client.query(
-        `INSERT INTO orders (id,user_id,customer_id,customer_name,customer_phone,city,address,items,total,status,source,notes,customer_code)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+        `INSERT INTO orders (id,user_id,customer_id,customer_name,customer_phone,city,address,items,total,status,source,notes,customer_code,
+                             delivery_fee,cod_fee,provider_id,provider_city_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
         [oid, orderData.userId, customer.id, orderData.customerName || '',
          orderData.customerPhone || '', orderData.city || '', orderData.address || '',
          JSON.stringify(orderData.items || []),
@@ -466,7 +488,9 @@ const db = {
          orderData.status || 'pending',
          orderData.source || 'manual',
          orderData.notes || '',
-         cc]
+         cc,
+         +orderData.deliveryFee || 0, +orderData.codFee || 0,
+         orderData.providerId || '', orderData.providerCityId || '']
       );
       const order = _mapOrder(no[0]);
       await client.query('COMMIT');
@@ -575,28 +599,43 @@ const db = {
     return rows.map(_mapDelivery);
   },
   async upsertDeliveryProvider(p) {
+    // ملكيّةُ الصفّ تُفحص دائمًا: بدون قيد user_id كان أيُّ تاجرٍ يستطيع تمرير
+    // مُعرِّف صفِّ تاجرٍ آخر فيعيد كتابة api_endpoint/webhook_url عنده ويحوّل
+    // طلباته إلى خادمه. الفحصُ هنا وفي جملة UPDATE معًا — لا في أحدهما.
     if (p.id) {
-      const { rows: ex } = await pool.query('SELECT id FROM delivery_providers WHERE id = $1', [p.id]);
+      const { rows: ex } = await pool.query(
+        'SELECT id FROM delivery_providers WHERE id = $1 AND user_id = $2', [p.id, p.userId]
+      );
       if (ex.length) {
         await pool.query(
           `UPDATE delivery_providers SET name=$1,website_url=$2,add_order_page=$3,tracking_url=$4,
-           phone=$5,cost=$6,enabled=$7,api_type=$8,api_key=$9,api_endpoint=$10,webhook_url=$11
-           WHERE id=$12`,
+           phone=$5,cost=$6,enabled=$7,api_type=$8,api_key=$9,api_endpoint=$10,webhook_url=$11,
+           logo=$12,mode=$13,login_url=$14,username=$15,password=$16,
+           livraison_bon_page=$17,ramassage_page=$18,fields=$19
+           WHERE id=$20 AND user_id=$21`,
           [p.name, p.websiteUrl||'', p.addOrderPage||'', p.trackingUrl||'',
            p.phone||'', +(p.cost||0), p.enabled!==false,
-           p.apiType||'', p.apiKey||'', p.apiEndpoint||'', p.webhookUrl||'', p.id]
+           p.apiType||'', secrets.encrypt(p.apiKey||''), p.apiEndpoint||'', p.webhookUrl||'',
+           p.logo||'🚚', p.mode||'api', p.loginUrl||'', p.username||'', secrets.encrypt(p.password||''),
+           p.livraisonBonPage||'', p.ramassagePage||'', JSON.stringify(p.fields||{}),
+           p.id, p.userId]
         );
         return p.id;
       }
     }
+    // مُعرِّفٌ من الخادم دائمًا — لا نُعيد استعمال ما أرسله العميل، وإلّا صار
+    // تمريرُ مُعرِّفِ صفٍّ مملوكٍ لغيره اصطدامًا بالمفتاح الأساسيّ (أو استيلاءً عليه).
     const id = uid();
     await pool.query(
       `INSERT INTO delivery_providers
-        (id,user_id,name,website_url,add_order_page,tracking_url,phone,cost,enabled,api_type,api_key,api_endpoint,webhook_url)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        (id,user_id,name,website_url,add_order_page,tracking_url,phone,cost,enabled,api_type,api_key,api_endpoint,webhook_url,
+         logo,mode,login_url,username,password,livraison_bon_page,ramassage_page,fields)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
       [id, p.userId, p.name, p.websiteUrl||'', p.addOrderPage||'', p.trackingUrl||'',
-       p.phone||'', +(p.cost||0), true,
-       p.apiType||'', p.apiKey||'', p.apiEndpoint||'', p.webhookUrl||'']
+       p.phone||'', +(p.cost||0), p.enabled!==false,
+       p.apiType||'', secrets.encrypt(p.apiKey||''), p.apiEndpoint||'', p.webhookUrl||'',
+       p.logo||'🚚', p.mode||'api', p.loginUrl||'', p.username||'', secrets.encrypt(p.password||''),
+       p.livraisonBonPage||'', p.ramassagePage||'', JSON.stringify(p.fields||{})]
     );
     return id;
   },
