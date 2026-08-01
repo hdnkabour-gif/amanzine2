@@ -101,6 +101,9 @@ export interface Order {
   source: string;
   deliveryProvider: string;
   trackingNumber: string;
+  livoOrderId?: string;
+  deliveryStatus?: string;
+  deliverySyncedAt?: string | null;
   notes: string;
   needsReview: boolean;
   reviewReason?: string;

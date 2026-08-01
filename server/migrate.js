@@ -72,6 +72,13 @@ async function migrate() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )`);
 
+    // 🚚 Livo tracking sync (خطوة صغيرة إضافية — لا تمسّ أي عمود موجود):
+    // livo_order_id كان يُرسَل من delivery.js لكن يُفقَد لأنه لم يكن له عمود ولا
+    // مسار كتابة في updateOrder → استحال جلب حالة الشحنة لاحقاً. هذا يصلح ذلك.
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS livo_order_id TEXT DEFAULT ''`).catch(() => {});
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT ''`).catch(() => {});
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_synced_at TIMESTAMPTZ`).catch(() => {});
+
     await client.query(`CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -86,7 +86,7 @@ router.post('/create/:orderId', auth, async (req, res) => {
             status: 'processing',
             trackingNumber: realTracking,
             deliveryProvider: prov.name,
-            livo_order_id: result.livoOrderId,
+            livoOrderId: result.livoOrderId,
           });
           await db.addLog({
             userId: req.user.id,
@@ -295,6 +295,44 @@ router.get('/fees', auth, async (req, res) => {
     return res.status(500).json({ error: result.error || 'فشل جلب الرسوم من Livo' });
   } catch (e) {
     console.error('[delivery/fees]', e.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/delivery/track/:orderId — يجلب الحالة الحيّة من Livo عند الطلب (يدوي، بدون polling تلقائي)
+router.post('/track/:orderId', auth, async (req, res) => {
+  try {
+    const order = await db.getOrder(req.params.orderId);
+    if (!order || order.userId !== req.user.id) return res.status(404).json({ error: 'Order not found' });
+
+    if (!order.livoOrderId) {
+      return res.status(400).json({
+        error: order.deliveryProvider === 'Livo'
+          ? 'هذه الشحنة أُنشئت قبل تفعيل التتبع — لا يوجد معرف Livo محفوظ لها'
+          : 'هذا الطلب غير مرتبط بشحنة Livo حقيقية'
+      });
+    }
+
+    const providers = await db.getDeliveryProviders(req.user.id);
+    const prov = providers.find(p => p.enabled && p.apiType === 'livo');
+    if (!prov) return res.status(400).json({ error: 'لا يوجد مزود Livo مفعل' });
+
+    const result = await livoProvider.getOrderStatus(order.livoOrderId, prov.apiKey, prov.apiEndpoint || 'https://rest.livo.ma');
+    if (!result.success) return res.status(502).json({ error: result.error || 'تعذّر جلب الحالة من Livo' });
+
+    await db.updateOrder(order.id, {
+      deliveryStatus: result.status || '',
+      deliverySyncedAt: new Date().toISOString(),
+    });
+    await db.addLog({
+      userId: req.user.id, user: 'System',
+      action: `تحديث حالة Livo: ${order.id}`, details: result.status || '(بدون حالة)',
+      type: 'delivery', severity: 'info'
+    });
+
+    res.json({ success: true, status: result.status || '', history: result.history || [], trackingNumber: result.trackingNumber || order.trackingNumber });
+  } catch (e) {
+    console.error('[delivery/track]', e.message);
     res.status(500).json({ error: 'Server error' });
   }
 });

@@ -233,7 +233,7 @@ function OrdersSkeleton() {
 }
 
 export default function OrdersPage() {
-  const { orders, approveOrder, rejectOrder, shipOrder, deliverOrder, settings, notify, customers, products, addOrder, isLoading } = useStore();
+  const { orders, approveOrder, rejectOrder, shipOrder, deliverOrder, trackOrder, settings, notify, customers, products, addOrder, isLoading } = useStore();
 
   const [filter, setFilter] = useState('pending');
   const [search, setSearch] = useState('');
@@ -536,6 +536,21 @@ export default function OrdersPage() {
                         <p style={{ fontSize: 11, color: '#34d399', fontWeight: 700, marginBottom: 4 }}>رقم التتبع</p>
                         <p style={{ fontSize: 13, fontWeight: 900, fontFamily: 'monospace', color: '#34d399' }}>{order.trackingNumber}</p>
                         <p style={{ fontSize: 11.5, color: 'var(--txt-3)', marginTop: 2 }}>{order.deliveryProvider}</p>
+                        {order.livoOrderId && (
+                          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <button
+                              onClick={() => trackOrder(order.id)}
+                              className="btn btn-ghost btn-sm"
+                              style={{ fontSize: 11, padding: '4px 10px' }}
+                            >🔄 تحديث حالة الشحن</button>
+                            {order.deliveryStatus && (
+                              <span style={{ fontSize: 11.5, color: 'var(--txt-2)' }}>
+                                {order.deliveryStatus}
+                                {order.deliverySyncedAt && ` · ${new Date(order.deliverySyncedAt).toLocaleTimeString('ar')}`}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

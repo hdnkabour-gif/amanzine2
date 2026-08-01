@@ -83,6 +83,7 @@ interface StoreValue {
   rejectOrder: (id: string, reason?: string) => Promise<void>;
   shipOrder: (id: string, provider?: string, tracking?: string) => Promise<ShipResult | void>;
   deliverOrder: (id: string) => Promise<void>;
+  trackOrder: (id: string) => Promise<void>;
 
   // Conversations
   sendMessage: (convId: string, content: string, role: 'customer' | 'agent' | 'ai') => Promise<void>;
@@ -627,6 +628,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     log('النظام', `تم توصيل طلب: ${id}`, '', 'order', 'success');
   };
 
+  // تحديث حالة الشحنة يدوياً من Livo (لا يوجد polling تلقائي بعد — طلبٌ صريح من التاجر فقط)
+  const trackOrder = async (id: string) => {
+    if (!(state.isOnline && api.getToken())) { notify('warning', '⚠️ تحديث الحالة يتطلّب اتصالاً بالإنترنت'); return; }
+    try {
+      const d = await api.deliveryAPI.track(id);
+      setState(s => ({
+        ...s,
+        orders: s.orders.map(o => o.id === id
+          ? { ...o, deliveryStatus: d.status || o.deliveryStatus, deliverySyncedAt: new Date().toISOString() }
+          : o)
+      }));
+      notify('success', `🔄 حالة الشحنة الآن: ${d.status || 'بدون تحديث جديد'}`);
+      log('النظام', `تحديث حالة شحنة: ${id}`, d.status || '', 'delivery', 'success');
+    } catch (e: any) {
+      notify('error', `⚠️ تعذّر تحديث الحالة: ${e?.message || 'تحقق من الاتصال'}`);
+    }
+  };
+
   // ── CONVERSATIONS + AI ────────────────────────────────────
   const sendMessage = async (convId: string, content: string, role: 'customer' | 'agent' | 'ai') => {
     const ts = new Date().toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' });
@@ -831,7 +850,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ...state, login, register, logout, setPage, setSidebarOpen, updateSettings,
       addProduct, updateProduct, deleteProduct, adjustStock,
       addCustomer, updateCustomer, deleteCustomer,
-      addOrder, updateOrder, approveOrder, rejectOrder, shipOrder, deliverOrder,
+      addOrder, updateOrder, approveOrder, rejectOrder, shipOrder, deliverOrder, trackOrder,
       sendMessage, addConversation, updateConversation,
       addTemplate, updateTemplate, deleteTemplate,
       notify, clearNotifications, markNotifRead, log,

@@ -429,6 +429,7 @@ router.get('/track/:phone', async (req, res) => {
       id: o.id, status: o.status, statusAr: STATUS_AR[o.status] || o.status,
       total: o.total,
       trackingNumber: o.trackingNumber, deliveryProvider: o.deliveryProvider,
+      deliveryStatus: o.deliveryStatus || '',
       createdAt: o.createdAt, items: o.items,
     })));
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -446,6 +447,7 @@ router.get('/track-code/:code', async (req, res) => {
       id: order.id, status: order.status, statusAr: STATUS_AR[order.status] || order.status,
       total: order.total, customerCode: order.customerCode,
       trackingNumber: order.trackingNumber, deliveryProvider: order.deliveryProvider,
+      deliveryStatus: order.deliveryStatus || '',
       createdAt: order.createdAt, items: order.items,
       customerName: order.customerName, city: order.city,
     });

@@ -256,6 +256,7 @@ export const deliveryAPI = {
   remove:   (id: string) => request<any>('DELETE', `/delivery/${id}`),
   simulate: (orderId: string) => request<any>('POST', `/delivery/simulate/${orderId}`),
   create:   (orderId: string, data?: any) => request<any>('POST', `/delivery/create/${orderId}`, data),
+  track:    (orderId: string) => request<{ success: boolean; status: string; history: any[]; trackingNumber: string }>('POST', `/delivery/track/${orderId}`),
 };
 
 // ── AI chat via backend ───────────────────────────────────────
