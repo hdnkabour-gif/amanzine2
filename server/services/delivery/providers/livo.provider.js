@@ -26,6 +26,18 @@ async function testConnection(apiKey, baseUrl = 'https://rest.livo.ma') {
 }
 
 /**
+ * تكلفة التوصيل لدى Livo حسب المدينة (الدار البيضاء 20 درهم، خارجها 35 درهم — كما أكّده التاجر).
+ * مؤقتاً جدول ثابت بسيط؛ يمكن لاحقاً ربطه ديناميكياً بـ getFees() (GET /fees/public) أسفله.
+ * @param {string} city
+ * @returns {number}
+ */
+function livoDeliveryCost(city) {
+  const c = String(city || '').trim().toLowerCase();
+  const isCasablanca = /casa|الدار البيضاء|دار البيضاء/.test(c);
+  return isCasablanca ? 20 : 35;
+}
+
+/**
  * إنشاء شحنة في Livo
  * @param {Object} orderData - بيانات الطلب من AMANZINE
  * @param {string} apiKey - مفتاح API
@@ -41,6 +53,8 @@ async function createOrder(orderData, apiKey, baseUrl = 'https://rest.livo.ma') 
       city: orderData.city || '',
       address: orderData.address || '',
       cod: orderData.codAmount || orderData.total || 0,
+      // ⬅️ الحقل الناقص: Livo كانت ترفض الطلب بخطأ "cost" is required
+      cost: orderData.cost != null ? orderData.cost : livoDeliveryCost(orderData.city),
       notes: orderData.notes || '',
     };
 
@@ -171,4 +185,5 @@ module.exports = {
   getOrderStatus,
   getCities,
   getFees,
+  livoDeliveryCost,
 };
