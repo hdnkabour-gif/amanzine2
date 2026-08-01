@@ -102,8 +102,16 @@ export interface Order {
   deliveryProvider: string;
   trackingNumber: string;
   livoOrderId?: string;
+  /** مُعرِّفُ الشحنة عند أيّ مزوّد — البديلُ العامّ لـ livoOrderId. */
+  providerShipmentId?: string;
   deliveryStatus?: string;
   deliverySyncedAt?: string | null;
+  /** ثمنُ التوصيل كما احتسبه الخادم — مفصولًا عن `total` كي يظهر الربح الحقيقيّ. */
+  deliveryFee?: number;
+  codFee?: number;
+  /** مُعرِّفا المزوّد ومدينته عنده — اسمُ المدينة النصّيّ لا يكفي لإعادة بناء الشحنة. */
+  providerId?: string;
+  providerCityId?: string;
   notes: string;
   needsReview: boolean;
   reviewReason?: string;
@@ -251,12 +259,14 @@ export interface DeliveryProviderConfig {
   apiKey: string;
   apiEndpoint: string;
   apiType?: string;
-  dbId?: string;   // معرّف الصف الحقيقي في جدول delivery_providers (عند الاتصال بالخادم)
+  webhookUrl?: string;
   fields: Record<string, string>;
 }
 
 export interface DeliverySettings {
-  providers: DeliveryProviderConfig[];
+  // لا `providers` هنا: مصدرُها الوحيد جدولُ delivery_providers على الخادم،
+  // ويُقرأ عبر `deliveryProviders` في المخزن. تكرارُها هنا كان يُنتج نسختين
+  // تتباعدان — الواجهةُ ترى شركةً «مفعّلة» والخادمُ لا يعرفها.
   defaultProvider: string;
   autoSendOnApproval: boolean;
   notifyCustomerOnShip: boolean;
@@ -376,7 +386,7 @@ export const defaultSettings: AppSettings = {
     autoClose: false, autoCloseMinutes: 30,
   },
   delivery: {
-    providers: [], defaultProvider: '',
+    defaultProvider: '',
     autoSendOnApproval: false, notifyCustomerOnShip: true,
     trackingUrlTemplate: '',
   },
