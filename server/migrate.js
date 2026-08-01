@@ -144,6 +144,23 @@ async function migrate() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`);
 
+    // 🚚 مصدرُ حقيقةٍ واحد: كان الجدول يعرف الحقول التقنيّة فقط، فبقيت بقيّةُ
+    // تعريف الشركة (الشعار، وضعُ التشغيل، صفحاتُ الموقع، بيانات الدخول) حبيسةَ
+    // `settings.delivery.providers` في المتصفّح. النتيجة: ثلاثةٌ من أربعة مسارات
+    // إضافةٍ لا تصل الخادمَ أصلًا ⇒ «لا توجد شركة توصيل مفعّلة» رغم ظهورها مفعّلة.
+    for (const col of [
+      `logo TEXT DEFAULT ''`,
+      `mode TEXT DEFAULT 'api'`,
+      `login_url TEXT DEFAULT ''`,
+      `username TEXT DEFAULT ''`,
+      `password TEXT DEFAULT ''`,
+      `livraison_bon_page TEXT DEFAULT ''`,
+      `ramassage_page TEXT DEFAULT ''`,
+      `fields JSONB DEFAULT '{}'`,
+    ]) {
+      await client.query(`ALTER TABLE delivery_providers ADD COLUMN IF NOT EXISTS ${col}`).catch(() => {});
+    }
+
     await client.query(`CREATE TABLE IF NOT EXISTS broadcasts (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

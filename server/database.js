@@ -142,9 +142,18 @@ function _mapDelivery(p) {
     cost:         +p.cost          || 0,
     enabled:      !!p.enabled,
     apiType:      p.api_type       || '',
-    apiKey:       p.api_key        || '',
+    // فكُّ التشفير passthrough للقيم القديمة غير المشفّرة ⇒ لا ينكسر صفٌّ قائم.
+    apiKey:       secrets.decrypt(p.api_key || ''),
     apiEndpoint:  p.api_endpoint   || '',
     webhookUrl:   p.webhook_url    || '',
+    logo:         p.logo           || '🚚',
+    mode:         p.mode           || 'api',
+    loginUrl:     p.login_url      || '',
+    username:     p.username       || '',
+    password:     secrets.decrypt(p.password || ''),
+    livraisonBonPage: p.livraison_bon_page || '',
+    ramassagePage:    p.ramassage_page     || '',
+    fields:       (p.fields && typeof p.fields === 'object') ? p.fields : {},
     createdAt:    p.created_at ? new Date(p.created_at).toISOString() : now(),
   };
 }
@@ -597,11 +606,16 @@ const db = {
       if (ex.length) {
         await pool.query(
           `UPDATE delivery_providers SET name=$1,website_url=$2,add_order_page=$3,tracking_url=$4,
-           phone=$5,cost=$6,enabled=$7,api_type=$8,api_key=$9,api_endpoint=$10,webhook_url=$11
-           WHERE id=$12 AND user_id=$13`,
+           phone=$5,cost=$6,enabled=$7,api_type=$8,api_key=$9,api_endpoint=$10,webhook_url=$11,
+           logo=$12,mode=$13,login_url=$14,username=$15,password=$16,
+           livraison_bon_page=$17,ramassage_page=$18,fields=$19
+           WHERE id=$20 AND user_id=$21`,
           [p.name, p.websiteUrl||'', p.addOrderPage||'', p.trackingUrl||'',
            p.phone||'', +(p.cost||0), p.enabled!==false,
-           p.apiType||'', p.apiKey||'', p.apiEndpoint||'', p.webhookUrl||'', p.id, p.userId]
+           p.apiType||'', secrets.encrypt(p.apiKey||''), p.apiEndpoint||'', p.webhookUrl||'',
+           p.logo||'🚚', p.mode||'api', p.loginUrl||'', p.username||'', secrets.encrypt(p.password||''),
+           p.livraisonBonPage||'', p.ramassagePage||'', JSON.stringify(p.fields||{}),
+           p.id, p.userId]
         );
         return p.id;
       }
@@ -611,11 +625,14 @@ const db = {
     const id = uid();
     await pool.query(
       `INSERT INTO delivery_providers
-        (id,user_id,name,website_url,add_order_page,tracking_url,phone,cost,enabled,api_type,api_key,api_endpoint,webhook_url)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        (id,user_id,name,website_url,add_order_page,tracking_url,phone,cost,enabled,api_type,api_key,api_endpoint,webhook_url,
+         logo,mode,login_url,username,password,livraison_bon_page,ramassage_page,fields)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
       [id, p.userId, p.name, p.websiteUrl||'', p.addOrderPage||'', p.trackingUrl||'',
-       p.phone||'', +(p.cost||0), true,
-       p.apiType||'', p.apiKey||'', p.apiEndpoint||'', p.webhookUrl||'']
+       p.phone||'', +(p.cost||0), p.enabled!==false,
+       p.apiType||'', secrets.encrypt(p.apiKey||''), p.apiEndpoint||'', p.webhookUrl||'',
+       p.logo||'🚚', p.mode||'api', p.loginUrl||'', p.username||'', secrets.encrypt(p.password||''),
+       p.livraisonBonPage||'', p.ramassagePage||'', JSON.stringify(p.fields||{})]
     );
     return id;
   },

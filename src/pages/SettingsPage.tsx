@@ -158,6 +158,7 @@ export default function SettingsPage() {
     settings, updateSettings, notify, setPage,
     addTemplate, updateTemplate, deleteTemplate,
     auditLogs, exportData, importData, resetToDemo,
+    deliveryProviders,
   } = useStore();
 
   const [tab, setTab]   = useState<Tab>('general');
@@ -699,7 +700,7 @@ export default function SettingsPage() {
             <Field label="شركة التوصيل الافتراضية">
               <select className="select" value={(s.delivery as any).defaultProvider||''} onChange={e=>updateSettings('delivery',{...s.delivery,defaultProvider:e.target.value} as any)}>
                 <option value="">— اختر —</option>
-                {s.delivery.providers.filter(p=>p.enabled).map(p=><option key={p.id} value={p.name}>{p.logo} {p.name}</option>)}
+                {deliveryProviders.filter(p=>p.enabled).map(p=><option key={p.id} value={p.name}>{p.logo} {p.name}</option>)}
               </select>
             </Field>
             <Field label="رابط التتبع (استبدل {'{'}tracking{'}'})">
@@ -719,8 +720,8 @@ export default function SettingsPage() {
             <div>
               <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink1)', marginBottom: 3 }}>🚚 إدارة شركات التوصيل</p>
               <p style={{ fontSize: 12, color: 'var(--ink3)' }}>
-                {s.delivery.providers.length > 0
-                  ? `${s.delivery.providers.length} شركة مُضافة — انقر لإدارتها وربط API`
+                {deliveryProviders.length > 0
+                  ? `${deliveryProviders.length} شركة مُضافة — انقر لإدارتها وربط API`
                   : 'لا توجد شركات بعد — انقر للإضافة'}
               </p>
             </div>

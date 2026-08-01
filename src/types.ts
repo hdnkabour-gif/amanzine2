@@ -257,12 +257,14 @@ export interface DeliveryProviderConfig {
   apiKey: string;
   apiEndpoint: string;
   apiType?: string;
-  dbId?: string;   // معرّف الصف الحقيقي في جدول delivery_providers (عند الاتصال بالخادم)
+  webhookUrl?: string;
   fields: Record<string, string>;
 }
 
 export interface DeliverySettings {
-  providers: DeliveryProviderConfig[];
+  // لا `providers` هنا: مصدرُها الوحيد جدولُ delivery_providers على الخادم،
+  // ويُقرأ عبر `deliveryProviders` في المخزن. تكرارُها هنا كان يُنتج نسختين
+  // تتباعدان — الواجهةُ ترى شركةً «مفعّلة» والخادمُ لا يعرفها.
   defaultProvider: string;
   autoSendOnApproval: boolean;
   notifyCustomerOnShip: boolean;
@@ -382,7 +384,7 @@ export const defaultSettings: AppSettings = {
     autoClose: false, autoCloseMinutes: 30,
   },
   delivery: {
-    providers: [], defaultProvider: '',
+    defaultProvider: '',
     autoSendOnApproval: false, notifyCustomerOnShip: true,
     trackingUrlTemplate: '',
   },

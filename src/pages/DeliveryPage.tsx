@@ -5,7 +5,7 @@ import {
   Zap, ChevronDown, ChevronUp, Globe, Key, Copy, ExternalLink, X,
 } from 'lucide-react';
 import type { DeliveryProviderConfig } from '../types';
-import { settingsAPI, deliveryAPI, getToken as getAuthToken } from '../services/api';
+import { settingsAPI, getToken as getAuthToken } from '../services/api';
 
 // ─── سجل الشحنات: الحقيقة الكاملة لكل عملية شحن ──────────────────────────────
 // يقرأ سجلات النظام (type=delivery) ويبين لكل طلب: هل أُنشئت شحنة حقيقية
@@ -534,8 +534,8 @@ function UrlWizard({ onSave, onCancel, onDirtyChange }: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function DeliveryPage() {
-  const { settings, updateSettings, notify } = useStore();
-  const providers = settings.delivery.providers;
+  const { settings, updateSettings, notify, deliveryProviders, saveDeliveryProvider, removeDeliveryProvider } = useStore();
+  const providers = deliveryProviders;
 
   const [showAdd, setShowAdd] = useState(false);
   const [addMode, setAddMode] = useState<'simple' | 'whatsapp' | 'api' | 'url-recipe'>('simple');
@@ -557,33 +557,8 @@ export default function DeliveryPage() {
   // Dirty-state tracking to prevent accidental data loss
   const [urlWizardDirty, setUrlWizardDirty] = useState(false);
 
-  // 🔗 إصلاح تلقائي لمرة واحدة: مزوّدون بمفتاح API (مثل Livo) أُضيفوا قبل هذا التحديث
-  // كانوا محفوظين هنا فقط (شكلياً)، بلا أي صف حقيقي في delivery_providers — وهذا بالضبط
-  // سبب ظهور "لا توجد شركة توصيل مفعّلة" رغم ظهورهم "مفعّلين" في هذه الصفحة.
-  useEffect(() => {
-    const needsBridge = providers.filter(p => p.apiKey && p.apiEndpoint && !p.dbId);
-    if (!needsBridge.length) return;
-    let cancelled = false;
-    (async () => {
-      const updated = [...providers];
-      let changed = false;
-      for (const p of needsBridge) {
-        try {
-          const r = await deliveryAPI.save({
-            name: p.name, apiKey: p.apiKey, apiEndpoint: p.apiEndpoint, apiType: p.apiType || '',
-            websiteUrl: p.websiteUrl, addOrderPage: p.addOrderPage, enabled: p.enabled,
-          });
-          if (r?.id) {
-            const idx = updated.findIndex(x => x.id === p.id);
-            if (idx >= 0) { updated[idx] = { ...updated[idx], dbId: r.id }; changed = true; }
-          }
-        } catch { /* لا بأس — سيُعاد الإصلاح تلقائياً عند إعادة تحميل الصفحة */ }
-      }
-      if (changed && !cancelled) updateSettings('delivery', { ...settings.delivery, providers: updated });
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [providers.length]);
+  // الجسرُ الهشّ الذي كان هنا (مزامنةُ الإعدادات ⇄ الجدول عند تغيّر العدد فقط)
+  // زال: الخادمُ يمتصّ الشركاتِ القديمة عند أوّل قراءة، وكلُّ كتابةٍ تمرّ به.
 
   // ── API Mode save ──────────────────────────────────────────────────────────
   const saveApi = async () => {
@@ -594,38 +569,31 @@ export default function DeliveryPage() {
       notify('error', 'املأ الاسم، ثم إمّا (مفتاح API + نقطة النهاية) أو (رابط الدخول + المستخدم + كلمة المرور)');
       return;
     }
-    const np: DeliveryProviderConfig = {
-      id: `DEL-${Date.now()}`,
-      name: config.name!, logo: config.logo || '🚚',
-      enabled: true, mode: 'api',
-      websiteUrl: config.websiteUrl || '', loginUrl: config.loginUrl || '',
-      username: config.username || '', password: config.password || '',
-      addOrderPage: config.addOrderPage || '', livraisonBonPage: config.livraisonBonPage || '',
-      ramassagePage: config.ramassagePage || '',
-      apiKey: config.apiKey || '', apiEndpoint: config.apiEndpoint || '',
-      apiType: config.apiType || '',   // ⬅️ تمت إضافة apiType
-      fields: config.fields as any,
-    };
-    // 🔗 مزامنة حقيقية مع delivery_providers — بدون هذا، الشحن الفعلي (Livo API) يبقى مستحيلاً
-    // حتى لو ظهر المزوّد "مفعّلاً" هنا، لأن الشحن يقرأ من قاعدة البيانات وليس من هذه الصفحة.
-    if (hasKey) {
-      try {
-        const r = await deliveryAPI.save({
-          name: np.name, apiKey: np.apiKey, apiEndpoint: np.apiEndpoint, apiType: np.apiType,
-          websiteUrl: np.websiteUrl, addOrderPage: np.addOrderPage, enabled: true,
-        });
-        if (r?.id) np.dbId = r.id;
-      } catch {
-        notify('warning', '⚠️ تم الحفظ هنا، لكن تعذّر الاتصال بالخادم — الشحن الفعلي لن يعمل حتى تعيد الاختبار من "اختبار الاتصال"');
-      }
+    try {
+      await saveDeliveryProvider({
+        name: config.name!, logo: config.logo || '🚚',
+        enabled: true, mode: 'api',
+        websiteUrl: config.websiteUrl || '', loginUrl: config.loginUrl || '',
+        username: config.username || '', password: config.password || '',
+        addOrderPage: config.addOrderPage || '', livraisonBonPage: config.livraisonBonPage || '',
+        ramassagePage: config.ramassagePage || '',
+        apiKey: config.apiKey || '', apiEndpoint: config.apiEndpoint || '',
+        apiType: config.apiType || '',
+        fields: (config.fields || {}) as any,
+      });
+    } catch (e: any) {
+      // لا نحفظ محلّيًّا عند الفشل: نسخةٌ محلّيّةٌ بلا صفٍّ في الخادم هي بالضبط
+      // ما كان يُظهر الشركةَ «مفعّلة» بينما الشحنُ يقول «لا توجد شركة مفعّلة».
+      notify('error', `تعذّر الحفظ على الخادم: ${e?.message || 'تحقّق من الاتصال'} — لم تُضَف الشركة`);
+      return;
     }
-    updateSettings('delivery', { ...settings.delivery, providers: [...providers, np], defaultProvider: np.name });
+    updateSettings('delivery', { ...settings.delivery, defaultProvider: config.name! });
     notify('success', `تم إضافة ${config.name}`);
     setShowAdd(false); setConfig(EMPTY_API);
   };
 
   // ── URL Recipe save ────────────────────────────────────────────────────────
-  const saveUrlRecipe = (draft: UrlRecipeDraft) => {
+  const saveUrlRecipe = async (draft: UrlRecipeDraft) => {
     const recipe = {
       loginUrl: draft.loginUrl,
       usernameSelector: draft.usernameSelector,
@@ -638,73 +606,93 @@ export default function DeliveryPage() {
       submitSelector: draft.submitSelector,
       trackingSelector: draft.trackingSelector,
     };
-    const np: DeliveryProviderConfig = {
-      id: `DEL-${Date.now()}`,
-      name: draft.name, logo: draft.logo,
-      enabled: true, mode: 'browser',
-      websiteUrl: draft.websiteUrl, loginUrl: draft.loginUrl,
-      username: draft.username, password: draft.password,
-      addOrderPage: draft.createOrderUrl,
-      livraisonBonPage: '', ramassagePage: '',
-      apiKey: 'url-recipe', apiEndpoint: '',
-      // Store recipe as JSON in webhookUrl; apiType signals url-recipe mode
-      fields: { apiType: 'url-recipe', webhookUrl: JSON.stringify(recipe) } as any,
-    };
-    updateSettings('delivery', { ...settings.delivery, providers: [...providers, np], defaultProvider: np.name });
+    try {
+      await saveDeliveryProvider({
+        name: draft.name, logo: draft.logo,
+        enabled: true, mode: 'browser',
+        websiteUrl: draft.websiteUrl, loginUrl: draft.loginUrl,
+        username: draft.username, password: draft.password,
+        addOrderPage: draft.createOrderUrl,
+        livraisonBonPage: '', ramassagePage: '',
+        apiKey: '', apiEndpoint: '',
+        // الوصفةُ تُخزَّن في عمودَيها الحقيقيّين لا داخل `fields`: delivery-auto.js
+        // يبحث في الجدول عن apiType='url-recipe' ويقرأ webhookUrl — وكانت الوصفات
+        // لا تصل الجدولَ أصلًا فيستحيل عليه العثورُ عليها.
+        apiType: 'url-recipe', webhookUrl: JSON.stringify(recipe),
+        fields: {} as any,
+      });
+    } catch (e: any) {
+      notify('error', `تعذّر حفظ الوصفة على الخادم: ${e?.message || 'تحقّق من الاتصال'}`);
+      return;
+    }
+    updateSettings('delivery', { ...settings.delivery, defaultProvider: draft.name });
     notify('success', `تم إضافة وصفة ${draft.name}`);
     setShowAdd(false);
   };
 
   // ── Simple Mode save ──────────────────────────────────────────────────────
-  const saveSimple = () => {
+  const saveSimple = async () => {
     const co = SIMPLE_COMPANIES.find(c => c.name === simpleCompany);
     if (!co || !simpleCreds.username || !simpleCreds.password) {
       notify('error', 'يرجى اختيار شركة وإدخال البريد وكلمة المرور');
       return;
     }
-    const np: DeliveryProviderConfig = {
-      id: `DEL-${Date.now()}`,
-      name: co.name, logo: co.logo,
-      enabled: true, mode: 'api',
-      websiteUrl: co.url || simpleCustomUrl.url,
-      loginUrl: co.loginUrl || simpleCustomUrl.loginUrl,
-      username: simpleCreds.username, password: simpleCreds.password,
-      addOrderPage: co.addOrder, livraisonBonPage: '', ramassagePage: '',
-      apiKey: '', apiEndpoint: '', fields: {},
-    };
-    updateSettings('delivery', { ...settings.delivery, providers: [...providers, np], defaultProvider: np.name });
+    try {
+      await saveDeliveryProvider({
+        name: co.name, logo: co.logo,
+        enabled: true, mode: 'api',
+        websiteUrl: co.url || simpleCustomUrl.url,
+        loginUrl: co.loginUrl || simpleCustomUrl.loginUrl,
+        username: simpleCreds.username, password: simpleCreds.password,
+        addOrderPage: co.addOrder, livraisonBonPage: '', ramassagePage: '',
+        apiKey: '', apiEndpoint: '', fields: {},
+      });
+    } catch (e: any) {
+      notify('error', `تعذّر الحفظ على الخادم: ${e?.message || 'تحقّق من الاتصال'} — لم تُضَف الشركة`);
+      return;
+    }
+    updateSettings('delivery', { ...settings.delivery, defaultProvider: co.name });
     notify('success', `تم إضافة ${co.name}`);
     setShowAdd(false);
     setSimpleCompany(null); setSimpleCreds({ username: '', password: '' }); setSimpleCustomUrl({ url: '', loginUrl: '' });
   };
 
   // ── WhatsApp Mode save ─────────────────────────────────────────────────────
-  const saveWhatsApp = () => {
+  const saveWhatsApp = async () => {
     if (!waPhone || !waName) {
       notify('error', 'يرجى إدخال اسم الشركة ورقم واتساب');
       return;
     }
     const phone = waPhone.replace(/\D/g, '');
-    const np: DeliveryProviderConfig = {
-      id: `DEL-${Date.now()}`,
-      name: waName, logo: '📱',
-      enabled: true, mode: 'api',
-      websiteUrl: `https://wa.me/${phone}`,
-      loginUrl: '', username: '', password: '',
-      addOrderPage: '', livraisonBonPage: '', ramassagePage: '',
-      apiKey: 'whatsapp', apiEndpoint: phone,
-      fields: { apiType: 'whatsapp', webhookUrl: phone } as any,
-    };
-    updateSettings('delivery', { ...settings.delivery, providers: [...providers, np], defaultProvider: np.name });
+    try {
+      await saveDeliveryProvider({
+        name: waName, logo: '📱',
+        enabled: true, mode: 'api',
+        websiteUrl: `https://wa.me/${phone}`,
+        loginUrl: '', username: '', password: '',
+        addOrderPage: '', livraisonBonPage: '', ramassagePage: '',
+        apiKey: '', apiEndpoint: phone,
+        apiType: 'whatsapp', webhookUrl: phone,
+        fields: {} as any,
+      });
+    } catch (e: any) {
+      notify('error', `تعذّر الحفظ على الخادم: ${e?.message || 'تحقّق من الاتصال'} — لم تُضَف الشركة`);
+      return;
+    }
+    updateSettings('delivery', { ...settings.delivery, defaultProvider: waName });
     notify('success', `تم إضافة واتساب التوصيل`);
     setShowAdd(false); setWaName(''); setWaPhone('');
   };
 
-  const remove = (id: string) => {
-    const p = providers.find(x => x.id === id);
-    updateSettings('delivery', { ...settings.delivery, providers: providers.filter(p => p.id !== id) });
-    if ((p as any)?.dbId) { deliveryAPI.remove((p as any).dbId).catch(() => {}); }
-    notify('warning', 'تم الحذف');
+  const remove = async (id: string) => {
+    // الحذفُ يمرّ بالخادم وحده. كان يُزال محلّيًّا ثم يُحاوَل حذفُ الصفّ بـ
+    // catch صامت ⇒ فشلُ الشبكة يترك الصفَّ ومفتاحَه في القاعدة بلا أثرٍ ظاهر.
+    try {
+      await removeDeliveryProvider(id);
+      notify('warning', 'تم الحذف');
+    } catch (e: any) {
+      notify('error', `تعذّر الحذف: ${e?.message || 'تحقّق من الاتصال'} — الشركة ما زالت مسجّلة`);
+    }
   };
 
   const testConn = async (prov: DeliveryProviderConfig) => {
@@ -727,8 +715,10 @@ export default function DeliveryPage() {
     } catch { notify('warning', `لم يمكن الوصول لـ ${prov.name}`); }
   };
 
+  // العمودُ `apiType` هو المرجع الآن؛ الشرطان الآخران يبقيان لصفوفٍ قديمة
+  // كانت تخبّئ النوعَ داخل `fields` أو تضعه في `apiKey`.
   const isUrlRecipe = (p: DeliveryProviderConfig) =>
-    (p.fields as any)?.apiType === 'url-recipe' || p.apiKey === 'url-recipe';
+    p.apiType === 'url-recipe' || (p.fields as any)?.apiType === 'url-recipe' || p.apiKey === 'url-recipe';
 
   const closeAdd = () => {
     setShowAdd(false); setAddMode('simple'); setConfig(EMPTY_API);
@@ -843,12 +833,10 @@ export default function DeliveryPage() {
                     <button onClick={e => { e.stopPropagation(); remove(p.id); }} className="btn btn-danger btn-sm" style={{ paddingInline: 10 }}><Trash2 size={13} /></button>
                     <button onClick={e => {
                       e.stopPropagation();
-                      const next = !p.enabled;
-                      updateSettings('delivery', { ...settings.delivery, providers: providers.map(x => x.id === p.id ? { ...x, enabled: next } : x) });
-                      if ((p as any).dbId) {
-                        deliveryAPI.save({ id: (p as any).dbId, name: p.name, apiKey: p.apiKey, apiEndpoint: p.apiEndpoint, apiType: (p as any).apiType, enabled: next })
-                          .catch(() => notify('warning', '⚠️ تعذّر تحديث الحالة على الخادم'));
-                      }
+                      // الكائنُ كاملًا لا حقولًا مختارة: الحفظُ يكتب كلَّ الأعمدة،
+                      // فإرسالُ خمسةِ حقولٍ فقط كان يمحو الباقي (الشعار، الوضع، بيانات الدخول).
+                      saveDeliveryProvider({ ...p, enabled: !p.enabled })
+                        .catch(() => notify('warning', '⚠️ تعذّر تحديث الحالة على الخادم'));
                     }} className={`toggle ${p.enabled ? 'on' : ''}`} />
                   </div>
                   {selected === p.id ? <ChevronUp size={15} color="var(--txt-3)" /> : <ChevronDown size={15} color="var(--txt-3)" />}
@@ -861,7 +849,8 @@ export default function DeliveryPage() {
                       (() => {
                         let parsedRecipe: any = {};
                         try {
-                          const stored = (p.fields as any)?.webhookUrl;
+                          // العمودُ أوّلًا، ثمّ `fields` للصفوف القديمة قبل الترحيل.
+                          const stored = p.webhookUrl || (p.fields as any)?.webhookUrl;
                           if (stored) parsedRecipe = JSON.parse(stored);
                         } catch {}
                         return (

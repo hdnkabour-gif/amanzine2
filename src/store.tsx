@@ -5,6 +5,7 @@ import {
   type AppSettings, type Product, type Customer, type Order,
   type Conversation, type ConvMessage, type AuditLog, type AppNotification, type Template,
   type Page, type UserRole, type LogType, type LogSeverity, type NotifType, type OrderStatus,
+  type DeliveryProviderConfig,
 } from './types';
 import * as api from './services/api';
 import { registerRuntimeConcepts } from './lib/akg/kb/knowledge';
@@ -48,6 +49,8 @@ interface StoreValue {
   orders: Order[];
   conversations: Conversation[];
   auditLogs: AuditLog[];
+  /** المصدرُ الوحيد لشركات التوصيل — مرآةُ جدول delivery_providers. */
+  deliveryProviders: DeliveryProviderConfig[];
   notifications: AppNotification[];
   currentPage: Page;
   currentRole: UserRole;
@@ -55,6 +58,10 @@ interface StoreValue {
   isOnline: boolean;
   sidebarOpen: boolean;
   onboardingCompleted: boolean;
+
+  // Delivery providers — كلّ كتابةٍ تمرّ بالخادم ثمّ تُعاد القائمةُ منه
+  saveDeliveryProvider: (p: Partial<DeliveryProviderConfig>) => Promise<DeliveryProviderConfig[]>;
+  removeDeliveryProvider: (id: string) => Promise<void>;
 
   // Auth
   login: (email: string, password: string) => Promise<void>;
@@ -163,6 +170,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     orders:        isDemo ? seedOrders        : [] as typeof seedOrders,
     conversations: isDemo ? seedConversations : [] as typeof seedConversations,
     auditLogs:     isDemo ? seedAuditLogs     : [] as typeof seedAuditLogs,
+    // شركاتُ التوصيل تُقرأ من الخادم وحده (delivery_providers). كانت تُخزَّن أيضًا
+    // في settings.delivery.providers فينشأ مصدرا حقيقةٍ يتباعدان بصمت.
+    deliveryProviders: [] as DeliveryProviderConfig[],
     notifications: [] as AppNotification[],
     currentPage: (storedToken ? getInitialPage() : 'home') as Page,
     currentRole: 'admin' as UserRole,
@@ -257,18 +267,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       // allSettled بدل all: فشل طلب واحد (مهلة شبكة مثلاً) لا يجب أن يُسقط
       // كل البيانات ويُظهر اللوحة فارغة رغم أن الخادم يحتوي كل شيء
-      const [productsR, ordersR, customersR, settingsR, convsR] = await Promise.allSettled([
+      const [productsR, ordersR, customersR, settingsR, convsR, deliveryR] = await Promise.allSettled([
         api.productsAPI.list(),
         api.ordersAPI.list(),
         api.customersAPI.list(),
         api.settingsAPI.get(),
         api.conversationsAPI.list(),
+        api.deliveryAPI.list(),
       ]);
       const val = <T,>(r: PromiseSettledResult<T>): T | null => r.status === 'fulfilled' ? r.value : null;
       const products = val(productsR);
       const orders = val(ordersR);
       const customers = val(customersR) as any;
       const convs = val(convsR);
+      const deliveryProviders = val(deliveryR) as DeliveryProviderConfig[] | null;
       const settingsOk = settingsR.status === 'fulfilled';
       const settings = settingsOk ? (settingsR as PromiseFulfilledResult<any>).value : null;
 
@@ -290,6 +302,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             return merged;
           })() : s.settings,
         conversations: convs ?? s.conversations,
+        deliveryProviders: deliveryProviders ?? s.deliveryProviders,
         // قرار الإعداد الأولي يُتخذ فقط عند نجاح جلب الإعدادات:
         // إعدادات فارغة = حساب جديد فعلاً → onboarding
         // فشل الطلب = لا نغير شيئاً (حتى لا يُعاد onboarding ويمسح الإعدادات)
@@ -845,6 +858,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState(s => ({ ...s, products: seedProducts, orders: seedOrders, conversations: seedConversations, customers: seedCustomers }));
   };
 
+  // ── شركات التوصيل — الخادمُ هو المصدر، والحالةُ هنا مرآةٌ له ────────────────
+  // كلّ كتابةٍ تمرّ بالخادم أوّلًا ثم تُعاد القائمةُ منه؛ لا نُحدِّث محلّيًّا ثم
+  // «نأمل» أن يتوافق الطرفان — ذاك بالضبط ما أنتج الانقسامَ السابق.
+  const saveDeliveryProvider = async (p: Partial<DeliveryProviderConfig>): Promise<DeliveryProviderConfig[]> => {
+    const r = await api.deliveryAPI.save(p);
+    const list = (r?.providers ?? []) as DeliveryProviderConfig[];
+    setState(s => ({ ...s, deliveryProviders: list }));
+    return list;
+  };
+
+  const removeDeliveryProvider = async (id: string): Promise<void> => {
+    await api.deliveryAPI.remove(id);
+    const list = await api.deliveryAPI.list() as DeliveryProviderConfig[];
+    setState(s => ({ ...s, deliveryProviders: list }));
+  };
+
   return (
     <StoreCtx.Provider value={{
       ...state, login, register, logout, setPage, setSidebarOpen, updateSettings,
@@ -856,6 +885,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       notify, clearNotifications, markNotifRead, log,
       resetToDemo, exportData, importData, refreshData,
       deleteConversation, setOnboardingCompleted,
+      saveDeliveryProvider, removeDeliveryProvider,
     }}>
       {children}
     </StoreCtx.Provider>

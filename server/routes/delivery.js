@@ -8,8 +8,54 @@ const { db } = require('../database');
 // استيراد مزود Livo
 const livoProvider = require('../services/delivery/providers/livo.provider');
 
+// ── ترحيلٌ لمرّةٍ واحدة: settings.delivery.providers ⇒ delivery_providers ──────
+// شركاتٌ أُضيفت عبر «البسيط» أو «واتساب» أو «وصفة URL» كانت تُحفَظ في الإعدادات
+// فقط ولا تصل الجدول ⇒ يراها التاجر مفعّلةً بينما الخادمُ لا يراها إطلاقًا.
+// يُنفَّذ كسولًا عند أوّل قراءة، وهو فعلٌ عديمُ الأثر إن أُعيد (idempotent).
+async function _absorbLegacyProviders(userId, existing) {
+  let settings;
+  try { settings = await db.getSettings(userId); } catch { return existing; }
+  const legacy = settings?.delivery?.providers;
+  if (!Array.isArray(legacy) || !legacy.length) return existing;
+
+  const seen = new Set(existing.map(p => String(p.name || '').trim().toLowerCase()));
+  for (const lp of legacy) {
+    const key = String(lp?.name || '').trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    try {
+      await db.upsertDeliveryProvider({
+        userId,
+        name: lp.name, logo: lp.logo || '🚚', mode: lp.mode || 'api',
+        enabled: lp.enabled !== false,
+        websiteUrl: lp.websiteUrl || '', loginUrl: lp.loginUrl || '',
+        username: lp.username || '', password: lp.password || '',
+        addOrderPage: lp.addOrderPage || '', livraisonBonPage: lp.livraisonBonPage || '',
+        ramassagePage: lp.ramassagePage || '',
+        apiKey: lp.apiKey || '', apiEndpoint: lp.apiEndpoint || '',
+        // وضعُ «وصفة URL» كان يخبّئ نوعَه ورابطَه داخل fields — نرفعهما لعموديهما
+        // كي يجدهما delivery-auto.js، فهو يبحث في الجدول لا في الإعدادات.
+        apiType: lp.apiType || lp.fields?.apiType || '',
+        webhookUrl: lp.webhookUrl || lp.fields?.webhookUrl || '',
+        fields: lp.fields || {},
+      });
+      seen.add(key);
+    } catch (e) { console.warn('[delivery/absorb]', lp?.name, e.message); }
+  }
+
+  // الإعدادات تفقد نسختها ⇒ مصدرُ حقيقةٍ واحدٌ من الآن.
+  try {
+    await db.saveSettings(userId, { ...settings, delivery: { ...settings.delivery, providers: [] } });
+  } catch (e) { console.warn('[delivery/absorb] settings cleanup', e.message); }
+
+  return db.getDeliveryProviders(userId);
+}
+
 router.get('/', auth, async (req, res) => {
-  try { res.json(await db.getDeliveryProviders(req.user.id)); }
+  try {
+    let rows = await db.getDeliveryProviders(req.user.id);
+    rows = await _absorbLegacyProviders(req.user.id, rows);
+    res.json(rows);
+  }
   catch (e) { console.error('[delivery]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
