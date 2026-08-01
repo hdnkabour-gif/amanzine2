@@ -47,6 +47,9 @@ async function migrate() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )`);
 
+    // ⚠️ إضافة عمود type المفقود (تصحيح الخطأ في السجلات)
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'product'`);
+
     await client.query(`CREATE TABLE IF NOT EXISTS orders (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
