@@ -113,14 +113,24 @@ if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 // يستهلك دلوَ المستخدم نفسه حتّى يعود 429، فتظنّ المنصّةُ أنّ الخادم ساقط.
 // الترتيب هو ما يجعله استثناءً فعليًّا: middleware يسبق ما بعده.
 // ── Health ───────────────────────────────────────────────────
+// حالةُ آخر ترحيل — يملؤها startServer أدناه. الترحيلُ لا يُسقط العمليّة عمدًا
+// (وإلّا فشل healthcheck)، فبدون إعلانِ نتيجته هنا يبقى فشلُه مرئيًّا في
+// السجلّات وحدَها: «ok» بينما المخطّطُ قديم — وهو أخضرُ كاذبٌ في نقطة الفحص.
+const migrationState = { ran: false, ok: null, error: null, at: null };
+
 app.get('/api/health', (req, res) => {
   const mem = process.memoryUsage();
   // بلا قاعدةٍ لا يكون الخادم «ok»: الفحص ينجح والتطبيق فارغٌ من الداخل.
   // نُبقي 200 (وإلّا أسقطت المنصّةُ النشرَ فلا يُقرأ السبب) لكن نقول الحقيقة.
   const noDb = !process.env.DATABASE_URL;
+  const migrationFailed = migrationState.ran && migrationState.ok === false;
   res.json({
-    status: noDb ? 'degraded' : 'ok',
+    status: (noDb || migrationFailed) ? 'degraded' : 'ok',
     ...(noDb ? { degraded: 'DATABASE_URL غير مضبوط — لا تسجيلَ دخولٍ ولا حفظَ بيانات' } : {}),
+    ...(migrationFailed ? { degraded: `فشل ترحيلُ قاعدة البيانات — المخطّط قديم: ${migrationState.error}` } : {}),
+    migration: migrationState.ran
+      ? { ok: migrationState.ok, at: migrationState.at, ...(migrationState.error ? { error: migrationState.error } : {}) }
+      : { ok: null, note: 'لم يُنفَّذ (لا DATABASE_URL)' },
     version: '3.2.0', name: 'AMANZINE AI Commerce OS',
     time: new Date().toISOString(),
     uptime: Math.round(process.uptime()) + 's',
@@ -264,8 +274,17 @@ async function startServer() {
       // Migration must NOT crash the process — otherwise a transient/misconfigured
       // DB makes the server never listen and the Railway healthcheck fails for 5m.
       // Start in degraded mode and surface the error in logs/monitoring instead.
-      try { await migrate(); }
-      catch (e) { logger.error('DB migration failed — starting in degraded mode (check DATABASE_URL / DB connectivity)', { error: e.message }); logger.capture(e); }
+      migrationState.ran = true;
+      migrationState.at = new Date().toISOString();
+      try {
+        await migrate();
+        migrationState.ok = true;
+      } catch (e) {
+        migrationState.ok = false;
+        migrationState.error = e.message;
+        logger.error('DB migration failed — starting in degraded mode (check DATABASE_URL / DB connectivity)', { error: e.message });
+        logger.capture(e);
+      }
     } else {
       logger.warn('DATABASE_URL not set — running without persistence (no-database mode)');
     }
