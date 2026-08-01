@@ -27,11 +27,18 @@ jobs:
       - name: Brain tests (understand · memory · describe · systemMap)
         run: npm run test:brain
 
+      # كانت هاتان غائبتين عن CI تمامًا، ولذلك بقي constitution.test.mjs
+      # مكسورَ المسار دون أن يلاحظه أحد: الأمرُ لم يكن يُشغَّل لا محلّيًّا ولا هنا.
+      - name: Constitution tests (قواعدُ المنتج تُفحص في الكود نفسه)
+        run: npm run test:constitution
+
+      - name: Knowledge health (تعارضاتُ المرادفات · الفئاتُ الفاسدة)
+        run: npm run test:knowledge
+
       - name: Server tests
         run: cd server && npm test
 
-      # TypeScript has known pre-existing errors being paid down (heavy `any`);
-      # surfaced here but not yet a gate.
-      - name: Typecheck (informational)
+      # بوّابةٌ حقيقيّة منذ أن نظُف tsc: كان `continue-on-error` يُمرِّر استيرادًا
+      # مكسورًا كتحذيرٍ أصفر يُهمَل — وهو نفسُه آليّةُ «الأخضر الكاذب».
+      - name: Typecheck (gate)
         run: npm run lint
-        continue-on-error: true
