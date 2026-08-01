@@ -1,118 +1,81 @@
 'use strict';
 
-// Livo API integration provider
-// Documentation: https://rest.livo.ma
+// Livo — https://rest.livo.ma
+// مصادقة: Bearer API key. لا endpoint لحساب الثمن ⇒ التسعير بقواعدَ محلّيّة.
+
+const { makeQuote } = require('../contract');
+
+const meta = {
+  id: 'livo', name: 'Livo', country: 'MA', currency: 'MAD', version: '1.0',
+};
+
+const capabilities = {
+  cities: 'api', pricing: 'rules', tracking: 'api', cod: true, pickup: true,
+};
+
+const _base = (cfg) => cfg?.apiEndpoint || 'https://rest.livo.ma';
+const _headers = (cfg) => ({
+  'Authorization': `Bearer ${cfg?.apiKey || ''}`,
+  'Content-Type': 'application/json',
+});
 
 /**
- * اختبار اتصال Livo API باستخدام مفتاح API
- * @param {string} apiKey - مفتاح API من لوحة Livo
- * @param {string} baseUrl - نقطة نهاية API (افتراضي https://rest.livo.ma)
- * @returns {Promise<boolean>}
+ * ثمنُ Livo حسب المدينة (كازا 20، خارجها 35 — كما أكّده التاجر).
+ * قاعدةٌ محلّيّةٌ لأنّ Livo لا تُقدّم حسابَ ثمنٍ عبر API؛ ولا يعرفها أحدٌ
+ * خارج هذا الملفّ — بقيّةُ النظام ترى `DeliveryQuote` فقط.
  */
-async function testConnection(apiKey, baseUrl = 'https://rest.livo.ma') {
-  try {
-    const response = await fetch(`${baseUrl}/auth/keys`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    return response.ok; // 200 يعني صحيح
-  } catch (error) {
-    console.error('[Livo] Test connection error:', error.message);
-    return false;
-  }
-}
-
-/**
- * تكلفة التوصيل لدى Livo حسب المدينة (الدار البيضاء 20 درهم، خارجها 35 درهم — كما أكّده التاجر).
- * مؤقتاً جدول ثابت بسيط؛ يمكن لاحقاً ربطه ديناميكياً بـ getFees() (GET /fees/public) أسفله.
- * @param {string} city
- * @returns {number}
- */
-function livoDeliveryCost(city) {
+function _cityFee(city) {
   const c = String(city || '').trim().toLowerCase();
-  const isCasablanca = /casa|الدار البيضاء|دار البيضاء/.test(c);
-  return isCasablanca ? 20 : 35;
+  return /casa|الدار البيضاء|دار البيضاء/.test(c) ? 20 : 35;
 }
 
-/**
- * إنشاء شحنة في Livo
- * @param {Object} orderData - بيانات الطلب من AMANZINE
- * @param {string} apiKey - مفتاح API
- * @param {string} baseUrl - نقطة نهاية API (افتراضي https://rest.livo.ma)
- * @returns {Promise<{success: boolean, livoOrderId?: string, trackingNumber?: string, error?: string}>}
- */
-async function createOrder(orderData, apiKey, baseUrl = 'https://rest.livo.ma') {
+async function calculateQuote(order, cfg) {
+  return makeQuote({
+    deliveryFee: order?.cost != null ? +order.cost : _cityFee(order?.city),
+    currency: meta.currency,
+    estimatedDays: 2,
+    supported: true,
+  });
+}
+
+async function createShipment(order, cfg) {
   try {
-    // تحويل بيانات AMANZINE إلى صيغة Livo المطلوبة
+    const quote = await calculateQuote(order, cfg);
     const payload = {
-      recipientName: orderData.customerName || orderData.recipientName || '',
-      phone: orderData.phone || '',
-      city: orderData.city || '',
-      address: orderData.address || '',
-      cod: orderData.codAmount || orderData.total || 0,
-      // ⬅️ الحقل الناقص: Livo كانت ترفض الطلب بخطأ "cost" is required
-      cost: orderData.cost != null ? orderData.cost : livoDeliveryCost(orderData.city),
-      notes: orderData.notes || '',
+      recipientName: order.customerName || order.recipientName || '',
+      phone:   order.phone || order.customerPhone || '',
+      city:    order.city || '',
+      address: order.address || '',
+      cod:     order.codAmount != null ? order.codAmount : (order.total || 0),
+      // الحقلُ الذي كانت Livo ترفض الطلبَ بدونه: "cost" is required
+      cost:    quote.deliveryFee,
+      notes:   order.notes || '',
     };
 
-    const response = await fetch(`${baseUrl}/orders`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
+    const res = await fetch(`${_base(cfg)}/orders`, {
+      method: 'POST', headers: _headers(cfg), body: JSON.stringify(payload),
     });
+    const result = await res.json().catch(() => ({}));
 
-    const result = await response.json();
-
-    if (!response.ok) {
-      console.error('[Livo] Create order failed:', result);
-      return { success: false, error: result.message || 'فشل إنشاء الشحنة في Livo' };
-    }
-
+    if (!res.ok) return { success: false, error: result.message || `HTTP ${res.status}` };
     if (result.success && result.data) {
       return {
         success: true,
-        livoOrderId: result.data._id,
+        shipmentId: result.data._id,
         trackingNumber: result.data.tracking_number || result.data._id,
       };
-    } else {
-      return { success: false, error: result.message || 'استجابة غير متوقعة من Livo' };
     }
-  } catch (error) {
-    console.error('[Livo] Create order error:', error.message);
-    return { success: false, error: error.message };
+    return { success: false, error: result.message || 'استجابةٌ غيرُ متوقّعة من Livo' };
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 }
 
-/**
- * جلب حالة شحنة من Livo
- * @param {string} orderId - معرف الشحنة في Livo (livo_order_id)
- * @param {string} apiKey - مفتاح API
- * @param {string} baseUrl - نقطة نهاية API
- * @returns {Promise<{success: boolean, status?: string, trackingNumber?: string, history?: Array, error?: string}>}
- */
-async function getOrderStatus(orderId, apiKey, baseUrl = 'https://rest.livo.ma') {
+async function trackShipment(shipmentId, cfg) {
   try {
-    const response = await fetch(`${baseUrl}/orders/${orderId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      console.error('[Livo] Get order status failed:', result);
-      return { success: false, error: result.message || 'فشل جلب حالة الشحنة' };
-    }
-
+    const res = await fetch(`${_base(cfg)}/orders/${shipmentId}`, { method: 'GET', headers: _headers(cfg) });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) return { success: false, error: result.message || `HTTP ${res.status}` };
     if (result.success && result.data) {
       return {
         success: true,
@@ -120,70 +83,39 @@ async function getOrderStatus(orderId, apiKey, baseUrl = 'https://rest.livo.ma')
         trackingNumber: result.data.tracking_number,
         history: result.data.history || [],
       };
-    } else {
-      return { success: false, error: result.message || 'استجابة غير متوقعة' };
     }
-  } catch (error) {
-    console.error('[Livo] Get order status error:', error.message);
-    return { success: false, error: error.message };
+    return { success: false, error: result.message || 'استجابةٌ غيرُ متوقّعة' };
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 }
 
-/**
- * جلب قائمة المدن المدعومة من Livo
- * @param {string} apiKey - مفتاح API
- * @param {string} baseUrl - نقطة نهاية API
- * @returns {Promise<{success: boolean, cities?: Array, error?: string}>}
- */
-async function getCities(apiKey, baseUrl = 'https://rest.livo.ma') {
+async function getCities(cfg) {
   try {
-    const response = await fetch(`${baseUrl}/cities`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    const result = await response.json();
-    if (response.ok && result.success) {
-      return { success: true, cities: result.data || [] };
+    const res = await fetch(`${_base(cfg)}/cities`, { method: 'GET', headers: _headers(cfg) });
+    const result = await res.json().catch(() => ({}));
+    if (res.ok && result.success) {
+      // التطبيعُ إلى {id,name} يحدث هنا — الواجهةُ لا ترى شكلَ Livo الخام.
+      const cities = (result.data || []).map(c => ({
+        id: String(c._id || c.id || c.code || ''),
+        name: String(c.name || c.label || c.city || ''),
+      })).filter(c => c.id && c.name);
+      return { success: true, cities };
     }
     return { success: false, error: result.message || 'فشل جلب المدن' };
-  } catch (error) {
-    return { success: false, error: error.message };
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 }
 
-/**
- * جلب رسوم التوصيل العامة من Livo
- * @param {string} apiKey - مفتاح API
- * @param {string} baseUrl - نقطة نهاية API
- * @returns {Promise<{success: boolean, fees?: Object, error?: string}>}
- */
-async function getFees(apiKey, baseUrl = 'https://rest.livo.ma') {
+async function testConnection(cfg) {
   try {
-    const response = await fetch(`${baseUrl}/fees/public`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    const result = await response.json();
-    if (response.ok && result.success) {
-      return { success: true, fees: result.data || {} };
-    }
-    return { success: false, error: result.message || 'فشل جلب الرسوم' };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
+    const res = await fetch(`${_base(cfg)}/auth/keys`, { method: 'GET', headers: _headers(cfg) });
+    return res.ok;
+  } catch { return false; }
 }
 
 module.exports = {
-  testConnection,
-  createOrder,
-  getOrderStatus,
-  getCities,
-  getFees,
-  livoDeliveryCost,
+  meta, capabilities,
+  createShipment, trackShipment, getCities, calculateQuote, testConnection,
 };
