@@ -586,7 +586,7 @@ const db = {
            p.phone||'', +(p.cost||0), p.enabled!==false,
            p.apiType||'', p.apiKey||'', p.apiEndpoint||'', p.webhookUrl||'', p.id]
         );
-        return;
+        return p.id;
       }
     }
     const id = uid();
@@ -598,6 +598,7 @@ const db = {
        p.phone||'', +(p.cost||0), true,
        p.apiType||'', p.apiKey||'', p.apiEndpoint||'', p.webhookUrl||'']
     );
+    return id;
   },
   async deleteDeliveryProvider(id, userId) {
     if (userId) await pool.query('DELETE FROM delivery_providers WHERE id = $1 AND user_id = $2', [id, userId]);

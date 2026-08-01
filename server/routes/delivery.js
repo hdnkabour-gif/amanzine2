@@ -15,9 +15,9 @@ router.get('/', auth, async (req, res) => {
 
 router.post('/', auth, async (req, res) => {
   try {
-    await db.upsertDeliveryProvider({ ...req.body, userId: req.user.id });
+    const id = await db.upsertDeliveryProvider({ ...req.body, userId: req.user.id });
     await db.addLog({ userId: req.user.id, user: 'Manager', action: `Delivery provider saved: ${req.body.name}`, details: '', type: 'delivery', severity: 'info' });
-    res.json({ ok: true, providers: await db.getDeliveryProviders(req.user.id) });
+    res.json({ ok: true, id, providers: await db.getDeliveryProviders(req.user.id) });
   } catch (e) { console.error('[delivery]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 

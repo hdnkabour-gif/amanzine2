@@ -5,7 +5,7 @@ import {
   Zap, ChevronDown, ChevronUp, Globe, Key, Copy, ExternalLink, X,
 } from 'lucide-react';
 import type { DeliveryProviderConfig } from '../types';
-import { settingsAPI, getToken as getAuthToken } from '../services/api';
+import { settingsAPI, deliveryAPI, getToken as getAuthToken } from '../services/api';
 
 // ─── سجل الشحنات: الحقيقة الكاملة لكل عملية شحن ──────────────────────────────
 // يقرأ سجلات النظام (type=delivery) ويبين لكل طلب: هل أُنشئت شحنة حقيقية
@@ -557,8 +557,36 @@ export default function DeliveryPage() {
   // Dirty-state tracking to prevent accidental data loss
   const [urlWizardDirty, setUrlWizardDirty] = useState(false);
 
+  // 🔗 إصلاح تلقائي لمرة واحدة: مزوّدون بمفتاح API (مثل Livo) أُضيفوا قبل هذا التحديث
+  // كانوا محفوظين هنا فقط (شكلياً)، بلا أي صف حقيقي في delivery_providers — وهذا بالضبط
+  // سبب ظهور "لا توجد شركة توصيل مفعّلة" رغم ظهورهم "مفعّلين" في هذه الصفحة.
+  useEffect(() => {
+    const needsBridge = providers.filter(p => p.apiKey && p.apiEndpoint && !p.dbId);
+    if (!needsBridge.length) return;
+    let cancelled = false;
+    (async () => {
+      const updated = [...providers];
+      let changed = false;
+      for (const p of needsBridge) {
+        try {
+          const r = await deliveryAPI.save({
+            name: p.name, apiKey: p.apiKey, apiEndpoint: p.apiEndpoint, apiType: p.apiType || '',
+            websiteUrl: p.websiteUrl, addOrderPage: p.addOrderPage, enabled: p.enabled,
+          });
+          if (r?.id) {
+            const idx = updated.findIndex(x => x.id === p.id);
+            if (idx >= 0) { updated[idx] = { ...updated[idx], dbId: r.id }; changed = true; }
+          }
+        } catch { /* لا بأس — سيُعاد الإصلاح تلقائياً عند إعادة تحميل الصفحة */ }
+      }
+      if (changed && !cancelled) updateSettings('delivery', { ...settings.delivery, providers: updated });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providers.length]);
+
   // ── API Mode save ──────────────────────────────────────────────────────────
-  const saveApi = () => {
+  const saveApi = async () => {
     // شركةٌ بمفتاح REST (مثل Livo) لا تحتاج صفحة دخولٍ ولا كلمة مرور، والعكس صحيح.
     const hasKey  = !!(config.apiKey && config.apiEndpoint);
     const hasLogin = !!(config.loginUrl && config.username && config.password);
@@ -578,6 +606,19 @@ export default function DeliveryPage() {
       apiType: config.apiType || '',   // ⬅️ تمت إضافة apiType
       fields: config.fields as any,
     };
+    // 🔗 مزامنة حقيقية مع delivery_providers — بدون هذا، الشحن الفعلي (Livo API) يبقى مستحيلاً
+    // حتى لو ظهر المزوّد "مفعّلاً" هنا، لأن الشحن يقرأ من قاعدة البيانات وليس من هذه الصفحة.
+    if (hasKey) {
+      try {
+        const r = await deliveryAPI.save({
+          name: np.name, apiKey: np.apiKey, apiEndpoint: np.apiEndpoint, apiType: np.apiType,
+          websiteUrl: np.websiteUrl, addOrderPage: np.addOrderPage, enabled: true,
+        });
+        if (r?.id) np.dbId = r.id;
+      } catch {
+        notify('warning', '⚠️ تم الحفظ هنا، لكن تعذّر الاتصال بالخادم — الشحن الفعلي لن يعمل حتى تعيد الاختبار من "اختبار الاتصال"');
+      }
+    }
     updateSettings('delivery', { ...settings.delivery, providers: [...providers, np], defaultProvider: np.name });
     notify('success', `تم إضافة ${config.name}`);
     setShowAdd(false); setConfig(EMPTY_API);
@@ -660,7 +701,9 @@ export default function DeliveryPage() {
   };
 
   const remove = (id: string) => {
+    const p = providers.find(x => x.id === id);
     updateSettings('delivery', { ...settings.delivery, providers: providers.filter(p => p.id !== id) });
+    if ((p as any)?.dbId) { deliveryAPI.remove((p as any).dbId).catch(() => {}); }
     notify('warning', 'تم الحذف');
   };
 
@@ -798,7 +841,15 @@ export default function DeliveryPage() {
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <button onClick={e => { e.stopPropagation(); testConn(p); }} className="btn btn-ghost btn-sm" style={{ gap: 5 }}><Zap size={13} /> اختبار</button>
                     <button onClick={e => { e.stopPropagation(); remove(p.id); }} className="btn btn-danger btn-sm" style={{ paddingInline: 10 }}><Trash2 size={13} /></button>
-                    <button onClick={e => { e.stopPropagation(); updateSettings('delivery', { ...settings.delivery, providers: providers.map(x => x.id === p.id ? { ...x, enabled: !x.enabled } : x) }); }} className={`toggle ${p.enabled ? 'on' : ''}`} />
+                    <button onClick={e => {
+                      e.stopPropagation();
+                      const next = !p.enabled;
+                      updateSettings('delivery', { ...settings.delivery, providers: providers.map(x => x.id === p.id ? { ...x, enabled: next } : x) });
+                      if ((p as any).dbId) {
+                        deliveryAPI.save({ id: (p as any).dbId, name: p.name, apiKey: p.apiKey, apiEndpoint: p.apiEndpoint, apiType: (p as any).apiType, enabled: next })
+                          .catch(() => notify('warning', '⚠️ تعذّر تحديث الحالة على الخادم'));
+                      }
+                    }} className={`toggle ${p.enabled ? 'on' : ''}`} />
                   </div>
                   {selected === p.id ? <ChevronUp size={15} color="var(--txt-3)" /> : <ChevronDown size={15} color="var(--txt-3)" />}
                 </div>

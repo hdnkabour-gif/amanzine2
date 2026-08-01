@@ -250,6 +250,8 @@ export interface DeliveryProviderConfig {
   ramassagePage: string;
   apiKey: string;
   apiEndpoint: string;
+  apiType?: string;
+  dbId?: string;   // معرّف الصف الحقيقي في جدول delivery_providers (عند الاتصال بالخادم)
   fields: Record<string, string>;
 }
 
