@@ -575,7 +575,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const shipOrder = async (id: string, provider?: string, tracking?: string): Promise<ShipResult | void> => {
     let trk = tracking || 'TRK-' + Math.random().toString(36).slice(2,8).toUpperCase();
-    let prov = provider || state.settings.delivery?.defaultProvider || 'Amana';
+    // لا اسمَ شركةٍ افتراضيًّا: «Amana» هنا كانت تنسب الشحنةَ لشركةٍ قد لا
+    // يتعامل معها التاجر. الخادمُ يُعيد الاسمَ الحقيقيَّ بعد الإنشاء.
+    let prov = provider || state.settings.delivery?.defaultProvider || '';
     // shipMsg: الرسالة الصادقة الوحيدة التي يراها التاجر عن مصير الشحنة
     let shipMsg: { type: NotifType; text: string } = { type: 'success', text: '' };
     // النتيجة الصادقة تُعاد لواجهة الطلبات لعرض الخطوات الحقيقية

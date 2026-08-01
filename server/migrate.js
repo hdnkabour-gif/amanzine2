@@ -87,6 +87,14 @@ async function migrate() {
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_id TEXT DEFAULT ''`).catch(() => {});
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_city_id TEXT DEFAULT ''`).catch(() => {});
 
+    // مُعرِّفُ الشحنة عند الشركة — كان اسمُه livo_order_id رغم أنّه عامّ لكلّ
+    // مزوّد. العمودُ القديم يبقى للتوافق ويُملأ معه، والقراءةُ تُفضّل الجديد.
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_shipment_id TEXT DEFAULT ''`).catch(() => {});
+    await client.query(
+      `UPDATE orders SET provider_shipment_id = livo_order_id
+       WHERE COALESCE(provider_shipment_id,'') = '' AND COALESCE(livo_order_id,'') <> ''`
+    ).catch(() => {});
+
     await client.query(`CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -95,6 +95,8 @@ function _mapOrder(o) {
     deliveryProvider: o.delivery_provider || '',
     trackingNumber:   o.tracking_number  || '',
     livoOrderId:      o.livo_order_id    || '',
+    /** مُعرِّفُ الشحنة عند أيّ مزوّد — يُفضَّل على livoOrderId المسمّى باسم شركة. */
+    providerShipmentId: o.provider_shipment_id || o.livo_order_id || '',
     deliveryStatus:   o.delivery_status  || '',
     deliverySyncedAt: o.delivery_synced_at ? new Date(o.delivery_synced_at).toISOString() : null,
     deliveryFee:      +o.delivery_fee     || 0,
@@ -416,6 +418,7 @@ const db = {
       needsReview:      'needs_review',     reviewReason:    'review_reason',
       customerCode:     'customer_code',
       livoOrderId:      'livo_order_id',    deliveryStatus:  'delivery_status',
+      providerShipmentId: 'provider_shipment_id',
       deliverySyncedAt: 'delivery_synced_at',
       deliveryFee:      'delivery_fee',     codFee:          'cod_fee',
       providerId:       'provider_id',      providerCityId:  'provider_city_id',

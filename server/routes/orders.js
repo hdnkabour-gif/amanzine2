@@ -266,7 +266,9 @@ router.put('/:id/ship', auth, async (req, res) => {
     if (!o || o.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
     const tracking = req.body.trackingNumber || `TRK-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
     const shipSettings = await db.getSettings(req.user.id) || {};
-    const prov = req.body.provider || shipSettings.delivery?.defaultProvider || 'Amana';
+    // بلا اسمِ شركةٍ مكتوبٍ في الكود: إن لم يُحدَّد شيءٌ نترك الحقلَ فارغًا
+    // بدل نسبةِ الشحنة إلى «Amana» لتاجرٍ لا يتعامل معها أصلًا.
+    const prov = req.body.provider || shipSettings.delivery?.defaultProvider || '';
     await db.updateOrder(o.id, { userId: req.user.id, status: 'shipped', trackingNumber: tracking, deliveryProvider: prov });
     await db.addLog({ userId: req.user.id, user: 'Manager', action: `Shipped: ${o.id}`, details: tracking, type: 'delivery', severity: 'success' });
     await db.addNotification({ userId: req.user.id, type: 'success', message: `🚚 Shipped — ${tracking}` });

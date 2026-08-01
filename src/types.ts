@@ -102,6 +102,8 @@ export interface Order {
   deliveryProvider: string;
   trackingNumber: string;
   livoOrderId?: string;
+  /** مُعرِّفُ الشحنة عند أيّ مزوّد — البديلُ العامّ لـ livoOrderId. */
+  providerShipmentId?: string;
   deliveryStatus?: string;
   deliverySyncedAt?: string | null;
   /** ثمنُ التوصيل كما احتسبه الخادم — مفصولًا عن `total` كي يظهر الربح الحقيقيّ. */

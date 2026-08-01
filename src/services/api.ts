@@ -255,7 +255,16 @@ export const deliveryAPI = {
   save:     (data: any)  => request<any>('POST', '/delivery', data),
   remove:   (id: string) => request<any>('DELETE', `/delivery/${id}`),
   simulate: (orderId: string) => request<any>('POST', `/delivery/simulate/${orderId}`),
+  // `data.provider` (اسمٌ أو api_type) أو `data.providerId` — الخادم يحترمه الآن
+  // بعد أن كان يفرض Livo بالقوّة ويتجاهل الجسمَ كلّه.
   create:   (orderId: string, data?: any) => request<any>('POST', `/delivery/create/${orderId}`, data),
+  // مدنُ المزوّد المفعّل الذي يُعلن cities:'api' — مُطبَّعةً إلى {id,name}
+  cities:   () => request<{ success: boolean; provider: string; cities: { id: string; name: string }[] }>('GET', '/delivery/cities'),
+  // عروضُ سعرٍ موحَّدة من كلّ مزوّدٍ مفعّل (DeliveryQuote)
+  quote:    (city: string, total?: number) =>
+    request<{ success: boolean; city: string; quotes: any[] }>('GET', `/delivery/quote?city=${encodeURIComponent(city)}${total != null ? `&total=${total}` : ''}`),
+  // المزوّدون المتاحون وقدراتُهم — تبني الواجهةُ نفسَها منها لا من أسماء الشركات
+  registry: () => request<{ providers: any[]; rejected: any[] }>('GET', '/delivery/registry'),
   track:    (orderId: string) => request<{ success: boolean; status: string; history: any[]; trackingNumber: string }>('POST', `/delivery/track/${orderId}`),
 };
 
