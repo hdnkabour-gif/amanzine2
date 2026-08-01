@@ -23,6 +23,7 @@ const require_ = createRequire(import.meta.url);
 const ROOT = new URL('..', import.meta.url).pathname;
 const SERVER = join(ROOT, 'server');
 const PROVIDERS_DIR = join(SERVER, 'services/delivery/providers');
+const ADAPTERS_DIR = join(SERVER, 'services/delivery/adapters');
 const REGISTRY_FILE = join(SERVER, 'services/delivery/registry.js');
 
 const registry = require_(join(SERVER, 'services/delivery/registry.js'));
@@ -37,7 +38,8 @@ const BRANDS = registry.list().map(p => p.id).filter(id => !GENERIC_IDS.has(id))
 
 /** مسارات معفاة: المزوّدون أنفسُهم، والاختبارات، والاعتماديّات. */
 const EXEMPT = [
-  'node_modules', 'services/delivery/providers/', 'server/test/', '/data/', 'generated/',
+  'node_modules', 'services/delivery/providers/', 'services/delivery/adapters/',
+  'server/test/', '/data/', 'generated/',
 ];
 
 /**
@@ -120,7 +122,7 @@ test('لا يستورد أحدٌ ملفَّ مزوّدٍ مباشرةً عدا �
   for (const f of FILES) {
     if (f.rel.endsWith('services/delivery/registry.js')) continue;
     for (const l of f.lines) {
-      if (/require\(\s*['"`][^'"`]*delivery\/providers\//.test(l.text)) {
+      if (/require\(\s*['"`][^'"`]*delivery\/(providers|adapters)\//.test(l.text)) {
         hits.push(`${f.rel}:${l.n} → ${l.text.trim()}`);
       }
     }
@@ -145,15 +147,36 @@ test('السجلّ يمسح المجلّد ولا يحمل خريطةً ثابت
 });
 
 // ── ④ كلُّ مزوّدٍ يُحمَّل ويطابق العقد ─────────────────────────
-test('كلُّ ملفٍّ في providers/ يُحمَّل ويطابق العقد', () => {
-  const files = readdirSync(PROVIDERS_DIR).filter(f => f.endsWith('.provider.js'));
-  assert.ok(files.length >= 3, 'يجب وجودُ مزوّدين فعليّين');
-  for (const f of files) {
+test('كلُّ ملفٍّ في providers/ و adapters/ يُحمَّل ويطابق العقد', () => {
+  const provs = readdirSync(PROVIDERS_DIR).filter(f => f.endsWith('.provider.js'));
+  const adapts = readdirSync(ADAPTERS_DIR).filter(f => f.endsWith('.adapter.js'));
+  assert.ok(provs.length >= 3, 'يجب وجودُ مزوّدين فعليّين');
+  assert.ok(adapts.length >= 1, 'يجب وجودُ وسيلةِ اتصالٍ واحدةٍ على الأقلّ');
+
+  for (const f of provs) {
     const mod = require_(join(PROVIDERS_DIR, f));
     assert.deepEqual(validateProvider(mod), [], `${f} لا يطابق العقد`);
     assert.ok(registry.get(mod.meta.id), `${f} لم يُسجَّل رغم مطابقته`);
   }
-  assert.deepEqual(registry.rejected(), [], 'مزوّدٌ مرفوضٌ عند التحميل');
+  for (const f of adapts) {
+    const mod = require_(join(ADAPTERS_DIR, f));
+    assert.deepEqual(validateProvider(mod), [], `${f} لا يطابق العقد`);
+    assert.equal(mod.meta.kind, 'adapter', `${f} يجب أن يُعلن kind:'adapter'`);
+    assert.ok(registry.getAdapter(mod.meta.id), `${f} لم يُسجَّل كوسيلة`);
+  }
+  assert.deepEqual(registry.rejected(), [], 'مزوّدٌ أو وسيلةٌ مرفوضةٌ عند التحميل');
+});
+
+// ── ⑥ الشركةُ ليست الوسيلة ────────────────────────────────────
+test('لا وسيلةَ اتصالٍ مُسجَّلةٌ كشركةٍ ولا العكس', () => {
+  const providerIds = registry.list().map(p => p.id);
+  const adapterIds = registry.listAdapters().map(a => a.id);
+  const overlap = providerIds.filter(id => adapterIds.includes(id));
+  assert.deepEqual(overlap, [],
+    'مُعرِّفٌ مُسجَّلٌ في الجهتين — «Webhook» وسيلةُ وصولٍ لا شركةَ توصيل.');
+  for (const p of registry.list()) {
+    assert.notEqual(p.kind, 'adapter', `${p.id} يُعلن أنّه وسيلةٌ لكنّه في providers/`);
+  }
 });
 
 // ── ⑤ الاستثناءاتُ لا تنمو ────────────────────────────────────

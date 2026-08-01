@@ -16,36 +16,34 @@ const path = require('path');
 const { validateProvider, normalizeCapabilities } = require('./contract');
 
 const PROVIDERS_DIR = path.join(__dirname, 'providers');
-const SUFFIX = '.provider.js';
+const ADAPTERS_DIR = path.join(__dirname, 'adapters');
 
-/** @type {Map<string, any>} */
+/** الشركات. @type {Map<string, any>} */
 const _registry = new Map();
+/** وسائلُ الاتصال. @type {Map<string, any>} */
+const _adapters = new Map();
 /** @type {Array<{file:string, problems:string[]}>} */
 const _rejected = [];
 let _loaded = false;
 
-function _loadOnce() {
-  if (_loaded) return;
-  _loaded = true;
-
+function _scan(dir, suffix, target, label) {
   let files = [];
   try {
-    files = fs.readdirSync(PROVIDERS_DIR).filter(f => f.endsWith(SUFFIX));
+    files = fs.readdirSync(dir).filter(f => f.endsWith(suffix));
   } catch (e) {
-    console.warn('[delivery/registry] تعذّر قراءة مجلّد المزوّدين:', e.message);
+    console.warn(`[delivery/registry] تعذّر قراءة مجلّد ${label}:`, e.message);
     return;
   }
-
   for (const file of files.sort()) {
-    const full = path.join(PROVIDERS_DIR, file);
     let mod;
     try {
-      mod = require(full);
+      mod = require(path.join(dir, file));
     } catch (e) {
       _rejected.push({ file, problems: [`فشل التحميل: ${e.message}`] });
       console.warn(`[delivery/registry] ✗ ${file}: ${e.message}`);
       continue;
     }
+    // العقدُ واحدٌ للاثنين: كلاهما يُنشئ شحنةً ويُرجع النتيجةَ الموحَّدة.
     const problems = validateProvider(mod);
     if (problems.length) {
       _rejected.push({ file, problems });
@@ -53,16 +51,25 @@ function _loadOnce() {
       continue;
     }
     const id = mod.meta.id.trim().toLowerCase();
-    if (_registry.has(id)) {
+    if (target.has(id)) {
       _rejected.push({ file, problems: [`مُعرِّفٌ مكرّر: ${id}`] });
       console.warn(`[delivery/registry] ✗ ${file}: مُعرِّفٌ مكرّر "${id}"`);
       continue;
     }
     mod.capabilities = normalizeCapabilities(mod.capabilities);
-    _registry.set(id, mod);
+    target.set(id, mod);
   }
+}
 
-  console.log(`[delivery/registry] حُمِّل ${_registry.size} مزوّدًا: ${[..._registry.keys()].join(', ') || '—'}`);
+function _loadOnce() {
+  if (_loaded) return;
+  _loaded = true;
+  _scan(PROVIDERS_DIR, '.provider.js', _registry, 'المزوّدين');
+  _scan(ADAPTERS_DIR, '.adapter.js', _adapters, 'الوسائل');
+  console.log(
+    `[delivery/registry] ${_registry.size} مزوّد (${[..._registry.keys()].join(', ') || '—'})`
+    + ` · ${_adapters.size} وسيلة (${[..._adapters.keys()].join(', ') || '—'})`
+  );
 }
 
 /** مزوّدٌ بمُعرِّفه، أو null. */
@@ -72,24 +79,46 @@ function get(id) {
   return _registry.get(String(id).trim().toLowerCase()) || null;
 }
 
+/** وسيلةُ اتصالٍ بمُعرِّفها، أو null. */
+function getAdapter(id) {
+  _loadOnce();
+  if (!id) return null;
+  return _adapters.get(String(id).trim().toLowerCase()) || null;
+}
+
 /** كلُّ المزوّدين المسجَّلين — للوحة الإدارة. */
 function list() {
   _loadOnce();
   return [..._registry.values()].map(p => ({ ...p.meta, capabilities: p.capabilities }));
 }
 
+/** كلُّ وسائل الاتصال المسجَّلة. */
+function listAdapters() {
+  _loadOnce();
+  return [..._adapters.values()].map(a => ({ ...a.meta, capabilities: a.capabilities }));
+}
+
 /**
- * يختار المزوّدَ المناسبَ لصفٍّ من `delivery_providers`.
- * الترتيب: api_type صراحةً ⇒ ثمّ webhook عامٌّ إن كان مُهيّأً ⇒ ثمّ لا شيء
- * (فيسقط المتصل إلى المحاكاة). لا اسمَ شركةٍ مكتوبٌ هنا.
- * @param {{apiType?:string, webhookUrl?:string}} row
+ * يختار مَن يُنفّذ الشحنةَ لصفٍّ من `delivery_providers`.
+ *
+ * الشركةُ أوّلًا: إن وُجد مزوّدٌ باسم api_type فهو الأدرى بشركته. وإلّا فوسيلةُ
+ * اتصالٍ عامّة — ويبقى **اسمُ الشركة كما أدخله التاجر**، لأنّ «Chronodiali عبر
+ * رابط» شركةٌ لها اسم، لا «شحنة لدى Webhook».
+ *
+ * @param {{apiType?:string, webhookUrl?:string, name?:string}} row
+ * @returns {{handler:any, kind:'provider'|'adapter', label:string}|null}
  */
 function resolve(row) {
   _loadOnce();
   if (!row) return null;
-  const byType = get(row.apiType);
-  if (byType) return byType;
-  if (row.webhookUrl) return get('webhook');
+
+  const provider = get(row.apiType);
+  if (provider) return { handler: provider, kind: 'provider', label: provider.meta.name };
+
+  const adapter = getAdapter(row.apiType) || (row.webhookUrl ? getAdapter('webhook') : null);
+  if (adapter) {
+    return { handler: adapter, kind: 'adapter', label: `${row.name || 'شركة'} · ${adapter.meta.name}` };
+  }
   return null;
 }
 
@@ -102,8 +131,12 @@ function rejected() {
 /** لإعادة المسح في الاختبارات. */
 function _reset() {
   _registry.clear();
+  _adapters.clear();
   _rejected.length = 0;
   _loaded = false;
 }
 
-module.exports = { get, list, resolve, rejected, _reset, PROVIDERS_DIR };
+module.exports = {
+  get, getAdapter, list, listAdapters, resolve, rejected, _reset,
+  PROVIDERS_DIR, ADAPTERS_DIR,
+};
