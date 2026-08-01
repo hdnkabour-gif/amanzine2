@@ -97,6 +97,10 @@ function _mapOrder(o) {
     livoOrderId:      o.livo_order_id    || '',
     deliveryStatus:   o.delivery_status  || '',
     deliverySyncedAt: o.delivery_synced_at ? new Date(o.delivery_synced_at).toISOString() : null,
+    deliveryFee:      +o.delivery_fee     || 0,
+    codFee:           +o.cod_fee          || 0,
+    providerId:       o.provider_id       || '',
+    providerCityId:   o.provider_city_id  || '',
     needsReview:      !!o.needs_review,
     reviewReason:     o.review_reason    || '',
     customerCode:     o.customer_code    || '',
@@ -374,8 +378,9 @@ const db = {
     const { rows } = await pool.query(
       `INSERT INTO orders
         (id,user_id,customer_id,customer_name,customer_phone,city,address,
-         items,total,status,source,notes,customer_code)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+         items,total,status,source,notes,customer_code,
+         delivery_fee,cod_fee,provider_id,provider_city_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
       [
         id, o.userId, o.customerId || '', o.customerName || '',
         o.customerPhone || '', o.city || '', o.address || '',
@@ -385,6 +390,8 @@ const db = {
         o.source || 'manual',
         o.notes || '',
         customerCode,
+        +o.deliveryFee || 0, +o.codFee || 0,
+        o.providerId || '', o.providerCityId || '',
       ]
     );
     return _mapOrder(rows[0]);
@@ -401,6 +408,8 @@ const db = {
       customerCode:     'customer_code',
       livoOrderId:      'livo_order_id',    deliveryStatus:  'delivery_status',
       deliverySyncedAt: 'delivery_synced_at',
+      deliveryFee:      'delivery_fee',     codFee:          'cod_fee',
+      providerId:       'provider_id',      providerCityId:  'provider_city_id',
     };
     const parts = []; const vals = [id]; let idx = 2;
     for (const [jsKey, pgCol] of Object.entries(map)) {
@@ -457,8 +466,9 @@ const db = {
       const oid = uid();
       const cc = orderData.customerCode || crypto.randomBytes(4).toString('hex').toUpperCase();
       const { rows: no } = await client.query(
-        `INSERT INTO orders (id,user_id,customer_id,customer_name,customer_phone,city,address,items,total,status,source,notes,customer_code)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+        `INSERT INTO orders (id,user_id,customer_id,customer_name,customer_phone,city,address,items,total,status,source,notes,customer_code,
+                             delivery_fee,cod_fee,provider_id,provider_city_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
         [oid, orderData.userId, customer.id, orderData.customerName || '',
          orderData.customerPhone || '', orderData.city || '', orderData.address || '',
          JSON.stringify(orderData.items || []),
@@ -466,7 +476,9 @@ const db = {
          orderData.status || 'pending',
          orderData.source || 'manual',
          orderData.notes || '',
-         cc]
+         cc,
+         +orderData.deliveryFee || 0, +orderData.codFee || 0,
+         orderData.providerId || '', orderData.providerCityId || '']
       );
       const order = _mapOrder(no[0]);
       await client.query('COMMIT');
@@ -575,20 +587,27 @@ const db = {
     return rows.map(_mapDelivery);
   },
   async upsertDeliveryProvider(p) {
+    // ملكيّةُ الصفّ تُفحص دائمًا: بدون قيد user_id كان أيُّ تاجرٍ يستطيع تمرير
+    // مُعرِّف صفِّ تاجرٍ آخر فيعيد كتابة api_endpoint/webhook_url عنده ويحوّل
+    // طلباته إلى خادمه. الفحصُ هنا وفي جملة UPDATE معًا — لا في أحدهما.
     if (p.id) {
-      const { rows: ex } = await pool.query('SELECT id FROM delivery_providers WHERE id = $1', [p.id]);
+      const { rows: ex } = await pool.query(
+        'SELECT id FROM delivery_providers WHERE id = $1 AND user_id = $2', [p.id, p.userId]
+      );
       if (ex.length) {
         await pool.query(
           `UPDATE delivery_providers SET name=$1,website_url=$2,add_order_page=$3,tracking_url=$4,
            phone=$5,cost=$6,enabled=$7,api_type=$8,api_key=$9,api_endpoint=$10,webhook_url=$11
-           WHERE id=$12`,
+           WHERE id=$12 AND user_id=$13`,
           [p.name, p.websiteUrl||'', p.addOrderPage||'', p.trackingUrl||'',
            p.phone||'', +(p.cost||0), p.enabled!==false,
-           p.apiType||'', p.apiKey||'', p.apiEndpoint||'', p.webhookUrl||'', p.id]
+           p.apiType||'', p.apiKey||'', p.apiEndpoint||'', p.webhookUrl||'', p.id, p.userId]
         );
         return p.id;
       }
     }
+    // مُعرِّفٌ من الخادم دائمًا — لا نُعيد استعمال ما أرسله العميل، وإلّا صار
+    // تمريرُ مُعرِّفِ صفٍّ مملوكٍ لغيره اصطدامًا بالمفتاح الأساسيّ (أو استيلاءً عليه).
     const id = uid();
     await pool.query(
       `INSERT INTO delivery_providers

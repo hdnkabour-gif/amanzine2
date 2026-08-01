@@ -104,6 +104,12 @@ export interface Order {
   livoOrderId?: string;
   deliveryStatus?: string;
   deliverySyncedAt?: string | null;
+  /** ثمنُ التوصيل كما احتسبه الخادم — مفصولًا عن `total` كي يظهر الربح الحقيقيّ. */
+  deliveryFee?: number;
+  codFee?: number;
+  /** مُعرِّفا المزوّد ومدينته عنده — اسمُ المدينة النصّيّ لا يكفي لإعادة بناء الشحنة. */
+  providerId?: string;
+  providerCityId?: string;
   notes: string;
   needsReview: boolean;
   reviewReason?: string;

@@ -79,6 +79,14 @@ async function migrate() {
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT ''`).catch(() => {});
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_synced_at TIMESTAMPTZ`).catch(() => {});
 
+    // 💰 اقتصادُ الطلب: ثمنُ التوصيل كان يُدمَج داخل `total` ثمّ يختفي، فلا يستطيع
+    // التاجر معرفةَ ربحه الحقيقيّ ولا مطابقةَ فاتورة شركة التوصيل. ومُعرِّفا المزوّد
+    // والمدينة عنده يُحفظان لأنّ اسم المدينة النصّيّ لا يكفي لإعادة بناء الشحنة لاحقًا.
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee NUMERIC DEFAULT 0`).catch(() => {});
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS cod_fee NUMERIC DEFAULT 0`).catch(() => {});
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_id TEXT DEFAULT ''`).catch(() => {});
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_city_id TEXT DEFAULT ''`).catch(() => {});
+
     await client.query(`CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

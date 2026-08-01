@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { db } = require('../database');
 const sync   = require('../sync');
 const fetch  = require('node-fetch');
+const { resolveDeliveryFee } = require('../lib/deliveryPricing');
 
 let pushNotify;
 try { pushNotify = require('../routes/push').notifyUser; } catch { pushNotify = () => Promise.resolve(); }
@@ -317,7 +318,8 @@ router.put('/:id/deliver', auth, async (req, res) => {
 });
 
 router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
-  const { userId, items, customerName, customerPhone, city, address, notes, source, couponCode, deliveryCost, captchaToken, customerEmail } = req.body;
+  // ملاحظة: `deliveryCost` القادم من العميل يُتجاهَل عمدًا — الخادم يحسبه بنفسه أدناه.
+  const { userId, items, customerName, customerPhone, city, address, notes, source, couponCode, captchaToken, customerEmail } = req.body;
   if (!userId || !items?.length || !customerName || !customerPhone)
     return res.status(400).json({ error: 'userId, items, name, phone required' });
   try {
@@ -369,7 +371,7 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
 
     const afterDiscount = Math.max(0, subtotal - discount);
     const freeShipping = couponFreeShip || afterDiscount >= freeShipThreshold;
-    const delivery = freeShipping ? 0 : Math.min(Math.max(+deliveryCost || 0, 0), 100);
+    const delivery = freeShipping ? 0 : resolveDeliveryFee(city, settings.deliveryCosts);
     const serverTotal = afterDiscount + delivery;
 
     const couponApplied = couponFreeShip || (couponDiscount > 0 && couponDiscount >= bundleDiscount);
@@ -385,7 +387,8 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     const { order, customer } = await db.createOrderWithCustomer(
       { userId, customerName, customerPhone, city: city||'', address: address||'',
         items: safeItems, total: serverTotal, source: source||'Storefront',
-        status: 'pending', notes: [notes||'', promoNotes].filter(Boolean).join(' · '), customerCode },
+        status: 'pending', notes: [notes||'', promoNotes].filter(Boolean).join(' · '), customerCode,
+        deliveryFee: delivery },
       { userId, name: customerName, phone: customerPhone,
         city: city||'', address: address||'', source: source||'Storefront' }
     );
@@ -408,7 +411,9 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     }
     await db.addLog({ userId, user: 'Storefront', action: `New order: ${customerName}`, details: `${city} — ${serverTotal} MAD${promoNotes ? ' · ' + promoNotes : ''}`, type: 'order', severity: 'info' });
 
-    res.status(201).json({ order, customerId: customer.id, applied: { discount, discountSource, freeShipping, total: serverTotal } });
+    // `deliveryFee` يُعاد للواجهة كي تعرض الرقم الذي احتسبه الخادم فعلًا،
+    // لا الرقم الذي قدّرته هي محلّيًّا.
+    res.status(201).json({ order, customerId: customer.id, applied: { discount, discountSource, freeShipping, deliveryFee: delivery, total: serverTotal } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
