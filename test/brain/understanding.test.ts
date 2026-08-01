@@ -24,10 +24,13 @@ test('كشف اللغة: عربيّة/دارجة-لاتينيّة/مختلط', (
   assert.equal(detectLanguage('bghit plombier f الدار'), 'mixed');
 });
 
-test('المزوّد الأرضيّ متاحٌ دائمًا؛ مزوّدات الذكاء غير مُهيّأة اليوم', () => {
+test('المزوّد الأرضيّ متاحٌ دائمًا؛ وقناةُ الذكاء «قابلةٌ للمحاولة» لا «مُهيّأة»', () => {
   assert.equal(OfflineProvider.available(), true);
-  assert.equal(GeminiProvider.available(), false);
-  assert.equal(hasLLM(), false);
+  assert.equal(GeminiProvider.available(), false);   // Stub — خارج السلسلة
+  // `available()` للمزوّد البعيد تعني «أستطيع محاولة النداء»، لا «يوجد مفتاح».
+  // مَن يقرّر وجودَ المفتاح هو الخادم، ويردّ { available:false } فنسقط للقواعد.
+  // (كانت هذه تُساوي false صدفةً حين لم يكن fetch عامًّا قبل Node 18.)
+  assert.equal(hasLLM(), typeof fetch !== 'undefined');
 });
 
 test('بوّابة التصعيد: الواضح لا يُصعّد، القصّة الطويلة الغامضة تُصعّد', () => {
