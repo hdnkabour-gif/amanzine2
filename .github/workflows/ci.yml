@@ -35,6 +35,10 @@ jobs:
       - name: Knowledge health (تعارضاتُ المرادفات · الفئاتُ الفاسدة)
         run: npm run test:knowledge
 
+      # يمنع عودةَ فروعِ if (apiType === 'livo') التي حُذفت في PR-03
+      - name: Architecture guard (لا اسمَ شركةٍ في منطق الأعمال)
+        run: npm run test:architecture
+
       - name: Server tests
         run: cd server && npm test
 
