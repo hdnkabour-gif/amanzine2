@@ -203,7 +203,18 @@ test('قائمةُ الاستثناءات المعماريّة لا تتضخّم
 // ── ⑧ كلُّ أصلٍ مُشارٍ إليه موجودٌ فعلًا ────────────────────────
 test('لا مرجعَ إلى ملفِّ أصلٍ غيرِ موجود (اللوگو والأيقونات)', () => {
   const ROOT_DIR = new URL('..', import.meta.url).pathname;
+  // المصادرُ تشمل src/ أيضًا: حصرُ الفحص في index.html كان ثغرةً في الحارس
+  // نفسِه — بقي 16 مرجعًا مكسورًا في المكوّنات، ومنها لوگو شريط التنقّل.
   const sources = ['index.html', 'public/manifest.json'];
+  const collectTsx = (dir) => {
+    for (const e of readdirSync(dir)) {
+      const p = join(dir, e);
+      if (statSync(p).isDirectory()) collectTsx(p);
+      else if (/\.tsx?$/.test(p)) sources.push(p.slice(ROOT_DIR.length));
+    }
+  };
+  collectTsx(join(ROOT_DIR, 'src'));
+
   const missing = [];
   for (const src of sources) {
     const text = readFileSync(join(ROOT_DIR, src), 'utf8');

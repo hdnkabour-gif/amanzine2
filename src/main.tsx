@@ -15,7 +15,10 @@ createRoot(root).render(
     </BrowserRouter>
   </ErrorBoundary>
 );
-// Dismiss splash
-try { (window as any).hideSplash?.(); } catch {}
+// شاشةُ البدء لا تُخفى هنا. مهمّتُها تغطيةُ زمن التحميل، وإخفاؤها لحظةَ
+// جاهزيّة React (≈300ms) كان يُظهرها ومضةً ثمّ يترك فراغًا قبل بدء فيديو
+// البوّابة. التسليمُ صار للبوّابة نفسِها (GateIntro في App.tsx): تُخفيها حين
+// تصير جاهزةً للعرض، أو فورًا إن كانت لن تُعرض أصلًا.
+// أمانٌ أخير: إن لم يصل أيُّ تسليمٍ، مؤقّتُ index.html يكشف التطبيق وحدَه.
 
 // Service worker is registered once in index.html (avoids double registration).

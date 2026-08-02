@@ -548,7 +548,7 @@ export default function GuidePage() {
         <div style={{ position: 'relative' }}>
           {/* العلامة (SVG) — الدليل كان الصفحة الوحيدة بلا شعار، فاختلّ الاتّساق
               مع Landing وصفحة الدخول. نفس الملفّ الحادّ 2.2KB. */}
-          <img src="/amanzine-logo.svg" alt="" aria-hidden="true" width={44} height={44}
+          <img src="/brand/amanzine-logo.png" alt="" aria-hidden="true" width={44} height={44}
             style={{ width: 44, height: 44, objectFit: 'contain', marginBottom: 12, display: 'block' }}
             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 99, background: 'rgba(255,106,0,0.06)', border: '1px solid rgba(255,106,0,0.15)', marginBottom: 16 }}>

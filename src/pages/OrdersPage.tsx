@@ -87,7 +87,7 @@ const STATUS_AR: Record<string, string> = { pending: 'بانتظار', pending_c
 function printOrder(order: any, settings: any, currency: string) {
   const brandName = settings.brand?.name || 'AMANZINE';
   const brandPhone = settings.brand?.phone || '';
-  const brandLogo = settings.brand?.logo || '/amanzine-logo.svg';
+  const brandLogo = settings.brand?.logo || '/brand/amanzine-logo.png';
 
   const html = `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
