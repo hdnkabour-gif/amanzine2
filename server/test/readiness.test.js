@@ -44,10 +44,18 @@ test('البوّابةُ تُغلَق حين يفشل بندٌ لازم — ول
   const failedRequired = r.checks.filter(c => c.required && c.ok === false).map(c => c.id);
   assert.deepEqual(r.blocking.slice().sort(), failedRequired.slice().sort());
   assert.equal(r.ready, failedRequired.length === 0);
-  // بلا قاعدةِ بياناتٍ في الاختبار: البوّابةُ **يجب** أن تكون مغلقة.
-  // لو صارت خضراءَ هنا يومًا، فالسببُ أنّها تبتلع فشلًا لا أنّ البيئةَ تحسّنت.
-  assert.equal(r.ready, false, 'بوّابةٌ خضراءُ بلا قاعدة بيانات = فحصٌ كاذب');
-  assert.ok(r.blocking.includes('database'), 'غيابُ قاعدة البيانات لا يُغلق البوّابة');
+
+  // البندُ الحاسم يتبع البيئةَ لا الافتراض. الصيغةُ الأولى كانت تفترض غيابَ
+  // قاعدة البيانات دائمًا، فسقطت أوّلَ مرّةٍ شُغّلت على قاعدةٍ حقيقيّة —
+  // **اختبارٌ يفشل حين تتحسّن البيئةُ اختبارٌ خاطئ**، لا بيئةٌ خاطئة.
+  const db = r.checks.find(c => c.id === 'database');
+  if (process.env.DATABASE_URL) {
+    assert.notEqual(db.ok, null, 'قاعدةٌ مضبوطةٌ ولم تُفحَص');
+  } else {
+    assert.equal(db.ok, false, 'بلا DATABASE_URL يجب أن يسقط بندُ قاعدة البيانات');
+    assert.ok(r.blocking.includes('database'), 'غيابُ قاعدة البيانات لا يُغلق البوّابة');
+    assert.equal(r.ready, false, 'بوّابةٌ خضراءُ بلا قاعدة بيانات = فحصٌ كاذب');
+  }
 });
 
 test('الاختياريُّ لا يمنع العبور مهما كانت حالتُه', async () => {
