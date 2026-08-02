@@ -121,6 +121,36 @@ Cloudinary إن هُيّئ، وإلّا قرصٌ محلّيّ. `PARTIAL` (BROKEN
 ### المحرّكاتُ الصامتة
 `ranking` · `presentation` · `status` · `map` · `graph` · `recommend` · `analytics` · `rules` · `activity` · `ai` — **كلُّها لها مستهلكون** (فُحصت آليًّا). لا محرّكَ يتيمًا.
 
+### المسارات الرقيقة — واجهاتٌ لمحرّكاتٍ بلا منطقٍ خاصّ
+
+| المسار | يفوّض إلى | الحالة |
+|---|---|---|
+| `server/routes/recommend.js` | `lib/engines/recommend.js` → `graph` + `ranking` | `ACTIVE` |
+| `server/routes/feed.js` | `lib/engines/activity.js` (العامّ فقط) | `ACTIVE` — **بلا رابطٍ في الواجهة** |
+| `server/routes/insights.js` | `lib/engines/analytics.js` | `ACTIVE` |
+| `server/routes/payment.js` | `lib/engines/payment.js` | `PARTIAL` |
+| `server/routes/wallet.js` | `db.getWallet` · `db.getWalletTx` | `ACTIVE` — قراءةٌ فقط |
+| `server/routes/discover.js` | `lib/engines/search.js` (اسمٌ قديم) | `ACTIVE` |
+| `server/routes/business.js` | `lib/business.js` + `lib/engines/search.js` | `ACTIVE` |
+| `server/routes/track.js` | `lib/engines/activity.js` | `ACTIVE` |
+| `server/routes/ai-search.js` | `lib/engines/ai.js` (`ask` — محوّلُ قواعد) | `ACTIVE` |
+
+### أنظمةٌ أخرى
+
+**البثّ — `server/routes/broadcast.js`**
+رسائلُ جماعيّةٌ للزبناء عبر واتساب Graph API. `PARTIAL` — يحتاج اعتمادَ التاجر. أثرُ الحذف: لا حملاتٍ جماعيّة.
+
+**الشحنُ الآليّ — `server/routes/delivery-auto.js`**
+مسارٌ قديمٌ يقرأ `delivery_providers` مباشرةً بدل السجلّ. `PARTIAL` — **تكرارٌ جزئيٌّ** لـ`POST /api/delivery/create/:orderId`. لا يستعمل العقدَ ولا السجلّ ⇒ لا يستفيد من الاستدلال ولا من مطابقة المدن. مرشَّحٌ للدمج.
+
+**المزامنةُ الخارجيّة — `server/sync.js`** · **الوسائط — `server/routes/media.js`** · **البثُّ الحيّ — WebSocket في `index.js`**: موصوفةٌ أعلاه.
+
+**محرّكُ الرسم — `server/lib/engines/graph.js`**
+`CATEGORY_AFFINITY` — قربُ الفئات لبعضها. يستعمله `engines/recommend.js` و`engines/ai.js`. `ACTIVE`. `docs/04_KNOWLEDGE_GRAPH.md` يخطّط لاستبداله بـ`kg_relations.weight` خلف نفس العقد — **غيرُ منفَّذ**.
+
+**محوّلُ الأسئلة — `server/lib/engines/ai.js`**
+`ask()` بمحوّلٍ افتراضيٍّ **بالقواعد** (`ruleAdapter`)، و`setAdapter()` لتبديله. يستعمله `routes/ai-search.js` (`POST /api/ai/ask`). `ACTIVE` — يعمل بلا مفتاح. لا تخلطه بـ`routes/ai.js` (موصّلُ المزوّدين) ولا بـ`lib/ai-engine.js` (مساعدُ البيع). **ثلاثةُ أشياءَ باسمٍ متشابه.**
+
 ---
 
 ## الواجهة
