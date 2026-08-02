@@ -851,6 +851,17 @@ router.post('/understand', async (req, res) => {
     // للقواعد في الحالتين، لكنّ التوحيد يمنع سوء تفسيرٍ مستقبليًّا.
     if (!out || !out.text) return res.json({ available: false });
     const parsed = _normUnderstanding(_safeJson(out.text));
+    // أيُّ محرّكٍ أجاب؟ كان الجوابُ يُعاد للعميل ويضيع. إصدارُه يجعل «وضعَ
+    // السقوط» (قواعد → DeepSeek → Gemini) قابلًا للقياس لا للتخمين: حين
+    // تسوء الجودة نعرف **من** كان يجيب. مجهَّلٌ كبقيّة الناقل.
+    try {
+      require('../lib/engines/activity').emit({
+        businessId: req.body?.userId ? `store:${req.body.userId}` : null,
+        actor: 'system', type: 'ai.understood', category: 'ai', visibility: 'private',
+        city: ctx.city || null,
+        payload: { provider: out.provider, withImage: !!img, confidence: parsed?.confidence ?? null },
+      });
+    } catch { /* القياسُ لا يُسقط فهمًا */ }
     return res.json({ available: true, provider: out.provider, result: parsed });
   } catch (e) {
     return res.status(500).json({ error: 'understand failed' });

@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from 'react';
-import { Brain, Map, Activity, GraduationCap, Cpu, Search, Crown, LineChart, HeartPulse, PlusCircle, Users } from 'lucide-react';
+import { Brain, Map, Activity, GraduationCap, Cpu, Search, Crown, LineChart, HeartPulse, PlusCircle, Users, ShieldCheck } from 'lucide-react';
 import AppKnowledgePanel from '../components/AppKnowledgePanel';
 import SystemMapPanel from '../components/SystemMapPanel';
 import LiveBrainPanel from '../components/LiveBrainPanel';
@@ -9,6 +9,7 @@ import PlatformPulsePanel from '../components/PlatformPulsePanel';
 import AddConceptPanel from '../components/AddConceptPanel';
 import NeedDemandPanel from '../components/NeedDemandPanel';
 import BetaMonitorPanel from '../components/BetaMonitorPanel';
+import ReadinessPanel from '../components/ReadinessPanel';
 
 // ============================================================
 // ControlCenter — «مركز القيادة» للمطوّر/الأدمن (المرحلة أ — قراءة فقط). منصّة
@@ -28,8 +29,9 @@ const INK1 = 'var(--ink1,#FAFAFA)';
 const INK3 = 'var(--ink3,#7E877F)';
 const GREEN = 'var(--amz-emerald,#0a8f6f)';
 
-type TabId = 'pulse' | 'demand' | 'add' | 'owner' | 'beta' | 'brain' | 'map' | 'explain' | 'live' | 'learn';
+type TabId = 'ready' | 'pulse' | 'demand' | 'add' | 'owner' | 'beta' | 'brain' | 'map' | 'explain' | 'live' | 'learn';
 const TABS: { id: TabId; label: string; icon: typeof Brain }[] = [
+  { id: 'ready', label: 'الجاهزيّة', icon: ShieldCheck },
   { id: 'pulse', label: 'نبض المنصّة', icon: HeartPulse },
   { id: 'demand', label: 'الطلب غير الملبّى', icon: Users },
   { id: 'add', label: 'إضافة مفهوم', icon: PlusCircle },
@@ -43,7 +45,7 @@ const TABS: { id: TabId; label: string; icon: typeof Brain }[] = [
 ];
 
 export default function ControlCenter() {
-  const [tab, setTab] = useState<TabId>('pulse');
+  const [tab, setTab] = useState<TabId>('ready');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -76,6 +78,7 @@ export default function ControlCenter() {
 
       {/* body */}
       <div>
+        {tab === 'ready' && <ReadinessPanel />}
         {tab === 'pulse' && <PlatformPulsePanel />}
         {tab === 'demand' && <NeedDemandPanel />}
         {tab === 'add' && <AddConceptPanel />}

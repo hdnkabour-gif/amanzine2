@@ -2060,4 +2060,13 @@ db.updateNeedRequest = async (id, { status, matchedBusiness }) => {
   return rows[0] || null;
 };
 
+/**
+ * استعلامٌ خام — لفحص الحياة وحده (`SELECT 1`).
+ *
+ *   بوّابةُ الجاهزيّة يجب أن تسأل قاعدةَ البيانات نفسَها لا متغيّرَ بيئة:
+ *   `DATABASE_URL` مضبوطٌ وخاطئٌ يعطي «✅» بينما لا شيءَ يُحفَظ. لا يُستعمل
+ *   لبناء استعلاماتٍ من مُدخلات — لذلك لا يقبل قيمًا مُدرَجة.
+ */
+db.raw = (sql) => pool.query(sql);
+
 module.exports = { db };

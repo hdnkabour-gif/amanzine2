@@ -117,6 +117,7 @@ if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 // (وإلّا فشل healthcheck)، فبدون إعلانِ نتيجته هنا يبقى فشلُه مرئيًّا في
 // السجلّات وحدَها: «ok» بينما المخطّطُ قديم — وهو أخضرُ كاذبٌ في نقطة الفحص.
 const migrationState = { ran: false, ok: null, error: null, at: null };
+const readiness = require('./lib/readiness');
 
 // التشخيصُ يُقرأ كسولًا من الوحدات نفسها: لو تعذّر التحميلِ لا يسقط فحصُ الصحّة.
 function aiStatus() {
@@ -153,6 +154,22 @@ app.get('/api/health', (req, res) => {
     notifications: notificationStatus(),
     env: process.env.NODE_ENV || 'development',
   });
+});
+
+// GET /api/health/readiness — بوّابةُ الجاهزيّة: القائمةُ التي تُنفَّذ.
+//
+//   محميّةٌ للأدمن: تُسمّي ما ليس مضبوطًا (سرٌّ قصير · تخزينٌ مؤقّت · قناةٌ
+//   صامتة)، وهذه خارطةُ طريقٍ لمهاجم. الملخّصُ وحدَه (`ready`) لا يكفي —
+//   البوّابةُ تُقرأ بندًا بندًا وإلّا صارت علامةً خضراءَ أخرى بلا معنى.
+const { platformAdmin } = require('./middleware/platformAdmin');
+app.get('/api/health/readiness', require('./middleware/auth'), platformAdmin, async (req, res) => {
+  try {
+    const { db } = require('./database');
+    res.json(await readiness.evaluate({ db, migration: migrationState }));
+  } catch (e) {
+    console.error('[readiness]', e.message);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // ── Rate limiting ─────────────────────────────────────────────
@@ -196,6 +213,11 @@ app.use('/api/knowledge',           rateLimit({ windowMs: 10 * 60 * 1000, max: 1
 app.use('/api/ai/',          rateLimit({ windowMs: 60 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات ذكاء اصطناعي كثيرة — انتظر قليلاً (حماية التكلفة)' } }));
 // C-2: تحديد محاولات تتبّع الطلب (يدعم منع تعداد البيانات)
 app.use('/api/orders/track', rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'محاولات تتبّع كثيرة — انتظر قليلاً' } }));
+
+// حقيقةُ وقتِ التشغيل تُسجَّل هنا حيث تُعرَف — بوّابةُ الجاهزيّة تقرؤها ولا
+// تخمّنها. لو حُذفت المحدِّداتُ يومًا، تسقط البوّابةُ بدل أن تُخمّن سلامتَها.
+readiness.register('rateLimit', true);
+readiness.register('rateLimitCount', (app._router?.stack || []).filter(l => l.name === 'rateLimit').length || undefined);
 
 // ── Routes ───────────────────────────────────────────────────
 app.use('/api/auth',          require('./routes/auth'));

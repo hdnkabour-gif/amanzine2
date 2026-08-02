@@ -249,6 +249,13 @@ export const mediaAPI = {
     request<{ url: string; filename: string }>('POST', '/media/upload-base64', { data, ext }),
 };
 
+// ── بوّابة الجاهزيّة (أدمن) ────────────────────────────────────
+// `ok` ثلاثيّة عمدًا: `null` = لم يُفحَص، ولا يُعرَض أخضرَ أبدًا.
+export type ReadinessCheck = { id: string; label: string; ok: boolean | null; detail: string; required: boolean };
+export const readinessAPI = {
+  get: () => request<{ ready: boolean; blocking: string[]; checks: ReadinessCheck[] }>('GET', '/health/readiness'),
+};
+
 // ── Delivery ──────────────────────────────────────────────────
 export const deliveryAPI = {
   list:     ()           => request<any[]>('GET', '/delivery'),
