@@ -6,7 +6,7 @@ import {
   Users, Bell, Download, Layers,
   Package, UserPlus, X as XIcon, HelpCircle,
   Image as ImageIcon, Wand2, Calendar as CalendarIcon, Home, Brain,
-  Wallet as WalletIcon, UserCircle, Sparkles, Rocket,
+  Wallet as WalletIcon, UserCircle, Sparkles, Rocket, MapPin,
 } from 'lucide-react';
 import { NavIconCart, NavIconTruck, NavIconBrain, NavIconPackage, NavIconMessage } from '../components/icons';
 import React from 'react';
@@ -127,6 +127,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     { page: 'profile',    icon: UserCircle, label: 'ملفّي',            desc: 'حسابي، الثقة، ومفضّلتي' },
     { page: 'knowledge',  icon: Brain,      label: 'مركز المعرفة',     desc: 'عقل التطبيق: ما تعلّمه وما لم يفهمه' },
     { page: 'moderation', icon: Tag,        label: 'مراجعة الإعلانات', desc: 'موافقة إعلانات السوق' },
+    { page: 'field-visit', icon: MapPin,     label: 'زيارة ميدانيّة',    desc: 'تسجيل محلٍّ على الأرض وحصادُ ما يتعلّمه المحرّك' },
     { page: 'guide',      icon: HelpCircle, label: 'شرح التطبيق',      desc: 'دليل تفاعلي لكل ميزات التطبيق' },
     { page: 'settings',   icon: Settings,   label: 'الإعدادات',        desc: 'التحكم في كل إعدادات المتجر' },
   ]},
@@ -135,7 +136,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 // Mobile hamburger panel = flattened complete list (with descriptions).
 // أدوات المنصّة (لا أدوات المتجر): تُخفى عمّن ليس أدمن المنصّة. الخادم يمنعها
 // أصلًا بـ403 — هذا يمنع أن يراها المستخدم العاديّ فيحتار أو يصطدم بخطأ.
-const PLATFORM_ONLY: ReadonlySet<string> = new Set(['knowledge', 'moderation']);
+const PLATFORM_ONLY: ReadonlySet<string> = new Set(['knowledge', 'moderation', 'field-visit']);
 const visibleItems = (items: NavItem[], isAdmin: boolean) =>
   isAdmin ? items : items.filter(i => !PLATFORM_ONLY.has(i.page as string));
 

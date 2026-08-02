@@ -8,7 +8,7 @@ export type Page =
   | 'customers' | 'analytics' | 'insights' | 'connections' | 'delivery'
   | 'notifications' | 'settings' | 'banner' | 'editor' | 'import' | 'coupons'
   | 'services' | 'guide' | 'moderation' | 'bookings' | 'knowledge'
-  | 'wallet' | 'profile' | 'assistant' | 'publish';
+  | 'wallet' | 'profile' | 'assistant' | 'publish' | 'field-visit';
 
 export type UserRole = 'admin' | 'seller' | 'support' | 'delivery';
 export type OrderStatus = 'pending' | 'pending_confirmation' | 'approved' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
