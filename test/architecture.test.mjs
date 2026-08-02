@@ -262,3 +262,34 @@ test('كلُّ صفحةٍ في src/pages إمّا موصولةٌ أو معفاة
   assert.deepEqual(orphans, [],
     'صفحةٌ مبنيّةٌ لا يصل إليها أحد — صِلها بالتوزيع والقائمة أو احذفها.');
 });
+
+test('كلُّ صفحةٍ تملك رابطًا خاصًّا بها — لا صفحتان على عنوانٍ واحد', () => {
+  // العطبُ الذي وُلد منه هذا: `field-visit` كانت في `PAGE_IDS` وفي `MainLayout`
+  // — فمرّت من حارس اليتامى — لكن بلا مدخلٍ في `PAGE_URLS`. النتيجة: العنوانُ
+  // لا يتغيّر عند فتحها، فتظهر **صفحتان مختلفتان على `/moderation`**، ولا
+  // يعمل الرابطُ المباشر ولا زرُّ الرجوع. الحارسُ القديم فحص «هل تُستورَد؟»
+  // ولم يفحص «هل لها عنوان؟» — وصلٌ ناقصٌ يمرّ من فحصٍ ناقص.
+  const ROOT_DIR = new URL('..', import.meta.url).pathname;
+  const types = readFileSync(join(ROOT_DIR, 'src/types.ts'), 'utf8');
+  const app   = readFileSync(join(ROOT_DIR, 'src/App.tsx'), 'utf8');
+
+  const idsBlock = types.match(/export const PAGE_IDS = \[([\s\S]*?)\] as const/);
+  assert.ok(idsBlock, 'تعذّر قراءة PAGE_IDS');
+  const ids = [...idsBlock[1].matchAll(/'([a-z-]+)'/g)].map(m => m[1]);
+  assert.ok(ids.length >= 20, `صفحاتٌ قليلةٌ قُرئت (${ids.length})`);
+
+  const urlsBlock = app.match(/const PAGE_URLS[^=]*=\s*\{([\s\S]*?)\n\};/);
+  assert.ok(urlsBlock, 'تعذّر قراءة PAGE_URLS');
+  const entries = [...urlsBlock[1].matchAll(/'?([a-z-]+)'?:\s*'([^']+)'/g)];
+  const urlOf = Object.fromEntries(entries.map(m => [m[1], m[2]]));
+
+  const missing = ids.filter(id => !urlOf[id]);
+  assert.deepEqual(missing, [], `صفحاتٌ بلا رابط: ${missing.join(' · ')} — العنوانُ لن يتغيّر عند فتحها`);
+
+  // ولا عنوانان متطابقان: رابطٌ واحدٌ لصفحتين يجعل الرجوعَ والمشاركةَ عشوائيَّين.
+  const seen = new Map();
+  for (const [id, url] of Object.entries(urlOf)) {
+    if (seen.has(url)) assert.fail(`الرابط ${url} لصفحتين: ${seen.get(url)} و${id}`);
+    seen.set(url, id);
+  }
+});

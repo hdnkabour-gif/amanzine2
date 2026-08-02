@@ -291,12 +291,6 @@ export default function SettingsPage() {
                   {LANGS.map(l => <option key={l.code} value={l.code}>{l.flag} {l.label}</option>)}
                 </select>
               </Field>
-              <Field label="بداية ساعات العمل">
-                <input className="input" type="time" value={(s.brand as any).workStart||'09:00'} onChange={e=>updateSettings('brand',{...s.brand,workStart:e.target.value} as any)}/>
-              </Field>
-              <Field label="نهاية ساعات العمل">
-                <input className="input" type="time" value={(s.brand as any).workEnd||'21:00'} onChange={e=>updateSettings('brand',{...s.brand,workEnd:e.target.value} as any)}/>
-              </Field>
               <Field label="المنطقة الزمنية">
                 <select className="select" value={(s.brand as any).timezone||'Africa/Casablanca'} onChange={e=>updateSettings('brand',{...s.brand,timezone:e.target.value} as any)}>
                   {['Africa/Casablanca','Europe/Paris','Europe/London','Asia/Dubai','America/New_York','America/Los_Angeles'].map(tz=><option key={tz} value={tz}>{tz}</option>)}
@@ -329,6 +323,11 @@ export default function SettingsPage() {
                 {['الدار البيضاء','الرباط','مراكش','فاس','طنجة','أكادير','مكناس','وجدة','سلا','تطوان','القنيطرة','الجديدة'].map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </Field>
+            {/* ساعاتُ العمل — **حقلٌ واحدٌ لا اثنان**. كانت مكرّرةً في هذه
+                الصفحة نفسِها (أعلى ⟵ «بداية/نهاية ساعات العمل») تكتبان في
+                `workStart`/`workEnd` أنفسِهما بافتراضاتٍ مختلفة، فيرى التاجرُ
+                الإعدادَ مرّتين ويظنّهما شيئين. تبقى النسخةُ هنا لأنّها تجاور
+                «الحالة المباشرة» التي تُشتقّ منها. */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <Field label="ساعة الفتح"><input className="input" type="time" value={(s.brand as any).workStart || ''} onChange={e => updateSettings('brand', { ...s.brand, workStart: e.target.value } as any)} /></Field>
               <Field label="ساعة الإغلاق"><input className="input" type="time" value={(s.brand as any).workEnd || ''} onChange={e => updateSettings('brand', { ...s.brand, workEnd: e.target.value } as any)} /></Field>

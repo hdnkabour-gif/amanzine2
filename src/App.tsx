@@ -43,6 +43,9 @@ const PAGE_URLS: Record<string, string> = {
   profile:       '/profile',
   assistant:     '/assistant',
   publish:       '/publish',
+  // كانت ناقصة: بلا مدخلٍ هنا لا يتغيّر العنوانُ عند فتح الصفحة، فتظهر
+  // **صفحتان مختلفتان على نفس الرابط** (/moderation) — وهو ما رآه المالك.
+  'field-visit': '/field-visit',
 };
 
 const URL_PAGES: Record<string, string> = Object.fromEntries(
