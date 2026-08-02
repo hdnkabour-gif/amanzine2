@@ -3,7 +3,7 @@
 // Livo — https://rest.livo.ma
 // مصادقة: Bearer API key. لا endpoint لحساب الثمن ⇒ التسعير بقواعدَ محلّيّة.
 
-const { makeQuote } = require('../contract');
+const { makeQuote, pickArray, pickObject } = require('../contract');
 
 const meta = {
   id: 'livo', name: 'Livo', country: 'MA', currency: 'MAD', version: '1.0',
@@ -61,11 +61,13 @@ async function createShipment(order, cfg) {
     const result = await res.json().catch(() => ({}));
 
     if (!res.ok) return { success: false, error: result.message || `HTTP ${res.status}` };
-    if (result.success && result.data) {
+    // الشكلُ قد يكون `{data:{…}}` أو `{data:{data:{…}}}` — نفحص ولا نفترض.
+    const d = pickObject(result);
+    if (result.success && d && (d._id || d.tracking_number)) {
       return {
         success: true,
-        shipmentId: result.data._id,
-        trackingNumber: result.data.tracking_number || result.data._id,
+        shipmentId: d._id,
+        trackingNumber: d.tracking_number || d._id,
       };
     }
     return { success: false, error: result.message || 'استجابةٌ غيرُ متوقّعة من Livo' };
@@ -79,12 +81,13 @@ async function trackShipment(shipmentId, cfg) {
     const res = await fetch(`${_base(cfg)}/orders/${shipmentId}`, { method: 'GET', headers: _headers(cfg) });
     const result = await res.json().catch(() => ({}));
     if (!res.ok) return { success: false, error: result.message || `HTTP ${res.status}` };
-    if (result.success && result.data) {
+    const d = pickObject(result);
+    if (result.success && d) {
       return {
         success: true,
-        status: result.data.status,
-        trackingNumber: result.data.tracking_number,
-        history: result.data.history || [],
+        status: d.status,
+        trackingNumber: d.tracking_number,
+        history: pickArray(d, ['history']),
       };
     }
     return { success: false, error: result.message || 'استجابةٌ غيرُ متوقّعة' };
@@ -98,8 +101,10 @@ async function getCities(cfg) {
     const res = await fetch(`${_base(cfg)}/cities`, { method: 'GET', headers: _headers(cfg) });
     const result = await res.json().catch(() => ({}));
     if (res.ok && result.success) {
-      // التطبيعُ إلى {id,name} يحدث هنا — الواجهةُ لا ترى شكلَ Livo الخام.
-      const cities = (result.data || []).map(c => ({
+      // Livo تُرجع `{success, data:{data:[…]}}` — لا `{success, data:[…]}`.
+      // كان الكودُ يقرأ `result.data` فيجد كائنًا وترمي `.map`، فبقيت ٤٤١
+      // مدينةً غيرَ مقروءةٍ ولا يُصلحها مفتاحٌ صحيح. `pickArray` تفحص لا تفترض.
+      const cities = pickArray(result).map(c => ({
         id: String(c._id || c.id || c.code || ''),
         name: String(c.name || c.label || c.city || ''),
       })).filter(c => c.id && c.name);

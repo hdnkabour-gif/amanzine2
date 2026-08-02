@@ -498,35 +498,18 @@ function startMorningReportCron() {
 startMorningReportCron();
 
 // ── Daily Backup System ─────────────────────────
+// المنطقُ انتقل إلى `lib/backup.js`: النسخُ تُكتب فعلًا، لكنّ **الدوام** يُعلَن
+// ولا يُفترَض. كان يُكتب في قرص الحاوية ويُعرَض للتاجر كأنّه محفوظ.
 function startDailyBackup() {
   const { db } = require('./database');
-  async function doBackup() {
-    try {
-      const users = await db.listUsers();
-      if (!Array.isArray(users) || !users.length) return;
-      for (const user of users) {
-        const backup = {
-          timestamp: new Date().toISOString(),
-          products:  await db.getProducts(user.id)  || [],
-          orders:    await db.getOrders(user.id)    || [],
-          customers: await db.getCustomers(user.id) || [],
-          settings:  await db.getSettings(user.id)  || {},
-        };
-        const backupDir = path.join(DATA_DIR, 'backups');
-        if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
-        const filename = `backup-${user.id}-${new Date().toISOString().split('T')[0]}.json`;
-        fs.writeFileSync(path.join(backupDir, filename), JSON.stringify(backup, null, 2));
-        // Keep only last 7 backups per user
-        const files = fs.readdirSync(backupDir).filter(f => f.includes(user.id)).sort();
-        if (files.length > 7) files.slice(0, files.length - 7).forEach(f => fs.unlinkSync(path.join(backupDir, f)));
-        console.log(`[Backup] ✅ ${user.email} — ${filename}`);
-      }
-    } catch(e) { console.error('[Backup]', e.message); }
-  }
-  // Run at startup + every 24h
+  const backup = require('./lib/backup');
+  const doBackup = () => backup.run(db).catch(e => console.error('[Backup]', e.message));
   setTimeout(doBackup, 5000);
   setInterval(doBackup, 24 * 60 * 60 * 1000);
-  console.log('[Backup] Daily backup scheduled');
+  const loc = backup.location();
+  console.log(loc.durable
+    ? `[Backup] مجدوَل يوميًّا → ${loc.dir}`
+    : `[Backup] ⚠️  مجدوَل يوميًّا، لكن **غيرُ دائم**: ${loc.why}`);
 }
 startDailyBackup();
 

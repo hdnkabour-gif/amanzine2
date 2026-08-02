@@ -174,3 +174,54 @@ test('العقد يرفض match.hosts المعطوب بدل تركه يفشل ص
   assert.equal(validateProvider({ ...base, meta: { ...base.meta, match: { hosts: [42] } } }).length, 1);
   assert.deepEqual(validateProvider({ ...base, meta: { ...base.meta, match: { hosts: ['livo.ma'] } } }), []);
 });
+
+// ── قراءةُ الردود: افحص، لا تفترض ──────────────────────────────────────────
+//
+//   العطبُ الذي وُلد منه هذا كلّف ٤٤١ مدينة: Livo تُرجع `{data:{data:[…]}}`
+//   والكودُ توقّع `{data:[…]}`، فرمت `.map` وصار الخطأُ يبدو عطبَ شبكةٍ أو
+//   مفتاح. لا اختبارَ وحدةٍ يمسكه — يمسكه **ردٌّ حقيقيّ**، أو حارسٌ يمنع
+//   الافتراضَ من أصله.
+
+const { pickArray, pickObject } = require('../services/delivery/contract');
+
+test('pickArray تجد المصفوفةَ مهما تداخل الردّ', () => {
+  assert.deepEqual(pickArray([1, 2]), [1, 2], 'مصفوفةٌ مباشرة');
+  assert.deepEqual(pickArray({ data: [1] }), [1], 'الشكلُ المتوقَّع سابقًا');
+  assert.deepEqual(pickArray({ success: true, data: { data: [1, 2] } }), [1, 2], 'شكلُ Livo الحقيقيّ');
+  assert.deepEqual(pickArray({ items: [3] }), [3]);
+  assert.deepEqual(pickArray({ results: [4] }), [4]);
+  assert.deepEqual(pickArray({ data: { cities: [5] } }, ['data.cities']), [5], 'مسارٌ مخصّص');
+});
+
+test('pickArray تُرجع مصفوفةً دائمًا — لا ترمي أبدًا', () => {
+  for (const bad of [null, undefined, 0, '', 'نصّ', { data: {} }, { data: 'x' }, { a: 1 }]) {
+    const r = pickArray(bad);
+    assert.ok(Array.isArray(r), `${JSON.stringify(bad)}: لم تُرجع مصفوفة`);
+    assert.equal(r.length, 0);
+  }
+});
+
+test('pickObject تجد الكائنَ ولا تخلطه بمصفوفة', () => {
+  assert.deepEqual(pickObject({ data: { _id: 'a' } }), { _id: 'a' });
+  assert.deepEqual(pickObject({ data: { data: { _id: 'b' } } }), { _id: 'b' }, 'شكلٌ متداخل');
+  assert.equal(pickObject({ data: [1, 2] }), null, 'مصفوفةٌ ليست كائنَ شحنة');
+  assert.equal(pickObject(null), null);
+  assert.equal(pickObject('نصّ'), null);
+});
+
+test('لا مزوّدَ يقرأ الردَّ بافتراضِ شكلٍ — القاعدة مفروضة', () => {
+  const fs = require('fs'), path = require('path');
+  const dir = path.join(__dirname, '..', 'services', 'delivery', 'providers');
+  for (const f of fs.readdirSync(dir).filter(x => x.endsWith('.provider.js'))) {
+    const src = fs.readFileSync(path.join(dir, f), 'utf8');
+    // القاعدةُ تخصّ **ردَّ الشركة** لا بياناتِنا: `(order.items || []).map`
+    // آمنةٌ لأنّ الشكلَ لنا. المقصودُ ما نقرؤه من الخارج.
+    const RESPONSE = '(?:result|response|json|payload|body|data)';
+    // `(result.data || []).map` — الكائنُ قيمةٌ صادقة فلا يحميه `|| []`.
+    assert.ok(!new RegExp(`\\(\\s*${RESPONSE}(\\.\\w+)*\\s*\\|\\|\\s*\\[\\]\\s*\\)\\s*\\.map`).test(src),
+      `${f}: يفترض أنّ ردَّ الشركة مصفوفة — استعمل pickArray`);
+    // ولا يقرأ `result.data.x` مباشرةً بلا فحصِ التداخل.
+    assert.ok(!/result\.data\.\w/.test(src),
+      `${f}: يقرأ result.data مباشرةً — استعمل pickObject`);
+  }
+});

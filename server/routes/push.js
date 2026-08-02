@@ -68,18 +68,29 @@ router.post('/unsubscribe', auth, async (req, res) => {
   }
 });
 
-// Helper — send a push notification to all subscriptions of a user
+/**
+ * يُرسل إشعارًا فوريًّا لكلّ اشتراكات المستخدم.
+ *
+ *   كانت تُرجع `undefined` في كلّ الحالات، فمحوّلُ القناة يفترض النجاح ويقول
+ *   «✅ وصل» **ولا مشترِكَ أصلًا**. تشخيصٌ يكذب بلطفٍ أسوأُ من غيابه: يُقنعك
+ *   أنّ القناةَ تعمل فتبحث عن العطب في مكانٍ آخر.
+ *
+ * @returns {Promise<{sent:boolean, delivered:number, subscriptions:number, reason?:string}>}
+ */
 async function notifyUser(userId, title, body, data = {}) {
   const settings = await db.getSettings(userId) || {};
   const subs = settings.pushSubscriptions || [];
-  if (!subs.length) return;
+  // لا مشترِك ⇒ لم يُرسَل شيء. هذه ليست حالةَ نجاح.
+  if (!subs.length) return { sent: false, delivered: 0, subscriptions: 0, reason: 'no-subscription' };
 
   const payload = JSON.stringify({ title, body, ...data });
   const dead = [];
+  let delivered = 0;
 
   await Promise.allSettled(subs.map(async (sub, i) => {
     try {
       await webpush.sendNotification(sub, payload);
+      delivered++;
     } catch (e) {
       if (e.statusCode === 410 || e.statusCode === 404) dead.push(i);
     }
@@ -90,6 +101,13 @@ async function notifyUser(userId, title, body, data = {}) {
     const alive = subs.filter((_, i) => !dead.includes(i));
     await db.saveSettings(userId, { ...settings, pushSubscriptions: alive });
   }
+
+  return {
+    sent: delivered > 0,
+    delivered,
+    subscriptions: subs.length,
+    ...(delivered ? {} : { reason: dead.length ? 'all-expired' : 'send-failed' }),
+  };
 }
 
 module.exports = router;

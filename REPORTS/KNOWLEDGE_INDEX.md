@@ -63,7 +63,7 @@
 |---|---|---|---|
 | العقد | `services/delivery/contract.js` | `ACTIVE` | HIGH |
 | **السجلّ** | `services/delivery/registry.js` | `ACTIVE` | **HIGH** (مُنفَّذ) |
-| Livo | `providers/livo.provider.js` | **`BROKEN`** — المدن | **HIGH** |
+| Livo | `providers/livo.provider.js` | `ACTIVE` — ٤٤١ مدينة | **HIGH** |
 | Amana · Jibli | `providers/*.provider.js` | `UNKNOWN` | UNKNOWN |
 | الوسائل | `adapters/webhook` · `url-recipe` | `ACTIVE` | MEDIUM |
 | محرّك المدن | `server/lib/cityEngine.js` | `ACTIVE` | HIGH |
@@ -114,7 +114,7 @@
 | داخل التطبيق | `CHANNELS['in-app']` | `ACTIVE` | HIGH |
 | واتساب | `server/lib/whatsapp.js` | `PARTIAL` — بديلٌ يدويٌّ يعمل | HIGH |
 | البريد | `server/lib/mailer.js` | `PARTIAL` | HIGH |
-| Push | `server/routes/push.js` | **`PARTIAL`** — يدّعي النجاح | HIGH |
+| Push | `server/routes/push.js` | `PARTIAL` — يحتاج VAPID، ويقول الحقيقة | HIGH |
 
 المعطوب: [`BROKEN_CHAINS#⑦`](BROKEN_CHAINS.md)
 
@@ -127,9 +127,9 @@
 | المصادقة | `routes/auth.js` + `middleware/auth.js` | `ACTIVE` | **HIGH** |
 | أدمن المنصّة | `middleware/platformAdmin.js` | `ACTIVE` | HIGH |
 | الأسرار | `server/lib/secrets.js` | `ACTIVE` | HIGH |
-| الجاهزيّة | `server/lib/readiness.js` | `ACTIVE` ⚠️ وصفُ النسخ | HIGH |
+| الجاهزيّة | `server/lib/readiness.js` | `ACTIVE` | HIGH |
 | الوسائط | `routes/media.js` | **`BROKEN`** — قرصٌ زائل | HIGH |
-| **النسخُ الاحتياطيّة** | `index.js:startDailyBackup` | **`BROKEN`** | HIGH |
+| **النسخُ الاحتياطيّة** | `server/lib/backup.js` | `PARTIAL` — تعمل، والدوامُ يحتاج `BACKUP_DIR` | HIGH |
 | WebSocket | `index.js` | `ACTIVE` | MEDIUM |
 | مزامنة Supabase | `server/sync.js` | `UNKNOWN` | UNKNOWN |
 
@@ -138,7 +138,7 @@
 ## أوّلُ ما تفعله كمهندسٍ جديد
 
 1. **`PROJECT_MAP`** — خمسُ دقائق.
-2. **`BROKEN_CHAINS` ①②③** — ثلاثةُ أعطابٍ حرجة. لا تبنِ فوقها قبل أن تعرفها.
+2. **`BROKEN_CHAINS`** — ①②⑦ أُصلحت؛ ③ تهيئةُ بيئة. الباقي مفتوحٌ ومرتَّبٌ بالشدّة.
 3. **`ARCHITECTURE#٨`** — القيودُ التي يوقفك خرقُها.
 4. **`RESPONSIBILITY_GRAPH`** — احفظ الجدول. يوفّر عليك ساعاتِ بحث.
 5. شغّل: `npm test` (٣٤٣ اختبارًا) · `npx tsc --noEmit` · `npm run build`.

@@ -110,6 +110,53 @@ function normalizeCapabilities(caps) {
   return { ...DEFAULT_CAPABILITIES, ...(caps || {}) };
 }
 
+/**
+ * يستخرج **مصفوفةً** من ردٍّ لا نتحكّم في شكله.
+ *
+ *   عطبٌ حقيقيٌّ كلّفنا ٤٤١ مدينة: Livo تُرجع `{success, data:{data:[…]}}`
+ *   بينما توقّع الكودُ `{success, data:[…]}`. و`|| []` لم تحمِ، لأنّ الكائنَ
+ *   قيمةٌ صادقة فتُستدعى `.map` عليه وترمي — فيصير الخطأُ «فشلت القراءة»
+ *   وكأنّه عطبُ شبكةٍ أو مفتاح، ولا أحدَ يشكّ في التحليل.
+ *
+ *   لا مزوّدَ بعد اليوم يفترض شكلًا. القاعدة: **افحص، لا تفترض.**
+ *
+ * @param {any} payload الردُّ الخام
+ * @param {string[]} [paths] مساراتٌ إضافيّةٌ تُجرَّب قبل الافتراضيّة
+ * @returns {any[]} مصفوفةٌ دائمًا — فارغةٌ إن لم تُوجد
+ */
+function pickArray(payload, paths = []) {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== 'object') return [];
+  // الأشكالُ الشائعةُ لدى شركات التوصيل، بالترتيب.
+  const candidates = [...paths, 'data.data', 'data', 'items', 'results', 'list', 'cities', 'records'];
+  for (const path of candidates) {
+    let cur = payload;
+    for (const key of path.split('.')) {
+      if (!cur || typeof cur !== 'object') { cur = undefined; break; }
+      cur = cur[key];
+    }
+    if (Array.isArray(cur)) return cur;
+  }
+  return [];
+}
+
+/**
+ * يستخرج **كائنًا** من ردٍّ متداخل — نفسُ المبدأ لشحنةٍ أو تتبّع.
+ * @returns {object|null}
+ */
+function pickObject(payload, paths = []) {
+  if (!payload || typeof payload !== 'object') return null;
+  for (const path of [...paths, 'data.data', 'data', 'result', 'order', 'shipment']) {
+    let cur = payload;
+    for (const key of path.split('.')) {
+      if (!cur || typeof cur !== 'object') { cur = undefined; break; }
+      cur = cur[key];
+    }
+    if (cur && typeof cur === 'object' && !Array.isArray(cur)) return cur;
+  }
+  return null;
+}
+
 /** بناءُ عرضِ سعرٍ موحَّدٍ من قيمٍ جزئيّة. */
 function makeQuote(partial = {}) {
   return {
@@ -124,5 +171,5 @@ function makeQuote(partial = {}) {
 
 module.exports = {
   REQUIRED_METHODS, OPTIONAL_METHODS, DEFAULT_CAPABILITIES,
-  validateProvider, normalizeCapabilities, makeQuote,
+  validateProvider, normalizeCapabilities, makeQuote, pickArray, pickObject,
 };

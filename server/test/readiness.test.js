@@ -30,13 +30,27 @@ test('كلُّ بندٍ يُبلّغ بحالةٍ من ثلاث — لا حال�
 test('ما لا يُفحَص لا يُلوَّن أخضر', async () => {
   const r = await run();
   const byId = Object.fromEntries(r.checks.map(c => [c.id, c]));
-  // النسخُ الاحتياطيّةُ والمراقبةُ خارجَ التطبيق: `null` دائمًا، ولو ادّعينا
-  // غيرَ ذلك لصارت البوّابةُ ختمًا على شيءٍ لم نره.
-  for (const id of ['backups', 'monitoring']) {
-    assert.ok(byId[id], `البند ${id} غائب`);
-    assert.equal(byId[id].ok, null, `${id}: يدّعي فحصًا لا يجريه`);
-    assert.equal(byId[id].required, false, `${id}: يمنع العبورَ بما لا يفحصه`);
-  }
+  // المراقبةُ خارجَ التطبيق فعلًا: لا شيءَ في الكود يستطيع إثباتَها.
+  // (كانت `backups` هنا أيضًا — ثمّ تبيّن أنّ نظامَ نسخٍ داخليًّا موجود،
+  //  فصارت **قابلةً للفحص**. البندُ يخرج من القائمة حين يصير مثبَتًا، لا أن
+  //  يبقى فيها بحكمٍ قديم.)
+  assert.ok(byId.monitoring, 'البند monitoring غائب');
+  assert.equal(byId.monitoring.ok, null, 'monitoring: يدّعي فحصًا لا يجريه');
+  assert.equal(byId.monitoring.required, false);
+});
+
+test('النسخُ الاحتياطيّة تُفحَص فعلًا — والدوامُ لا يُفترَض', async () => {
+  const r = await run();
+  const b = r.checks.find(c => c.id === 'backups');
+  assert.ok(b, 'بند النسخ غائب');
+  // نظامُ النسخ موجودٌ في `index.js`، فالبندُ يجب أن يُجيب بنعم أو لا —
+  // لا أن يقول «خارجَ التطبيق» وهو داخله.
+  assert.equal(typeof b.ok, 'boolean', 'النسخُ قابلةٌ للفحص ⇒ لا تُترَك null');
+  assert.ok(b.detail, 'حالةٌ بلا سبب');
+  const backup = require('../lib/backup');
+  assert.equal(b.ok, backup.location().durable, 'البوّابةُ لا تطابق حالةَ التخزين الفعليّة');
+  // ودوامُ التخزين لا يمنع الإطلاق — يُقال ولا يُغلق البوّابة.
+  assert.equal(b.required, false);
 });
 
 test('البوّابةُ تُغلَق حين يفشل بندٌ لازم — ولا تُغلَق بغير اللازم', async () => {

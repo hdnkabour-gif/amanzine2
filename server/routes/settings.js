@@ -318,26 +318,33 @@ router.post('/verify-all', auth, async (req, res) => {
 router.get('/backups', auth, (req, res) => {
   const fs = require('fs');
   const path = require('path');
-  const backupDir = path.join(__dirname, '../data/backups');
-  if (!fs.existsSync(backupDir)) return res.json({ backups: [] });
-  const files = fs.readdirSync(backupDir)
+  // الدوامُ يُقال، لا يُفترَض: نسخةٌ على قرص الحاوية تُمحى مع كلّ نشر، وعرضُها
+  // كأنّها محفوظةٌ يبني قرارَ التاجر («عندي نسخة») على شيءٍ غيرِ موجود.
+  const backup = require('../lib/backup');
+  const loc = backup.location();
+  if (!fs.existsSync(loc.dir)) return res.json({ backups: [], durable: loc.durable, note: loc.why });
+  const files = fs.readdirSync(loc.dir)
     .filter(f => f.includes(req.user.id))
     .sort().reverse().slice(0, 10)
     .map(f => ({
       filename: f,
       date: f.split(req.user.id + '-')[1]?.replace('.json','') || f,
-      size: fs.statSync(path.join(backupDir, f)).size,
+      size: fs.statSync(path.join(loc.dir, f)).size,
+      durable: loc.durable,
     }));
-  res.json({ backups: files });
+  res.json({
+    backups: files,
+    durable: loc.durable,
+    ...(loc.durable ? {} : { warning: `⚠️ نسخٌ مؤقّتة — ${loc.why}` }),
+  });
 });
 
-// GET /api/settings/backups/:filename — download a specific backup
 router.get('/backups/:filename', auth, (req, res) => {
   const fs = require('fs');
   const path = require('path');
   const filename = path.basename(req.params.filename);
   if (!filename.includes(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
-  const filepath = path.join(__dirname, '../data/backups', filename);
+  const filepath = path.join(require('../lib/backup').location().dir, filename);
   if (!fs.existsSync(filepath)) return res.status(404).json({ error: 'Backup not found' });
   res.download(filepath);
 });

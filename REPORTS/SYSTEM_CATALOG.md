@@ -51,7 +51,7 @@
 | الوظيفة | البدء | التكرار | الحالة |
 |---|---|---|---|
 | `startMorningReportCron` | ٠٨:٠٠ التالية | يوميّ | `ACTIVE` |
-| `startDailyBackup` | بعد ٥ث | كلّ ٢٤س | **`BROKEN`** — يكتب على قرصٍ زائل |
+| `startDailyBackup` | بعد ٥ث | كلّ ٢٤س | `ACTIVE` — يُعلن دوامَه (`lib/backup.js`) |
 | `startAbandonedCartCron` | بعد ٣٠ث | كلّ ساعة | `ACTIVE` |
 
 - **دورةُ الحياة:** `setTimeout`/`setInterval` داخل العمليّة. **لا استمرار** ⇒ إعادةُ التشغيل تُعيد ضبط المؤقّتات، وتقريرُ صباحٍ فات لا يُعوَّض.
@@ -83,14 +83,14 @@
 المحرّكُ الموحّد. `/search` و`/discover` و`/business/search` كلُّها تفوّض إليه. `ACTIVE`.
 
 ### التوصيل — `services/delivery/` (عقد · سجلّ · ٣ مزوّدين · وسيلتان)
-`PARTIAL` — البنيةُ سليمةٌ ومُثبتة، وقراءةُ مدن Livo معطوبة (BROKEN_CHAINS ①).
+`ACTIVE` — البنيةُ مُثبتة، وقراءةُ مدن Livo أُصلحت في **العقد** (`pickArray`/`pickObject`) ⇒ ٤٤١ مدينةً تُقرأ. أمانة وجيبلي ما زالتا `UNKNOWN` (لا اعتمادات).
 
 ### الدفع — `lib/engines/payment.js`
 `cod` · `transfer` · `wallet` تعمل. `cmi` · `stripe` · `paypal` مقاعد.
 `PARTIAL` · أثرُ الحذف: لا تسجيلَ للمدفوعات.
 
 ### الإشعار — `lib/engines/notification.js`
-أربعُ قنوات. `in-app` مُثبتةٌ حيًّا · `whatsapp` تسقط لرابطٍ يدويٍّ مُثبت · `email` تحتاج SMTP · `push` تدّعي النجاح (BROKEN_CHAINS ⑦).
+أربعُ قنوات. `in-app` مُثبتةٌ حيًّا · `whatsapp` تسقط لرابطٍ يدويٍّ مُثبت · `email` تحتاج SMTP · `push` تقول الحقيقة الآن (`delivered/subscriptions`).
 `PARTIAL` · حرجيّة عالية.
 
 ### الذكاء — `routes/ai.js` (٩٠٥ أسطر)
@@ -109,7 +109,7 @@
 `ACTIVE` — الالتقاطُ وصندوقُ المؤسّس يعملان؛ **الردُّ على الباحث غيرُ مبنيّ**.
 
 ### الجاهزيّة — `lib/readiness.js`
-١٥ فحصًا يُنفَّذ الآن. `ACTIVE` — مع تحفّظٍ: وصفُ النسخ الاحتياطيّة غيرُ دقيق.
+١٥ فحصًا يُنفَّذ الآن. `ACTIVE` — وبندُ النسخ صُحّح: يفحص **الدوام** بدل أن يقول «خارجَ التطبيق».
 
 ### الوسائط — `routes/media.js`
 Cloudinary إن هُيّئ، وإلّا قرصٌ محلّيّ. `PARTIAL` (BROKEN_CHAINS ③).

@@ -36,8 +36,12 @@ const CHANNELS = {
     let notifyUser;
     try { notifyUser = require('../../routes/push').notifyUser; } catch { return { sent: false, reason: 'unavailable' }; }
     if (typeof notifyUser !== 'function') return { sent: false, reason: 'unavailable' };
-    await notifyUser(owner.userId, 'AMANZINE', String(message), { event: event?.type || '' });
-    return { sent: true };
+    // النتيجةُ تُقرأ ولا تُفترَض: «لا مشترِك» ليست نجاحًا.
+    const r = await notifyUser(owner.userId, 'AMANZINE', String(message), { event: event?.type || '' });
+    if (!r || typeof r.sent !== 'boolean') return { sent: false, reason: 'no-result' };
+    return r.sent
+      ? { sent: true, detail: `${r.delivered}/${r.subscriptions}` }
+      : { sent: false, reason: r.reason || 'not-delivered' };
   },
 
   'email': async ({ owner, message }) => {

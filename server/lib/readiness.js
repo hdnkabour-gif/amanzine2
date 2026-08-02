@@ -126,9 +126,18 @@ async function evaluate({ db, migration } = {}) {
     cloudinary ? 'Cloudinary مضبوط — الصورُ تبقى'
                : 'قرصٌ محلّيّ — الصورُ **تُفقد** عند كلّ إعادة نشرٍ على Railway'));
 
-  // ── ما لا يستطيع التطبيقُ فحصَه — يُقال ولا يُلوَّن ────────────────────
-  checks.push(item('backups', 'النسخ الاحتياطيّة', null,
-    'خارجَ التطبيق — تُضبط وتُتحقَّق عند مزوّد قاعدة البيانات (Railway)', false));
+  // ── النسخُ الاحتياطيّة: يوجد نظامٌ داخليّ، والسؤالُ هل مكانُه دائم؟ ───────
+  //   الوصفُ السابق («خارجَ التطبيق») كان **غيرَ دقيق**: `index.js` ينسخ
+  //   يوميًّا فعلًا. المشكلةُ ليست غيابَ النسخ بل غيابَ الدوام.
+  try {
+    const b = require('./backup').status();
+    checks.push(item('backups', 'النسخ الاحتياطيّة', b.durable ? true : false,
+      b.durable ? `${b.count} ملفًّا في مكانٍ دائم — ${b.dir}`
+                : `تُكتب وتُمحى: ${b.why}`,
+      false));
+  } catch (e) {
+    checks.push(item('backups', 'النسخ الاحتياطيّة', null, `تعذّر الفحص: ${e.message}`, false));
+  }
   checks.push(item('monitoring', 'المراقبة والتنبيه', null,
     'لا مراقبةَ خارجيّة — /api/health جاهزٌ ليُستدعى من خدمةِ مراقبة', false));
 
