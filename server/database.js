@@ -658,6 +658,24 @@ const db = {
     );
     return id;
   },
+  /** صفُّ شركةٍ بمُعرِّفه — لمسار الإشعارات، فهو بلا مصادقةِ مستخدم. */
+  async getDeliveryProviderRow(id) {
+    const { rows } = await pool.query('SELECT * FROM delivery_providers WHERE id = $1', [id]);
+    return rows[0] ? _mapDelivery(rows[0]) : null;
+  },
+  /** طلبٌ برقم التتبّع أو بمُعرِّف الشحنة — مقيَّدٌ بالتاجر صاحب الشركة. */
+  async findOrderByTracking(userId, { tracking, shipmentId }) {
+    const { rows } = await pool.query(
+      `SELECT * FROM orders
+        WHERE user_id = $1
+          AND ( ($2 <> '' AND tracking_number = $2)
+             OR ($3 <> '' AND (provider_shipment_id = $3 OR livo_order_id = $3)) )
+        ORDER BY created_at DESC LIMIT 1`,
+      [userId, String(tracking || ''), String(shipmentId || '')]
+    );
+    return rows[0] ? _mapOrder(rows[0]) : null;
+  },
+
   // ── خرائط المدن ───────────────────────────────────────────────
   async saveCityMappings(userId, providerRowId, mappings) {
     const client = await pool.connect();
