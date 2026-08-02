@@ -86,7 +86,10 @@ export default function BannerStudioPage() {
     if (!prompt.trim()) return;
     setLoading(true); setError(''); setResult(null);
     try {
-      const tok = localStorage.getItem('token') || '';
+      // `'token'` مفتاحٌ لا وجودَ له في هذا التطبيق: التوكن في الذاكرة ويُقرأ
+      // بـ`getToken()` (وهو ما تفعله الدالّةُ الأخرى في هذا الملفّ نفسِه).
+      // كانت نداءاتُ هذه الدالّة تُرسَل بترويسةٍ فارغةٍ فتُرَدُّ ٤٠١ بصمت.
+      const tok = getAuthToken() || '';
       const r = await fetch('/api/ai/reply', {
         method: 'POST',
         headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${tok}` },

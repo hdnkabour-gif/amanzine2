@@ -8,7 +8,7 @@ import type { Page } from '../types';
 
 // ============================================================
 // ملفّي — حساب المستخدم نفسه (لا الملف العموميّ BusinessProfile).
-// بياناتي · درجة الثقة · نشاطي · مفضّلتي · وصول سريع للمتجر والإعدادات.
+// بياناتي · اكتمالُ الملفّ · نشاطي · وصول سريع للمتجر والإعدادات.
 // ============================================================
 
 export default function ProfilePage() {
@@ -19,8 +19,11 @@ export default function ProfilePage() {
   const initial = name.trim().charAt(0) || 'A';
 
   const xp = useMemo(() => getInteractions(), []);
-  // درجة ثقة بسيطة: من اكتمال البيانات + النشاط (تقدير محلّي، تتحوّل لاحقًا لنظام سمعة على الخادم).
-  const trust = useMemo(() => {
+  // **اكتمالُ الملفّ، لا سمعة.** كان يُعرَض «الثقة ٨٢٪» تحت درعٍ مُصدَّق، وهو
+  // في الحقيقة عدُّ حقولٍ ملأها صاحبُ الحساب بنفسِه. لا نظامَ سمعةٍ على الخادم
+  // لصاحب الحساب (`trust_score` للزبائن لا للتاجر)، فالدرعُ كان يعِد بتحقّقٍ
+  // لم يحدث. الرقمُ نفسُه بقي — والاسمُ صار يقول ما يقيسه.
+  const completeness = useMemo(() => {
     let s = 40;
     if ((settings.brand as any)?.name) s += 12;
     if ((settings.brand as any)?.logo) s += 8;
@@ -33,13 +36,14 @@ export default function ProfilePage() {
   const green = 'var(--amz-emerald,#0a8f6f)';
   const gold = 'var(--amz-gold,#D4A017)';
 
-  let favs: any[] = [];
-  try { favs = JSON.parse(localStorage.getItem('amanzine_favorites') || '[]'); } catch { /* noop */ }
-
+  // «مفضّلتي» كان يقرأ `amanzine_favorites` — مفتاحًا **لا يكتبه أحدٌ في
+  // التطبيق كلِّه**. عدّادٌ لا يمكن أن يتحرّك أبدًا. أُبدل بعددٍ حقيقيٍّ
+  // مقيسٍ من `experienceLog`، وهو المصدرُ الذي تُحسب منه هذه الصفحةُ أصلًا.
   const stats = [
-    { i: Package, l: 'منتجاتي', v: products.length, page: 'products' as Page },
-    { i: Star, l: 'طلباتي', v: orders.length, page: 'orders' as Page },
-    { i: Heart, l: 'مفضّلتي', v: favs.length, page: undefined },
+    { i: Package, l: 'منتجاتي',       v: products.length, page: 'products' as Page },
+    // العددُ هو طلباتُ المتجر المُستلَمة، لا طلباتٌ اشتراها صاحبُ الحساب.
+    { i: Star,    l: 'طلبات متجري',  v: orders.length,   page: 'orders' as Page },
+    { i: Heart,   l: 'تفاعلاتي',     v: xp.length,       page: undefined },
   ];
 
   return (
@@ -51,7 +55,7 @@ export default function ProfilePage() {
           <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--ink1)' }}>{name}</div>
           <div style={{ fontSize: 12.5, color: 'var(--ink3)' }}>{city}</div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6, padding: '3px 9px', borderRadius: 99, background: `color-mix(in srgb, ${green} 15%, transparent)`, border: `1px solid ${green}`, fontSize: 11.5, fontWeight: 800, color: green }}>
-            <ShieldCheck size={13} /> الثقة {trust}٪
+            <ShieldCheck size={13} /> الملفّ {completeness}٪
           </div>
         </div>
       </div>
@@ -59,10 +63,10 @@ export default function ProfilePage() {
       {/* شريط الثقة */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--ink3)', fontWeight: 700, marginBottom: 6 }}>
-          <span>درجة الثقة</span><span>كمّل بياناتك باش ترتفع</span>
+          <span>اكتمالُ الملفّ</span><span>كمّل بياناتك باش يرتفع</span>
         </div>
         <div style={{ height: 9, borderRadius: 99, background: 'var(--panel2,#132040)', overflow: 'hidden' }}>
-          <div style={{ width: `${trust}%`, height: '100%', background: `linear-gradient(90deg, ${green}, ${gold})`, transition: 'width .5s ease' }} />
+          <div style={{ width: `${completeness}%`, height: '100%', background: `linear-gradient(90deg, ${green}, ${gold})`, transition: 'width .5s ease' }} />
         </div>
       </div>
 
@@ -91,13 +95,13 @@ export default function ProfilePage() {
         ))}
       </div>
 
-      {/* المفضّلة */}
-      {favs.length > 0 && (
+      {/* آخرُ ما فعلتَه — من `experienceLog` الحقيقيّ، لا من مفتاحٍ لا يكتبه أحد. */}
+      {xp.length > 0 && (
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 800, color: 'var(--ink2)', marginBottom: 9 }}><Heart size={15} /> مفضّلتي</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 800, color: 'var(--ink2)', marginBottom: 9 }}><Heart size={15} /> آخر تفاعلاتي</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {favs.slice(0, 8).map((f, i) => (
-              <span key={i} style={{ padding: '7px 12px', borderRadius: 99, background: 'var(--panel,rgba(255,255,255,.03))', border: '1px solid var(--border,rgba(255,255,255,.08))', fontSize: 12.5, color: 'var(--ink2)', fontWeight: 650 }}>{typeof f === 'string' ? f : (f?.name || 'عنصر')}</span>
+            {xp.slice(0, 8).map((it, i) => (
+              <span key={i} style={{ padding: '7px 12px', borderRadius: 99, background: 'var(--panel,rgba(255,255,255,.03))', border: '1px solid var(--border,rgba(255,255,255,.08))', fontSize: 12.5, color: 'var(--ink2)', fontWeight: 650 }}>{it.intent || it.journey || 'تفاعل'}</span>
             ))}
           </div>
         </div>

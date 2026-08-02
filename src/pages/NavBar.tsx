@@ -124,7 +124,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     { page: 'insights',      icon: BarChart3,    label: 'الأداء',    desc: 'تحليلات الزيارات والمبيعات' },
   ]},
   { label: 'النظام', items: [
-    { page: 'profile',    icon: UserCircle, label: 'ملفّي',            desc: 'حسابي، الثقة، ومفضّلتي' },
+    { page: 'profile',    icon: UserCircle, label: 'ملفّي',            desc: 'حسابي، اكتمالُ ملفّي، ونشاطي' },
     { page: 'knowledge',  icon: Brain,      label: 'مركز المعرفة',     desc: 'عقل التطبيق: ما تعلّمه وما لم يفهمه' },
     { page: 'moderation', icon: Tag,        label: 'مراجعة الإعلانات', desc: 'موافقة إعلانات السوق' },
     { page: 'field-visit', icon: MapPin,     label: 'زيارة ميدانيّة',    desc: 'تسجيل محلٍّ على الأرض وحصادُ ما يتعلّمه المحرّك' },

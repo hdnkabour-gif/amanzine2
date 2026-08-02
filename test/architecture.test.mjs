@@ -411,3 +411,52 @@ test('«هل الذكاءُ متاح؟» يُسأل من مصدرٍ واحد', (
       `${rel}: يحكم على توفّر الذكاء بنفسه — استورد hasAI/aiProviders من ${SOURCE}`);
   }
 });
+
+test('لا مفتاحَ تخزينٍ يُقرأ ولا يُكتَب — عدّادٌ لا يتحرّك أبدًا', () => {
+  // العطبُ الذي وُلد منه هذا: `/profile` يعرض «مفضّلتي» بعددٍ مقروءٍ من
+  // `amanzine_favorites`. لا سطرَ في التطبيق كلِّه يكتب ذلك المفتاح ⇒ صفرٌ
+  // أبديٌّ معروضٌ كإحصائيّة، وشريطُ التنقّل يعِد بـ«مفضّلتي».
+  // مفتاحٌ يُقرأ ولا يُكتب إمّا ميزةٌ ماتت وبقيت واجهتُها، أو خطأٌ مطبعيّ.
+  const ROOT_DIR = new URL('..', import.meta.url).pathname;
+  const files = [];
+  (function walk(dir) {
+    for (const e of readdirSync(dir)) {
+      const full = join(dir, e);
+      if (statSync(full).isDirectory()) { walk(full); continue; }
+      if (/\.tsx?$/.test(e)) files.push(full);
+    }
+  })(join(ROOT_DIR, 'src'));
+
+  const read = new Map();   // key → أوّلُ ملفٍّ يقرؤه
+  const written = new Set();
+  for (const f of files) {
+    const src = readFileSync(f, 'utf8');
+    const rel = f.slice(f.indexOf('src/'));
+    for (const m of src.matchAll(/(?:localStorage|sessionStorage)\.getItem\(\s*'([^']+)'/g)) {
+      if (!read.has(m[1])) read.set(m[1], rel);
+    }
+    // `removeItem` ليست كتابةً: `editor_action` كان يُقرأ ويُمسَح ولا يُكتب
+    // أبدًا، فمرّ من ثقبٍ في هذا الحارس. المسحُ لا يملأ عدّادًا.
+    for (const m of src.matchAll(/(?:localStorage|sessionStorage)\.setItem\(\s*'([^']+)'/g)) {
+      written.add(m[1]);
+    }
+    // مفاتيحُ تُكتب عبر ثابتٍ (KEY) — نقبلها حين يُصرَّح بالثابت في الملفّ نفسِه.
+    for (const m of src.matchAll(/const\s+\w*KEY\w*\s*=\s*'([^']+)'/g)) written.add(m[1]);
+  }
+
+  // استثناءاتٌ موثَّقة. **تنكمش ولا تنمو** — والسقّاطةُ تحتَها تمنع التضخّم.
+  const EXEMPT_KEYS = {
+    'ai_commerce_theme':   'يكتبه سكربتُ الإقلاع في index.html قبل React',
+    'ai_commerce_refresh': 'قراءةُ ترحيلٍ لمرّةٍ واحدة: تُنقَل ثمّ تُمحى — لا يُكتب عمدًا',
+    'amanzine_following':  'تبويبُ «أتابع» في ActivityFeed — الصفحةُ نفسُها بلا باب '
+                         + '(BROKEN_CHAINS#⑥). المتابعةُ ميزةٌ لم تُبنَ، لا خطأٌ مطبعيّ.',
+  };
+  const EXEMPT_MAX = 3;   // سقّاطة: لا تزد
+  assert.ok(Object.keys(EXEMPT_KEYS).length <= EXEMPT_MAX,
+    `قائمةُ الاستثناءات نمت (${Object.keys(EXEMPT_KEYS).length}/${EXEMPT_MAX}) — ` +
+    'الاستثناءُ دَينٌ يُسدَّد لا رصيدٌ يُنفَق');
+
+  const orphans = [...read].filter(([k]) => !written.has(k) && !(k in EXEMPT_KEYS));
+  assert.deepEqual(orphans.map(([k, f]) => `${f} → ${k}`), [],
+    'مفتاحُ تخزينٍ يُقرأ ولا يُكتَب: إمّا أن تُوصَل الكتابةُ أو تُزال القراءةُ وواجهتُها');
+});

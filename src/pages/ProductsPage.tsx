@@ -426,7 +426,7 @@ function BookingsCalendar({ orders, products }: { orders: any[]; products: Produ
 }
 
 export default function ProductsPage() {
-  const { products, orders, addProduct, updateProduct, deleteProduct, adjustStock, settings, token, notify, currentPage } = useStore();
+  const { products, orders, addProduct, updateProduct, deleteProduct, adjustStock, settings, token, notify, currentPage, setPage } = useStore();
 
   const isServicesMode = currentPage === 'services';
 
@@ -558,6 +558,21 @@ export default function ProductsPage() {
     : products.filter(p => p.stock === 0).length;
 
   // ── Wizard open/close ────────────────────────────────────────
+  // محرّرُ الصور مبنيٌّ ليستقبل منتجًا: يقرأ `amanzine_editor_image` و
+  // `editor_action` و`editor_store_name` من الجلسة. **لم يكن أحدٌ يكتبها** —
+  // نصفُ الميزة موجودٌ منذ البداية والنصفُ الآخرُ مفقود، فتُفتح الصفحةُ فارغةً
+  // دائمًا. هذا هو الطرفُ الناقص.
+  const editImage = (p: Product) => {
+    try {
+      const img = (p as any).imageUrl || ((p as any).images || [])[0] || '';
+      if (img) sessionStorage.setItem('amanzine_editor_image', img);
+      else sessionStorage.removeItem('amanzine_editor_image');
+      sessionStorage.setItem('editor_action', 'logo');
+      sessionStorage.setItem('editor_store_name', settings.brand?.name || 'AMANZINE');
+    } catch { /* الجلسةُ محجوبة — يُفتح المحرّرُ فارغًا وهو مقبول */ }
+    setPage('editor');
+  };
+
   const openAdd = () => {
     setData(initData()); setStep(1); setEditProd(null); setShowWizard(true);
     setCustomColorName(''); setCustomColorHex('#000000');
@@ -1108,6 +1123,7 @@ export default function ProductsPage() {
                   <div style={{ fontWeight: 900, fontSize: 16, color: 'var(--ember)' }}>{p.price} <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{settings.brand.currency}</span></div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button onClick={() => openEdit(p)} className="btn btn-ghost btn-xs">تعديل</button>
+                    <button onClick={() => editImage(p)} className="btn btn-ghost btn-xs">🎨 صورة</button>
                     <button onClick={() => shareWA(p)} className="btn btn-ghost btn-xs">مشاركة</button>
                     <button onClick={() => { if (window.confirm(`حذف "${p.name}"؟`)) { deleteProduct(p.id); notify('warning', `🗑️ حُذفت "${p.name}"`); } }} className="btn btn-ghost btn-xs" style={{ color: '#f87171' }}>حذف</button>
                   </div>
@@ -1217,6 +1233,7 @@ export default function ProductsPage() {
                         {(p as any).duration ? ` · ${(p as any).duration}` : ''}
                       </span>
                     )}
+                    <button onClick={() => editImage(p)} className="btn btn-ghost btn-xs" style={{ gap: 4, fontSize: 11 }}>🎨</button>
                     <button onClick={() => shareWA(p)} className="btn btn-ghost btn-xs" style={{ gap: 4, fontSize: 11 }}>
                       <Share2 size={11} /> واتساب
                     </button>
