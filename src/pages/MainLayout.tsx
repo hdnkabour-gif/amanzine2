@@ -23,6 +23,7 @@ function PageSkeleton() {
 
 // ── Lazy pages ────────────────────────────────────
 const LivingHome        = lazy(() => import('./LivingHome'));
+const FieldVisit        = lazy(() => import('./FieldVisit'));
 const DashboardPage     = lazy(() => import('./DashboardPage'));
 const ProductsPage      = lazy(() => import('./ProductsPage'));
 const OrdersPage        = lazy(() => import('./OrdersPage'));
@@ -48,7 +49,7 @@ const UniversalPublish  = lazy(() => import('./UniversalPublish'));
 
 // صفحاتٌ خاصّةٌ بأدمن المنصّة — إخفاء الرابط وحده لا يكفي: من يكتب /knowledge
 // مباشرةً كان يفتحها. الخادم يمنع بياناتها بـ403، وهذا يمنع الواجهة نفسها.
-const PLATFORM_PAGES = new Set(['knowledge', 'moderation']);
+const PLATFORM_PAGES = new Set(['knowledge', 'moderation', 'field-visit']);
 
 function PageContent() {
   const { currentPage, user } = useStore();
@@ -80,6 +81,7 @@ function PageContent() {
     case 'profile':       return <ProfilePage />;
     case 'assistant':     return <AssistantPage />;
     case 'publish':       return <UniversalPublish />;
+    case 'field-visit':   return <FieldVisit />;
     default:              return <DashboardPage />;
   }
 }

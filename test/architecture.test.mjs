@@ -203,7 +203,18 @@ test('قائمةُ الاستثناءات المعماريّة لا تتضخّم
 // ── ⑧ كلُّ أصلٍ مُشارٍ إليه موجودٌ فعلًا ────────────────────────
 test('لا مرجعَ إلى ملفِّ أصلٍ غيرِ موجود (اللوگو والأيقونات)', () => {
   const ROOT_DIR = new URL('..', import.meta.url).pathname;
+  // المصادرُ تشمل src/ أيضًا: حصرُ الفحص في index.html كان ثغرةً في الحارس
+  // نفسِه — بقي 16 مرجعًا مكسورًا في المكوّنات، ومنها لوگو شريط التنقّل.
   const sources = ['index.html', 'public/manifest.json'];
+  const collectTsx = (dir) => {
+    for (const e of readdirSync(dir)) {
+      const p = join(dir, e);
+      if (statSync(p).isDirectory()) collectTsx(p);
+      else if (/\.tsx?$/.test(p)) sources.push(p.slice(ROOT_DIR.length));
+    }
+  };
+  collectTsx(join(ROOT_DIR, 'src'));
+
   const missing = [];
   for (const src of sources) {
     const text = readFileSync(join(ROOT_DIR, src), 'utf8');
@@ -216,4 +227,38 @@ test('لا مرجعَ إلى ملفِّ أصلٍ غيرِ موجود (اللوگ
   // اللوگو كان يشير إلى amanzine-logo.svg وهو غيرُ موجود: أيقونةٌ مكسورةٌ في
   // التبويب، وصورةٌ مكسورةٌ في شاشة البدء، وأيقونةُ PWA تُرجع 404.
   assert.deepEqual(missing, [], 'مرجعٌ إلى أصلٍ غيرِ موجود');
+});
+
+// ── ⑨ لا صفحةَ مبنيّةٌ بلا طريقٍ إليها ──────────────────────────
+test('كلُّ صفحةٍ في src/pages إمّا موصولةٌ أو معفاةٌ بسببٍ مكتوب', () => {
+  const ROOT_DIR = new URL('..', import.meta.url).pathname;
+  const PAGES = join(ROOT_DIR, 'src/pages');
+
+  // ليست صفحاتٍ: أغلفةٌ وتوجيهٌ ومكوّناتُ تخطيط.
+  const NOT_A_PAGE = new Set(['MainLayout', 'NavBar']);
+
+  const files = readdirSync(PAGES).filter(f => f.endsWith('.tsx'))
+    .map(f => f.replace(/\.tsx$/, ''))
+    .filter(n => !NOT_A_PAGE.has(n));
+
+  // مرجعٌ من أيّ ملفٍّ آخر: توزيعٌ داخليّ، أو Route، أو تضمينٌ في صفحةٍ أخرى.
+  const all = [];
+  const walkTsx = (dir) => {
+    for (const e of readdirSync(dir)) {
+      const p = join(dir, e);
+      if (statSync(p).isDirectory()) walkTsx(p);
+      else if (/\.tsx?$/.test(p)) all.push({ p, s: readFileSync(p, 'utf8') });
+    }
+  };
+  walkTsx(join(ROOT_DIR, 'src'));
+
+  const orphans = files.filter(name => {
+    const rx = new RegExp(`(<${name}[\\s/>]|import\\(['"\`][^'"\`]*${name}['"\`]\\)|from ['"\`][^'"\`]*${name}['"\`])`);
+    return !all.some(f => !f.p.endsWith(`pages/${name}.tsx`) && rx.test(f.s));
+  });
+
+  // FieldVisit كان يتيمًا: 298 سطرًا وخادمٌ يعمل وجدولٌ في القاعدة، ولا سبيلَ
+  // لأيّ مستخدمٍ لفتحه. ميزةٌ كاملةٌ مبنيّةٌ وغيرُ موجودةٍ عمليًّا.
+  assert.deepEqual(orphans, [],
+    'صفحةٌ مبنيّةٌ لا يصل إليها أحد — صِلها بالتوزيع والقائمة أو احذفها.');
 });

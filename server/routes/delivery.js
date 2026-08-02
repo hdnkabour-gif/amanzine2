@@ -359,6 +359,79 @@ router.post('/track/:orderId', auth, async (req, res) => {
   }
 });
 
+// POST /api/delivery/verify/:providerRowId — تحقّقٌ حقيقيٌّ خطوةً خطوة.
+//
+//   «اختبار الاتصال» القديم كان يُرسل طلبَ HEAD إلى موقع الشركة ويقول «تستجيب».
+//   وهذا لا يُثبت شيئًا عمّا يهمّ: هل المفتاحُ صحيح؟ هل الشركةُ تقبلنا؟ هل
+//   نستطيع قراءةَ مدنها؟ فكان التاجرُ يرى «✅» ثمّ تفشل أوّلُ شحنةٍ حقيقيّة.
+//   هنا كلُّ فحصٍ يُنفَّذ فعلًا ويُعاد بنتيجته وسببِها.
+router.post('/verify/:providerRowId', auth, async (req, res) => {
+  const checks = [];
+  const add = (key, label, ok, detail) => checks.push({ key, label, ok, detail: detail || '' });
+  try {
+    const rows = await db.getDeliveryProviders(req.user.id);
+    const row = rows.find(r => r.id === req.params.providerRowId);
+    if (!row) return res.status(404).json({ error: 'شركة التوصيل غير موجودة' });
+
+    add('saved', 'الشركة مسجّلة في قاعدة البيانات', true, row.name);
+    add('enabled', 'الشركة مفعّلة', !!row.enabled,
+      row.enabled ? '' : 'مُعطّلة — لن تُستعمل في الشحن');
+
+    const chosen = registry.resolve(row);
+    if (!chosen) {
+      add('plugin', 'قناة الربط', false,
+        `لا مزوّدَ لـ«${row.apiType || '—'}» ولا رابطَ webhook — الشحنُ سيسقط إلى المحاكاة`);
+      return res.json({ success: false, provider: row.name, checks });
+    }
+    add('plugin', 'قناة الربط', true, `${chosen.label} (${chosen.kind === 'provider' ? 'مزوّد' : 'وسيلة اتصال'})`);
+
+    const plugin = chosen.handler;
+    add('credentials', 'بيانات الاعتماد مُدخَلة', !!row.apiKey,
+      row.apiKey ? 'مفتاحٌ محفوظٌ ومشفَّر' : 'لا مفتاح — أدخِله أوّلًا');
+
+    // الفحصُ الحقيقيّ: المفتاحُ يُجرَّب على الشركة نفسِها.
+    if (typeof plugin.testConnection === 'function') {
+      if (!row.apiKey) {
+        add('auth', 'الشركة تقبل المفتاح', false, 'لا مفتاحَ ليُجرَّب');
+      } else {
+        try {
+          const ok = await plugin.testConnection(row);
+          add('auth', 'الشركة تقبل المفتاح', !!ok,
+            ok ? 'ردَّت الشركةُ بالقبول' : 'رفضت الشركةُ المفتاح أو انتهت صلاحيّتُه');
+        } catch (e) {
+          add('auth', 'الشركة تقبل المفتاح', false, e.message);
+        }
+      }
+    } else {
+      add('auth', 'الشركة تقبل المفتاح', null, 'هذه القناة لا تُقدّم فحصَ اعتماد');
+    }
+
+    // قراءةُ بياناتٍ فعليّة — أقوى دليلٍ على أنّ الربط يعمل.
+    if (plugin.capabilities?.cities === 'api' && typeof plugin.getCities === 'function') {
+      try {
+        const r = await plugin.getCities(row);
+        add('data', 'قراءة بيانات من الشركة', !!r.success,
+          r.success ? `${(r.cities || []).length} مدينة` : (r.error || 'فشلت القراءة'));
+      } catch (e) {
+        add('data', 'قراءة بيانات من الشركة', false, e.message);
+      }
+    }
+
+    // الخرائطُ المحفوظة — هل رُبطت العناصرُ فعلًا؟
+    try {
+      const maps = await db.getCityMappings(req.user.id, row.id);
+      add('mapping', 'المدن مربوطة بمُعرِّفات الشركة', maps.length > 0,
+        maps.length ? `${maps.length} مدينة` : 'لم تُزامَن بعد — الشحنُ سيرسل اسمَ المدينة نصًّا');
+    } catch { /* الخرائطُ اختياريّة */ }
+
+    const failed = checks.filter(c => c.ok === false);
+    res.json({ success: failed.length === 0, provider: row.name, checks });
+  } catch (e) {
+    console.error('[delivery/verify]', e.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ── خرائط المدن ──────────────────────────────────────────────────────────────
 
 // GET /api/delivery/cities/canonical — مدنُ AMANZINE المعياريّة (ما يراه التاجر)

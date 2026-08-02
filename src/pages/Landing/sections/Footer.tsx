@@ -13,7 +13,7 @@ export default function Footer() {
     <footer style={{ borderTop: `1px solid ${C.border}`, background: C.surface, padding: 'clamp(30px,5vw,44px) clamp(16px,5vw,40px)', textAlign: 'center' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 12 }}>
         <div style={{ width: 32, height: 32, borderRadius: 9, background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          <img src="/amanzine-logo.svg" alt="AMANZINE" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:13px;font-weight:900;color:#006233">A</span>'; }} />
+          <img src="/brand/amanzine-logo.png" alt="AMANZINE" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:13px;font-weight:900;color:#006233">A</span>'; }} />
         </div>
         <span style={{ fontWeight: 900, fontSize: 15, color: '#006233' }}>AMAN<span style={{ color: '#C1272D' }}>Z</span>INE</span>
       </div>

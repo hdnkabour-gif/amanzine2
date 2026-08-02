@@ -48,6 +48,8 @@ export default function DeliveryOpsPanel({
   const [cities, setCities] = useState<{ id: string; name: string; region?: string }[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
   const [syncing, setSyncing] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState<string | null>(null);
+  const [verdict, setVerdict] = useState<Record<string, { success: boolean; checks: any[] }>>({});
   const [unmatched, setUnmatched] = useState<Record<string, { externalId: string; externalName: string }[]>>({});
   const [mapCount, setMapCount] = useState<Record<string, number>>({});
   const [draft, setDraft] = useState<Rule>({ ruleType: 'flat', fee: 30, priority: 0 });
@@ -82,6 +84,20 @@ export default function DeliveryOpsPanel({
       notify('error', `تعذّرت المزامنة: ${e?.message || 'تحقّق من الاتصال'}`);
     }
     setSyncing(null);
+  };
+
+  // تحقّقٌ حقيقيّ: كلُّ سطرٍ فحصٌ نُفِّذ فعلًا، لا مراحلَ تمثيليّة.
+  const verify = async (p: Provider) => {
+    setVerifying(p.id);
+    try {
+      const r = await deliveryAPI.verify(p.id);
+      setVerdict(v => ({ ...v, [p.id]: { success: r.success, checks: r.checks || [] } }));
+      notify(r.success ? 'success' : 'warning',
+        r.success ? `✅ ${p.name}: الربط سليم` : `⚠️ ${p.name}: بعض الفحوص لم تنجح`);
+    } catch (e: any) {
+      notify('error', `تعذّر التحقّق: ${e?.message || 'تحقّق من الاتصال'}`);
+    }
+    setVerifying(null);
   };
 
   const addRule = async () => {
@@ -128,6 +144,10 @@ export default function DeliveryOpsPanel({
                 <span style={{ marginInlineStart: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
                   {mapCount[p.id] > 0 && <span style={{ fontSize: 11, opacity: .7 }}>{mapCount[p.id]} مدينة مربوطة</span>}
                   {/* الزرُّ يظهر فقط لمن يُعلن أنّه يُقدّم المدن — الواجهةُ تتبع القدرات لا الأسماء */}
+                  <button onClick={() => verify(p)} disabled={verifying === p.id}
+                    className="btn btn-ghost btn-sm">
+                    {verifying === p.id ? '...' : '🔍 تحقّق كامل'}
+                  </button>
                   {caps?.cities === 'api' && (
                     <button onClick={() => sync(p)} disabled={syncing === p.id}
                       className="btn btn-ghost btn-sm">
@@ -136,6 +156,19 @@ export default function DeliveryOpsPanel({
                   )}
                 </span>
               </div>
+              {verdict[p.id] && (
+                <div style={{ marginTop: 8, padding: 10, borderRadius: 8,
+                  background: verdict[p.id].success ? 'rgba(16,185,129,.08)' : 'rgba(245,158,11,.1)' }}>
+                  {verdict[p.id].checks.map((c: any, i: number) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 11.5, marginBottom: 3 }}>
+                      {/* null = غيرُ منطبق: لا نقول «فشل» لفحصٍ لا تدعمه القناة */}
+                      <span>{c.ok === true ? '✅' : c.ok === false ? '❌' : '➖'}</span>
+                      <span style={{ fontWeight: 700 }}>{c.label}</span>
+                      {c.detail && <span style={{ opacity: .7 }}>— {c.detail}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
               {un.length > 0 && (
                 <div style={{ marginTop: 8, padding: 8, borderRadius: 8, background: 'rgba(245,158,11,.1)' }}>
                   <p style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>

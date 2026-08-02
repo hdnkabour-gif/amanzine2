@@ -65,19 +65,16 @@ const LOADING_MSGS: Record<string, [string, string]> = {
   settings:      ['جاري تحميل الإعدادات...', 'نجلب إعدادات متجرك المحفوظة'],
 };
 
-// شعار AMANZINE — يفضّل صورة الشعار الرسميّة إن وُضعت (/brand/amanzine-logo.png)
-// ثمّ يتراجع إلى الشعار المتّجه (/amanzine-logo.svg) ثمّ إلى حرف A.
-// هكذا: ضع ملفّ شعارك المصقول في public/brand/amanzine-logo.png ويُستعمل تلقائيًّا في كلّ مكان.
+// شعار AMANZINE — ملفٌّ واحدٌ مربّعٌ شفّاف: /brand/amanzine-logo.png
+// كانت هنا سلسلةُ تراجعٍ إلى .jpg و.svg، وكلاهما غيرُ موجود؛ فالسلسلةُ كانت
+// تُجرّب مساراتٍ ميّتةً ثمّ تسقط إلى حرف A. الحرفُ يبقى كأمانٍ أخيرٍ وحده.
 function BrandLogo({ size = 46, radius = 14, style }: { size?: number; radius?: number; style?: React.CSSProperties }) {
   return (
     <div style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, ...style }}>
-      <img src="/brand/amanzine-logo.png" alt="AMANZINE" data-step="0"
+      <img src="/brand/amanzine-logo.png" alt="AMANZINE"
         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         onError={e => {
           const img = e.currentTarget as HTMLImageElement;
-          const step = img.getAttribute('data-step');
-          if (step === '0') { img.setAttribute('data-step', '1'); img.src = '/brand/amanzine-logo.jpg'; return; } // جرّب JPG
-          if (step === '1') { img.setAttribute('data-step', '2'); img.src = '/amanzine-logo.svg'; return; }      // ثمّ المتّجه
           img.style.display = 'none'; (img.parentElement as HTMLElement).innerHTML = `<span style="font-size:${Math.round(size * 0.42)}px;font-weight:900;color:#006233">A</span>`;
         }} />
     </div>
@@ -100,6 +97,18 @@ function SplashScreen() {
   const portalRef = useRef<HTMLVideoElement>(null);
   const gateRef = useRef<HTMLVideoElement>(null);
 
+  // تسليمُ شاشة البدء: لا تُخفى إلّا وقد صار ما يخلفها جاهزًا للعرض، وإلّا
+  // ظهرت ومضةً ثمّ فراغًا. تُستدعى مرّةً واحدةً مهما تكرّر المسار.
+  const handedOver = useRef(false);
+  const handOffSplash = () => {
+    if (handedOver.current) return;
+    handedOver.current = true;
+    try { (window as unknown as { hideSplash?: () => void }).hideSplash?.(); } catch { /* noop */ }
+  };
+
+  // البوّابةُ لن تُعرض (شوهدت في هذه الجلسة) ⇒ سلّم فورًا.
+  useEffect(() => { if (phase === 'done') handOffSplash(); }, [phase]);
+
   useEffect(() => {
     if (phase !== 'show') return;
     const finish = () => { try { sessionStorage.setItem('amanzine_splash', '1'); } catch { /* noop */ } setPhase('done'); };
@@ -108,6 +117,7 @@ function SplashScreen() {
     // تقليل الحركة: لقطة شعار ثابتة قصيرة ثمّ كشف التطبيق.
     if (reduce) {
       setBeat(1);
+      handOffSplash();          // اللقطةُ الثابتة جاهزةٌ فورًا
       const a = setTimeout(fadeOut, 1400);
       const b = setTimeout(finish, 2100);
       return () => { clearTimeout(a); clearTimeout(b); };
@@ -115,12 +125,20 @@ function SplashScreen() {
 
     // ① شغّل فيديو الظهور؛ إن رُفض التشغيل ننتقل فورًا (لا حبس).
     const pv = portalRef.current;
-    if (pv) { const p = pv.play?.(); if (p && typeof p.catch === 'function') p.catch(() => setBeat(1)); }
+    if (pv) {
+      // التسليمُ عند أوّل إطارٍ قابلٍ للعرض — لا قبلَه.
+      if (pv.readyState >= 2) handOffSplash();
+      else pv.addEventListener('loadeddata', handOffSplash, { once: true });
+      const p = pv.play?.();
+      if (p && typeof p.catch === 'function') p.catch(() => { handOffSplash(); setBeat(1); });
+    } else handOffSplash();
+    // أمانٌ: مهما تعثّر الفيديو، لا تبقَ شاشةُ البدء أكثر من ثانيةٍ ونصف.
+    const tHand = setTimeout(handOffSplash, 1500);
 
     const tGate  = setTimeout(() => { setBeat(1); const gv = gateRef.current; if (gv) { const p = gv.play?.(); if (p && typeof p.catch === 'function') p.catch(() => {}); } }, 2400); // ② الانفتاح + الشعار
     const tFade  = setTimeout(fadeOut, 4800);           // ثمّ يخفت مباشرةً إلى التطبيق
     const tDone  = setTimeout(finish, 5500);            // حدّ أقصى صارم
-    return () => { [tGate, tFade, tDone].forEach(clearTimeout); };
+    return () => { [tHand, tGate, tFade, tDone].forEach(clearTimeout); };
   }, [phase, reduce]);
 
   if (phase === 'done') return null;

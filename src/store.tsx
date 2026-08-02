@@ -6,6 +6,7 @@ import {
   type Conversation, type ConvMessage, type AuditLog, type AppNotification, type Template,
   type Page, type UserRole, type LogType, type LogSeverity, type NotifType, type OrderStatus,
   type DeliveryProviderConfig,
+  PAGE_IDS,
 } from './types';
 import * as api from './services/api';
 import { registerRuntimeConcepts } from './lib/akg/kb/knowledge';
@@ -136,6 +137,12 @@ const URL_TO_PAGE: Record<string, string> = {
 };
 
 function getInitialPage(): Page {
+  // ?page=… يسمح بالوصول المباشر إلى صفحةٍ داخليّة بعد الدخول. تستعمله صفحةُ
+  // التسجيل لتُكمل نيّةَ مَن جاء ليعرض نشاطَه بدل إنزاله في صفحةٍ عامّة.
+  try {
+    const wanted = new URLSearchParams(window.location.search).get('page');
+    if (wanted && (PAGE_IDS as readonly string[]).includes(wanted)) return wanted as Page;
+  } catch { /* noop */ }
   const path = window.location.pathname;
   return (URL_TO_PAGE[path] as Page) || 'home';
 }

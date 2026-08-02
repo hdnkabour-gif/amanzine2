@@ -105,7 +105,7 @@ export default function Onboarding() {
       padding: '20px 16px', position: 'relative', overflow: 'hidden', zIndex: 1,
     }}>
       {/* Background image — branded, professional */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: 'url(/amanzine-logo.svg)', backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.10, filter: 'blur(2px)' }} />
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: 'url(/brand/amanzine-logo.png)', backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.10, filter: 'blur(2px)' }} />
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'linear-gradient(180deg, rgba(10,22,40,.88), rgba(10,22,40,.96))' }} />
 
       <div style={{ position: 'relative', width: '100%', maxWidth: 440 }}>
@@ -131,7 +131,7 @@ export default function Onboarding() {
           {step === 'welcome' && (
             <div style={{ textAlign: 'center' }}>
               <div style={{ width: 84, height: 84, margin: '0 auto 16px', borderRadius: 22, overflow: 'hidden', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <img src="/amanzine-logo.svg" alt="AMANZINE" style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                <img src="/brand/amanzine-logo.png" alt="AMANZINE" style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:34px;font-weight:900;color:#006233">A</span>'; }} />
               </div>
               {/* فيديو ترحيبي — يعمل صامتًا تلقائيًا، مع أزرار تحكّم لتشغيل الصوت */}

@@ -2,13 +2,18 @@
 // AMANZINE — نظام تشغيل للحاجة · Complete Type System
 // ================================================================
 
-export type Page =
-  | 'home'
-  | 'dashboard' | 'products' | 'orders' | 'conversations'
-  | 'customers' | 'analytics' | 'insights' | 'connections' | 'delivery'
-  | 'notifications' | 'settings' | 'banner' | 'editor' | 'import' | 'coupons'
-  | 'services' | 'guide' | 'moderation' | 'bookings' | 'knowledge'
-  | 'wallet' | 'profile' | 'assistant' | 'publish';
+// قائمةٌ واحدةٌ يُشتقّ منها النوع: النوعُ وحدَه لا يُفحَص وقتَ التشغيل، وكتابةُ
+// مصفوفةٍ ثانيةٍ بجانبه تعني نسختين تتباعدان — وهو المرضُ نفسُه في كلّ مرّة.
+export const PAGE_IDS = [
+  'home',
+  'dashboard', 'products', 'orders', 'conversations',
+  'customers', 'analytics', 'insights', 'connections', 'delivery',
+  'notifications', 'settings', 'banner', 'editor', 'import', 'coupons',
+  'services', 'guide', 'moderation', 'bookings', 'knowledge',
+  'wallet', 'profile', 'assistant', 'publish', 'field-visit',
+] as const;
+
+export type Page = typeof PAGE_IDS[number];
 
 export type UserRole = 'admin' | 'seller' | 'support' | 'delivery';
 export type OrderStatus = 'pending' | 'pending_confirmation' | 'approved' | 'processing' | 'shipped' | 'delivered' | 'cancelled';

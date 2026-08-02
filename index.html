@@ -550,8 +550,11 @@
         }
       };
 
-      // ── Auto-hide fallback (4 seconds max) ──
-      setTimeout(window.hideSplash, 1800);
+      // ── أمانٌ أخير ──
+      // التسليمُ الطبيعيّ من GateIntro في App.tsx حين يجهز أوّلُ إطارٍ للعرض.
+      // هذا المؤقّتُ لِما إذا لم يُقلع React إطلاقًا — لا يُسابقه في الحالة
+      // العاديّة. (كان 1800ms والتعليقُ يقول 4 ثوانٍ.)
+      setTimeout(window.hideSplash, 6000);
 
       // ── Listen for React app mount ──
       // The React app will call window.hideSplash() when it's ready

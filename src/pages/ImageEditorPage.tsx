@@ -100,7 +100,7 @@ export default function ImageEditorPage() {
             size: 80,
           }]);
         };
-        logoImg.src = settings.brand.logo || '/amanzine-logo.svg';
+        logoImg.src = settings.brand.logo || '/brand/amanzine-logo.png';
       }, 500);
     }
     
@@ -320,7 +320,7 @@ export default function ImageEditorPage() {
                 // Load AMANZINE logo directly
                 const img = new window.Image();
                 img.crossOrigin = 'anonymous';
-                img.src = '/amanzine-logo.svg';
+                img.src = '/brand/amanzine-logo.png';
                 img.onload = () => {
                   const canvas2 = document.createElement('canvas');
                   canvas2.width = img.width; canvas2.height = img.height;
@@ -330,7 +330,7 @@ export default function ImageEditorPage() {
                 };
                 img.onerror = () => logoRef.current?.click();
               }} className="btn btn-ghost btn-sm" style={{ gap:6,fontSize:11,width:'100%',background:'rgba(255,106,0,.08)',border:'1px solid rgba(255,106,0,.2)',color:'var(--ember)' }}>
-                <img src="/amanzine-logo.svg" alt="" style={{ width:14,height:14,objectFit:'contain' }}/> لوغو AMANZINE
+                <img src="/brand/amanzine-logo.png" alt="" style={{ width:14,height:14,objectFit:'contain' }}/> لوغو AMANZINE
               </button>
               <button onClick={()=>logoRef.current?.click()} className="btn btn-ghost btn-sm" style={{ gap:6,fontSize:11,width:'100%' }}>
                 <Plus size={12}/> لوغو مخصص
