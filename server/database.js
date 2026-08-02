@@ -1336,6 +1336,48 @@ db.getProvider = async (userId, id) => {
   const { rows } = await pool.query('SELECT * FROM providers WHERE id = $1 AND user_id = $2', [id, userId]);
   return _mapProvider(rows[0]);
 };
+
+/**
+ * صاحبُ نشاطٍ من مُعرِّفه الموحّد — من يُشعَر حين يقع شيءٌ على نشاطه.
+ *
+ *   `businessId` يأتي من الـEvent Bus بأحد الأشكال: `store:<userId>` ·
+ *   `provider:<id>` · `listing:<id>`. كان محرّكُ الإشعارات يفكّ الأوّلَ فقط
+ *   ويُرجع null للباقي ⇒ **المزوّدُ لا يمكن إشعارُه إطلاقًا**، وحجزٌ جديدٌ
+ *   عليه لا يصل أحدًا. الفكُّ هنا لأنّه استعلامٌ لا معرفةَ محرّك.
+ *
+ *   الإعلانُ السريع قد يكون بلا حساب (`vendor_id` فارغ) — عندها لا مستخدمَ
+ *   يُشعَر، لكنّ هاتفَ البائع موجود، وهو القناةُ الوحيدة التي تصله.
+ *
+ * @param {string} businessId
+ * @returns {Promise<{userId: string|null, phone: string|null, kind: string}>}
+ */
+db.getBusinessOwner = async (businessId) => {
+  const empty = { userId: null, phone: null, kind: 'unknown' };
+  const s = String(businessId || '').trim();
+  if (!s) return empty;
+
+  const at = s.indexOf(':');
+  const kind = at > 0 ? s.slice(0, at) : 'store';
+  const id   = at > 0 ? s.slice(at + 1) : s;
+  if (!id) return empty;
+
+  try {
+    if (kind === 'store') return { userId: id, phone: null, kind };
+    if (kind === 'provider') {
+      const { rows } = await pool.query('SELECT user_id, phone FROM providers WHERE id = $1', [id]);
+      if (!rows[0]) return { ...empty, kind };
+      return { userId: rows[0].user_id || null, phone: rows[0].phone || null, kind };
+    }
+    if (kind === 'listing') {
+      const { rows } = await pool.query('SELECT vendor_id, seller_phone FROM listings WHERE id = $1', [id]);
+      if (!rows[0]) return { ...empty, kind };
+      return { userId: rows[0].vendor_id || null, phone: rows[0].seller_phone || null, kind };
+    }
+  } catch (e) {
+    console.warn('[db.getBusinessOwner]', e.message);
+  }
+  return { ...empty, kind };
+};
 db.createProvider = async (userId, d) => {
   const id = uid();
   const { rows } = await pool.query(

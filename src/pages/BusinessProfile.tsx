@@ -47,6 +47,11 @@ export default function BusinessProfile() {
   // أقسام القدرات + قسمان ديناميكيان دائمان (ذات صلة / آخر النشاط) من محرّكات أخرى
   const tabs = [...visibleSections(profile), 'related', 'activity'];
 
+  const markContact = () => trackAPI.event({
+    kind: 'business', action: 'contact', businessId: `${source}:${id}`,
+    name: business.name, city: business.city, source: 'profile',
+  });
+
   return (
     <div dir="rtl" style={{ minHeight: '100dvh', background: BG, color: INK, fontFamily: 'Tajawal,system-ui,sans-serif', paddingBottom: 60 }}>
       {/* ── Hero ── */}
@@ -71,8 +76,11 @@ export default function BusinessProfile() {
         </div>
         {/* أزرار سريعة حسب القدرات */}
         <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-          {business.contact.whatsapp && <QuickBtn href={`https://wa.me/${business.contact.whatsapp.replace(/\D/g, '')}`} icon={<MessageCircle size={14} />} label="واتساب" color="#25D366" />}
-          {business.contact.phone && <QuickBtn href={`tel:${business.contact.phone}`} icon={<Phone size={14} />} label="اتصال" />}
+          {/* لحظةُ الاتّصال هي أهمُّ خطوةٍ في القمع — إنسانٌ وصل إنسانًا. كانت
+              الأزرارُ تفتح واتساب/الهاتف بلا أن يعرف النظامُ أنّ ذلك حدث،
+              فبقي `business.contact` صفرًا في حلقة التعلّم إلى الأبد. */}
+          {business.contact.whatsapp && <QuickBtn onClick={markContact} href={`https://wa.me/${business.contact.whatsapp.replace(/\D/g, '')}`} icon={<MessageCircle size={14} />} label="واتساب" color="#25D366" />}
+          {business.contact.phone && <QuickBtn onClick={markContact} href={`tel:${business.contact.phone}`} icon={<Phone size={14} />} label="اتصال" />}
           {business.capabilities.booking && <button onClick={() => setTab('booking')} style={btnStyle(true)}><Calendar size={14} /> احجز</button>}
         </div>
       </div>
@@ -237,10 +245,17 @@ function LocationSection({ profile }: SectionProps) {
 
 function ContactSection({ profile }: SectionProps) {
   const c = profile.business.contact;
+  const b = profile.business;
+  // نفسُ الحدث في القسم الكامل كما في الأزرار السريعة — القمعُ لا يفرّق
+  // بين مكانِ الضغطة، بل بين حدوث الاتّصال وعدمه.
+  const markContact = () => trackAPI.event({
+    kind: 'business', action: 'contact', businessId: `${b.source}:${b.id}`,
+    name: b.name, city: b.city, source: 'contact-section',
+  });
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {c.whatsapp && <a href={`https://wa.me/${c.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" style={{ ...btnStyle(false), background: 'rgba(37,211,102,0.12)', color: '#25D366', textDecoration: 'none' }}><MessageCircle size={15} /> واتساب: {c.whatsapp}</a>}
-      {c.phone && <a href={`tel:${c.phone}`} style={{ ...btnStyle(false), textDecoration: 'none' }}><Phone size={15} /> {c.phone}</a>}
+      {c.whatsapp && <a href={`https://wa.me/${c.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" onClick={markContact} style={{ ...btnStyle(false), background: 'rgba(37,211,102,0.12)', color: '#25D366', textDecoration: 'none' }}><MessageCircle size={15} /> واتساب: {c.whatsapp}</a>}
+      {c.phone && <a href={`tel:${c.phone}`} onClick={markContact} style={{ ...btnStyle(false), textDecoration: 'none' }}><Phone size={15} /> {c.phone}</a>}
       {!c.phone && !c.whatsapp && <Empty>لا توجد وسيلة تواصل.</Empty>}
     </div>
   );
@@ -366,8 +381,8 @@ const inp: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRa
 function btnStyle(primary: boolean): React.CSSProperties {
   return { padding: '10px 16px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: primary ? PURPLE : 'rgba(255,255,255,0.06)', color: primary ? '#fff' : INK };
 }
-function QuickBtn({ href, icon, label, color }: { href: string; icon: ReactElement; label: string; color?: string }) {
-  return <a href={href} target="_blank" rel="noreferrer" style={{ ...btnStyle(false), textDecoration: 'none', ...(color ? { background: `${color}22`, color } : {}) }}>{icon} {label}</a>;
+function QuickBtn({ href, icon, label, color, onClick }: { href: string; icon: ReactElement; label: string; color?: string; onClick?: () => void }) {
+  return <a href={href} target="_blank" rel="noreferrer" onClick={onClick} style={{ ...btnStyle(false), textDecoration: 'none', ...(color ? { background: `${color}22`, color } : {}) }}>{icon} {label}</a>;
 }
 function Empty({ children }: { children: React.ReactNode }) { return <div style={{ textAlign: 'center', padding: '30px 0', color: MUTED, fontSize: 13.5 }}>{children}</div>; }
 function Center({ children }: { children: React.ReactNode }) { return <div dir="rtl" style={{ minHeight: '100dvh', background: BG, color: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Tajawal,system-ui,sans-serif', fontSize: 15 }}>{children}</div>; }

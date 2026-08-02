@@ -124,6 +124,17 @@ router.get('/public/:id', async (req, res) => {
     const l = await db.getListing(req.params.id);
     if (!l || l.status !== 'approved') return res.status(404).json({ error: 'Not found' });
     db.incrementListingViews(l.id).catch(() => {});
+    // العدّادُ في الجدولِ لا يصل حلقةَ التعلّم. الحدثُ يُصدَر بنوعه (منتج/خدمة)
+    // كي تعرف المنصّةُ **أيَّ** طلبٍ يُشاهَد، لا كم مشاهدةً جمع صفٌّ واحد.
+    try {
+      require('../lib/engines/activity').emit({
+        businessId: `listing:${l.id}`, actor: 'visitor',
+        type: l.type === 'service' ? 'service.viewed' : 'product.viewed',
+        category: l.type === 'service' ? 'service' : 'product',
+        visibility: 'private', city: l.city || null,
+        payload: { name: l.name, category: l.category || undefined },
+      });
+    } catch { /* القياسُ لا يُسقط عرضًا */ }
     res.json(l);
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
@@ -223,6 +234,16 @@ router.post('/:id/reviews', reviewLimiter, sanitizeBody, async (req, res) => {
     const { rating, comment, reviewerName } = req.body;
     if (!reviewerName || String(reviewerName).trim().length < 2) return res.status(400).json({ error: 'اسمك مطلوب' });
     const rev = await db.addReview({ listingId: req.params.id, rating, comment, reviewerName });
+    // التقييمُ حدثٌ في القمع: كان يُحفَظ ولا يُصدَر، فلا صاحبُ الإعلان يُشعَر
+    // ولا حلقةُ التعلّم تعدّه (`08_LEARNING_LOOP` تنتظر `review.created`).
+    try {
+      require('../lib/engines/activity').emit({
+        businessId: `listing:${req.params.id}`, actor: 'visitor',
+        type: 'review.created', category: 'business', visibility: 'private',
+        city: listing.city || null,
+        payload: { rating: +rating || 0, listing: listing.name },
+      });
+    } catch { /* الإشعارُ لا يُسقط تقييمًا صحيحًا */ }
     res.status(201).json(rev);
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });

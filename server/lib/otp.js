@@ -1,22 +1,13 @@
 'use strict';
 const crypto     = require('crypto');
-const nodemailer = require('nodemailer');
 const { db }     = require('../database');
+// ناقلُ البريد صار مشتركًا (`lib/mailer.js`) — كان محبوسًا هنا فبقيت قناةُ
+// البريد في محرّك الإشعارات فارغةً رغم أنّ الناقلَ يعمل.
+const mailer     = require('./mailer');
 
 const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-let _transport = null;
-function getTransport() {
-  if (_transport) return _transport;
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
-  _transport = nodemailer.createTransport({
-    host:   process.env.SMTP_HOST,
-    port:   parseInt(process.env.SMTP_PORT || '587', 10),
-    secure: process.env.SMTP_PORT === '465',
-    auth:   { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  });
-  return _transport;
-}
+const getTransport = () => mailer.getTransport();
 
 async function generateOTP(email) {
   const buf  = Buffer.alloc(3);

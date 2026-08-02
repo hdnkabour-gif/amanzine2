@@ -21,6 +21,16 @@ router.post('/track', async (req, res) => {
     if (ev.type === 'view' && ev.productId) {
       const p = await db.getProduct(ev.productId).catch(() => null);
       if (p && p.userId === ev.userId) await db.incrementProductViews(ev.productId);
+      // جسرٌ إلى الناقل: مشاهداتُ المنتجات كانت تُخزَّن في `store_events` وحدها
+      // ولا تصل حلقةَ التعلّم، فبقيت مرحلةُ `view` في القمع صفرًا رغم امتلاء
+      // الجدول. مسارُ قياسٍ واحدٌ لا اثنان.
+      try {
+        require('../lib/engines/activity').emit({
+          businessId: `store:${ev.userId}`, actor: 'visitor',
+          type: 'product.viewed', category: 'product', visibility: 'private',
+          payload: { productId: ev.productId, name: ev.productName || undefined, source: ev.source },
+        });
+      } catch { /* القياسُ لا يُسقط زيارة */ }
     }
     res.json({ ok: true });
   } catch (e) { res.json({ ok: false }); }

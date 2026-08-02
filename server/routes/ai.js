@@ -874,3 +874,20 @@ router.get('/unknown-report', auth, async (req, res) => {
 });
 
 module.exports = router;
+
+/**
+ * تشخيصٌ من **نفس** مصدر الحلّ لا من نسخةٍ ثانية: أيُّ مزوّدٍ مهيّأ في البيئة.
+ *
+ *   `/api/health` كان يذكر `openai` و`gemini` فقط، بينما الطبقةُ تدعم ستّة —
+ *   ومنها DeepSeek الموصى به للدارجة. النتيجة: مفتاحٌ مضبوطٌ لا يظهر، وغيابُ
+ *   كلّ المفاتيح لا يظهر أيضًا، فالفهمُ يبقى قواعدَ محلّيّةً بلا أن يعرف أحد.
+ *
+ * @returns {{providers: Record<string, boolean>, available: boolean, order: string[]}}
+ */
+module.exports.aiEnvStatus = function aiEnvStatus() {
+  const keys = _resolveAIKeys(null, null);              // البيئةُ وحدها
+  const providers = {};
+  for (const p of AI_PROVIDERS) providers[p] = !!keys[p];
+  const order = _providerOrder(AI_PROVIDERS[0], keys);  // المهيّأ فقط، بترتيب السقوط
+  return { providers, available: order.length > 0, order };
+};

@@ -11,6 +11,20 @@ const { resolveDeliveryFee } = require('../lib/deliveryPricing');
 let pushNotify;
 try { pushNotify = require('../routes/push').notifyUser; } catch { pushNotify = () => Promise.resolve(); }
 
+// الطلبُ آخرُ مرحلةٍ في القمع (بديلُ الدفع حتى تُربَط أحداثُه). كان يُنشَأ من
+// موضعين ولا يُصدَر من أيّهما، فبقيت `orderRate` في «عقل AMANZINE» صفرًا مهما
+// بيع. مُصدِرٌ واحدٌ هنا يخدم المسارين — لا نسختان تتباعدان.
+function emitOrderCreated(userId, order, source) {
+  try {
+    require('../lib/engines/activity').emit({
+      businessId: `store:${userId}`, actor: 'visitor',
+      type: 'order.created', category: 'order', visibility: 'private',
+      city: order?.city || null,
+      payload: { orderId: order?.id, total: +order?.total || 0, source: source || order?.source || '', ownerId: userId },
+    });
+  } catch { /* القياسُ لا يُسقط طلبًا حقيقيًّا */ }
+}
+
 router.get('/', auth, async (req, res) => {
   try { res.json(await db.getOrders(req.user.id)); }
   catch (e) { console.error('[orders]', e.message); res.status(500).json({ error: 'Server error' }); }
@@ -21,6 +35,7 @@ router.post('/', auth, sanitizeBody, async (req, res) => {
     const order = await db.createOrder({ ...req.body, userId: req.user.id, status: 'pending' });
     await db.addLog({ userId: req.user.id, user: 'AI', action: `New order: ${order.id}`, details: order.customerName, type: 'order', severity: 'info' });
     await db.addNotification({ userId: req.user.id, type: 'info', message: `🛒 طلب جديد من ${order.customerName}` });
+    emitOrderCreated(req.user.id, order, 'dashboard');
     sync.syncOrder(req.user.id, order).catch(() => {});
     const settings = await db.getSettings(req.user.id) || {};
     pushNotify(req.user.id, '🛒 طلب جديد!', `${order.customerName} — ${order.total || 0} ${settings.brand?.currency || 'MAD'}`, { url: '/orders' }).catch(() => {});
@@ -394,6 +409,8 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
       { userId, name: customerName, phone: customerPhone,
         city: city||'', address: address||'', source: source||'Storefront' }
     );
+
+    emitOrderCreated(userId, order, source || 'Storefront');
 
     await db.addNotification({ userId, type: 'info', message: `🛒 طلب جديد من ${customerName} — ${order.total} MAD` });
 

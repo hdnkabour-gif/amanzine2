@@ -118,6 +118,16 @@ if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 // السجلّات وحدَها: «ok» بينما المخطّطُ قديم — وهو أخضرُ كاذبٌ في نقطة الفحص.
 const migrationState = { ran: false, ok: null, error: null, at: null };
 
+// التشخيصُ يُقرأ كسولًا من الوحدات نفسها: لو تعذّر التحميلِ لا يسقط فحصُ الصحّة.
+function aiStatus() {
+  try { return require('./routes/ai').aiEnvStatus(); }
+  catch (e) { return { available: null, error: e.message }; }
+}
+function notificationStatus() {
+  try { return require('./lib/engines/notification').channelStatus(); }
+  catch (e) { return { error: e.message }; }
+}
+
 app.get('/api/health', (req, res) => {
   const mem = process.memoryUsage();
   // بلا قاعدةٍ لا يكون الخادم «ok»: الفحص ينجح والتطبيق فارغٌ من الداخل.
@@ -136,10 +146,11 @@ app.get('/api/health', (req, res) => {
     uptime: Math.round(process.uptime()) + 's',
     memory: Math.round(mem.heapUsed/1024/1024) + 'MB',
     node: process.version,
-    ai: {
-      openai: !!(process.env.OPENAI_API_KEY),
-      gemini: !!(process.env.GEMINI_API_KEY),
-    },
+    // الذكاءُ والإشعارات: يُقرآن من نفس مصدر الحلّ، فلا نسخةَ ثانيةً تتقادم.
+    // «غيرُ مهيّأ» ليس عطبًا — لكنّ إخفاءَه عطب: بلا مفتاحٍ يبقى الفهمُ قواعدَ
+    // محلّيّة، وبلا قناةٍ لا يصل إشعارٌ إلى أحد. كلاهما يجب أن يُرى لا يُستنتَج.
+    ai: aiStatus(),
+    notifications: notificationStatus(),
     env: process.env.NODE_ENV || 'development',
   });
 });
