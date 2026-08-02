@@ -3,7 +3,7 @@ import { readHuman, type HumanIntent } from './humanIntent';
 import { resolveConcept } from './akg/kb/knowledge';
 import { stanceOf } from './akg/kb';
 // السؤالُ يأتي من الناقص لا من النصّ (HU-2). المحرّكُ لا يعرف وجهةً ولا صفحة.
-import { nextClarification } from './clarify';
+import { nextClarification, type Clarification, type Signals } from './clarify';
 
 // ============================================================
 // needEngine — «شنو محتاج اليوم؟»
@@ -89,6 +89,35 @@ export function normalize(s: string): string {
 
 const has = (t: string, words: string[]) => words.some(w => t.includes(w));
 
+// ── أسماءُ المدن: مصدرٌ واحد ─────────────────────────────────
+//
+//   «بغيت سبّاك **فالدار البيضاء**» كانت تُقرأ طلبَ **عقار**، لأنّ قاعدةَ
+//   العقار تبحث عن «دار» كمقطعٍ في النصّ فتجدها داخل اسم أكبرِ مدينةٍ في
+//   المغرب. ذِكرُ مكانِك كان يهدم فهمَ حاجتك. ولم تكن أيُّ مدينةٍ يكتبها
+//   المستخدمُ تُلتقَط أصلًا — `location` تأتي من مدينة الحساب وحدَها.
+//
+//   العلاجُ بنيويٌّ لا استثناء: المدينةُ تُنتزَع أوّلًا، ثمّ يُقرأ الموضوعُ
+//   ممّا بقي. الأطولُ أوّلًا كي تُنتزع «الدار البيضاء» قبل أن تُرى «دار».
+export const MOROCCAN_CITIES: string[] = [
+  'الدار البيضاء', 'كازابلانكا', 'كازا', 'الرباط', 'مراكش', 'طنجه', 'اكادير',
+  'فاس', 'مكناس', 'وجده', 'سلا', 'تطوان', 'القنيطره', 'الجديده', 'اسفي',
+  'بني ملال', 'الناضور', 'خريبكه', 'تازه', 'العيون', 'ورزازات', 'الحسيمه',
+  'الصويره', 'تارودانت', 'برشيد', 'سطات', 'المحمديه', 'انزكان', 'الخميسات',
+  'بركان', 'تمارة', 'الداخله', 'كلميم', 'الرشيديه', 'الصخيرات', 'ايفران',
+].map(normalize).sort((a, b) => b.length - a.length);
+
+/** المدينةُ المذكورةُ في النصّ، إن ذُكرت. */
+export function cityIn(t: string): string | undefined {
+  return MOROCCAN_CITIES.find(c => t.includes(c));
+}
+
+/** النصُّ بلا أسماءِ المدن — لقراءةِ **الموضوع** وحدَه. */
+export function maskCities(t: string): string {
+  let out = t;
+  for (const c of MOROCCAN_CITIES) out = out.split(c).join(' ');
+  return out.replace(/\s+/g, ' ').trim();
+}
+
 // ── معاجم الدارجة ──────────────────────────────────────────
 const URGENT = ['ضروري', 'دابا', 'عاجل', 'مستعجل', 'فيسع', 'مزربان', 'حالا', 'دغيا'];
 // كلمات «الطلب» انتقلت إلى `SEEK_MARKS` في طبقة المعرفة (مصدرٌ واحد للاتّجاه)،
@@ -146,7 +175,8 @@ const proStep = (pro: string): NeedStep[] => ([{
 
 // ── المحرّك ─────────────────────────────────────────────────
 function coreParse(raw: string): NeedResult {
-  const t = normalize(raw);
+  // اسمُ المدينةِ يُنتزَع قبل قراءةِ الموضوع — وإلّا سُمّي طلبُ سبّاكٍ عقارًا.
+  const t = maskCities(normalize(raw));
   const urgent = has(t, URGENT);
   // الاتّجاه من طبقة المعرفة — مصدرٌ واحد. كان هنا `wants` بقائمةٍ أفقر (بلا
   // «أبحث» و«محتاج» و«خاصني» و«شكون»)، فكان «أبحث عن سبّاك» يُقرأ إعلانًا عن
@@ -408,6 +438,43 @@ const CLARIFY_DEST: Record<string, { page?: Page; url?: string; next: string }> 
   pick:      { url: EXPLORE, next: 'نختارو المدينة ونقلّبو.' },
 };
 
+/**
+ * يُلبس استيضاحًا وجهةً فيصير خطوةَ حوارٍ قابلةً للعرض.
+ * مُصدَّرٌ لأنّ `LivingHome` تحتاجه لتُضيف سؤالًا **ثانيًا** مبنيًّا على الجواب
+ * الأوّل — وهي الحلقةُ التي كانت مقطوعة (BROKEN_CHAINS#④).
+ */
+export function clarificationStep(c: Clarification): NeedStep {
+  return {
+    q: c.question,
+    clarifyId: c.id,
+    options: c.options.map(o => {
+      const d = CLARIFY_DEST[o.id] || { url: EXPLORE, next: 'نكملو معاك.' };
+      return { id: o.id, label: o.label, page: d.page, url: d.url, next: d.next };
+    }),
+  };
+}
+
+/**
+ * إشاراتُ الاستيضاح مُشتقّةً من نتيجة الفهم — **مكانٌ واحد** لهذا الاشتقاق.
+ * لو استنبطته كلُّ شاشةٍ بنفسها لاختلفت الشاشتان في معنى «ينقص المكان».
+ */
+export function signalsFrom(r: NeedResult): Signals {
+  const o = r.object;
+  const GIVE: Intent[] = ['sell', 'create_service', 'create_store'];
+  const TAKE: Intent[] = ['buy', 'rent', 'book', 'find_pro', 'urgent'];
+  return {
+    intent: r.intent,
+    confidence: r.confidence ?? 0,
+    target: r.intent === 'find_pro' || r.intent === 'urgent' || r.intent === 'book' ? 'service'
+          : r.intent === 'buy' || r.intent === 'sell' ? 'product'
+          : undefined,
+    direction: GIVE.includes(r.intent) ? 'offer' : TAKE.includes(r.intent) ? 'want' : undefined,
+    hasObject: !!(o?.profession || o?.category || o?.problem),
+    place: o?.location,
+    asked: [],
+  };
+}
+
 function clarifyStep(c: ReturnType<typeof nextClarification>, _t: string): NeedResult {
   const base: NeedResult = {
     intent: 'unknown',
@@ -418,17 +485,7 @@ function clarifyStep(c: ReturnType<typeof nextClarification>, _t: string): NeedR
     next: 'قول ليا شويّة كثر وأنا نوجّهك — بلا ما نوقفو.',
   };
   if (!c) return { ...base, url: EXPLORE };
-  return {
-    ...base,
-    steps: [{
-      q: c.question,
-      clarifyId: c.id,
-      options: c.options.map(o => {
-        const d = CLARIFY_DEST[o.id] || { url: EXPLORE, next: 'نكملو معاك.' };
-        return { id: o.id, label: o.label, page: d.page, url: d.url, next: d.next };
-      }),
-    }],
-  };
+  return { ...base, steps: [clarificationStep(c)] };
 }
 
 // ── طبقة السياق: تُثري النيّة بما يحيط بها (لا الطلب وحده) ──
@@ -441,7 +498,8 @@ function enrich(r: NeedResult, t: string, ctx: NeedContext): NeedResult {
   if (bud && consumer) r.tags = [...r.tags, `ميزانية: ${bud[1]} درهم`];
 
   // مكان: إن لم يذكر المستخدم مكانًا وعندنا مدينته (\b لا يعمل مع العربية، فنبحث مباشرة)
-  const mentionsPlace = /(الحي|حي |زنقه|شارع|دوار|حومه|الدار البيضاء|الرباط|مراكش|طنجه|اكادير|فاس|مكناس|وجده|سلا|تطوان)/.test(t);
+  // قائمةٌ واحدةٌ للمدن (`MOROCCAN_CITIES`) — كانت هنا نسخةٌ ثانيةٌ أقصر.
+  const mentionsPlace = /(الحي|حي |زنقه|شارع|دوار|حومه)/.test(t) || !!cityIn(t);
   if (ctx.city && consumer && !mentionsPlace) r.tags = [...r.tags, `قربك: ${ctx.city}`];
 
   // الوقت: طلب حِرفي في الليل → غالبًا مستعجل
@@ -481,8 +539,12 @@ function buildNeedObject(r: NeedResult, raw: string, ctx: NeedContext): NeedObje
   }
   const bud = t.match(/(\d[\d.,]*)\s*(درهم|dh|dhs)/);
   if (bud) o.budget = `${bud[1]} درهم`;
+  // المدينةُ التي كتبها المستخدمُ تسبق مدينةَ حسابِه — كانت تُهمَل تمامًا:
+  // «بغيت سبّاك فالرباط» لصاحب حسابٍ فالدار البيضاء كان يُبحَث له فالدار البيضاء.
   const place = r.tags.find(x => x.startsWith('قربك') || x.startsWith('المكان') || x.startsWith('مكان'));
-  o.location = (place ? place.split(':').pop()?.trim() : undefined) || ctx.city;
+  o.location = cityIn(t)
+    || (place ? place.split(':').pop()?.trim() : undefined)
+    || ctx.city;
   return o;
 }
 

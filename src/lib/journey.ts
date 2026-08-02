@@ -76,7 +76,8 @@ export interface Reception {
   usedText: boolean; usedButton: boolean;
   repeated: boolean;            // أعاد شرح نفسه (تشابه جملتين)
   lastStep?: string;            // آخر خطوة قبل الخروج (نقطة الخروج)
-  outcome?: 'routed' | 'reset' | 'idle';
+  /** `escalate`: عجز النظامُ فسُلّم لإنسان — نتيجةٌ مشروعةٌ تُقاس، لا خروجٌ صامت. */
+  outcome?: 'routed' | 'reset' | 'idle' | 'escalate';
   ended: boolean;
 }
 

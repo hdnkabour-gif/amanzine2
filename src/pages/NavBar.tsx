@@ -7,6 +7,7 @@ import {
   Package, UserPlus, X as XIcon, HelpCircle,
   Image as ImageIcon, Wand2, Calendar as CalendarIcon, Home, Brain,
   Wallet as WalletIcon, UserCircle, Sparkles, Rocket, MapPin,
+  Store, Compass, Radio,
 } from 'lucide-react';
 import { NavIconCart, NavIconTruck, NavIconBrain, NavIconPackage, NavIconMessage } from '../components/icons';
 import React from 'react';
@@ -96,7 +97,10 @@ const MAIN_NAV: { page: Page; icon: any; label: string }[] = [
 // ── Single source of truth for the merchant navigation ──────────
 // Rendered IDENTICALLY on desktop (left sidebar) AND mobile (hamburger
 // panel) so every page is reachable on both form factors — no drift.
-type NavItem = { page: Page; icon: any; label: string; desc: string };
+// `href` لأسطحٍ عامّةٍ تعيش **خارج** MainLayout (`/market` · `/explore` ·
+// `/feed`). لا `Page` لها فلا `setPage` يصلها، وبقيت بلا بابٍ في القائمة —
+// بحثٌ موحّدٌ وخريطةُ Leaflet وإدخالٌ صوتيٌّ تعمل كلُّها ولا يصل إليها أحد.
+type NavItem = { page: Page; icon: any; label: string; desc: string; href?: string };
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   { label: 'التجارة', items: [
     { page: 'home',      icon: Home,            label: 'الرئيسية',  desc: 'شنو محتاج اليوم؟ — ابدأ من حاجتك' },
@@ -122,6 +126,12 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     { page: 'notifications', icon: Bell,         label: 'الإشعارات', desc: 'كل تنبيهات متجرك' },
     { page: 'connections',   icon: NavIconBrain, label: 'الاتصالات', desc: 'ربط واتساب والذكاء والمنصات' },
     { page: 'insights',      icon: BarChart3,    label: 'الأداء',    desc: 'تحليلات الزيارات والمبيعات' },
+  ]},
+  { label: 'الاكتشاف', items: [
+    // `page` هنا مجرّدُ مفتاحٍ فريد؛ `href` هو الوجهةُ الفعليّة.
+    { page: 'market'  as Page, icon: Store,   label: 'السوق',    desc: 'السوق المغربي الموحّد — كلُّ ما يُباع قربك', href: '/market' },
+    { page: 'explore' as Page, icon: Compass, label: 'استكشف',   desc: 'بحثٌ موحّد + خريطة + إدخالٌ صوتيّ', href: '/explore' },
+    { page: 'feed'    as Page, icon: Radio,   label: 'الجديد',   desc: 'ما يقع الآن حولك — نشاطُ المنصّة', href: '/feed' },
   ]},
   { label: 'النظام', items: [
     { page: 'profile',    icon: UserCircle, label: 'ملفّي',            desc: 'حسابي، اكتمالُ ملفّي، ونشاطي' },
@@ -365,6 +375,23 @@ export default function NavBar() {
                 const active = currentPage === item.page || (item.page === 'insights' && currentPage === 'analytics');
                 const b = badge(item.page);
                 return (
+                  item.href ? (
+                  <a key={item.page} href={item.href}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 18px', boxSizing: 'border-box',
+                      borderLeft: '3px solid transparent',
+                      color: 'var(--ink2)', textDecoration: 'none',
+                      fontFamily: 'inherit', textAlign: 'right',
+                    }}>
+                    <item.icon size={17} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 700 }}>{item.label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{item.desc}</div>
+                    </div>
+                    <ExternalLink size={13} style={{ color: 'var(--ink3)', flexShrink: 0 }} />
+                  </a>
+                  ) : (
                   <button key={item.page} onClick={() => go(item.page)}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 12,
@@ -389,6 +416,7 @@ export default function NavBar() {
                       <span style={{ minWidth: 18, height: 18, borderRadius: 99, background: 'var(--ember)', color: '#fff', fontSize: 10, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{b}</span>
                     )}
                   </button>
+                  )
                 );
               })}
             </nav>
@@ -423,11 +451,18 @@ export default function NavBar() {
               const active = currentPage === item.page || (item.page === 'insights' && currentPage === 'analytics');
               const b = badge(item.page);
               return (
+                item.href ? (
+                <a key={item.page} href={item.href} className="sidebar-item" style={{ fontSize: 13, textDecoration: 'none' }}>
+                  <item.icon size={15} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                </a>
+                ) : (
                 <button key={item.page} onClick={() => go(item.page)} className={`sidebar-item${active ? ' active' : ''}`} style={{ fontSize: 13 }}>
                   <item.icon size={15} strokeWidth={active ? 2.4 : 1.8} style={{ flexShrink: 0 }} />
                   <span style={{ flex: 1 }}>{item.label}</span>
                   {b > 0 && <span style={{ minWidth: 16, height: 16, borderRadius: 99, background: 'var(--ember)', color: '#fff', fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{b > 9 ? '9+' : b}</span>}
                 </button>
+                )
               );
             })}
           </div>

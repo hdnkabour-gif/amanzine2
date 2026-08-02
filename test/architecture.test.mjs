@@ -460,3 +460,42 @@ test('لا مفتاحَ تخزينٍ يُقرأ ولا يُكتَب — عدّا
   assert.deepEqual(orphans.map(([k, f]) => `${f} → ${k}`), [],
     'مفتاحُ تخزينٍ يُقرأ ولا يُكتَب: إمّا أن تُوصَل الكتابةُ أو تُزال القراءةُ وواجهتُها');
 });
+
+test('كلُّ مسارٍ عامٍّ مُسجَّلٍ له بابٌ في الواجهة', () => {
+  // العطبُ الذي وُلد منه هذا: `/feed` مُسجَّلٌ في `App.tsx` ويعمل — **وبلا
+  // رابطٍ واحدٍ في التطبيق كلِّه**. و`/explore` (بحثٌ موحّد + خريطةُ Leaflet +
+  // إدخالٌ صوتيّ) لم يكن يُبلَغ إلّا من زرٍّ ثانويٍّ داخل المساعد.
+  // مسارٌ بلا بابٍ كودٌ ميّتٌ يبدو حيًّا.
+  const ROOT_DIR = new URL('..', import.meta.url).pathname;
+  const app = readFileSync(join(ROOT_DIR, 'src/App.tsx'), 'utf8');
+
+  // مساراتٌ تُبلَغ بغير رابطٍ في القائمة: صفحاتُ المصادقة والهبوط، وصفحاتُ
+  // المتجر العامّة التي يفتحها الزبونُ برابطٍ يرسله التاجر.
+  const NO_MENU = new Set(['/', '*', '/auth', '/login', '/register', '/landing', '/store']);
+
+  const routes = [...app.matchAll(/<Route\s+path="([^"]+)"/g)]
+    .map(m => m[1])
+    .filter(p => !p.includes(':') && !p.includes('*'))
+    .filter(p => !NO_MENU.has(p));
+  assert.ok(routes.length >= 3, `مساراتٌ قليلةٌ قُرئت (${routes.length})`);
+
+  const files = [];
+  (function walk(dir) {
+    for (const e of readdirSync(dir)) {
+      const full = join(dir, e);
+      if (statSync(full).isDirectory()) { walk(full); continue; }
+      if (/\.tsx?$/.test(e)) files.push(full);
+    }
+  })(join(ROOT_DIR, 'src'));
+  const all = files.filter(f => !f.endsWith('App.tsx')).map(f => readFileSync(f, 'utf8')).join('\n');
+
+  // البابُ إمّا سمةُ `href` مباشرةً، أو حقلُ `href:` في بيانات القائمة،
+  // أو `navigate('/x')`. الثلاثةُ تُوصِل إنسانًا إلى المسار.
+  const doorless = routes.filter(r => {
+    const esc = r.replace(/[/]/g, '\\/');
+    const rx = new RegExp(`(?:href=|href:\\s*|navigate\\(\\s*)["'\`]${esc}(["'\`?#]|$)`, 'm');
+    return !rx.test(all);
+  });
+  assert.deepEqual(doorless, [],
+    `مسارٌ يعمل ولا يصله أحد: ${doorless.join(' · ')} — ضَع له رابطًا أو احذفه`);
+});

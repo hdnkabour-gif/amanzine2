@@ -4,7 +4,9 @@ import {
   Search, Mic, Camera, MapPin, ArrowLeft, Check, RotateCcw,
   MessageCircle, ShoppingBag, Eye, Plus, AlertTriangle, Phone, Heart, Sparkles, Truck,
 } from 'lucide-react';
-import { NEED_EXAMPLES, type NeedResult, type NeedOption } from '../lib/needEngine';
+import { NEED_EXAMPLES, clarificationStep, signalsFrom, type NeedResult, type NeedOption } from '../lib/needEngine';
+import { clarify, applyAnswer, type Signals, type ClarificationId } from '../lib/clarify';
+import NeedCapture from '../components/NeedCapture';
 import { lastByIntent, lastByJourney, getInteractions, setSatisfaction, type Interaction, type Via } from '../lib/experienceLog';
 import { buildContext } from '../lib/core/context';
 import { orchestrate, recordExperience, recordFeedback } from '../lib/core/orchestrator';
@@ -65,6 +67,11 @@ export default function LivingHome() {
     const id = setInterval(() => setPhIdx(v => (v + 1) % NEED_EXAMPLES.length), 2800);
     return () => clearInterval(id);
   }, [text, result]);
+
+  // إشاراتُ الاستيضاح ترافق الحوارَ كلَّه. بدونها كان كلُّ جوابٍ يُنسى فور
+  // قراءته: سؤالٌ واحدٌ عمليًّا، ولا انتقالَ لإنسانٍ بعد سؤالين (ADR-0006).
+  const [signals, setSignals] = useState<Signals>({});
+  const [escalated, setEscalated] = useState(false);
 
   const [returning, setReturning] = useState(false);
   useEffect(() => {
@@ -151,10 +158,12 @@ export default function LivingHome() {
     // عقدُ الطلب يُفتح هنا ويرافقه حتى النهاية — بدل أن يُعيد كلُّ جزءٍ من
     // النظام تفسيرَ الحوار من الصفر (HU-4).
     setSnap(openSnapshot(q, { intent: r.intent, confidence: r.confidence ?? 0 }));
+    setSignals(signalsFrom(r));                              // إشاراتُ البداية — مصدرُ اشتقاقٍ واحد
+    setEscalated(false);
     setText(q); setResult(r); setStepIdx(0); setPending(null); setConfirmed(false);
     setTurns([{ who: 'user', text: q }, ...(r.open ? [{ who: 'sys' as const, text: r.open }] : [])]);
   };
-  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); };
+  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); };
 
   const pickOption = (opt: NeedOption) => {
     receptionTurn(opt.label, 'button');                      // قياس: دورٌ بالأزرار
@@ -175,8 +184,36 @@ export default function LivingHome() {
       }));
     }
     setTurns(t => [...t, { who: 'user', text: opt.label }]);
-    if (stepIdx + 1 < steps.length) setStepIdx(i => i + 1);
-    else setPending(opt);
+
+    // ── الحلقةُ المقطوعة، مُغلَقة ──────────────────────────────
+    // كان الجوابُ يُقاس ثمّ يُرمى: `applyAnswer` مبنيّةٌ ومُختبَرةٌ ولا تُستدعى.
+    // فلا سؤالَ ثانٍ مبنيٌّ على الأوّل، ولا انتقالَ لإنسانٍ مهما طال العجز.
+    const resolved = !!(opt.page || opt.url);
+    let next = signals;
+    if (step?.clarifyId && opt.id) {
+      next = applyAnswer(signals, step.clarifyId as ClarificationId, opt.id);
+      // جوابٌ يحمل وجهةً حسم السؤال ⇒ الثقةُ ترتفع فعلًا لا افتراضًا.
+      if (resolved) next = { ...next, confidence: Math.max(next.confidence ?? 0, 0.9) };
+      setSignals(next);
+    }
+
+    if (stepIdx + 1 < steps.length) { setStepIdx(i => i + 1); return; }
+    if (resolved) { setPending(opt); return; }
+
+    // نفدت الخطواتُ المُعدّة والجوابُ لم يحسم: نسأل المحرّكَ ماذا بعد.
+    const dec = clarify(next);
+    if (dec.mode === 'escalate') {
+      receptionEnd('escalate');
+      setEscalated(true);
+      return;
+    }
+    if (dec.mode === 'clarify' && dec.clarification) {
+      const extra = clarificationStep(dec.clarification);
+      setResult(r => r && { ...r, steps: [...(r.steps || []), extra] });
+      setStepIdx(i => i + 1);
+      return;
+    }
+    setPending(opt);
   };
   const activeStep = result?.steps?.[stepIdx];
 
@@ -277,8 +314,31 @@ export default function LivingHome() {
         mirror={!!result}
         onCorrect={() => { recordConfirm(false, result?.confidence ?? 0); reset(); }} />
 
+      {/* ── انتقالٌ لإنسان (ADR-0006) ──────────────────────────────
+          بعد استيضاحين بلا ارتفاعٍ في الفهم، السؤالُ الثالث إهانةٌ لا مساعدة.
+          ولا نُنهي بـ«ما فهمناش»: نلتقط الحاجةَ نفسَها — الفشلُ يصير طلبًا
+          مؤكّدًا نعود به لصاحبه. نفسُ المكوّن الذي يخدم السوقَ حين لا نتيجة. */}
+      {escalated && (
+        <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', display: 'flex', flexDirection: 'column', gap: 11 }}>
+          <div style={{ padding: '12px 15px', borderRadius: 13, border: '1px solid rgba(245,158,11,.28)', background: 'rgba(245,158,11,.07)' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--ink1)' }}>سولنا بزّاف — خلّينا نوصلوك بإنسان</div>
+            <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 4 }}>
+              {clarify(signals).why}
+            </div>
+          </div>
+          <NeedCapture
+            query={result?.object?.raw || text}
+            city={result?.object?.location}
+            concept={result?.object?.profession || result?.object?.category}
+          />
+          <button onClick={reset} style={{ alignSelf: 'center', padding: '8px 16px', borderRadius: 11, border: '1px solid var(--border2,rgba(255,255,255,.14))', background: 'transparent', color: 'var(--ink3)', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
+            <RotateCcw size={13} style={{ verticalAlign: 'middle', marginLeft: 5 }} /> نبداو من جديد
+          </button>
+        </div>
+      )}
+
       {/* ── نتيجة/محادثة نشطة ── */}
-      {result && (
+      {result && !escalated && (
         <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', display: 'flex', flexDirection: 'column', gap: 11 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11, fontWeight: 800, color: result.color, border: `1px solid ${result.color}`, borderRadius: 99, padding: '4px 11px' }}>{result.label}</span>
