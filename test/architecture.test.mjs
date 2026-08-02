@@ -370,3 +370,44 @@ test('حالةُ الفراغ تُفرِّق بين «لا شيءَ هنا» و�
     }
   }
 });
+
+test('«هل الذكاءُ متاح؟» يُسأل من مصدرٍ واحد', () => {
+  // العطبُ الذي وُلد منه هذا: الخادم يقبل ستّةَ مزوّدين
+  // (`routes/ai.js:AI_PROVIDERS`)، وثلاثُ شاشاتٍ كانت تسأل `apiKey ||
+  // geminiKey` وحدَهما. تاجرٌ موصولٌ بـClaude وDeepSeek — وكلاهما معروضٌ في
+  // «ربط الخدمات» — يُقال له «بدون مفتاح AI» بينما وصفُ المنتجات يعمل عنده.
+  const ROOT_DIR = new URL('..', import.meta.url).pathname;
+
+  // مصدرُ الحقيقة يجب أن يُعدّد ما يُعدّده الخادم — لا أقلّ.
+  const server = readFileSync(join(ROOT_DIR, 'server/routes/ai.js'), 'utf8');
+  const client = readFileSync(join(ROOT_DIR, 'src/lib/aiAvailability.ts'), 'utf8');
+  const listOf = (src) => {
+    const m = src.match(/AI_PROVIDERS\s*=\s*\[([^\]]+)\]/);
+    assert.ok(m, 'تعذّر قراءة AI_PROVIDERS');
+    return [...m[1].matchAll(/'([a-z]+)'/g)].map(x => x[1]).sort();
+  };
+  assert.deepEqual(listOf(client), listOf(server),
+    'قائمةُ مزوّدي الذكاء في الواجهة تخالف الخادم — أحدُهما يعِد بما لا يفعله الآخر');
+
+  // ولا يُعاد السؤالُ يدويًّا في أيّ ملفٍّ آخر.
+  const SOURCE = 'src/lib/aiAvailability.ts';
+  const files = [];
+  (function walk(dir) {
+    for (const e of readdirSync(dir)) {
+      const full = join(dir, e);
+      if (statSync(full).isDirectory()) { walk(full); continue; }
+      if (/\.tsx?$/.test(e)) files.push(full);
+    }
+  })(join(ROOT_DIR, 'src'));
+
+  // تعريفُ الحقول وحفظُها مسموحان؛ **اشتقاقُ حكمٍ** منها ليس كذلك.
+  const VERDICT = /(?:const|let)\s+\w*(?:has|is|any)\w*\s*=[^;\n]*\bgeminiKey\b[^;\n]*\|\|/i;
+  for (const f of files) {
+    const rel = f.slice(f.indexOf('src/'));
+    if (rel === SOURCE) continue;
+    if (/ConnectionsPage|SettingsPage/.test(rel)) continue;  // شاشتا الإدخال: تكتبان المفاتيح
+    const src = readFileSync(f, 'utf8');
+    assert.ok(!VERDICT.test(src),
+      `${rel}: يحكم على توفّر الذكاء بنفسه — استورد hasAI/aiProviders من ${SOURCE}`);
+  }
+});

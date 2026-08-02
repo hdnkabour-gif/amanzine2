@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getToken as getAuthToken } from '../services/api';
 import { useStore } from '../store';
+import { aiKeys, aiProviders, AI_LABEL } from '../lib/aiAvailability';
 import { CheckCircle, XCircle, AlertCircle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
 interface Check {
@@ -74,12 +75,13 @@ export default function SystemCheck() {
     }
 
     // 3. AI key check — via backend proxy (avoids CORS + hides key)
-    const hasAiKey = !!(settings.ai?.apiKey || settings.ai?.geminiKey);
-    if (hasAiKey) {
+    // كلُّ المزوّدين الستّة، لا اثنان: الخادم يقبلهم جميعًا.
+    const keys = aiKeys(settings);
+    const [service] = aiProviders(settings);
+    if (service) {
       try {
         const tok = getAuthToken() || '';
-        const service = settings.ai?.geminiKey ? 'gemini' : 'openai';
-        const apiKey = settings.ai?.geminiKey || settings.ai?.apiKey;
+        const apiKey = keys[service];
         const r = await fetch('/api/settings/verify-connection', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
@@ -87,7 +89,7 @@ export default function SystemCheck() {
           signal: AbortSignal.timeout(10000),
         });
         const d = await r.json();
-        updateCheck('ai', d.ok ? 'ok' : 'error', d.ok ? `${service === 'gemini' ? 'Gemini' : 'OpenAI'} · ${d.info || 'connected'}` : d.error || 'Invalid key');
+        updateCheck('ai', d.ok ? 'ok' : 'error', d.ok ? `${AI_LABEL[service]} · ${d.info || 'connected'}` : d.error || 'Invalid key');
       } catch {
         updateCheck('ai', 'warn', 'Could not verify');
       }

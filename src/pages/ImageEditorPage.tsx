@@ -15,7 +15,7 @@ const EXPORT_SIZES: ExportSize[] = [
 const STICKERS = ['🔥','⭐','💎','🎉','✅','🚚','🏷️','💯','🤑','📦','🇲🇦','❤️'];
 
 export default function ImageEditorPage() {
-  const { settings, products } = useStore();
+  const { settings, products, notify } = useStore();
   const canvasRef  = useRef<HTMLCanvasElement>(null);
   const fileRef    = useRef<HTMLInputElement>(null);
   const logoRef    = useRef<HTMLInputElement>(null);
@@ -69,6 +69,13 @@ export default function ImageEditorPage() {
       ctx.fillStyle = bgColor;
       ctx.fillRect(0,0,previewW,previewH);
       drawLayers(ctx);
+      // مربّعٌ داكنٌ فارغٌ لا يقول شيئًا. اللوحةُ الفارغةُ تشرح نفسَها.
+      if (!layers.length) {
+        ctx.fillStyle = 'rgba(255,255,255,.34)';
+        ctx.font = '600 13px Tajawal, Arial, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('ابدأ بـ«رفع صورة» أو «من منتج»', previewW / 2, previewH / 2);
+      }
     }
   }, [bg, layers, previewW, previewH, bgColor, scale]);
 
@@ -188,41 +195,67 @@ export default function ImageEditorPage() {
     ]);
   };
 
-  const exportImage = () => {
+  // تحميلٌ يُنهي دائمًا: الفشلُ يُرجع null ولا يُعلّق التصديرَ إلى الأبد.
+  const loadImage2 = (src: string) => new Promise<HTMLImageElement | null>(resolve => {
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+
+  const exportImage = async () => {
+    // صورةٌ فارغةٌ ليست تصديرًا — كان الزرُّ ينزّل مربّعًا داكنًا بلا شيء.
+    if (!bg && layers.length === 0) {
+      notify('warning', '🎨 أضف صورةً أو نصًّا أو لوغو قبل التصدير');
+      return;
+    }
+
     const canvas = document.createElement('canvas');
     canvas.width  = exportSize.w;
     canvas.height = exportSize.h;
     const ctx = canvas.getContext('2d')!;
 
-    const finish = () => {
-      layers.forEach(layer => {
-        ctx.globalAlpha = layer.opacity ?? 1;
-        if (layer.type === 'text') {
-          ctx.font = `900 ${layer.size * 1}px Tajawal, Arial, sans-serif`;
-          ctx.fillStyle = layer.color || '#fff';
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 6;
-          ctx.fillText(layer.content, layer.x, layer.y);
-          ctx.shadowBlur = 0;
-        } else if (layer.type === 'sticker') {
-          ctx.font = `${layer.size}px serif`;
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText(layer.content, layer.x, layer.y);
-        }
-        ctx.globalAlpha = 1;
-      });
-      const link = document.createElement('a');
-      link.download = `${exportSize.label.replace(/\s/g,'-')}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    };
-
-    if (bg) {
-      const img = new window.Image(); img.crossOrigin = 'anonymous'; img.src = bg;
-      img.onload = () => { ctx.drawImage(img,0,0,exportSize.w,exportSize.h); finish(); };
-    } else {
-      ctx.fillStyle = bgColor; ctx.fillRect(0,0,exportSize.w,exportSize.h); finish();
+    // الخلفيّة: إن تعذّر تحميلُ الصورة نسقط للّون كما في المعاينة — ولا نصمت.
+    const bgImg = bg ? await loadImage2(bg) : null;
+    if (bgImg) ctx.drawImage(bgImg, 0, 0, exportSize.w, exportSize.h);
+    else {
+      if (bg) notify('warning', '⚠️ تعذّر تحميل صورة الخلفيّة — صُدِّرت باللون وحدَه');
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, exportSize.w, exportSize.h);
     }
+
+    for (const layer of layers) {
+      ctx.globalAlpha = layer.opacity ?? 1;
+      if (layer.type === 'text') {
+        ctx.font = `900 ${layer.size}px Tajawal, Arial, sans-serif`;
+        ctx.fillStyle = layer.color || '#fff';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 6;
+        ctx.fillText(layer.content, layer.x, layer.y);
+        ctx.shadowBlur = 0;
+      } else if (layer.type === 'sticker') {
+        ctx.font = `${layer.size}px serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(layer.content, layer.x, layer.y);
+      } else if (layer.type === 'logo' && layer.content) {
+        // كانت طبقةُ اللوغو تُرسم في المعاينة وتسقط من التصدير: التاجرُ يرى
+        // لوغوَه ثمّ ينزّل صورةً بلا لوغو. وهذا كلُّ غرضِ الصفحة.
+        const img = await loadImage2(layer.content);
+        if (img) {
+          const s = layer.size;
+          ctx.drawImage(img, layer.x - s / 2, layer.y - s / 2, s, s);
+        } else {
+          notify('warning', '⚠️ تعذّر تحميل اللوغو — صُدِّرت الصورةُ بدونه');
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    const link = document.createElement('a');
+    link.download = `${exportSize.label.replace(/\s/g,'-')}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
   };
 
   return (

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useStore } from '../store';
+import { hasAI, hasImageAI } from '../lib/aiAvailability';
 import {
   Plus, Search, Edit3, Trash2, X, ChevronRight, ChevronLeft,
   Sparkles, Share2, Camera, Image, Download, Palette, Eye,
@@ -632,8 +633,7 @@ export default function ProductsPage() {
   const generateAI = async () => {
     if (!data.name) return;
     const creds = aiCreds();
-    const anyKey = creds.apiKey || creds.geminiKey || (settings.ai as any)?.claudeKey || (settings.ai as any)?.deepseekKey || (settings.ai as any)?.grokKey || (settings.ai as any)?.mistralKey;
-    if (!anyKey) {
+    if (!hasAI(settings)) {
       notify('warning', '⚠️ لا مفتاح ذكاء اصطناعي مربوط — اربط واحداً من صفحة الاتصالات (Gemini مجاني). سيُستخدم وصف محلي مؤقت.');
     }
     setAiLoading(true);
@@ -697,8 +697,7 @@ export default function ProductsPage() {
   const designWithAI = async () => {
     if (!data.name) return notify('warning', 'أدخل اسم المنتج أولاً');
     const creds = aiCreds();
-    const hasImgKey = creds.apiKey || creds.geminiKey || (settings.ai as any)?.grokKey;
-    if (!hasImgKey) { notify('error', '⚠️ توليد الصور يتطلب مفتاح OpenAI أو Gemini أو Grok — اربط واحداً من صفحة الاتصالات'); return; }
+    if (!hasImageAI(settings)) { notify('error', '⚠️ توليد الصور يتطلب مفتاح OpenAI أو Gemini أو Grok — اربط واحداً من صفحة الاتصالات'); return; }
     setAiDesignLoading(true);
     try {
       const cat = CATS.find(c => c.id === data.category);

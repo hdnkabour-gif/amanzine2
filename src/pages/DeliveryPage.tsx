@@ -865,7 +865,13 @@ export default function DeliveryPage() {
                           </span>
                         ))}
                     </div>
-                    <p style={{ fontSize: 12, color: 'var(--txt-3)' }}>{p.websiteUrl || 'لا يوجد رابط'} · {recipe ? 'أتمتة موقع' : 'API'}</p>
+                    {/* كانت تقرأ `websiteUrl` وحدَه فتكتب «API · لا يوجد رابط» فوق
+                        شركةٍ موصولةٍ بنقطةِ نهايةٍ تعمل. الرابطُ المعروضُ يجب أن
+                        يكون الرابطَ الذي يُستعمل فعلًا. */}
+                    <p style={{ fontSize: 12, color: 'var(--txt-3)' }}>
+                      {(recipe ? (p.websiteUrl || p.loginUrl) : (p.apiEndpoint || p.websiteUrl)) || 'بلا رابطٍ محفوظ'}
+                      {' · '}{recipe ? 'أتمتة موقع' : 'API'}
+                    </p>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <button onClick={e => { e.stopPropagation(); testConn(p); }} disabled={testingId === p.id} className="btn btn-ghost btn-sm" style={{ gap: 5 }}>

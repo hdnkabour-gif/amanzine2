@@ -275,13 +275,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       // allSettled بدل all: فشل طلب واحد (مهلة شبكة مثلاً) لا يجب أن يُسقط
       // كل البيانات ويُظهر اللوحة فارغة رغم أن الخادم يحتوي كل شيء
-      const [productsR, ordersR, customersR, settingsR, convsR, deliveryR] = await Promise.allSettled([
+      const [productsR, ordersR, customersR, settingsR, convsR, deliveryR, logsR] = await Promise.allSettled([
         api.productsAPI.list(),
         api.ordersAPI.list(),
         api.customersAPI.list(),
         api.settingsAPI.get(),
         api.conversationsAPI.list(),
         api.deliveryAPI.list(),
+        // السجلُّ يعيش في `audit_logs` على الخادم، ويُكتب من ١٣ مسارًا. كان
+        // `auditLogs` ذاكرةَ تبويبٍ وحدَها ⇒ «لا نشاط بعد» بعد كلّ تحديثِ صفحة
+        // مهما عمل التاجر. الحقيقةُ كانت موجودةً ولا تُقرأ.
+        api.settingsAPI.getLogs(),
       ]);
       const val = <T,>(r: PromiseSettledResult<T>): T | null => r.status === 'fulfilled' ? r.value : null;
       const products = val(productsR);
@@ -289,6 +293,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const customers = val(customersR) as any;
       const convs = val(convsR);
       const deliveryProviders = val(deliveryR) as DeliveryProviderConfig[] | null;
+      const serverLogs = val(logsR) as AuditLog[] | null;
       const settingsOk = settingsR.status === 'fulfilled';
       const settings = settingsOk ? (settingsR as PromiseFulfilledResult<any>).value : null;
 
@@ -311,6 +316,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           })() : s.settings,
         conversations: convs ?? s.conversations,
         deliveryProviders: deliveryProviders ?? s.deliveryProviders,
+        auditLogs: serverLogs ?? s.auditLogs,
         // قرار الإعداد الأولي يُتخذ فقط عند نجاح جلب الإعدادات:
         // إعدادات فارغة = حساب جديد فعلاً → onboarding
         // فشل الطلب = لا نغير شيئاً (حتى لا يُعاد onboarding ويمسح الإعدادات)

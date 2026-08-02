@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
+import { hasAI, aiProviderName } from '../lib/aiAvailability';
 import { Send, Bot, Plus, Sparkles, X, Pin, ArrowRight, Phone, Zap, ScanLine, Copy, Check } from 'lucide-react';
 import * as api from '../services/api';
 
@@ -167,8 +168,8 @@ export default function MessagesPage() {
   const msgEnd = useRef<HTMLDivElement>(null);
   const conv   = conversations.find(c => c.id === active);
 
-  const hasRealAI = !!(settings.ai?.apiKey || settings.ai?.geminiKey);
-  const aiProvider = settings.ai?.geminiKey ? 'Gemini' : settings.ai?.apiKey ? 'OpenAI' : null;
+  const hasRealAI = hasAI(settings);
+  const aiProvider = aiProviderName(settings);
 
   useEffect(() => {
     msgEnd.current?.scrollIntoView({ behavior: 'smooth' });

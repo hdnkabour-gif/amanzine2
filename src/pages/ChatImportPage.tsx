@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useStore } from '../store';
+import { hasAI, aiProviderName } from '../lib/aiAvailability';
 import {
   Upload, Bot, Check, X, Users, Phone, MapPin,
   Eye
@@ -216,6 +217,8 @@ export default function ChatImportPage() {
   const [editId, setEditId]     = useState<string|null>(null);
   const [importedCount, setImportedCount] = useState(0);
 
+  const aiName = aiProviderName(settings);
+
   const SOURCES = ['WhatsApp','Messenger','Instagram','Facebook','يدوي'];
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -236,7 +239,7 @@ export default function ChatImportPage() {
     try {
       let extracted: ExtractedCustomer[];
       
-      const hasAIKey = !!(settings.ai?.apiKey || settings.ai?.geminiKey);
+      const hasAIKey = hasAI(settings);
       setProgress(30);
       
       if (hasAIKey && useAI) {
@@ -361,12 +364,14 @@ export default function ChatImportPage() {
           {/* AI toggle */}
           <div style={{ display:'flex',alignItems:'center',gap:10,padding:'10px 14px',
             background:'rgba(0,200,150,.06)',border:'1px solid rgba(0,200,150,.18)',borderRadius:'var(--r)' }}>
-            <div className="dot-live" />
+            {/* نقطةٌ حيّةٌ خضراء فوق «بدون مفتاح AI» إشارةٌ كاذبة. */}
+            <div className={aiName ? 'dot-live' : ''}
+              style={aiName ? undefined : { width: 8, height: 8, borderRadius: 99, background: 'var(--ink3)', opacity: .5 }} />
             <div style={{ flex:1 }}>
               <div style={{ fontSize:13,fontWeight:700,color:'var(--ink1)' }}>استخدام AI للتحليل</div>
               <div style={{ fontSize:11,color:'var(--ink3)' }}>
-                {settings.ai?.apiKey || settings.ai?.geminiKey
-                  ? 'مفتاح AI موجود — النتائج ستكون أدق'
+                {aiName
+                  ? `مفتاح ${aiName} موجود — فعّل المفتاح لنتائجَ أدقّ`
                   : 'بدون مفتاح AI — التحليل محلي (أقل دقة)'}
               </div>
             </div>
