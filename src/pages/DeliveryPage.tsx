@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import type { DeliveryProviderConfig } from '../types';
 import { settingsAPI, getToken as getAuthToken } from '../services/api';
+import DeliveryOpsPanel from '../components/DeliveryOpsPanel';
 
 // ─── سجل الشحنات: الحقيقة الكاملة لكل عملية شحن ──────────────────────────────
 // يقرأ سجلات النظام (type=delivery) ويبين لكل طلب: هل أُنشئت شحنة حقيقية
@@ -1080,6 +1081,9 @@ export default function DeliveryPage() {
           </div>
         </div>
       )}
+
+      {/* ── لوحة العمليّات: القدرات · مزامنة المدن · قواعد التسعير · معاينة الثمن ── */}
+      <DeliveryOpsPanel providers={providers as any} notify={notify} />
 
       {/* ── Manual Assist Modal ────────────────────────────────────────────────── */}
       {manualAssist && (
