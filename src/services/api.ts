@@ -267,9 +267,13 @@ export const deliveryAPI = {
   registry: () => request<{ providers: any[]; rejected: any[] }>('GET', '/delivery/registry'),
   // تحقّقٌ حقيقيٌّ خطوةً خطوة: المفتاح · القبول · قراءة البيانات · الخرائط.
   // بديلُ «اختبار الاتصال» الذي كان يفحص أنّ الموقعَ يستجيب ولا شيءَ غير ذلك.
+  // ويحفظ ما يقرأ: المدنُ المجلوبةُ أثناء التحقّق تُربَط فورًا بدل أن تُرمى.
   verify: (providerRowId: string) =>
-    request<{ success: boolean; provider: string; checks: { key: string; label: string; ok: boolean | null; detail: string }[] }>(
-      'POST', `/delivery/verify/${providerRowId}`),
+    request<{
+      success: boolean; provider: string;
+      checks: { key: string; label: string; ok: boolean | null; detail: string }[];
+      unmatched?: { externalId: string; externalName: string }[];
+    }>('POST', `/delivery/verify/${providerRowId}`),
   // ── محرّك المدن ──
   // مدنُ AMANZINE المعياريّة — ما يراه التاجر مهما تبدّلت الشركة
   canonicalCities: () => request<{ success: boolean; cities: { id: string; name: string }[] }>('GET', '/delivery/cities/canonical'),

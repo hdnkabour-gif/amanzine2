@@ -62,6 +62,7 @@ interface StoreValue {
 
   // Delivery providers — كلّ كتابةٍ تمرّ بالخادم ثمّ تُعاد القائمةُ منه
   saveDeliveryProvider: (p: Partial<DeliveryProviderConfig>) => Promise<DeliveryProviderConfig[]>;
+  refreshDeliveryProviders: () => Promise<DeliveryProviderConfig[]>;
   removeDeliveryProvider: (id: string) => Promise<void>;
 
   // Auth
@@ -877,6 +878,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return list;
   };
 
+  // الخادمُ قد يُصحّح صفًّا من تلقاء نفسه (تعريفُ المزوّد من نطاقه مثلًا)،
+  // فالواجهةُ تحتاج قراءةً جديدةً بلا كتابة.
+  const refreshDeliveryProviders = async (): Promise<DeliveryProviderConfig[]> => {
+    const list = await api.deliveryAPI.list() as DeliveryProviderConfig[];
+    setState(s => ({ ...s, deliveryProviders: list }));
+    return list;
+  };
+
   const removeDeliveryProvider = async (id: string): Promise<void> => {
     await api.deliveryAPI.remove(id);
     const list = await api.deliveryAPI.list() as DeliveryProviderConfig[];
@@ -894,7 +903,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       notify, clearNotifications, markNotifRead, log,
       resetToDemo, exportData, importData, refreshData,
       deleteConversation, setOnboardingCompleted,
-      saveDeliveryProvider, removeDeliveryProvider,
+      saveDeliveryProvider, refreshDeliveryProviders, removeDeliveryProvider,
     }}>
       {children}
     </StoreCtx.Provider>

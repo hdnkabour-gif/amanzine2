@@ -7,6 +7,8 @@ const { makeQuote } = require('../contract');
 
 const meta = {
   id: 'livo', name: 'Livo', country: 'MA', currency: 'MAD', version: '1.0',
+  // تُعرِّف Livo نفسَها بنطاقاتها؛ لا أحدَ خارج هذا الملفّ يعرف أنّها «livo.ma».
+  match: { hosts: ['livo.ma'] },
 };
 
 const capabilities = {

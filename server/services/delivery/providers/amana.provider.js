@@ -7,6 +7,7 @@ const { makeQuote } = require('../contract');
 
 const meta = {
   id: 'amana', name: 'Amana', country: 'MA', currency: 'MAD', version: '1.0',
+  match: { hosts: ['amana.ma'] },
 };
 
 const capabilities = {

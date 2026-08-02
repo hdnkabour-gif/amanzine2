@@ -127,3 +127,50 @@ test('webhook يحجب SSRF نحو الشبكة الداخليّة وغيرَ HT
   }
   assert.doesNotThrow(() => _assertSafeUrl('https://api.example.com/hook'));
 });
+
+// ── الاستدلالُ على المزوّد من نطاقه ───────────────────────────────────────────
+//
+//   العطبُ الذي وُلد منه هذا: صفٌّ حُفظ باسمٍ مكتوبٍ يدويًّا («Livo») يصل
+//   قاعدةَ البيانات بـ api_type = '' ⇒ registry.resolve يُرجع null ⇒ لا مدنَ
+//   ولا مفتاحَ يُفحَص ولا شحنةَ حقيقيّة، والتاجرُ يرى الشركةَ «مفعّلة».
+//   الاستدلالُ يُغلق هذا الباب، والمعرفةُ تبقى في ملفّ المزوّد لا هنا.
+
+test('الاستدلال يُعرِّف الصفَّ من نقطة نهايته حين يغيب api_type', () => {
+  assert.equal(registry.suggest({ apiEndpoint: 'https://rest.livo.ma' }), 'livo');
+  assert.equal(registry.suggest({ websiteUrl: 'my.livo.ma' }), 'livo');
+  assert.equal(registry.suggest({ apiEndpoint: 'https://api.amana.ma/v1' }), 'amana');
+});
+
+test('الاستدلال لا يخمّن: نطاقٌ مجهولٌ أو غائبٌ يُرجع null', () => {
+  assert.equal(registry.suggest({ apiEndpoint: 'https://api.chronodiali.ma' }), null);
+  assert.equal(registry.suggest({ name: 'Livo' }), null, 'الاسمُ وحده ليس دليلًا');
+  assert.equal(registry.suggest({}), null);
+  assert.equal(registry.suggest(null), null);
+});
+
+test('الاستدلال يطابق على حدود النقطة لا على مجرّد احتواء النصّ', () => {
+  // نطاقٌ يُنتهي بـ livo.ma بلا نقطةٍ فاصلة ليس Livo — وإلّا لسُلّمت مفاتيحُ
+  // التاجر لموقعٍ اشترى اسمًا مشابهًا.
+  assert.equal(registry.suggest({ apiEndpoint: 'https://notlivo.ma' }), null);
+  assert.equal(registry.suggest({ apiEndpoint: 'https://livo.ma.evil.com' }), null);
+});
+
+test('كلُّ مزوّدٍ يُعلن نطاقاتِه بشكلٍ صحيحٍ إن أعلنها', () => {
+  for (const p of registry.list()) {
+    if (p.match === undefined) continue;
+    assert.ok(Array.isArray(p.match.hosts), `${p.id}: match.hosts ليس مصفوفة`);
+    for (const h of p.match.hosts) {
+      assert.equal(typeof h, 'string');
+      assert.ok(h.trim() && !h.includes('://'), `${p.id}: «${h}» يجب أن يكون نطاقًا مجرّدًا`);
+    }
+  }
+});
+
+test('العقد يرفض match.hosts المعطوب بدل تركه يفشل صامتًا', () => {
+  const base = { meta: { id: 'x', name: 'X' }, createShipment: async () => ({ success: true }) };
+  assert.deepEqual(validateProvider(base), [], 'غيابُ match مسموح');
+  assert.equal(validateProvider({ ...base, meta: { ...base.meta, match: { hosts: 'livo.ma' } } }).length, 1);
+  assert.equal(validateProvider({ ...base, meta: { ...base.meta, match: { hosts: [''] } } }).length, 1);
+  assert.equal(validateProvider({ ...base, meta: { ...base.meta, match: { hosts: [42] } } }).length, 1);
+  assert.deepEqual(validateProvider({ ...base, meta: { ...base.meta, match: { hosts: ['livo.ma'] } } }), []);
+});

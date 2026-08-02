@@ -5,7 +5,7 @@ import {
   Zap, ChevronDown, ChevronUp, Globe, Key, Copy, ExternalLink, X,
 } from 'lucide-react';
 import type { DeliveryProviderConfig } from '../types';
-import { settingsAPI, getToken as getAuthToken } from '../services/api';
+import { settingsAPI, deliveryAPI, getToken as getAuthToken } from '../services/api';
 import DeliveryOpsPanel from '../components/DeliveryOpsPanel';
 
 // ─── سجل الشحنات: الحقيقة الكاملة لكل عملية شحن ──────────────────────────────
@@ -538,13 +538,28 @@ function UrlWizard({ onSave, onCancel, onDirtyChange }: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function DeliveryPage() {
-  const { settings, updateSettings, notify, deliveryProviders, saveDeliveryProvider, removeDeliveryProvider } = useStore();
+  const { settings, updateSettings, notify, deliveryProviders, saveDeliveryProvider, refreshDeliveryProviders, removeDeliveryProvider } = useStore();
   const providers = deliveryProviders;
+  const refreshProviders = refreshDeliveryProviders;
 
   const [showAdd, setShowAdd] = useState(false);
   const [addMode, setAddMode] = useState<'simple' | 'whatsapp' | 'api' | 'url-recipe'>('simple');
   const [config, setConfig] = useState<Partial<DeliveryProviderConfig>>(EMPTY_API);
   const [selected, setSelected] = useState<string | null>(null);
+
+  // نتيجةُ التحقّق الحقيقيّ لكلّ شركة — تُعرَض تحت صفّها لا في إشعارٍ يزول.
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [verdict, setVerdict] = useState<Record<string, {
+    success: boolean;
+    checks: { key: string; label: string; ok: boolean | null; detail: string }[];
+    unmatched: { externalId: string; externalName: string }[];
+  }>>({});
+
+  // المزوّدون المسجَّلون في الخادم وقدراتُهم — لا قائمةَ أسماءٍ مكرّرةً هنا.
+  const [knownProviders, setKnownProviders] = useState<{ id: string; name: string; capabilities: Record<string, any> }[]>([]);
+  useEffect(() => {
+    deliveryAPI.registry().then(r => setKnownProviders(r.providers || [])).catch(() => {});
+  }, []);
 
   // Simple mode state
   const [simpleCompany, setSimpleCompany] = useState<string | null>(null);
@@ -573,8 +588,9 @@ export default function DeliveryPage() {
       notify('error', 'املأ الاسم، ثم إمّا (مفتاح API + نقطة النهاية) أو (رابط الدخول + المستخدم + كلمة المرور)');
       return;
     }
+    let saved: DeliveryProviderConfig[] = [];
     try {
-      await saveDeliveryProvider({
+      saved = await saveDeliveryProvider({
         name: config.name!, logo: config.logo || '🚚',
         enabled: true, mode: 'api',
         websiteUrl: config.websiteUrl || '', loginUrl: config.loginUrl || '',
@@ -594,6 +610,12 @@ export default function DeliveryPage() {
     updateSettings('delivery', { ...settings.delivery, defaultProvider: config.name! });
     notify('success', `تم إضافة ${config.name}`);
     setShowAdd(false); setConfig(EMPTY_API);
+
+    // الحفظُ ليس ربطًا. التاجرُ كان يحفظ ثمّ لا يحدث شيء: لا مدنَ ولا فحصَ
+    // مفتاح، ويكتشف الخللَ عند أوّل شحنةٍ لزبون. الآن يُفحص الربطُ فورًا
+    // وتُجلَب بياناتُ الشركة تلقائيًّا — بلا زرٍّ يجب أن يعرفَ التاجرُ مكانَه.
+    const row = saved.find(p => p.name === config.name);
+    if (row?.id) { setSelected(row.id); testConn(row); }
   };
 
   // ── URL Recipe save ────────────────────────────────────────────────────────
@@ -699,24 +721,25 @@ export default function DeliveryPage() {
     }
   };
 
+  // «اختبار» كان يُرسل HEAD إلى موقع الشركة ويقول «✅ الموقع يستجيب» — وهذا
+  // صحيحٌ لأيّ موقعٍ في الأرض، ولا يُثبت شيئًا عن المفتاح ولا يجلب من الشركة
+  // معلومةً واحدة. صار الزرُّ يستدعي التحقّقَ الحقيقيّ: يجرّب المفتاحَ على
+  // الشركة، يقرأ مدنَها، **ويحفظ ما قرأ**، ثمّ يعرض كلَّ فحصٍ بنتيجته.
   const testConn = async (prov: DeliveryProviderConfig) => {
-    notify('info', `اختبار ${prov.name}...`);
-    const token = getAuthToken() || '';
+    setTestingId(prov.id);
     try {
-      if (prov.websiteUrl) {
-        const r = await fetch('/api/delivery/test-connection', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ url: prov.websiteUrl }),
-          signal: AbortSignal.timeout(8000),
-        });
-        const d = await r.json();
-        if (d.ok) { notify('success', `✅ ${prov.name}: الموقع يستجيب — استعمل «تحقّق كامل» لفحص المفتاح والربط`); return; }
-        notify('warning', `⚠️ ${prov.name}: ${d.error || 'لم يستجب الموقع'}`);
-        return;
-      }
-      notify('success', `إعدادات ${prov.name} محفوظة`);
-    } catch { notify('warning', `لم يمكن الوصول لـ ${prov.name}`); }
+      const r = await deliveryAPI.verify(prov.id);
+      setVerdict(v => ({ ...v, [prov.id]: { success: r.success, checks: r.checks || [], unmatched: r.unmatched || [] } }));
+      setSelected(prov.id);
+      const failed = (r.checks || []).filter(c => c.ok === false);
+      notify(r.success ? 'success' : 'warning',
+        r.success ? `✅ ${prov.name}: الربط سليم` : `⚠️ ${prov.name}: ${failed.map(c => c.label).join(' · ') || 'بعض الفحوص لم تنجح'}`);
+      // المزوّدُ قد يكون عُرِّف تلقائيًّا أثناء التحقّق ⇒ نُحدّث القائمة.
+      if ((r.checks || []).some(c => c.key === 'adopted')) refreshProviders?.();
+    } catch (e: any) {
+      notify('error', `تعذّر التحقّق من ${prov.name}: ${e?.message || 'تحقّق من الاتصال'}`);
+    }
+    setTestingId(null);
   };
 
   // العمودُ `apiType` هو المرجع الآن؛ الشرطان الآخران يبقيان لصفوفٍ قديمة
@@ -829,11 +852,25 @@ export default function DeliveryPage() {
                           URL Recipe
                         </span>
                       )}
+                      {/* المزوّدُ الذي سيُنفّذ الشحنَ فعلًا — لا يبقى مخفيًّا في عمود.
+                          غيابُه يعني السقوطَ إلى المحاكاة، وهو ما كان يحدث صامتًا. */}
+                      {!recipe && (knownProviders.find(k => k.id === (p.apiType || '').toLowerCase())
+                        ? <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 6, background: 'rgba(16,185,129,0.15)', color: '#34d399', fontWeight: 800 }}>
+                            مزوّد {knownProviders.find(k => k.id === (p.apiType || '').toLowerCase())!.name}
+                          </span>
+                        : !p.webhookUrl && (
+                          <span title="لا مزوّدَ مسجَّلٌ لهذا الصفّ — الشحنُ سيكون محاكاة"
+                            style={{ fontSize: 10, padding: '2px 7px', borderRadius: 6, background: 'rgba(245,158,11,0.15)', color: '#fbbf24', fontWeight: 800 }}>
+                            بلا مزوّد
+                          </span>
+                        ))}
                     </div>
                     <p style={{ fontSize: 12, color: 'var(--txt-3)' }}>{p.websiteUrl || 'لا يوجد رابط'} · {recipe ? 'أتمتة موقع' : 'API'}</p>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button onClick={e => { e.stopPropagation(); testConn(p); }} className="btn btn-ghost btn-sm" style={{ gap: 5 }}><Zap size={13} /> اختبار</button>
+                    <button onClick={e => { e.stopPropagation(); testConn(p); }} disabled={testingId === p.id} className="btn btn-ghost btn-sm" style={{ gap: 5 }}>
+                      <Zap size={13} /> {testingId === p.id ? 'جارٍ الفحص...' : 'اختبار'}
+                    </button>
                     <button onClick={e => { e.stopPropagation(); remove(p.id); }} className="btn btn-danger btn-sm" style={{ paddingInline: 10 }}><Trash2 size={13} /></button>
                     <button onClick={e => {
                       e.stopPropagation();
@@ -848,6 +885,27 @@ export default function DeliveryPage() {
 
                 {selected === p.id && (
                   <div className="anim-fade-in" style={{ borderTop: '1px solid var(--clr-border)', padding: '14px 18px' }}>
+                    {/* نتيجةُ «اختبار» — كلُّ سطرٍ فحصٌ نُفِّذ فعلًا على الشركة */}
+                    {verdict[p.id] && (
+                      <div style={{ marginBottom: 12, padding: 11, borderRadius: 10,
+                        background: verdict[p.id].success ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.1)',
+                        border: `1px solid ${verdict[p.id].success ? 'rgba(16,185,129,0.25)' : 'rgba(245,158,11,0.25)'}` }}>
+                        {verdict[p.id].checks.map((c, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'baseline', fontSize: 11.5, marginBottom: 3 }}>
+                            {/* null = غيرُ منطبق: لا نقول «فشل» لفحصٍ لا تدعمه القناة */}
+                            <span>{c.ok === true ? '✅' : c.ok === false ? '❌' : '➖'}</span>
+                            <span style={{ fontWeight: 700, color: 'var(--txt-2)' }}>{c.label}</span>
+                            {c.detail && <span style={{ color: 'var(--txt-3)' }}>— {c.detail}</span>}
+                          </div>
+                        ))}
+                        {verdict[p.id].unmatched.length > 0 && (
+                          <p style={{ fontSize: 11, color: 'var(--txt-3)', marginTop: 6 }}>
+                            ⚠️ مدنٌ لدى الشركة لم يفهمها المحرّك — الشحنُ إليها يرسل الاسم نصًّا:{' '}
+                            {verdict[p.id].unmatched.map(u => u.externalName).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     {recipe ? (
                       // URL Recipe detail view
                       (() => {
@@ -1037,7 +1095,9 @@ export default function DeliveryPage() {
                               loginUrl: t.loginUrl,
                               addOrderPage: t.addOrder,
                               apiEndpoint: (t as any).apiEndpoint || '',
-                              apiType: t.name === 'Livo' ? 'livo' : '', // ⬅️ تعيين apiType تلقائياً
+                              // القالبُ يقترح المزوّدَ إن كان مسجَّلًا باسمه؛ والحقلُ
+                              // أدناه يبقى ظاهرًا فالتاجرُ يرى ما اختير له ويغيّره.
+                              apiType: knownProviders.find(k => k.name.toLowerCase() === t.name.toLowerCase())?.id || '',
                             }))}
                             style={{ padding: '12px 8px', borderRadius: 12, textAlign: 'center', cursor: 'pointer', border: `1.5px solid ${config.name === t.name ? 'rgba(99,102,241,0.45)' : 'var(--clr-border)'}`, background: config.name === t.name ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)' }}>
                             <div style={{ fontSize: 22, marginBottom: 5 }}>{t.logo}</div>
@@ -1053,6 +1113,29 @@ export default function DeliveryPage() {
                         </div>
                         <div style={{ gridColumn: '1/-1' }}>
                           <Input label="مفتاح API (Bearer/Token)" value={config.apiKey || ''} onChange={v => setConfig(p => ({ ...p, apiKey: v }))} ph="sk_live_..." secret />
+                        </div>
+                        <div style={{ gridColumn: '1/-1' }}>
+                          {/* الحقلُ الذي كان مخفيًّا فيقرّر مصيرَ الشحن. صفٌّ بلا
+                              مزوّدٍ يعمل «كأنّه» مربوط ثمّ يُنتج شحنةً وهميّة. */}
+                          <label style={{ fontSize: 11, color: 'var(--txt-3)', fontWeight: 700, display: 'block', marginBottom: 5 }}>
+                            نظام الشركة (المزوّد)
+                          </label>
+                          <select className="select" style={{ width: '100%', fontSize: 12.5 }}
+                            value={config.apiType || ''}
+                            onChange={e => setConfig(p => ({ ...p, apiType: e.target.value }))}>
+                            <option value="">— بلا مزوّد مسجَّل (شحنٌ يدويّ/محاكاة) —</option>
+                            {knownProviders.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+                          </select>
+                          {(() => {
+                            const k = knownProviders.find(x => x.id === (config.apiType || '').toLowerCase());
+                            return (
+                              <p style={{ fontSize: 10.5, color: k ? '#34d399' : 'var(--txt-3)', marginTop: 4 }}>
+                                {k
+                                  ? `✅ ${k.name}: المدن ${k.capabilities?.cities === 'api' ? 'تُجلَب من الشركة' : 'غيرُ متاحةٍ عبر API'} · التتبّع ${k.capabilities?.tracking === 'api' ? 'مباشر' : '—'}`
+                                  : '⚠️ بلا مزوّد: لن تُجلب المدن ولا يُنشَأ رقمُ تتبّعٍ حقيقيّ'}
+                              </p>
+                            );
+                          })()}
                         </div>
                         <div style={{ gridColumn: '1/-1' }}>
                           <Input label="نقطة نهاية API" value={config.apiEndpoint || ''} onChange={v => setConfig(p => ({ ...p, apiEndpoint: v }))} ph="https://rest.livo.ma" />

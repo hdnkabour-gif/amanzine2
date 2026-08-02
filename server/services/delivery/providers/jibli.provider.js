@@ -7,6 +7,7 @@ const { makeQuote } = require('../contract');
 
 const meta = {
   id: 'jibli', name: 'Jibli', country: 'MA', currency: 'MAD', version: '1.0',
+  match: { hosts: ['jibli.ma'] },
 };
 
 const capabilities = {

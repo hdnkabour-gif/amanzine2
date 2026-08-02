@@ -24,6 +24,9 @@ async function _absorbLegacyProviders(userId, existing) {
   for (const lp of legacy) {
     const key = String(lp?.name || '').trim().toLowerCase();
     if (!key || seen.has(key)) continue;
+    // شركةٌ أُضيفت من الوضع «البسيط» لا تحمل نوعًا إطلاقًا؛ نستدلُّ عليه من
+    // نطاقها وإلّا وصلت الجدولَ بلا مزوّدٍ فبقيت شحناتُها محاكاةً إلى الأبد.
+    const legacyType = lp.apiType || lp.fields?.apiType || registry.suggest(lp) || '';
     try {
       await db.upsertDeliveryProvider({
         userId,
@@ -36,7 +39,7 @@ async function _absorbLegacyProviders(userId, existing) {
         apiKey: lp.apiKey || '', apiEndpoint: lp.apiEndpoint || '',
         // وضعُ «وصفة URL» كان يخبّئ نوعَه ورابطَه داخل fields — نرفعهما لعموديهما
         // كي يجدهما delivery-auto.js، فهو يبحث في الجدول لا في الإعدادات.
-        apiType: lp.apiType || lp.fields?.apiType || '',
+        apiType: legacyType,
         webhookUrl: lp.webhookUrl || lp.fields?.webhookUrl || '',
         fields: lp.fields || {},
       });
@@ -63,9 +66,23 @@ router.get('/', auth, async (req, res) => {
 
 router.post('/', auth, async (req, res) => {
   try {
-    const id = await db.upsertDeliveryProvider({ ...req.body, userId: req.user.id });
-    await db.addLog({ userId: req.user.id, user: 'Manager', action: `Delivery provider saved: ${req.body.name}`, details: '', type: 'delivery', severity: 'info' });
-    res.json({ ok: true, id, providers: await db.getDeliveryProviders(req.user.id) });
+    const body = { ...req.body, userId: req.user.id };
+    // صفٌّ بلا `api_type` = صفٌّ بلا مزوّد = محاكاةٌ صامتة. إن دلَّ نطاقُه على
+    // مزوّدٍ مسجَّلٍ نُثبّته في العمود بدل تركه فارغًا ليُكتشَف الخللُ لاحقًا
+    // عند أوّل شحنة. الاستدلالُ من `meta.match` لا من اسمٍ مكتوبٍ يدويًّا.
+    let adopted = null;
+    if (!String(body.apiType || '').trim()) {
+      adopted = registry.suggest(body);
+      if (adopted) body.apiType = adopted;
+    }
+    const id = await db.upsertDeliveryProvider(body);
+    await db.addLog({
+      userId: req.user.id, user: 'Manager',
+      action: `Delivery provider saved: ${req.body.name}`,
+      details: adopted ? `تُعرَّف تلقائيًّا كمزوّد ${adopted}` : '',
+      type: 'delivery', severity: 'info',
+    });
+    res.json({ ok: true, id, adopted, providers: await db.getDeliveryProviders(req.user.id) });
   } catch (e) { console.error('[delivery]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -367,6 +384,7 @@ router.post('/track/:orderId', auth, async (req, res) => {
 //   هنا كلُّ فحصٍ يُنفَّذ فعلًا ويُعاد بنتيجته وسببِها.
 router.post('/verify/:providerRowId', auth, async (req, res) => {
   const checks = [];
+  let unmatchedCities = [];
   const add = (key, label, ok, detail) => checks.push({ key, label, ok, detail: detail || '' });
   try {
     const rows = await db.getDeliveryProviders(req.user.id);
@@ -377,11 +395,26 @@ router.post('/verify/:providerRowId', auth, async (req, res) => {
     add('enabled', 'الشركة مفعّلة', !!row.enabled,
       row.enabled ? '' : 'مُعطّلة — لن تُستعمل في الشحن');
 
+    // صفوفٌ حُفظت قبل أن يصير النوعُ حقلًا ظاهرًا: نُثبّت مزوّدَها الآن إن
+    // كان نطاقُها قاطعًا، فالتحقّقُ الذي يكتشف العطبَ ولا يُصلحه نصفُ تحقّق.
+    if (!String(row.apiType || '').trim()) {
+      const guess = registry.suggest(row);
+      if (guess) {
+        try {
+          await db.upsertDeliveryProvider({ ...row, userId: req.user.id, apiType: guess });
+          row.apiType = guess;
+          add('adopted', 'نوع الشركة', true, `عُرِّفت تلقائيًّا كمزوّد «${guess}» من نطاقها وحُفظ`);
+        } catch (e) {
+          add('adopted', 'نوع الشركة', false, `تعذّر حفظ النوع المستدَلّ: ${e.message}`);
+        }
+      }
+    }
+
     const chosen = registry.resolve(row);
     if (!chosen) {
       add('plugin', 'قناة الربط', false,
         `لا مزوّدَ لـ«${row.apiType || '—'}» ولا رابطَ webhook — الشحنُ سيسقط إلى المحاكاة`);
-      return res.json({ success: false, provider: row.name, checks });
+      return res.json({ success: false, provider: row.name, checks, unmatched: [] });
     }
     add('plugin', 'قناة الربط', true, `${chosen.label} (${chosen.kind === 'provider' ? 'مزوّد' : 'وسيلة اتصال'})`);
 
@@ -407,11 +440,26 @@ router.post('/verify/:providerRowId', auth, async (req, res) => {
     }
 
     // قراءةُ بياناتٍ فعليّة — أقوى دليلٍ على أنّ الربط يعمل.
+    //
+    //   وما يُقرَأ يُحفَظ: كان التحقّقُ يجلب مدنَ الشركة ثمّ يرميها، فيقول
+    //   «✅ قرأنا 42 مدينة» ويقول بعده «لم تُزامَن بعد» — التاجرُ يرى الربطَ
+    //   ناجحًا والتطبيقَ بلا معلوماتِ الشركة. الجلبُ نفسُه هو المزامنة.
     if (plugin.capabilities?.cities === 'api' && typeof plugin.getCities === 'function') {
       try {
         const r = await plugin.getCities(row);
-        add('data', 'قراءة بيانات من الشركة', !!r.success,
-          r.success ? `${(r.cities || []).length} مدينة` : (r.error || 'فشلت القراءة'));
+        if (!r.success) {
+          add('data', 'قراءة بيانات من الشركة', false, r.error || 'فشلت القراءة');
+        } else {
+          const list = r.cities || [];
+          const { matched, unmatched } = cityEngine.matchAll(list);
+          let saved = 0;
+          try { saved = await db.saveCityMappings(req.user.id, row.id, matched); }
+          catch (e) { console.warn('[delivery/verify] حفظ الخرائط', e.message); }
+          add('data', 'قراءة بيانات من الشركة', true,
+            `${list.length} مدينة · رُبطت ${saved}`
+            + (unmatched.length ? ` · ${unmatched.length} بلا مطابقة` : ''));
+          unmatchedCities = unmatched;
+        }
       } catch (e) {
         add('data', 'قراءة بيانات من الشركة', false, e.message);
       }
@@ -425,7 +473,8 @@ router.post('/verify/:providerRowId', auth, async (req, res) => {
     } catch { /* الخرائطُ اختياريّة */ }
 
     const failed = checks.filter(c => c.ok === false);
-    res.json({ success: failed.length === 0, provider: row.name, checks });
+    // المدنُ التي لم يفهمها المحرّك تخرج صراحةً: تُعرَض هنا لا عند أوّل شحنةٍ فاشلة.
+    res.json({ success: failed.length === 0, provider: row.name, checks, unmatched: unmatchedCities });
   } catch (e) {
     console.error('[delivery/verify]', e.message);
     res.status(500).json({ error: 'Server error' });

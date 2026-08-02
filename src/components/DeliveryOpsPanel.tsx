@@ -92,6 +92,11 @@ export default function DeliveryOpsPanel({
     try {
       const r = await deliveryAPI.verify(p.id);
       setVerdict(v => ({ ...v, [p.id]: { success: r.success, checks: r.checks || [] } }));
+      // التحقّقُ يجلب المدنَ ويحفظها الآن ⇒ العدّادُ وقائمةُ غير المطابَق يتبعانه.
+      setUnmatched(u => ({ ...u, [p.id]: r.unmatched || [] }));
+      deliveryAPI.cityMappings(p.id)
+        .then(m => setMapCount(c => ({ ...c, [p.id]: (m.mappings || []).length })))
+        .catch(() => {});
       notify(r.success ? 'success' : 'warning',
         r.success ? `✅ ${p.name}: الربط سليم` : `⚠️ ${p.name}: بعض الفحوص لم تنجح`);
     } catch (e: any) {

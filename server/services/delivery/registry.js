@@ -122,6 +122,45 @@ function resolve(row) {
   return null;
 }
 
+/** نطاقُ رابطٍ بلا بروتوكولٍ ولا مسار، أو '' إن لم يكن رابطًا. */
+function _host(url) {
+  const s = String(url || '').trim();
+  if (!s) return '';
+  try { return new URL(s.includes('://') ? s : `https://${s}`).hostname.toLowerCase(); }
+  catch { return ''; }
+}
+
+/**
+ * يستدلُّ على المزوّد من نطاقات الصفّ حين يكون `api_type` فارغًا.
+ *
+ *   الصفُّ الذي حُفظ باسمٍ مكتوبٍ يدويًّا («Livo») بلا `api_type` كان يسقط
+ *   إلى المحاكاة صامتًا: لا مدنَ ولا تتبّعَ ولا شحنةً حقيقيّة، والتاجرُ يرى
+ *   الشركةَ «مفعّلة». الاستدلالُ هنا لا يعرف اسمَ شركةٍ واحدة: كلُّ مزوّدٍ
+ *   يُعلن نطاقاتِه في `meta.match.hosts`، والمعرفةُ تبقى في ملفّه.
+ *
+ * @param {{apiType?:string, apiEndpoint?:string, websiteUrl?:string}} row
+ * @returns {string|null} مُعرِّفُ المزوّد، أو null إن لم يكن الاستدلالُ قاطعًا
+ */
+function suggest(row) {
+  _loadOnce();
+  if (!row) return null;
+  const hosts = [_host(row.apiEndpoint), _host(row.websiteUrl)].filter(Boolean);
+  if (!hosts.length) return null;
+
+  const hits = new Set();
+  for (const p of _registry.values()) {
+    for (const known of p.meta.match?.hosts || []) {
+      const k = String(known).trim().toLowerCase();
+      if (!k) continue;
+      // مطابقةُ لاحقةٍ على حدود النقطة: `rest.livo.ma` تطابق `livo.ma`،
+      // و`notlivo.ma` لا تطابقها.
+      if (hosts.some(h => h === k || h.endsWith(`.${k}`))) hits.add(p.meta.id);
+    }
+  }
+  // نطاقٌ يدّعيه مزوّدان ⇒ الاستدلالُ غيرُ قاطع، فلا نختار نيابةً عن التاجر.
+  return hits.size === 1 ? [...hits][0] : null;
+}
+
 /** المزوّدون المرفوضون وأسبابُهم — تشخيصٌ لا يُخفى. */
 function rejected() {
   _loadOnce();
@@ -137,6 +176,6 @@ function _reset() {
 }
 
 module.exports = {
-  get, getAdapter, list, listAdapters, resolve, rejected, _reset,
+  get, getAdapter, list, listAdapters, resolve, suggest, rejected, _reset,
   PROVIDERS_DIR, ADAPTERS_DIR,
 };

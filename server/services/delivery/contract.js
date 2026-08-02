@@ -19,6 +19,7 @@
  * @property {string} [country]
  * @property {string} [currency]
  * @property {string} [version]
+ * @property {{hosts?: string[]}} [match]  نطاقاتُ الشركة — تُعرِّف نفسَها بنفسها
  */
 
 /**
@@ -84,6 +85,14 @@ function validateProvider(mod) {
   }
   if (!mod.meta || typeof mod.meta.name !== 'string' || !mod.meta.name.trim()) {
     problems.push('meta.name مفقود');
+  }
+  // `match.hosts` اختياريّ، لكنّه إن وُجد بشكلٍ خاطئٍ صار الاستدلالُ صامتًا
+  // ولا يُكتشف إلّا حين لا يُعرَف مزوّدُ صفٍّ قديم. نرفضه هنا لا هناك.
+  if (mod.meta && mod.meta.match !== undefined) {
+    const h = mod.meta.match?.hosts;
+    if (!Array.isArray(h) || h.some(x => typeof x !== 'string' || !x.trim())) {
+      problems.push('meta.match.hosts يجب أن يكون مصفوفةَ نطاقاتٍ نصّيّة');
+    }
   }
   for (const m of REQUIRED_METHODS) {
     if (typeof mod[m] !== 'function') problems.push(`الدالّة المطلوبة ${m}() مفقودة`);
