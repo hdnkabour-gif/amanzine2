@@ -131,6 +131,25 @@ function _mapConv(c) {
   };
 }
 
+function _mapPricingRule(r) {
+  if (!r) return null;
+  const n = (v) => (v === null || v === undefined ? null : Number(v));
+  return {
+    id: r.id, userId: r.user_id,
+    providerRowId: r.provider_row_id || null,
+    ruleType: r.rule_type,
+    cityId: r.city_id || null, region: r.region || null,
+    weightMin: n(r.weight_min), weightMax: n(r.weight_max),
+    orderMin: n(r.order_min), orderMax: n(r.order_max),
+    fee: Number(r.fee) || 0,
+    freeShipping: !!r.free_shipping,
+    priority: Number(r.priority) || 0,
+    enabled: !!r.enabled,
+    label: r.label || '',
+    createdAt: r.created_at ? new Date(r.created_at).toISOString() : now(),
+  };
+}
+
 function _mapDelivery(p) {
   if (!p) return null;
   return {
@@ -692,6 +711,51 @@ const db = {
       [userId, providerRowId, cityId]
     );
     return rows[0] ? rows[0].external_id : null;
+  },
+
+  // ── قواعد التسعير ─────────────────────────────────────────────
+  async getPricingRules(userId, providerRowId) {
+    // القاعدةُ العامّة (بلا شركة) تسري مع الخاصّة — والمحرّكُ يرجّح بينهما.
+    const { rows } = await pool.query(
+      `SELECT * FROM delivery_pricing_rules
+        WHERE user_id = $1 AND enabled = TRUE
+          AND (provider_row_id IS NULL OR provider_row_id = '' OR provider_row_id = $2)
+        ORDER BY priority DESC, created_at`,
+      [userId, providerRowId || '']
+    );
+    return rows.map(_mapPricingRule);
+  },
+  async listPricingRules(userId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM delivery_pricing_rules WHERE user_id = $1 ORDER BY priority DESC, created_at',
+      [userId]
+    );
+    return rows.map(_mapPricingRule);
+  },
+  async upsertPricingRule(r) {
+    const id = r.id || uid();
+    await pool.query(
+      `INSERT INTO delivery_pricing_rules
+         (id,user_id,provider_row_id,rule_type,city_id,region,weight_min,weight_max,
+          order_min,order_max,fee,free_shipping,priority,enabled,label)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+       ON CONFLICT (id) DO UPDATE SET
+         provider_row_id=EXCLUDED.provider_row_id, rule_type=EXCLUDED.rule_type,
+         city_id=EXCLUDED.city_id, region=EXCLUDED.region,
+         weight_min=EXCLUDED.weight_min, weight_max=EXCLUDED.weight_max,
+         order_min=EXCLUDED.order_min, order_max=EXCLUDED.order_max,
+         fee=EXCLUDED.fee, free_shipping=EXCLUDED.free_shipping,
+         priority=EXCLUDED.priority, enabled=EXCLUDED.enabled, label=EXCLUDED.label
+       WHERE delivery_pricing_rules.user_id = EXCLUDED.user_id`,
+      [id, r.userId, r.providerRowId || null, r.ruleType,
+       r.cityId || '', r.region || '',
+       r.weightMin ?? null, r.weightMax ?? null, r.orderMin ?? null, r.orderMax ?? null,
+       +(r.fee || 0), !!r.freeShipping, +(r.priority || 0), r.enabled !== false, r.label || '']
+    );
+    return id;
+  },
+  async deletePricingRule(id, userId) {
+    await pool.query('DELETE FROM delivery_pricing_rules WHERE id = $1 AND user_id = $2', [id, userId]);
   },
 
   async deleteDeliveryProvider(id, userId) {

@@ -7,6 +7,8 @@ const { db } = require('../database');
 // سجلُّ المزوّدين — يكتشفهم بمسح المجلّد. لا استيرادَ باسم شركةٍ هنا.
 const registry = require('../services/delivery/registry');
 const cityEngine = require('../lib/cityEngine');
+const pricing = require('../lib/pricingEngine');
+const { resolveDeliveryFee } = require('../lib/deliveryPricing');
 
 // ── ترحيلٌ لمرّةٍ واحدة: settings.delivery.providers ⇒ delivery_providers ──────
 // شركاتٌ أُضيفت عبر «البسيط» أو «واتساب» أو «وصفة URL» كانت تُحفَظ في الإعدادات
@@ -280,19 +282,38 @@ router.get('/quote', auth, async (req, res) => {
     const providers = (await db.getDeliveryProviders(req.user.id)).filter(p => p.enabled);
     if (!providers.length) return res.status(400).json({ error: 'No delivery provider configured' });
     const city = String(req.query.city || '');
+    const canonical = cityEngine.resolve(city);
+    const settings = await db.getSettings(req.user.id) || {};
     const quotes = [];
     for (const row of providers) {
       const chosen = registry.resolve(row);
       const plugin = chosen?.handler;
-      if (!plugin || typeof plugin.calculateQuote !== 'function') continue;
+      if (!plugin) continue;
+      const total = +req.query.total || 0;
+      const weight = +req.query.weight || 0;
       try {
-        const q = await plugin.calculateQuote({ city, total: +req.query.total || 0 }, row);
+        // الشركةُ التي تُسعّر عبر API هي الأدرى بثمنها. ومَن لا يملك مصدرًا
+        // (pricing:'rules' أو 'none') يُسعَّر بقواعد التاجر — لا برقمٍ مخترع.
+        let q;
+        if (plugin.capabilities?.pricing === 'api' && typeof plugin.calculateQuote === 'function') {
+          q = await plugin.calculateQuote({ city, cityId: canonical?.id, total, weight }, row);
+        }
+        if (!q || q.supported === false) {
+          const rules = await db.getPricingRules(req.user.id, row.id);
+          q = pricing.evaluate(
+            { cityId: canonical?.id, cityName: canonical?.name, region: canonical?.region,
+              weight, orderTotal: total, codAmount: total },
+            rules,
+            { fallbackFee: resolveDeliveryFee(city, settings.deliveryCosts),
+              currency: settings.brand?.currency || 'MAD' }
+          );
+        }
         quotes.push({ providerId: plugin.meta.id, providerName: row.name, ...q });
       } catch (e) {
         quotes.push({ providerId: plugin.meta.id, providerName: row.name, supported: false, reason: e.message });
       }
     }
-    res.json({ success: true, city, quotes });
+    res.json({ success: true, city, canonical, quotes });
   } catch (e) {
     console.error('[delivery/quote]', e.message);
     res.status(500).json({ error: 'Server error' });
@@ -388,6 +409,31 @@ router.get('/city-mappings/:providerRowId', auth, async (req, res) => {
     console.error('[delivery/city-mappings]', e.message);
     res.status(500).json({ error: 'Server error' });
   }
+});
+
+// ── قواعد التسعير ────────────────────────────────────────────────────────────
+
+router.get('/pricing-rules', auth, async (req, res) => {
+  try { res.json({ success: true, rules: await db.listPricingRules(req.user.id) }); }
+  catch (e) { console.error('[delivery/rules]', e.message); res.status(500).json({ error: 'Server error' }); }
+});
+
+router.post('/pricing-rules', auth, async (req, res) => {
+  try {
+    const b = req.body || {};
+    if (!pricing.RULE_TYPES.includes(b.ruleType)) {
+      return res.status(400).json({ error: `نوعُ قاعدةٍ غيرُ مدعوم — المتاح: ${pricing.RULE_TYPES.join(', ')}` });
+    }
+    const id = await db.upsertPricingRule({ ...b, userId: req.user.id });
+    res.json({ success: true, id, rules: await db.listPricingRules(req.user.id) });
+  } catch (e) { console.error('[delivery/rules]', e.message); res.status(500).json({ error: 'Server error' }); }
+});
+
+router.delete('/pricing-rules/:id', auth, async (req, res) => {
+  try {
+    await db.deletePricingRule(req.params.id, req.user.id);
+    res.json({ success: true, rules: await db.listPricingRules(req.user.id) });
+  } catch (e) { console.error('[delivery/rules]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
 // GET /api/delivery/registry — المزوّدون المتاحون وقدراتُهم (للوحة الإدارة)

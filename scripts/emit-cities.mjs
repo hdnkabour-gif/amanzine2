@@ -24,32 +24,43 @@ function slug(ar) {
 }
 
 /** التحويلُ مُصدَّرٌ كي يستعمله اختبارُ الطزاجة نفسَه — لا نسخةً ثانيةً تتباعد. */
-export function buildCities(CITIES) {
+export function buildCities(CITIES, regions = []) {
+  // الجهةُ تُلحَق من الجغرافيا الإداريّة: قواعدُ التسعير حسب المنطقة («الجنوب
+  // أغلى») تحتاجها، ولا معنى لتكرارها يدويًّا وهي مُعرَّفةٌ أصلًا في geo.ts.
+  const regionOf = new Map();
+  for (const r of regions) for (const c of r.cities || []) regionOf.set(String(c).trim(), r.id);
+
   return CITIES.map(c => ({
     id: slug(c.ar),
     name: c.ar,
+    region: regionOf.get(String(c.ar).trim()) || '',
     aliases: Array.from(new Set(
       [c.darija, c.fr, c.en, ...(c.aliases || [])].map(s => String(s || '').trim()).filter(Boolean)
     )),
   }));
 }
 
-/** يُجمِّع knowledgeData.ts ويُعيد CITIES كما يراها المحرّك فعلًا. */
+/** يُجمِّع مصدرَي المعرفة ويُعيد ما يراه المحرّك فعلًا. */
 export async function loadSourceCities() {
   const dir = mkdtempSync(join(tmpdir(), 'amz-cities-'));
-  const out = join(dir, 'kb.mjs');
-  execFileSync('npx', ['esbuild', join(ROOT, 'src/lib/akg/kb/knowledgeData.ts'),
-    '--bundle', '--format=esm', '--platform=node', '--outfile=' + out, '--log-level=error'],
-    { cwd: ROOT, stdio: ['ignore', 'ignore', 'inherit'] });
-  const { CITIES } = await import(out);
-  return CITIES;
+  const bundle = async (src, name) => {
+    const out = join(dir, name);
+    execFileSync('npx', ['esbuild', join(ROOT, src),
+      '--bundle', '--format=esm', '--platform=node', '--outfile=' + out, '--log-level=error'],
+      { cwd: ROOT, stdio: ['ignore', 'ignore', 'inherit'] });
+    return import(out);
+  };
+  const { CITIES } = await bundle('src/lib/akg/kb/knowledgeData.ts', 'kb.mjs');
+  const { allRegions } = await bundle('src/lib/akg/kb/geo.ts', 'geo.mjs');
+  return { CITIES, regions: allRegions() };
 }
 
 export const DEST = join(ROOT, 'server/generated/cities.json');
 
 // يُنفَّذ فقط عند الاستدعاء المباشر — الاستيرادُ من الاختبار لا يكتب شيئًا.
 if (process.argv[1] && process.argv[1].endsWith('emit-cities.mjs')) {
-  const cities = buildCities(await loadSourceCities());
+  const { CITIES, regions } = await loadSourceCities();
+  const cities = buildCities(CITIES, regions);
   mkdirSync(join(ROOT, 'server/generated'), { recursive: true });
   writeFileSync(DEST, JSON.stringify(cities, null, 0), 'utf8');
   console.log(`✅ ${cities.length} مدينة (${cities.reduce((n, c) => n + c.aliases.length, 0)} مرادفًا) → server/generated/cities.json`);

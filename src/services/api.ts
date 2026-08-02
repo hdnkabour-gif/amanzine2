@@ -274,6 +274,10 @@ export const deliveryAPI = {
       'POST', `/delivery/sync-cities/${providerRowId}`),
   cityMappings: (providerRowId: string) =>
     request<{ success: boolean; mappings: any[] }>('GET', `/delivery/city-mappings/${providerRowId}`),
+  // ── قواعد التسعير — «الثمن دالّة لا رقم»؛ يكتبها التاجر بلا كود ──
+  pricingRules:      () => request<{ success: boolean; rules: any[] }>('GET', '/delivery/pricing-rules'),
+  savePricingRule:   (rule: any) => request<{ success: boolean; id: string; rules: any[] }>('POST', '/delivery/pricing-rules', rule),
+  deletePricingRule: (id: string) => request<{ success: boolean; rules: any[] }>('DELETE', `/delivery/pricing-rules/${id}`),
   track:    (orderId: string) => request<{ success: boolean; status: string; history: any[]; trackingNumber: string }>('POST', `/delivery/track/${orderId}`),
 };
 
