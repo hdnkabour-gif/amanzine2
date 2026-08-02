@@ -14,6 +14,7 @@ import './humanIntent.test';
 import './persona.test';
 import './reception.test';
 import './interfaceDecision.test';
+import './clarify.test';
 import './routing.test';
 import './landingMirror.test';
 // من زيارةٍ ميدانيّةٍ لمحلّ غسلٍ في الدار البيضاء — جُملٌ حقيقيّةٌ لا مُختلَقة.

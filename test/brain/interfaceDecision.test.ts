@@ -16,8 +16,18 @@ test('يقينٌ متوسّط بلا خطوات → confirm («فهمت أنّك
   assert.equal(decideInterface({ intent: 'sell', confidence: 0.6, page: 'publish' }).mode, 'confirm');
 });
 
-test('نيّةٌ غامضة → welcome (١٥٪: «السلام عليكم»)', () => {
-  assert.equal(decideInterface({ intent: 'unknown', confidence: 0.2 }).mode, 'welcome');
+// HU-2 — تغييرُ سلوكٍ مقصود: كان المُدخلُ غيرُ المفهوم يُرَدّ بترحيبٍ، وهو
+// «ما فهمناش» بلباسٍ مهذَّب. صار يُرَدّ بسؤالٍ عن الناقص.
+test('مُدخلٌ لم نفهمه → استيضاحٌ لا ترحيب', () => {
+  assert.equal(decideInterface({ intent: 'unknown', confidence: 0.2 }).mode, 'clarify');
+});
+
+test('الترحيبُ لِمَن لم يكتب بعد — وحدَه', () => {
+  assert.equal(decideInterface({ intent: 'unknown', confidence: 0, hasInput: false }).mode, 'welcome');
+});
+
+test('بعد استيضاحين بلا ارتفاعٍ في الفهم → إنسان', () => {
+  assert.equal(decideInterface({ intent: 'unknown', confidence: 0.2, askedCount: 2 }).mode, 'escalate');
 });
 
 test('يقينٌ عالٍ بلا وجهة لا يُوصّل مباشرة (لا direct دون هدف)', () => {

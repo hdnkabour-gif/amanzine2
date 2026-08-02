@@ -2,6 +2,8 @@ import type { Page } from '../types';
 import { readHuman, type HumanIntent } from './humanIntent';
 import { resolveConcept } from './akg/kb/knowledge';
 import { stanceOf } from './akg/kb';
+// السؤالُ يأتي من الناقص لا من النصّ (HU-2). المحرّكُ لا يعرف وجهةً ولا صفحة.
+import { nextClarification } from './clarify';
 
 // ============================================================
 // needEngine — «شنو محتاج اليوم؟»
@@ -22,12 +24,16 @@ export interface NeedOption {
   page?: Page;
   url?: string;
   next?: string;
+  /** هويّةُ الجواب الثابتة — تُقاس، بخلاف النصّ الذي يتبدّل. */
+  id?: string;
 }
 
 // خطوة محادثة موجّهة: سؤال + خيارات
 export interface NeedStep {
   q: string;
   options: NeedOption[];
+  /** هويّةُ الاستيضاح (HU-2) حين تأتي الخطوةُ من محرّك الاستيضاح. */
+  clarifyId?: string;
 }
 
 export interface NeedResult {
@@ -123,18 +129,18 @@ const EXPLORE = '/explore';
 
 // أسئلة موجّهة جاهزة
 const HOUSE_STEPS: NeedStep[] = [{
-  q: 'شرا ولا كرا؟',
+  q: 'شرا ولا كرا؟', clarifyId: 'buy_or_rent',
   options: [
-    { label: 'شراء', url: MARKET, next: 'يعرض عقارات للبيع حسب مدينتك.' },
-    { label: 'كراء', url: MARKET, next: 'يعرض عقارات للكراء حسب مدينتك.' },
+    { id: 'buy', label: 'شراء', url: MARKET, next: 'يعرض عقارات للبيع حسب مدينتك.' },
+    { id: 'rent', label: 'كراء', url: MARKET, next: 'يعرض عقارات للكراء حسب مدينتك.' },
   ],
 }];
 
 const proStep = (pro: string): NeedStep[] => ([{
-  q: `${pro} — دابا ولا نحجز موعد؟`,
+  q: `${pro} — دابا ولا نحجز موعد؟`, clarifyId: 'pro_when',
   options: [
-    { label: 'دابا — مستعجل', url: `${MARKET}?urgent=1`, next: `يعرض أقرب ${pro} متاح الآن قربك.` },
-    { label: 'نحجز موعد', page: 'bookings', next: `يفتح حجز موعد مع ${pro}.` },
+    { id: 'now', label: 'دابا — مستعجل', url: `${MARKET}?urgent=1`, next: `يعرض أقرب ${pro} متاح الآن قربك.` },
+    { id: 'booking', label: 'نحجز موعد', page: 'bookings', next: `يفتح حجز موعد مع ${pro}.` },
   ],
 }]);
 
@@ -241,12 +247,12 @@ function coreParse(raw: string): NeedResult {
       return {
         intent: 'find_pro', label: 'حِرفي', color: 'var(--info,#3B82F6)', tags: ['تخصّص → طبيب'],
         open: 'واخّا 👍 باغي طبيب.',
-        steps: [{ q: 'شنو التخصّص؟', options: [
-          { label: 'عامّ', url: MARKET, next: 'أطبّاء عامّون متاحون قربك.' },
-          { label: 'أسنان', url: MARKET, next: 'أطبّاء أسنان قربك.' },
-          { label: 'عظام', url: MARKET, next: 'أطبّاء عظام قربك.' },
-          { label: 'جلد', url: MARKET, next: 'أطبّاء جلد قربك.' },
-          { label: 'أطفال', url: MARKET, next: 'أطبّاء أطفال قربك.' },
+        steps: [{ q: 'شنو التخصّص؟', clarifyId: 'doctor_specialty', options: [
+          { id: 'general', label: 'عامّ', url: MARKET, next: 'أطبّاء عامّون متاحون قربك.' },
+          { id: 'dental', label: 'أسنان', url: MARKET, next: 'أطبّاء أسنان قربك.' },
+          { id: 'ortho', label: 'عظام', url: MARKET, next: 'أطبّاء عظام قربك.' },
+          { id: 'derma', label: 'جلد', url: MARKET, next: 'أطبّاء جلد قربك.' },
+          { id: 'pediatric', label: 'أطفال', url: MARKET, next: 'أطبّاء أطفال قربك.' },
         ] }],
         next: 'نحدّد التخصّص باش نوصلك بالأنسب.',
       };
@@ -349,13 +355,13 @@ function coreParse(raw: string): NeedResult {
       intent: urgent ? 'urgent' : 'find_pro', label: 'طلب',
       color: urgent ? 'var(--red,#F5484A)' : 'var(--info,#3B82F6)', tags: ['اتّجاه → طلب'],
       open: 'فهمت أنّك كتقلّب على شي حدّ 👍 نحدّدو المجال ونوصّلوك.',
-      steps: [{ q: 'أشنو المجال؟', options: [
-        { label: '💧 الماء / السباكة', url: `${MARKET}?urgent=1`, next: 'أقرب سبّاك متاح قربك.' },
-        { label: '⚡ الكهرباء / الضو', url: `${MARKET}?urgent=1`, next: 'أقرب كهربائي متاح قربك.' },
-        { label: '🔨 الدار (باب، خشب، صباغة…)', url: MARKET, next: 'الحرفيّ المناسب قربك.' },
-        { label: '💻 حاسوب / شبكة / كاميرات', url: `${MARKET}?q=${encodeURIComponent('تقني معلوماتيّة')}`, next: 'تقنيّ مختصّ قربك.' },
-        { label: '🛍️ سلعة كنشريها', url: MARKET, next: 'نعرضو ليك المتوفّر قربك.' },
-        { label: '✍️ نوضّح بكلماتي', url: EXPLORE, next: 'كتب اللي محتاج ونقلّبو ليك.' },
+      steps: [{ q: 'أشنو المجال؟', clarifyId: 'need_domain', options: [
+        { id: 'water', label: '💧 الماء / السباكة', url: `${MARKET}?urgent=1`, next: 'أقرب سبّاك متاح قربك.' },
+        { id: 'power', label: '⚡ الكهرباء / الضو', url: `${MARKET}?urgent=1`, next: 'أقرب كهربائي متاح قربك.' },
+        { id: 'home', label: '🔨 الدار (باب، خشب، صباغة…)', url: MARKET, next: 'الحرفيّ المناسب قربك.' },
+        { id: 'it', label: '💻 حاسوب / شبكة / كاميرات', url: `${MARKET}?q=${encodeURIComponent('تقني معلوماتيّة')}`, next: 'تقنيّ مختصّ قربك.' },
+        { id: 'goods', label: '🛍️ سلعة كنشريها', url: MARKET, next: 'نعرضو ليك المتوفّر قربك.' },
+        { id: 'free_text', label: '✍️ نوضّح بكلماتي', url: EXPLORE, next: 'كتب اللي محتاج ونقلّبو ليك.' },
       ] }],
       next: 'سؤالٌ واحد ونوصّلوك — ما غاديش نرجّعوك للبداية.',
     };
@@ -364,32 +370,64 @@ function coreParse(raw: string): NeedResult {
     return {
       intent: 'create_service', label: 'عرض', color: 'var(--mint,#12A150)', tags: ['اتّجاه → عرض'],
       open: 'فهمت أنّك كتعرض شي حاجة 👋 نعرّفو بيك مزيان.',
-      steps: [{ q: 'شنو كتعرض؟', options: [
-        { label: '🧰 خدمة / حرفة كنقدّمها', page: 'publish', next: 'ننشئ صفحة الخدمة ديالك من جملة.' },
-        { label: '🏪 عندي محلّ / متجر', page: 'settings', next: 'نجهّزو المتجر ديالك وننشروه.' },
-        { label: '📦 سلعة / منتج للبيع', page: 'publish', next: 'نبنيو الإعلان من وصفٍ ولا تصويرة.' },
-        { label: '🏠 عقار (كراء، بيع، رهن…)', page: 'publish', next: 'نبنيو إعلان العقار مباشرة.' },
+      steps: [{ q: 'شنو كتعرض؟', clarifyId: 'offer_kind', options: [
+        { id: 'service', label: '🧰 خدمة / حرفة كنقدّمها', page: 'publish', next: 'ننشئ صفحة الخدمة ديالك من جملة.' },
+        { id: 'store', label: '🏪 عندي محلّ / متجر', page: 'settings', next: 'نجهّزو المتجر ديالك وننشروه.' },
+        { id: 'product', label: '📦 سلعة / منتج للبيع', page: 'publish', next: 'نبنيو الإعلان من وصفٍ ولا تصويرة.' },
+        { id: 'realestate', label: '🏠 عقار (كراء، بيع، رهن…)', page: 'publish', next: 'نبنيو إعلان العقار مباشرة.' },
       ] }],
       next: 'نحدّدو نوع العرض باش نبنيو ليك الصفحة المناسبة.',
     };
   }
 
-  // 10) لم نلتقط نيّةً محدّدة → لا نتوقّف ولا نعتذر: نكمّل الحوار بالسؤال التالي.
-  //     «التطبيق لا يتوقّف عندما لا يفهم» — بدل «ما فهمناش»، نسأل «مع من نبدأو؟».
-  return {
+  // 10) لم نلتقط نيّةً محدّدة → لا نتوقّف ولا نعتذر: نسأل عن **الناقص**.
+  //
+  //     كان السؤالُ هنا نصًّا ثابتًا مكتوبًا في هذا الفرع. صار يأتي من محرّك
+  //     الاستيضاح، فيوم يصير مصدرُ التحليل صورةً أو صوتًا أو نموذجًا لغويًّا،
+  //     لا يتغيّر حرفٌ هنا — يتغيّر المحلّل وحدَه. والمحرّكُ لا يعرف وجهةً ولا
+  //     صفحة: الوجهاتُ تُلصَق هنا، حيث تُعرَف.
+  return clarifyStep(nextClarification({ confidence: 0 }), t);
+}
+
+// ── جسرُ الاستيضاح ⇄ الوجهات ────────────────────────────────────────────────
+//
+//   محرّكُ الاستيضاح يُنتج **معنى** (هويّة سؤالٍ وهويّاتِ أجوبة)؛ وهذا الجدول
+//   يُلبسه **وجهةً**. الفصلُ مقصود: المعنى يبقى حين تتبدّل الخريطة، والخريطة
+//   تتبدّل بلا أن يُمسّ المعنى.
+const CLARIFY_DEST: Record<string, { page?: Page; url?: string; next: string }> = {
+  service:   { url: MARKET,  next: 'نلقّاو ليك المختصّ المناسب قربك.' },
+  product:   { url: MARKET,  next: 'نوجّهوك للسوق حسب اللي باغي.' },
+  order:     { page: 'orders', next: 'نفتحو طلباتك وحالتها.' },
+  store:     { page: 'dashboard', next: 'نفتحو فضاءك وتحكم فمتجرك.' },
+  other:     { url: EXPLORE, next: 'كتب اللي محتاج بكلماتك ونقلّبو ليك.' },
+  want:      { url: MARKET,  next: 'نوجّهوك للسوق حسب اللي كتقلّب عليه.' },
+  offer:     { page: 'publish', next: 'نبنيو إعلانك من جملة وحدة.' },
+  describe:  { url: EXPLORE, next: 'كتب بتفصيل ونقلّبو ليك.' },
+  free_text: { url: EXPLORE, next: 'كتب اللي محتاج ونقلّبو ليك.' },
+  my_city:   { url: MARKET,  next: 'نبداو من مدينتك.' },
+  pick:      { url: EXPLORE, next: 'نختارو المدينة ونقلّبو.' },
+};
+
+function clarifyStep(c: ReturnType<typeof nextClarification>, _t: string): NeedResult {
+  const base: NeedResult = {
     intent: 'unknown',
     label: 'نكمّلو',
     color: 'var(--info,#3B82F6)',
     tags: [],
     open: 'واخّا، معاك 🙌 نكمّلو مزيان.',
-    steps: [{ q: 'فهمت أنّك محتاج شي حاجة — مع من نبدأو؟', options: [
-      { label: '🔧 خدمة / مختصّ', url: MARKET, next: 'نلقّاو ليك المختصّ المناسب قربك.' },
-      { label: '🛍️ نشري حاجة', url: MARKET, next: 'نوجّهوك للسوق حسب اللي باغي.' },
-      { label: '📣 نبيع / نعلن', page: 'publish', next: 'نبنيو إعلانك من جملة وحدة.' },
-      { label: '📦 متابعة طلب', page: 'orders', next: 'نفتحو طلباتك وحالتها.' },
-      { label: '✍️ نكتب بتفصيل', url: EXPLORE, next: 'كتب اللي محتاج بكلماتك ونقلّبو ليك.' },
-    ] }],
     next: 'قول ليا شويّة كثر وأنا نوجّهك — بلا ما نوقفو.',
+  };
+  if (!c) return { ...base, url: EXPLORE };
+  return {
+    ...base,
+    steps: [{
+      q: c.question,
+      clarifyId: c.id,
+      options: c.options.map(o => {
+        const d = CLARIFY_DEST[o.id] || { url: EXPLORE, next: 'نكملو معاك.' };
+        return { id: o.id, label: o.label, page: d.page, url: d.url, next: d.next };
+      }),
+    }],
   };
 }
 
@@ -468,12 +506,12 @@ function humanResult(intent: HumanIntent): NeedResult | null {
       return {
         intent: 'find_pro', label: 'مساعدة', color: 'var(--info,#3B82F6)', tags: [],
         open: 'فهمت أنّك محتاج مساعدة 🤝 نكتشفو المشكل بجوج، خطوة بخطوة — آش وقع بالضبط؟',
-        steps: [{ q: 'أشنو نوع المشكل؟', options: [
-          { label: '💧 الماء (تسرّب، صنبور، بالوعة…)', url: `${MARKET}?urgent=1`, next: 'نوصلوك بأقرب سبّاك متاح قربك.' },
-          { label: '⚡ الكهرباء (الضو، التيار…)', url: `${MARKET}?urgent=1`, next: 'نوصلوك بأقرب كهربائي متاح قربك.' },
-          { label: '❄️ جهاز خربان (ثلّاجة، مكيّف، تلفون…)', url: MARKET, next: 'نوصلوك بتقني الأجهزة المناسب.' },
-          { label: '💻 حاسوب / شبكة / إنترنت', url: `${MARKET}?q=${encodeURIComponent('تقني معلوماتيّة')}`, next: 'نوصلوك بتقني معلوماتيّة قربك.' },
-          { label: '🔨 حاجة أخرى فالدار (باب، صباغة، خشب…)', url: MARKET, next: 'نوصلوك بالحرفيّ المناسب قربك.' },
+        steps: [{ q: 'أشنو نوع المشكل؟', clarifyId: 'problem_kind', options: [
+          { id: 'water', label: '💧 الماء (تسرّب، صنبور، بالوعة…)', url: `${MARKET}?urgent=1`, next: 'نوصلوك بأقرب سبّاك متاح قربك.' },
+          { id: 'power', label: '⚡ الكهرباء (الضو، التيار…)', url: `${MARKET}?urgent=1`, next: 'نوصلوك بأقرب كهربائي متاح قربك.' },
+          { id: 'appliance', label: '❄️ جهاز خربان (ثلّاجة، مكيّف، تلفون…)', url: MARKET, next: 'نوصلوك بتقني الأجهزة المناسب.' },
+          { id: 'it', label: '💻 حاسوب / شبكة / إنترنت', url: `${MARKET}?q=${encodeURIComponent('تقني معلوماتيّة')}`, next: 'نوصلوك بتقني معلوماتيّة قربك.' },
+          { id: 'home_other', label: '🔨 حاجة أخرى فالدار (باب، صباغة، خشب…)', url: MARKET, next: 'نوصلوك بالحرفيّ المناسب قربك.' },
         ] }],
         next: 'نفهمو المشكل باش نوصلوك بالمختصّ الصحيح — بلا ما تبحث بنفسك.',
       };
@@ -481,11 +519,11 @@ function humanResult(intent: HumanIntent): NeedResult | null {
       return {
         intent: 'create_service', label: 'تعريف', color: 'var(--mint,#12A150)', tags: [],
         open: 'فهمت أنّك مزوّد خدمة 👋 مرحبا بيك — نعرفوك مزيان باش نوصّلوك للناس اللي محتاجينك.',
-        steps: [{ q: 'شنو نوع الخدمة اللي كتقدّم؟', options: [
-          { label: '🔧 حرفيّ / صنايعي (سبّاك، كهربائي، نجّار…)', page: 'publish', next: 'ننشئ صفحة الخدمة ديالك من وصفك مباشرة.' },
-          { label: '🎓 مهنيّ (طبيب، محامي، أستاذ، مصوّر…)', page: 'publish', next: 'ننشئ صفحة مهنيّة ليك يلقّاوها الزبناء.' },
-          { label: '🏪 عندي محلّ / متجر', page: 'settings', next: 'نجهّزو المتجر ديالك وننشروه.' },
-          { label: '✍️ حاجة أخرى — نوضّح بكلماتي', page: 'publish', next: 'كتب التفاصيل وأمانزين يبني الإعلان.' },
+        steps: [{ q: 'شنو نوع الخدمة اللي كتقدّم؟', clarifyId: 'service_kind', options: [
+          { id: 'craft', label: '🔧 حرفيّ / صنايعي (سبّاك، كهربائي، نجّار…)', page: 'publish', next: 'ننشئ صفحة الخدمة ديالك من وصفك مباشرة.' },
+          { id: 'professional', label: '🎓 مهنيّ (طبيب، محامي، أستاذ، مصوّر…)', page: 'publish', next: 'ننشئ صفحة مهنيّة ليك يلقّاوها الزبناء.' },
+          { id: 'store', label: '🏪 عندي محلّ / متجر', page: 'settings', next: 'نجهّزو المتجر ديالك وننشروه.' },
+          { id: 'other', label: '✍️ حاجة أخرى — نوضّح بكلماتي', page: 'publish', next: 'كتب التفاصيل وأمانزين يبني الإعلان.' },
         ] }],
         next: 'نعرفو الخدمة ديالك باش نوصّلوها للزبناء المناسبين.',
       };
@@ -493,11 +531,11 @@ function humanResult(intent: HumanIntent): NeedResult | null {
       return {
         intent: 'sell', label: 'بيع', color: 'var(--ember,#FF6A00)', tags: [],
         open: 'فهمت أنّك باغي تبيع 👍 نعاونوك — غير قول لينا شنو.',
-        steps: [{ q: 'شنو باغي تبيع؟', options: [
-          { label: '📦 سلعة / منتج', page: 'publish', next: 'نبنيو الإعلان من وصفٍ ولا تصويرة.' },
-          { label: '🚗 سيّارة / مركبة', page: 'publish', next: 'نبنيو إعلان السيّارة من جملتك.' },
-          { label: '🏠 عقار (دار، محلّ، أرض…)', page: 'publish', next: 'نبنيو إعلان العقار مباشرة.' },
-          { label: '🔧 خدمة كنقدّمها', page: 'publish', next: 'ننشئ صفحة الخدمة ديالك.' },
+        steps: [{ q: 'شنو باغي تبيع؟', clarifyId: 'sell_what', options: [
+          { id: 'product', label: '📦 سلعة / منتج', page: 'publish', next: 'نبنيو الإعلان من وصفٍ ولا تصويرة.' },
+          { id: 'vehicle', label: '🚗 سيّارة / مركبة', page: 'publish', next: 'نبنيو إعلان السيّارة من جملتك.' },
+          { id: 'realestate', label: '🏠 عقار (دار، محلّ، أرض…)', page: 'publish', next: 'نبنيو إعلان العقار مباشرة.' },
+          { id: 'service', label: '🔧 خدمة كنقدّمها', page: 'publish', next: 'ننشئ صفحة الخدمة ديالك.' },
         ] }],
         next: 'نحدّدو شنو باغي تبيع باش نبنيو الإعلان المناسب.',
       };
@@ -505,11 +543,11 @@ function humanResult(intent: HumanIntent): NeedResult | null {
       return {
         intent: 'buy', label: 'شراء', color: 'var(--info,#3B82F6)', tags: [],
         open: 'فهمت أنّك كتقلب على شي حاجة 👋 نلقّيوها ليك — شنو هي؟',
-        steps: [{ q: 'شنو باغي تشري؟', options: [
-          { label: '📱 إلكترونيك (تليفون، حاسوب…)', url: MARKET, next: 'نعرضو ليك المتوفّر قربك حسب الثمن.' },
-          { label: '👕 حوايج / لباس', url: MARKET, next: 'نعرضو ليك أقرب النتائج.' },
-          { label: '🛋️ أثاث / موبيليا', url: MARKET, next: 'نعرضو ليك المتوفّر قربك.' },
-          { label: '🔎 حاجة أخرى — نكتب بالتفصيل', url: EXPLORE, next: 'كتب اللي محتاج ونقلّبو ليك.' },
+        steps: [{ q: 'شنو باغي تشري؟', clarifyId: 'buy_what', options: [
+          { id: 'electronics', label: '📱 إلكترونيك (تليفون، حاسوب…)', url: MARKET, next: 'نعرضو ليك المتوفّر قربك حسب الثمن.' },
+          { id: 'clothes', label: '👕 حوايج / لباس', url: MARKET, next: 'نعرضو ليك أقرب النتائج.' },
+          { id: 'furniture', label: '🛋️ أثاث / موبيليا', url: MARKET, next: 'نعرضو ليك المتوفّر قربك.' },
+          { id: 'other', label: '🔎 حاجة أخرى — نكتب بالتفصيل', url: EXPLORE, next: 'كتب اللي محتاج ونقلّبو ليك.' },
         ] }],
         next: 'نحدّدو شنو باغي تشري باش نلقّيوه ليك بسرعة.',
       };
@@ -517,11 +555,11 @@ function humanResult(intent: HumanIntent): NeedResult | null {
       return {
         intent: 'unknown', label: 'اكتشاف', color: 'var(--ink3,#7E877F)', tags: [],
         open: 'مرحبا بيك 👋 دخل تشوف على راحتك — ملّي تلقى شي حاجة تعجبك ولا محتاجها، غير گولها لينا.',
-        steps: [{ q: 'من أين تحبّ تبدا؟', options: [
-          { label: '🛍️ نشوف السوق (سلع وخدمات قربي)', url: MARKET, next: 'نعرضو ليك المتوفّر قربك.' },
-          { label: '🧰 نشوف الخدمات والحرفيّين', url: `${MARKET}?type=service`, next: 'نعرضو ليك المزوّدين قربك.' },
-          { label: '✨ نشوف الجديد', url: EXPLORE, next: 'نعرضو ليك آخر ما نُشر.' },
-          { label: '✍️ عندي شي فبالي — نكتبو', url: EXPLORE, next: 'كتب اللي محتاج ونقلّبو ليك.' },
+        steps: [{ q: 'من أين تحبّ تبدا؟', clarifyId: 'explore_start', options: [
+          { id: 'market', label: '🛍️ نشوف السوق (سلع وخدمات قربي)', url: MARKET, next: 'نعرضو ليك المتوفّر قربك.' },
+          { id: 'services', label: '🧰 نشوف الخدمات والحرفيّين', url: `${MARKET}?type=service`, next: 'نعرضو ليك المزوّدين قربك.' },
+          { id: 'new', label: '✨ نشوف الجديد', url: EXPLORE, next: 'نعرضو ليك آخر ما نُشر.' },
+          { id: 'free_text', label: '✍️ عندي شي فبالي — نكتبو', url: EXPLORE, next: 'كتب اللي محتاج ونقلّبو ليك.' },
         ] }],
         next: 'اكتشف على راحتك، والعقل معاك ملّي تحتاجه.',
       };
@@ -529,11 +567,11 @@ function humanResult(intent: HumanIntent): NeedResult | null {
       return {
         intent: 'find_pro', label: 'مساعدة', color: 'var(--info,#3B82F6)', tags: [],
         open: 'مرحبا بيك 👋 أنا هنا نعاونك — ما تحتاجش تعرف تستعمل التطبيق، غير قول لي أش حاب تدير.',
-        steps: [{ q: 'أش حاب تدير دابا؟', options: [
-          { label: '🔎 كنقلب على شي حاجة ولا مختصّ', url: MARKET, next: 'كتب اللي محتاج ونلقّيوه ليك.' },
-          { label: '🏷️ بغيت نبيع ولا نعلن', page: 'publish', next: 'نبنيو الإعلان ديالك بسهولة.' },
-          { label: '🧑‍🔧 عندي خدمة / محلّ نقدّمو', page: 'publish', next: 'ننشئ صفحتك يلقّاوها الزبناء.' },
-          { label: '🧭 غير كنجرّب نشوف', url: EXPLORE, next: 'نكتشفو التطبيق معاك.' },
+        steps: [{ q: 'أش حاب تدير دابا؟', clarifyId: 'do_what', options: [
+          { id: 'find', label: '🔎 كنقلب على شي حاجة ولا مختصّ', url: MARKET, next: 'كتب اللي محتاج ونلقّيوه ليك.' },
+          { id: 'sell', label: '🏷️ بغيت نبيع ولا نعلن', page: 'publish', next: 'نبنيو الإعلان ديالك بسهولة.' },
+          { id: 'offer', label: '🧑‍🔧 عندي خدمة / محلّ نقدّمو', page: 'publish', next: 'ننشئ صفحتك يلقّاوها الزبناء.' },
+          { id: 'browse', label: '🧭 غير كنجرّب نشوف', url: EXPLORE, next: 'نكتشفو التطبيق معاك.' },
         ] }],
         next: 'نبداو بسؤالٍ بسيط ونمشيو معاك خطوة بخطوة.',
       };

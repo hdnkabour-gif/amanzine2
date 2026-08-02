@@ -11,8 +11,11 @@ const activity = require('../lib/engines/activity');
 
 // 'need' = تجربة نيّة من «شنو محتاج اليوم؟» (توحيد عقل الواجهة مع الخادم):
 //   { kind:'need', action:'resolved'|'satisfied'|'unsatisfied', name:<العبارة>, source:<النيّة>, city }
-const KINDS = ['business', 'product', 'service', 'need'];
-const ACTIONS = ['viewed', 'clicked', 'contact', 'searched', 'resolved', 'satisfied', 'unsatisfied'];
+// 'clarify' = سؤالُ استيضاحٍ (HU-2): `name` هويّةُ السؤال (وهويّةُ الجواب بعد
+//   نقطتين)، و`source` مقدارُ تغيّر الثقة بالمئة. الهويّاتُ لا النصوص — كي
+//   يبقى القياسُ صالحًا حين تتبدّل الصياغةُ أو اللغة.
+const KINDS = ['business', 'product', 'service', 'need', 'clarify'];
+const ACTIONS = ['viewed', 'clicked', 'contact', 'searched', 'resolved', 'satisfied', 'unsatisfied', 'asked', 'answered'];
 
 router.post('/', (req, res) => {
   const { kind, action, businessId, name, productId, serviceId, source, city } = req.body || {};

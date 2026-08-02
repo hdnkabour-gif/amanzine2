@@ -168,8 +168,12 @@ interface DecisionLog {
   conf: Record<Bucket, YN>;
   // جُمَل «ما لم نفهمه» بترددها — يجب أن يبدأ التقاطها قبل البيتا (كنز تطوير المعرفة).
   unknownTexts: Record<string, number>;
+  // أثرُ كلّ استيضاح (HU-2): كم مرّةً سُئل · كم مرّةً أُجيب · كم رفع الفهم.
+  // السؤالُ الذي يُسأل كثيرًا ولا يرفع الثقةَ سؤالٌ سيّئٌ يجب أن يُبدَّل —
+  // ولا يُعرَف ذلك إلّا بقياسه، ولذلك لكلّ استيضاحٍ هويّةٌ ثابتة.
+  clarify: Record<string, { asked: number; answered: number; lifted: number; sumGain: number }>;
 }
-function emptyLog(): DecisionLog { return { modes: {}, intents: {}, reasons: {}, unknown: 0, confirmYes: 0, confirmNo: 0, conf: { low: { y: 0, n: 0 }, mid: { y: 0, n: 0 }, high: { y: 0, n: 0 } }, unknownTexts: {} }; }
+function emptyLog(): DecisionLog { return { modes: {}, intents: {}, reasons: {}, unknown: 0, confirmYes: 0, confirmNo: 0, conf: { low: { y: 0, n: 0 }, mid: { y: 0, n: 0 }, high: { y: 0, n: 0 } }, unknownTexts: {}, clarify: {} }; }
 const bucketOf = (c: number): Bucket => c < 0.5 ? 'low' : c < 0.7 ? 'mid' : 'high';
 
 function dload(): DecisionLog { try { const v = JSON.parse(localStorage.getItem(DKEY) || 'null'); if (v && v.modes && v.conf) return v; } catch { /* noop */ } return emptyLog(); }
@@ -196,6 +200,62 @@ export function recordDecision(mode: string, intent: string, reason?: string, ra
   } else d.intents[intent] = (d.intents[intent] || 0) + 1;
   if (reason) d.reasons[reason] = (d.reasons[reason] || 0) + 1;
   dsave(d);
+}
+
+// ── أثرُ الاستيضاح (HU-2) ────────────────────────────────────────────────────
+//
+//   المقياسُ الوحيدُ الذي يهمّ في سؤالٍ: **هل رفع الفهمَ؟** نسجّل الثقةَ قبله
+//   وبعده. سؤالٌ يُسأل مئةَ مرّةٍ ولا يرفع شيئًا هو ضريبةٌ على المستخدم لا
+//   مساعدةً له — والبياناتُ وحدَها تكشف ذلك، لا الحدس.
+
+function _cl(d: DecisionLog, id: string) {
+  if (!d.clarify) d.clarify = {};
+  if (!d.clarify[id]) d.clarify[id] = { asked: 0, answered: 0, lifted: 0, sumGain: 0 };
+  return d.clarify[id];
+}
+
+/** سُئل استيضاحٌ — يُسجَّل بهويّته لا بنصّه. */
+export function recordClarificationAsked(id: string, confidenceBefore = 0) {
+  const d = dload();
+  _cl(d, id).asked++;
+  dsave(d);
+  _report({ kind: 'clarify', action: 'asked', name: id, source: String(Math.round(confidenceBefore * 100)) });
+}
+
+/** أُجيب — وهذا هو موضعُ الحقيقة: كم ارتفعت الثقة؟ */
+export function recordClarificationAnswered(id: string, optionId: string, before = 0, after = 0) {
+  const d = dload();
+  const c = _cl(d, id);
+  c.answered++;
+  const gain = after - before;
+  if (gain > 0) { c.lifted++; c.sumGain += gain; }
+  dsave(d);
+  _report({ kind: 'clarify', action: 'answered', name: `${id}:${optionId}`, source: String(Math.round(gain * 100)) });
+}
+
+/** إحصاءُ الاستيضاحات — أيُّ سؤالٍ يستحقّ البقاء. */
+export function clarifyStats() {
+  const d = dload();
+  return Object.entries(d.clarify || {}).map(([id, c]) => ({
+    id,
+    asked: c.asked,
+    answered: c.answered,
+    answerRate: c.asked ? Math.round((c.answered / c.asked) * 100) : null,
+    // «رفع الفهم» = نسبةُ الأجوبة التي زادت الثقة، ومتوسّطُ الزيادة.
+    liftRate: c.answered ? Math.round((c.lifted / c.answered) * 100) : null,
+    avgGain: c.lifted ? Math.round((c.sumGain / c.lifted) * 100) : null,
+  })).sort((a, b) => b.asked - a.asked);
+}
+
+// نفسُ قناةِ القياس الموجودة (`/api/track`) — لا مسارَ ثانٍ يتباعد عنها.
+function _report(body: Record<string, string>) {
+  try {
+    if (typeof fetch === 'undefined') return;
+    fetch('/api/track', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify(body),
+    }).catch(() => { /* بلا شبكة ⇒ يبقى محليًّا */ });
+  } catch { /* noop */ }
 }
 
 // قبول «فهمت أنّك… صح؟» (✅) أو رفضه (❌) موزّعًا حسب الثقة — أثمن إشارةٍ على دقّة الفهم.

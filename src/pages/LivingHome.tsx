@@ -13,7 +13,7 @@ import { playGate } from '../lib/gateTransition';
 import { useNavigate } from 'react-router-dom';
 import { personaGreeting, personaWelcome } from '../lib/persona';
 import { decideInterface, confirmPrompt } from '../lib/interfaceDecision';
-import { receptionStart, receptionTurn, receptionUnderstood, receptionStep, receptionEnd, recordDecision, recordConfirm } from '../lib/journey';
+import { receptionStart, receptionTurn, receptionUnderstood, receptionStep, receptionEnd, recordDecision, recordConfirm, recordClarificationAsked, recordClarificationAnswered } from '../lib/journey';
 import UnderstandingCard from '../components/UnderstandingCard';
 import type { Journey } from '../lib/core/plugins';
 import type { Page } from '../types';
@@ -147,12 +147,30 @@ export default function LivingHome() {
 
   const pickOption = (opt: NeedOption) => {
     receptionTurn(opt.label, 'button');                      // قياس: دورٌ بالأزرار
-    setTurns(t => [...t, { who: 'user', text: opt.label }]);
     const steps = result?.steps || [];
+    const step = steps[stepIdx];
+    // أثرُ الاستيضاح (HU-2): الثقةُ قبله وبعده. جوابٌ يختار «خدمة» يحسم الهدفَ
+    // فترتفع الثقةُ حتمًا — نقيس ذلك بدل أن نفترضه. والهويّاتُ تُسجَّل لا النصوص.
+    if (step?.clarifyId && opt.id) {
+      const before = result?.confidence ?? 0;
+      // جوابٌ يحمل وجهةً = الهدفُ صار معروفًا ⇒ ثقةٌ كافيةٌ للمضيّ.
+      const after = (opt.page || opt.url) ? 0.9 : before;
+      recordClarificationAnswered(step.clarifyId, opt.id, before, after);
+    }
+    setTurns(t => [...t, { who: 'user', text: opt.label }]);
     if (stepIdx + 1 < steps.length) setStepIdx(i => i + 1);
     else setPending(opt);
   };
   const activeStep = result?.steps?.[stepIdx];
+
+  // يُسجَّل السؤالُ مرّةً واحدةً حين يُعرَض فعلًا — لا عند كلّ إعادة رسم،
+  // وإلّا صار العدّادُ يقيس إعادةَ الرسم لا السؤال.
+  useEffect(() => {
+    if (activeStep?.clarifyId && !pending) {
+      recordClarificationAsked(activeStep.clarifyId, result?.confidence ?? 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStep?.clarifyId, stepIdx]);
   // ذاكرةٌ بمستويَين: النيّة نفسها أوّلًا (أدقّ)، ثمّ نفسُ الرحلة (أوسع).
   // كان حقل journey يُكتب في كلّ تجربةٍ ولا يُقرأ — القاعدة ⑦: يُعرَض أو يُحذَف.
   const memExact = result ? lastByIntent(result.intent, xpLog) : undefined;
