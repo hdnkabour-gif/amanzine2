@@ -305,8 +305,10 @@ function UrlWizard({ onSave, onCancel, onDirtyChange }: {
   const testConnection = async () => {
     setTesting(true); setTestResult(null);
     const token = getAuthToken() || '';
-    const stages = ['الاتصال بالخادم...', 'التحقق من الرابط...', 'فحص الاستجابة...'];
-    for (const s of stages) { setTestStage(s); await new Promise(r => setTimeout(r, 380)); }
+    // مراحلُ تمثيليّةٌ حُذفت: كانت ثلاثَ رسائلَ بتأخيرٍ مصطنع توحي بثلاثة فحوص،
+    // والفحصُ واحدٌ فقط — أنّ الموقعَ يستجيب. التحقّقُ الحقيقيّ (المفتاح، القبول،
+    // قراءةُ البيانات، الخرائط) في «تحقّق كامل» بلوحة العمليّات.
+    setTestStage('التحقّق من أنّ الموقع يستجيب...');
     try {
       const r = await fetch('/api/delivery/test-connection', {
         method: 'POST',
@@ -316,7 +318,8 @@ function UrlWizard({ onSave, onCancel, onDirtyChange }: {
       });
       const d = await r.json();
       setTestResult(d.ok ? 'ok' : 'fail');
-      setTestStage(d.info || '');
+      // نقول ما فُحص بالضبط: «يستجيب» ليست «الربطُ يعمل».
+      setTestStage(d.ok ? `الموقع يستجيب${d.info ? ` · ${d.info}` : ''} — المفتاح لم يُفحَص بعد` : (d.error || ''));
     } catch {
       setTestResult('fail');
       setTestStage('');
@@ -708,7 +711,7 @@ export default function DeliveryPage() {
           signal: AbortSignal.timeout(8000),
         });
         const d = await r.json();
-        if (d.ok) { notify('success', `✅ ${prov.name} يستجيب${d.info ? ` · ${d.info}` : ''}`); return; }
+        if (d.ok) { notify('success', `✅ ${prov.name}: الموقع يستجيب — استعمل «تحقّق كامل» لفحص المفتاح والربط`); return; }
         notify('warning', `⚠️ ${prov.name}: ${d.error || 'لم يستجب الموقع'}`);
         return;
       }

@@ -265,6 +265,11 @@ export const deliveryAPI = {
     request<{ success: boolean; city: string; quotes: any[] }>('GET', `/delivery/quote?city=${encodeURIComponent(city)}${total != null ? `&total=${total}` : ''}`),
   // المزوّدون المتاحون وقدراتُهم — تبني الواجهةُ نفسَها منها لا من أسماء الشركات
   registry: () => request<{ providers: any[]; rejected: any[] }>('GET', '/delivery/registry'),
+  // تحقّقٌ حقيقيٌّ خطوةً خطوة: المفتاح · القبول · قراءة البيانات · الخرائط.
+  // بديلُ «اختبار الاتصال» الذي كان يفحص أنّ الموقعَ يستجيب ولا شيءَ غير ذلك.
+  verify: (providerRowId: string) =>
+    request<{ success: boolean; provider: string; checks: { key: string; label: string; ok: boolean | null; detail: string }[] }>(
+      'POST', `/delivery/verify/${providerRowId}`),
   // ── محرّك المدن ──
   // مدنُ AMANZINE المعياريّة — ما يراه التاجر مهما تبدّلت الشركة
   canonicalCities: () => request<{ success: boolean; cities: { id: string; name: string }[] }>('GET', '/delivery/cities/canonical'),

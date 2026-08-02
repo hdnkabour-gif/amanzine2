@@ -405,6 +405,39 @@ body::after {
 }
 .toggle input:checked ~ .toggle-thumb { transform: translateX(20px); }
 
+/* صيغةُ الزرّ المفرد: <button class="toggle on"> بلا input ولا عناصر داخليّة.
+   كانت مستعملةً في صفحة التوصيل بينما القواعدُ أعلاه تفترض غلافًا بـinput،
+   فيظهر مستطيلٌ شفّافٌ لا يتغيّر — ولا سبيلَ لمعرفة أنّ الميزةَ مفعّلةٌ أم لا.
+   الحالتان مرسومتان هنا بالكامل: المسار والزرّ واللون والحركة. */
+button.toggle {
+  appearance: none; -webkit-appearance: none; padding: 0; margin: 0;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.08);
+  border-radius: var(--r-full);
+  transition: background var(--dur-normal) var(--ease-out),
+              border-color var(--dur-normal) var(--ease-out),
+              box-shadow var(--dur-normal) var(--ease-out);
+}
+button.toggle::after {
+  content: ''; position: absolute; top: 2px; inset-inline-start: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  transition: transform var(--dur-normal) var(--ease-spring);
+}
+button.toggle.on {
+  background: var(--ember);
+  border-color: var(--ember);
+  box-shadow: 0 0 16px rgba(255,106,0,0.5);
+}
+/* المنطقيّة تحترم الاتّجاه: في RTL يتحرّك الزرُّ يسارًا لا يمينًا. */
+button.toggle.on::after { transform: translateX(20px); }
+[dir="rtl"] button.toggle.on::after,
+html[dir="rtl"] button.toggle.on::after { transform: translateX(-20px); }
+button.toggle:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  button.toggle, button.toggle::after { transition: none; }
+}
+
 /* ═══════════════════════════════════════════════════════════════
    13. BADGES — Glowing Status Pills
    ═══════════════════════════════════════════════════════════════ */
