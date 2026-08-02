@@ -182,7 +182,8 @@ test('لا وسيلةَ اتصالٍ مُسجَّلةٌ كشركةٍ ولا ال
 // ── ⑦ المُولَّدُ مطابقٌ لمصدره ──────────────────────────────────
 test('معجمُ مدن الخادم مُطابقٌ لقاعدة المعرفة (لا انجرافَ صامت)', async () => {
   const { buildCities, loadSourceCities, DEST } = await import('../scripts/emit-cities.mjs');
-  const expected = buildCities(await loadSourceCities());
+  const { CITIES, regions } = await loadSourceCities();
+  const expected = buildCities(CITIES, regions);
   const actual = JSON.parse(readFileSync(DEST, 'utf8'));
   // تعديلُ knowledgeData.ts بلا إعادة توليدٍ يترك الخادمَ على معجمٍ قديم،
   // فتفشل مطابقةُ مدنِ شركةٍ بلا سببٍ ظاهر. هذا يجعل النسيانَ مرئيًّا.

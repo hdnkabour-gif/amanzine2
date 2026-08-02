@@ -67,7 +67,7 @@ function resolve(text) {
   const ar = normAr(raw), lat = normLat(raw);
   // مطابقةٌ تامّةٌ أوّلًا — أدقُّ من الاحتواء وتمنع «سلا» من التقاط «سلاوي».
   const exact = _index.get(ar) || _index.get(lat);
-  if (exact) return { id: exact.id, name: exact.name };
+  if (exact) return { id: exact.id, name: exact.name, region: exact.region || '' };
 
   // ثمّ احتواءٌ بأطول مصطلحٍ مطابق، كي لا تسبق «فاس» إلى «فاس الجديد».
   let best = null, bestLen = 0;
@@ -76,18 +76,18 @@ function resolve(text) {
     const hay = /[؀-ۿ]/.test(term) ? ar : lat;
     if (hay && hay.includes(term)) { best = c; bestLen = term.length; }
   }
-  return best ? { id: best.id, name: best.name } : null;
+  return best ? { id: best.id, name: best.name, region: best.region || '' } : null;
 }
 
 /** كلُّ المدن المعياريّة. */
 function all() {
-  return CITIES.map(c => ({ id: c.id, name: c.name }));
+  return CITIES.map(c => ({ id: c.id, name: c.name, region: c.region || '' }));
 }
 
 /** مدينةٌ بمُعرِّفها. */
 function byId(id) {
   const c = CITIES.find(x => x.id === id);
-  return c ? { id: c.id, name: c.name } : null;
+  return c ? { id: c.id, name: c.name, region: c.region || '' } : null;
 }
 
 /**

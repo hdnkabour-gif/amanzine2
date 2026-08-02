@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon --watch . --ext js index.js",
-    "test": "node --test test/secrets.test.js test/validate.test.js test/engines.test.js test/learning-loop.test.js test/concept-core.test.js test/field-visit.test.js test/delivery-pricing.test.js test/delivery-registry.test.js test/city-engine.test.js",
+    "test": "node --test test/secrets.test.js test/validate.test.js test/engines.test.js test/learning-loop.test.js test/concept-core.test.js test/field-visit.test.js test/delivery-pricing.test.js test/delivery-registry.test.js test/city-engine.test.js test/pricing-engine.test.js",
     "postinstall": "echo 'Dependencies installed'"
   },
   "dependencies": {

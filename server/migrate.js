@@ -186,6 +186,30 @@ async function migrate() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_city_map_user
       ON delivery_provider_city_mappings(user_id, city_id)`);
 
+    // 💰 قواعدُ التسعير — «الثمنُ دالّةٌ لا رقم». بياناتٌ يكتبها التاجرُ من
+    // لوحته بدل شروطٍ تُضاف في الكود مع كلّ حالةٍ جديدة.
+    // provider_row_id فارغٌ ⇒ القاعدةُ تسري على كلّ الشركات.
+    await client.query(`CREATE TABLE IF NOT EXISTS delivery_pricing_rules (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      provider_row_id TEXT REFERENCES delivery_providers(id) ON DELETE CASCADE,
+      rule_type TEXT NOT NULL,
+      city_id TEXT DEFAULT '',
+      region TEXT DEFAULT '',
+      weight_min NUMERIC,
+      weight_max NUMERIC,
+      order_min NUMERIC,
+      order_max NUMERIC,
+      fee NUMERIC NOT NULL DEFAULT 0,
+      free_shipping BOOLEAN DEFAULT FALSE,
+      priority INTEGER DEFAULT 0,
+      enabled BOOLEAN DEFAULT TRUE,
+      label TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_pricing_rules_user
+      ON delivery_pricing_rules(user_id, enabled, priority DESC)`);
+
     await client.query(`CREATE TABLE IF NOT EXISTS broadcasts (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
