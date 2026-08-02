@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
 
@@ -198,4 +198,22 @@ test('قائمةُ الاستثناءات المعماريّة لا تتضخّم
   for (const a of ALLOWED) {
     assert.ok(a.why && a.why.length > 40, 'كلُّ استثناءٍ يحتاج سببًا مكتوبًا');
   }
+});
+
+// ── ⑧ كلُّ أصلٍ مُشارٍ إليه موجودٌ فعلًا ────────────────────────
+test('لا مرجعَ إلى ملفِّ أصلٍ غيرِ موجود (اللوگو والأيقونات)', () => {
+  const ROOT_DIR = new URL('..', import.meta.url).pathname;
+  const sources = ['index.html', 'public/manifest.json'];
+  const missing = [];
+  for (const src of sources) {
+    const text = readFileSync(join(ROOT_DIR, src), 'utf8');
+    // مساراتٌ مطلقةٌ تبدأ بـ / وتنتهي بامتداد صورة — تُخدَم من public/
+    for (const m of text.matchAll(/["'(](\/[\w\-./]+\.(?:svg|png|jpg|jpeg|webp|ico|mp4))["')]/g)) {
+      const rel = m[1].replace(/^\//, '');
+      if (!existsSync(join(ROOT_DIR, 'public', rel))) missing.push(`${src} → /${rel}`);
+    }
+  }
+  // اللوگو كان يشير إلى amanzine-logo.svg وهو غيرُ موجود: أيقونةٌ مكسورةٌ في
+  // التبويب، وصورةٌ مكسورةٌ في شاشة البدء، وأيقونةُ PWA تُرجع 404.
+  assert.deepEqual(missing, [], 'مرجعٌ إلى أصلٍ غيرِ موجود');
 });
