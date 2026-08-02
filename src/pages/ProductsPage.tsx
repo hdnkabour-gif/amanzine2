@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import {
   Plus, Search, Edit3, Trash2, X, ChevronRight, ChevronLeft,
@@ -432,6 +432,15 @@ export default function ProductsPage() {
   const [search,  setSearch]  = useState('');
   const [filter,  setFilter]  = useState<Filter>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'product' | 'service' | 'digital'>(isServicesMode ? 'service' : 'all');
+
+  // «المنتجات» و«الخدمات» **نفسُ المكوّن في نفس الموضع**، فلا يُعاد بناؤه عند
+  // الانتقال بينهما ⇒ القيمةُ الابتدائيّة أعلاه تُحسَب مرّةً واحدةً فقط.
+  // النتيجةُ التي رآها المالك: يفتح «المنتجات» (المرشّح = الكلّ) ثمّ ينتقل
+  // لـ«الخدمات» فيبقى المرشّحُ كما هو ⇒ **العنوان يقول «٠ خدمة» والقائمةُ
+  // تعرض منتجَين**. العنوانُ كان صادقًا؛ القائمةُ هي التي لم تتبع الصفحة.
+  useEffect(() => {
+    setTypeFilter(isServicesMode ? 'service' : 'all');
+  }, [isServicesMode]);
   const [sort,    setSort]    = useState<Sort>('newest');
 
   const [showWizard, setShowWizard] = useState(false);

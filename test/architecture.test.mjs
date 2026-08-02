@@ -293,3 +293,40 @@ test('كلُّ صفحةٍ تملك رابطًا خاصًّا بها — لا ص�
     seen.set(url, id);
   }
 });
+
+test('حالةٌ مُشتقّةٌ من الصفحة تُزامَن — لا تُجمَّد عند أوّل بناء', () => {
+  // العطبُ الذي وُلد منه هذا: `ProductsPage` تخدم «المنتجات» و«الخدمات».
+  // React لا يُعيد بناءَ المكوّن حين يتغيّر `currentPage` (نفسُ النوع، نفسُ
+  // الموضع) ⇒ `useState(isServicesMode ? 'service' : 'all')` تُحسَب **مرّةً
+  // واحدة**. فمن يفتح المنتجاتِ ثمّ ينتقل للخدمات يرى العنوانَ يقول «٠ خدمة»
+  // والقائمةَ تعرض منتجَين. العنوانُ صادقٌ والقائمةُ متجمّدة.
+  const ROOT_DIR = new URL('..', import.meta.url).pathname;
+  const PAGES = join(ROOT_DIR, 'src/pages');
+
+  // أوّلًا: أيُّ مكوّنٍ يخدم أكثر من صفحة؟ منه وحدَه يأتي هذا الخطر.
+  const layout = readFileSync(join(PAGES, 'MainLayout.tsx'), 'utf8');
+  const pairs = [...layout.matchAll(/case '([a-z-]+)':\s*return <([A-Za-z]+)/g)];
+  const served = {};
+  for (const [, page, comp] of pairs) (served[comp] ||= []).push(page);
+  const shared = Object.entries(served).filter(([, ps]) => ps.length > 1).map(([c]) => c);
+
+  for (const comp of shared) {
+    let src;
+    try { src = readFileSync(join(PAGES, `${comp}.tsx`), 'utf8'); } catch { continue; }
+
+    // أسماءُ المتغيّرات المشتقّة من الصفحة: `const isXMode = currentPage === …`
+    const derived = [...src.matchAll(/const\s+(\w+)\s*=\s*currentPage\s*===/g)].map(m => m[1]);
+    const modes = ['currentPage', ...derived];
+
+    for (const mode of modes) {
+      // هل تُستعمل في تهيئةِ حالة؟
+      const initsState = new RegExp(`useState[^;]{0,200}\\b${mode}\\b`).test(src);
+      if (!initsState) continue;
+      // فيجب أن تُزامَن بأثرٍ يعتمد عليها.
+      const synced = new RegExp(`useEffect\\([\\s\\S]{0,400}?\\[[^\\]]*\\b${mode}\\b[^\\]]*\\]`).test(src);
+      assert.ok(synced,
+        `${comp}.tsx: حالةٌ تُهيَّأ من «${mode}» بلا useEffect يزامنها — ` +
+        `المكوّن يخدم ${served[comp].join(' و')} فلا يُعاد بناؤه بينهما.`);
+    }
+  }
+});
