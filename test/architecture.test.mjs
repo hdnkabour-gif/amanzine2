@@ -179,6 +179,17 @@ test('لا وسيلةَ اتصالٍ مُسجَّلةٌ كشركةٍ ولا ال
   }
 });
 
+// ── ⑦ المُولَّدُ مطابقٌ لمصدره ──────────────────────────────────
+test('معجمُ مدن الخادم مُطابقٌ لقاعدة المعرفة (لا انجرافَ صامت)', async () => {
+  const { buildCities, loadSourceCities, DEST } = await import('../scripts/emit-cities.mjs');
+  const expected = buildCities(await loadSourceCities());
+  const actual = JSON.parse(readFileSync(DEST, 'utf8'));
+  // تعديلُ knowledgeData.ts بلا إعادة توليدٍ يترك الخادمَ على معجمٍ قديم،
+  // فتفشل مطابقةُ مدنِ شركةٍ بلا سببٍ ظاهر. هذا يجعل النسيانَ مرئيًّا.
+  assert.deepEqual(actual, expected,
+    'server/generated/cities.json قديم — شغّل: npm run gen:cities');
+});
+
 // ── ⑤ الاستثناءاتُ لا تنمو ────────────────────────────────────
 test('قائمةُ الاستثناءات المعماريّة لا تتضخّم', () => {
   assert.ok(ALLOWED.length <= ALLOWED_MAX,

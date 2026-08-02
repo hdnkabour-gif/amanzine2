@@ -18,6 +18,7 @@
     "test:architecture": "node --test test/architecture.test.mjs",
     "audit:knowledge": "node scripts/knowledge-audit.mjs",
     "gen:variants": "node scripts/knowledge-audit.mjs --emit-index",
+    "gen:cities": "node scripts/emit-cities.mjs",
     "test": "npm run test:brain && npm run test:constitution && npm run test:knowledge && npm run test:architecture && cd server && npm test",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx}\" \"server/**/*.js\""
   },
