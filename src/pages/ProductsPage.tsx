@@ -1051,16 +1051,29 @@ export default function ProductsPage() {
       {/* ── PRODUCT GRID ────────────────────────────────────────── */}
       {isServicesMode && <BookingsCalendar orders={orders as any[]} products={products} />}
 
+      {/* «لا شيءَ هنا» ≠ «لا شيءَ أبدًا». في وضع الخدمات كانت الجملةُ تُنكر
+          منتجاتٍ موجودةً وتدعو لإضافة «منتج» في صفحةِ خدمات. */}
       {filtered.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <div className="empty-state-icon">📦</div>
-            <div>
-              <p className="empty-state-title">لا توجد منتجات</p>
-              <p className="empty-state-sub">ابدأ بإضافة أول منتج لمتجرك</p>
-            </div>
+            <div className="empty-state-icon">{isServicesMode ? '🛠️' : '📦'}</div>
+            {products.length === 0 ? (
+              <div>
+                <p className="empty-state-title">{isServicesMode ? 'لا توجد خدمات' : 'لا توجد منتجات'}</p>
+                <p className="empty-state-sub">ابدأ بإضافة {isServicesMode ? 'أول خدمة' : 'أول منتج'} لمتجرك</p>
+              </div>
+            ) : (
+              <div>
+                <p className="empty-state-title">
+                  {search ? 'لا نتيجة تطابق البحث' : isServicesMode ? 'لا خدمة بعدُ' : 'لا شيء في هذا التصنيف'}
+                </p>
+                <p className="empty-state-sub">
+                  عندك {products.length} عنصرًا في المتجر — {search ? 'امسح البحث أو غيّر التصفية' : 'غيّر التصفية لتراها'}
+                </p>
+              </div>
+            )}
             <button onClick={openAdd} className="btn btn-primary" style={{ marginTop: 8 }}>
-              <Plus size={15} /> إضافة منتج
+              <Plus size={15} /> {isServicesMode ? 'إضافة خدمة' : 'إضافة منتج'}
             </button>
           </div>
         </div>
@@ -1087,7 +1100,10 @@ export default function ProductsPage() {
                       {(p as any).duration && <span>⏱ {(p as any).duration}</span>}
                       {(p as any).workArea && <span>📍 {(p as any).workArea}</span>}
                       {sPhone && <span dir="ltr">📞 {sPhone}</span>}
-                      <span>✅ {p.sales || 0} حجز</span>
+                      {/* `sales` يزيد عند الموافقة على طلبٍ في `/orders` — لا علاقةَ
+                          له بجدول `bookings` في صفحة الحجوزات. تسميتُه «حجز» كانت
+                          تُناقض «٠ حجوزات» هناك بلا سبب. */}
+                      <span>✅ {p.sales || 0} طلب</span>
                     </div>
                   </div>
                   <div style={{ fontWeight: 900, fontSize: 16, color: 'var(--ember)' }}>{p.price} <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{settings.brand.currency}</span></div>

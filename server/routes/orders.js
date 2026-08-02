@@ -7,6 +7,7 @@ const { db } = require('../database');
 const sync   = require('../sync');
 const fetch  = require('node-fetch');
 const { resolveDeliveryFee } = require('../lib/deliveryPricing');
+const { attachCosts } = require('../lib/orderCosting');
 
 let pushNotify;
 try { pushNotify = require('../routes/push').notifyUser; } catch { pushNotify = () => Promise.resolve(); }
@@ -32,7 +33,8 @@ router.get('/', auth, async (req, res) => {
 
 router.post('/', auth, sanitizeBody, async (req, res) => {
   try {
-    const order = await db.createOrder({ ...req.body, userId: req.user.id, status: 'pending' });
+    const items = await attachCosts(db, req.user.id, req.body.items);
+    const order = await db.createOrder({ ...req.body, items, userId: req.user.id, status: 'pending' });
     await db.addLog({ userId: req.user.id, user: 'AI', action: `New order: ${order.id}`, details: order.customerName, type: 'order', severity: 'info' });
     await db.addNotification({ userId: req.user.id, type: 'info', message: `🛒 طلب جديد من ${order.customerName}` });
     emitOrderCreated(req.user.id, order, 'dashboard');
@@ -401,9 +403,12 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
 
     const customerCode = crypto.randomBytes(4).toString('hex').toUpperCase();
 
+    // تُثبَّت تكلفةُ الشراء مع الثمن — وإلّا أُعيد تسعيرُ الطلب لاحقًا بتكلفةِ اليوم
+    const pricedItems = await attachCosts(db, userId, safeItems);
+
     const { order, customer } = await db.createOrderWithCustomer(
       { userId, customerName, customerPhone, city: city||'', address: address||'',
-        items: safeItems, total: serverTotal, source: source||'Storefront',
+        items: pricedItems, total: serverTotal, source: source||'Storefront',
         status: 'pending', notes: [notes||'', promoNotes].filter(Boolean).join(' · '), customerCode,
         deliveryFee: delivery },
       { userId, name: customerName, phone: customerPhone,

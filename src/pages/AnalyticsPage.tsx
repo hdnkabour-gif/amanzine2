@@ -2,6 +2,7 @@ import { useState, useMemo, lazy, Suspense, useEffect } from 'react';
 import { useStore } from '../store';
 import { analyticsAPI } from '../services/api';
 import Sparkline from '../components/Sparkline';
+import { summarize } from '../lib/orderCosting';
 import { Download, TrendingUp, BarChart3 } from 'lucide-react';
 
 // Lazy-load recharts to keep initial bundle small
@@ -89,11 +90,18 @@ export default function AnalyticsPage() {
   }, [isOnline]);
 
   const active    = orders.filter(o => o.status !== 'cancelled');
-  const revenue   = serverData?.revenue   ?? active.reduce((s, o) => s + o.total, 0);
-  const costTotal = active.reduce((s, o) => s + o.items.reduce((ss, item) => { const p = products.find(x => x.id === item.productId); return ss + (p?.cost || 0) * item.quantity; }, 0), 0);
-  const profit    = serverData?.profit    ?? (revenue - costTotal);
+  // حصيلةٌ واحدةٌ محلّيّة. لا نخلط إيرادَ الخادم بتكلفةِ المتصفّح: إمّا الخادمُ
+  // كاملًا (حين يجيب) أو الحسابُ المحلّيُّ كاملًا (حين ينقطع).
+  const local     = summarize(active as any, products as any);
+  const fromSrv   = serverData && typeof serverData.profit === 'number';
+  const revenue   = fromSrv ? serverData.revenue : local.revenue;
+  const profit    = fromSrv ? serverData.profit  : local.profit;
+  const margin    = fromSrv
+    ? (typeof serverData.margin === 'number' ? serverData.margin
+       : serverData.revenue > 0 ? Math.round((serverData.profit / serverData.revenue) * 100) : 0)
+    : local.margin;
+  const shipping  = fromSrv && typeof serverData.shippingCost === 'number' ? serverData.shippingCost : local.shipping;
   const avgOrder  = serverData?.avgOrder  ?? (active.length ? Math.round(revenue / active.length) : 0);
-  const margin    = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
   const dlvRate   = serverData?.dlvRate   ?? (orders.length ? Math.round((orders.filter(o => o.status === 'delivered').length / orders.length) * 100) : 0);
 
   // M-4: سلاسل شهرية حقيقية (إيراد/تكلفة/ربح/توصيل/زبائن جدد) — لا بيانات مُفبركة
@@ -104,11 +112,10 @@ export default function AnalyticsPage() {
       const sameMonth = (dt: string) => { const x = new Date(dt); return x.getMonth() === d.getMonth() && x.getFullYear() === d.getFullYear(); };
       const moAll = orders.filter(o => sameMonth(o.createdAt));
       const moActive = moAll.filter(o => o.status !== 'cancelled');
-      const rev = moActive.reduce((s, o) => s + o.total, 0);
-      const cost = moActive.reduce((s, o) => s + o.items.reduce((ss, item) => { const p = products.find(x => x.id === item.productId); return ss + (p?.cost || 0) * item.quantity; }, 0), 0);
+      const m = summarize(moActive as any, products as any);
       const delivered = moAll.filter(o => o.status === 'delivered').length;
       const newCust = customers.filter(c => (c as any).createdAt && sameMonth((c as any).createdAt)).length;
-      return { label: d.toLocaleString('ar', { month: 'short' }), revenue: rev, count: moActive.length, cost, profit: rev - cost, delivered, total: moAll.length, newCust };
+      return { label: d.toLocaleString('ar', { month: 'short' }), revenue: m.revenue, count: moActive.length, cost: m.cost, profit: m.profit, delivered, total: moAll.length, newCust };
     });
   }, [months, orders, products, customers]);
 
@@ -133,10 +140,13 @@ export default function AnalyticsPage() {
   };
 
   // M-4: كل الـ sparklines الآن من بيانات شهرية حقيقية
-  const kpis = [
-    { label: 'الإيرادات',      value: `${revenue.toLocaleString()} ${currency}`,  color: '#10b981', spark: monthly.map(m => m.revenue) },
-    { label: 'صافي الربح',    value: `${profit.toLocaleString()} ${currency}`,   color: '#6366f1', spark: monthly.map(m => m.profit) },
-    { label: 'هامش الربح',    value: `${margin}%`,                               color: '#a855f7', spark: monthly.map(m => m.revenue > 0 ? Math.round((m.profit / m.revenue) * 100) : 0) },
+  const kpis: { label: string; value: string; color: string; spark: number[]; hint?: string; warn?: boolean }[] = [
+    { label: 'الإيرادات',      value: `${revenue.toLocaleString()} ${currency}`,  color: '#10b981', spark: monthly.map(m => m.revenue),
+      hint: shipping > 0 ? `شاملًا ${shipping.toLocaleString()} ${currency} رسمَ توصيلٍ محصَّل` : undefined },
+    { label: 'صافي الربح',    value: `${profit.toLocaleString()} ${currency}`,   color: '#6366f1', spark: monthly.map(m => m.profit),
+      hint: profit < 0 ? 'التكلفةُ تفوق الإيراد — راجع «ثمن الشراء» في بطاقات المنتجات'
+                       : 'الإيراد ناقص ثمنِ الشراء ورسمِ التوصيل', warn: profit < 0 },
+    { label: 'هامش الربح',    value: `${margin}%`,                               color: '#a855f7', spark: monthly.map(m => m.revenue > 0 ? Math.round((m.profit / m.revenue) * 100) : 0), warn: margin < 0 },
     { label: 'متوسط الطلب',   value: `${avgOrder} ${currency}`,                  color: '#f97316', spark: monthly.map(m => m.count ? m.revenue / m.count : 0) },
     { label: 'معدل التوصيل',  value: `${dlvRate}%`,                              color: '#06b6d4', spark: monthly.map(m => m.total ? Math.round((m.delivered / m.total) * 100) : 0) },
     { label: 'زبائن متكررون', value: String(customers.filter(c => c.totalOrders >= 3).length), color: '#8b5cf6', spark: monthly.map(m => m.newCust) },
@@ -161,7 +171,8 @@ export default function AnalyticsPage() {
               <p style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 700 }}>{k.label}</p>
               <div style={{ opacity: .75 }}><Sparkline data={k.spark} color={k.color} height={28} width={60} /></div>
             </div>
-            <p style={{ fontSize: 18, fontWeight: 900, color: 'var(--ink1)' }}>{k.value}</p>
+            <p style={{ fontSize: 18, fontWeight: 900, color: k.warn ? '#f87171' : 'var(--ink1)' }}>{k.value}</p>
+            {k.hint && <p style={{ fontSize: 10.5, lineHeight: 1.5, marginTop: 5, color: k.warn ? '#f87171' : 'var(--ink3)' }}>{k.hint}</p>}
           </div>
         ))}
       </div>

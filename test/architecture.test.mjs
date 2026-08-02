@@ -330,3 +330,43 @@ test('حالةٌ مُشتقّةٌ من الصفحة تُزامَن — لا تُ
     }
   }
 });
+
+test('حالةُ الفراغ تُفرِّق بين «لا شيءَ هنا» و«لا شيءَ أبدًا»', () => {
+  // العطبُ الذي وُلد منه هذا: `/orders` تفتح على تبويب «بانتظار». تاجرٌ عنده
+  // ١٦ طلبًا ولا واحدَ منها معلّق يرى: «لا توجد طلبات بعد — شارك رابط متجرك
+  // لاستقبال أوّل طلب». الجملةُ تُنكر بضعةَ آلافِ دراهمَ من العمل، وتدعوه
+  // لبدايةٍ قطعها منذ زمن. ومثلُها في `/products` بوضع الخدمات.
+  //
+  // القاعدة: كلُّ فراغٍ محسوبٍ من قائمةٍ **مُصفّاة** يجب أن يفرّق. جملةُ
+  // البداية («أوّل…» / «…بعد») مسموحةٌ فقط تحت شرطٍ على المجموعة الكاملة.
+  const ROOT_DIR = new URL('..', import.meta.url).pathname;
+  const PAGES = join(ROOT_DIR, 'src/pages');
+  const FIRST_RUN = /(?:^|[\s«"'>])(?:أوّل|أول)\s|بعدُ?\s*[<«"']|بعد\s*<\/|طلبات بعد|منتجات بعد/;
+
+  for (const file of readdirSync(PAGES).filter(f => f.endsWith('.tsx'))) {
+    const src = readFileSync(join(PAGES, file), 'utf8');
+
+    // متغيّراتٌ مُشتقّةٌ بالتصفية — لا تمثّل المجموعةَ الكاملة.
+    const derived = new Set(
+      [...src.matchAll(/const\s+(\w+)\s*=\s*(?:useMemo\(\s*\(\)\s*=>\s*)?[\w.]*\s*\n?\s*\.?\s*filter\(/g)].map(m => m[1])
+    );
+    for (const m of src.matchAll(/const\s+(\w+)\s*=\s*useMemo\(\s*\(\)\s*=>\s*([\s\S]{0,200}?)\n\s*\[/g)) {
+      if (/\.filter\(/.test(m[2])) derived.add(m[1]);
+    }
+    if (!derived.size) continue;
+
+    for (const name of derived) {
+      const guard = new RegExp(`\\b${name}\\.length\\s*===\\s*0`, 'g');
+      for (const g of src.matchAll(guard)) {
+        const block = src.slice(g.index, g.index + 1200);
+        if (!FIRST_RUN.test(block)) continue;
+        // مسموحٌ إن كان الفرعُ نفسُه يسأل عن المجموعة الكاملة، لا عن المُصفّاة.
+        const asksTotal = [...block.matchAll(/\b(\w+)\.length\s*===\s*0/g)]
+          .some(x => x[1] !== name && !derived.has(x[1]));
+        assert.ok(asksTotal,
+          `${file}: جملةُ بدايةٍ تحت فراغِ «${name}» المُصفّى — ` +
+          `ستُنكر بياناتٍ موجودةً ما إن يُصفّي المستخدم. افصل الحالتين.`);
+      }
+    }
+  }
+});

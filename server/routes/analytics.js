@@ -2,6 +2,7 @@
 const router = require('express').Router();
 const auth   = require('../middleware/auth');
 const { db } = require('../database');
+const { summarize } = require('../lib/orderCosting');
 
 // POST /api/analytics/track — PUBLIC: record a storefront visit or product view
 router.post('/track', async (req, res) => {
@@ -93,11 +94,10 @@ router.get('/', auth, async (req, res) => {
     const currency = settings.brand?.currency || 'MAD';
 
     const active  = orders.filter(o => o.status !== 'cancelled');
-    const revenue = active.reduce((s, o) => s + (o.total || 0), 0);
-    const cost    = active.reduce((s, o) => s + (o.items || []).reduce((sum, item) => {
-      const p = products.find(x => x.id === item.productId);
-      return sum + (p?.cost || 0) * (item.quantity || 1);
-    }, 0), 0);
+    // الحصيلةُ من مصدرٍ واحد (`lib/orderCosting`): تكلفةُ البضاعة مُلتقَطةٌ في
+    // البند، ورسمُ التوصيل يُطرح لأنّه داخلَ `total` وليس ربحَ التاجر.
+    const money = summarize(active, products);
+    const { revenue, goods, shipping, cost, profit } = money;
 
     // Last 12 months
     const now = new Date();
@@ -142,7 +142,7 @@ router.get('/', auth, async (req, res) => {
     });
 
     res.json({
-      revenue, cost, profit: revenue - cost,
+      revenue, cost, profit, goodsCost: goods, shippingCost: shipping, margin: money.margin,
       totalOrders: orders.length, activeOrders: active.length,
       avgOrder: active.length ? Math.round(revenue / active.length) : 0,
       deliveryRate: orders.length ? Math.round((orders.filter(o=>o.status==='delivered').length / orders.length) * 100) : 0,

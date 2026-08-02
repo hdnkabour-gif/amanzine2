@@ -77,12 +77,15 @@ function QuickOrderModal({ onClose, products, settings, addOrder, notify }: any)
   );
 }
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import React from 'react';
 import { useStore } from '../store';
 import { Search, ChevronDown, ChevronUp, CheckCircle, XCircle, Package, AlertTriangle, Bot, Loader2 } from 'lucide-react';
 
 const STATUS_AR: Record<string, string> = { pending: 'بانتظار', pending_confirmation: 'تأكيد واتساب', approved: 'موافقة', processing: 'جارٍ', shipped: 'شُحن', delivered: 'وُصّل', cancelled: 'ملغي' };
+// تبويباتُ التصفية تشتقُّ أسماءَها من الحالات — لا قائمةَ ثانيةً تتباعد عنها.
+const FILTER_AR: Record<string, string> = { all: 'الكل', ...STATUS_AR };
+const FILTER_KEYS = Object.keys(FILTER_AR);
 
 function printOrder(order: any, settings: any, currency: string) {
   const brandName = settings.brand?.name || 'AMANZINE';
@@ -236,6 +239,7 @@ export default function OrdersPage() {
   const { orders, approveOrder, rejectOrder, shipOrder, deliverOrder, trackOrder, settings, notify, customers, products, addOrder, isLoading } = useStore();
 
   const [filter, setFilter] = useState('pending');
+  const [filterTouched, setFilterTouched] = useState(false);
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [view, setView] = useState<'list' | 'kanban'>('list');
@@ -243,6 +247,15 @@ export default function OrdersPage() {
   const [manualTrk, setManualTrk] = useState('');
   const [mainTab, setMainTab] = React.useState<'orders'|'customers'>('orders');
   const [showQuickOrder, setShowQuickOrder] = useState(false);
+
+  // «بانتظار» تبويبُ عملٍ لا تبويبَ عرض. الطلباتُ تصل بعد أوّل بناء، فلو بقي
+  // الاختيارُ مُجمَّدًا على قيمته الأولى استقبلت الصفحةُ تاجرًا عنده ١٦ طلبًا
+  // بشاشةٍ فارغة. إن لم يكن في «بانتظار» شيء، ولم يختر التاجرُ بعد، نعرض الكلّ.
+  useEffect(() => {
+    if (filterTouched || !orders.length) return;
+    if (orders.some(o => o.status === 'pending')) return;
+    setFilter('all');
+  }, [orders, filterTouched]);
 
   // C-4: العائد الشرطي بعد تنفيذ كل الـ hooks — لتفادي مخالفة Rules of Hooks (كراش عند تبدّل isLoading)
   if (isLoading) return <OrdersSkeleton />;
@@ -419,11 +432,11 @@ export default function OrdersPage() {
             <input className="input" style={{ paddingRight: 38 }} placeholder="بحث بالاسم، رقم الطلب، المدينة..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <div className="tabs scroll-x">
-            {([['all','الكل'],['pending','بانتظار'],['pending_confirmation','تأكيد واتساب'],['approved','موافقة'],['processing','جارٍ'],['shipped','شُحن'],['delivered','وُصّل'],['cancelled','ملغي']] as const).map(([f, l]) => (
-              <button key={f} onClick={() => setFilter(f)} className={`tab-btn ${filter === f ? 'active' : ''}`} style={{ fontSize: 12.5 }}>
-                {l} {counts[f] > 0 && <span style={{ opacity: .6 }}>{counts[f]}</span>}
+            {FILTER_KEYS.map(f => { const l = FILTER_AR[f]; return (
+              <button key={f} onClick={() => { setFilterTouched(true); setFilter(f); }} className={`tab-btn ${filter === f ? 'active' : ''}`} style={{ fontSize: 12.5 }}>
+                {l} <span style={{ opacity: .6 }}>{counts[f] || 0}</span>
               </button>
-            ))}
+            ); })}
           </div>
         </div>
 
@@ -588,6 +601,7 @@ export default function OrdersPage() {
             </div>
           ))}
 
+          {/* «لا شيءَ هنا» و«لا شيءَ أبدًا» ليسا نفسَ الجملة. الأولى تُخفي ١٦ طلبًا. */}
           {filtered.length === 0 && (
             <div className="card">
               <div className="empty-state">
@@ -595,10 +609,28 @@ export default function OrdersPage() {
                   <img src="/icons/orders.svg" onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextElementSibling as HTMLElement).style.display='block'; }} alt="" />
                   <span style={{ display: 'none', fontSize: 44 }}>🛒</span>
                 </div>
-                <div>
-                  <p className="empty-state-title">لا توجد طلبات بعد</p>
-                  <p className="empty-state-sub">شارك رابط متجرك مع زبائنك لاستقبال أول طلب</p>
-                </div>
+                {orders.length === 0 ? (
+                  <div>
+                    <p className="empty-state-title">لا توجد طلبات بعد</p>
+                    <p className="empty-state-sub">شارك رابط متجرك مع زبائنك لاستقبال أول طلب</p>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <p className="empty-state-title">
+                        {search ? 'لا طلب يطابق البحث' : `لا طلب في «${FILTER_AR[filter] || filter}»`}
+                      </p>
+                      <p className="empty-state-sub">
+                        عندك {orders.length} طلبًا — {search ? 'امسح البحث' : 'في تبويباتٍ أخرى'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => { setSearch(''); setFilterTouched(true); setFilter('all'); }}
+                      className="btn btn-primary btn-sm" style={{ marginTop: 8 }}>
+                      عرض كلّ الطلبات ({orders.length})
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}
