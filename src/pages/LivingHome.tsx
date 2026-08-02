@@ -13,7 +13,11 @@ import { playGate } from '../lib/gateTransition';
 import { useNavigate } from 'react-router-dom';
 import { personaGreeting, personaWelcome } from '../lib/persona';
 import { decideInterface, confirmPrompt } from '../lib/interfaceDecision';
-import { receptionStart, receptionTurn, receptionUnderstood, receptionStep, receptionEnd, recordDecision, recordConfirm, recordClarificationAsked, recordClarificationAnswered } from '../lib/journey';
+import { receptionStart, receptionTurn, receptionUnderstood, receptionStep, receptionEnd, recordDecision, recordConfirm, recordClarificationAsked, recordClarificationAnswered, recordSnapshot } from '../lib/journey';
+import {
+  openSnapshot, askClarification, answerClarification, confirmSnapshot, withDestination,
+  stageOf, toTelemetry, type IntentSnapshot,
+} from '../lib/intentSnapshot';
 import UnderstandingCard from '../components/UnderstandingCard';
 import type { Journey } from '../lib/core/plugins';
 import type { Page } from '../types';
@@ -48,6 +52,8 @@ export default function LivingHome() {
   const [gapDays, setGapDays] = useState(0);
   const [fuDone, setFuDone] = useState(false);
   const [journey, setJourney] = useState<Journey | 'discover'>('discover');
+  // عقدُ الطلب — يُفتح مع أوّل جملةٍ ويرافقه إلى الوجهة أو التصعيد (HU-4).
+  const [snap, setSnap] = useState<IntentSnapshot | null>(null);
   const [xpLog] = useState<Interaction[]>(getInteractions); // تفاعلات الجلسات السابقة (تُقرأ مرّة)
 
   // ── أمثلةٌ حيّة متغيّرة (تعليمٌ بلا دليل) — تتبدّل في placeholder ما دامت الخانة فارغة ──
@@ -105,6 +111,8 @@ export default function LivingHome() {
 
   const go = (dest: Dest, what: string, intent?: string, via: Via = 'type') => {
     receptionStep(intent || via); receptionEnd('routed');    // قياس: خرج لوجهةٍ (نقطة الخروج = النيّة)
+    // العقدُ يُغلَق هنا ويُرسَل كاملًا — لا يُعيد أحدٌ تركيبَ الحوار بعده.
+    if (snap) recordSnapshot(toTelemetry(withDestination(snap, dest)));
     if (intent) recordExperience({ object: result?.object, raw: text, intent, what, dest: destToStr(dest), via, journey, uctx });
     // البوّابة تنفتح ثمّ تأخذك لوجهتك — استعارة أمانزين (سريعة، آمنة، تحترم تقليل الحركة).
     if (dest.page) {
@@ -140,10 +148,13 @@ export default function LivingHome() {
     const dec = decideInterface(r);
     recordDecision(dec.mode, r.intent, dec.reason, q);       // قياس: القرار + السبب + التقاط جملة «ما لم نفهمه»
     setJourney(j);
+    // عقدُ الطلب يُفتح هنا ويرافقه حتى النهاية — بدل أن يُعيد كلُّ جزءٍ من
+    // النظام تفسيرَ الحوار من الصفر (HU-4).
+    setSnap(openSnapshot(q, { intent: r.intent, confidence: r.confidence ?? 0 }));
     setText(q); setResult(r); setStepIdx(0); setPending(null); setConfirmed(false);
     setTurns([{ who: 'user', text: q }, ...(r.open ? [{ who: 'sys' as const, text: r.open }] : [])]);
   };
-  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); };
+  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); };
 
   const pickOption = (opt: NeedOption) => {
     receptionTurn(opt.label, 'button');                      // قياس: دورٌ بالأزرار
@@ -156,6 +167,12 @@ export default function LivingHome() {
       // جوابٌ يحمل وجهةً = الهدفُ صار معروفًا ⇒ ثقةٌ كافيةٌ للمضيّ.
       const after = (opt.page || opt.url) ? 0.9 : before;
       recordClarificationAnswered(step.clarifyId, opt.id, before, after);
+      // والعقدُ يُحدَّث معه: الجوابُ يُدمَج، فتُعاد المرحلةُ من الثقة الجديدة
+      // بدل أن تبقى على ما كانت — وهذه هي الحلقةُ التي كانت مفتوحة.
+      setSnap(s => s && answerClarification(s, step.clarifyId!, opt.id!, {
+        confidence: after,
+        signals: { target: opt.id as any },
+      }));
     }
     setTurns(t => [...t, { who: 'user', text: opt.label }]);
     if (stepIdx + 1 < steps.length) setStepIdx(i => i + 1);
@@ -168,6 +185,7 @@ export default function LivingHome() {
   useEffect(() => {
     if (activeStep?.clarifyId && !pending) {
       recordClarificationAsked(activeStep.clarifyId, result?.confidence ?? 0);
+      setSnap(s => s && askClarification(s, activeStep.clarifyId!));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStep?.clarifyId, stepIdx]);
@@ -310,14 +328,27 @@ export default function LivingHome() {
             <div style={{ marginTop: 2, border: '1.5px solid var(--warn,#F59E0B)', borderRadius: 15, padding: 15, background: 'color-mix(in srgb, var(--warn,#F59E0B) 8%, transparent)', display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink1)', lineHeight: 1.6 }}>{confirmPrompt(confirmText)}</div>
               <div style={{ display: 'flex', gap: 9 }}>
-                <button onClick={() => { recordConfirm(true, result.confidence ?? 0); setConfirmed(true); go({ page: result.page, url: result.url }, result.tags[0] || result.label, result.intent, 'type'); }}
+                <button onClick={() => { recordConfirm(true, result.confidence ?? 0); setSnap(sn => sn && withDestination(confirmSnapshot(sn, true), { page: result.page, url: result.url })); setConfirmed(true); go({ page: result.page, url: result.url }, result.tags[0] || result.label, result.intent, 'type'); }}
                   style={{ flex: 1, padding: '11px 16px', borderRadius: 12, border: 'none', background: 'var(--mint,#12A150)', color: '#fff', fontSize: 14, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>✅ إيه، صحيح</button>
-                <button onClick={() => { recordConfirm(false, result.confidence ?? 0); reset(); }}
+                <button onClick={() => { recordConfirm(false, result.confidence ?? 0); setSnap(sn => sn && confirmSnapshot(sn, false)); reset(); }}
                   style={{ padding: '11px 16px', borderRadius: 12, border: '1px solid var(--border2,rgba(255,255,255,.16))', background: 'transparent', color: 'var(--ink2)', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>❌ لا، نبدّل</button>
               </div>
             </div>
           )}
-          {(pending || !result.steps) && !(!pending && !confirmed && decision?.mode === 'confirm') && (
+          {/* تصعيدٌ لإنسان — بعد استيضاحين بلا ارتفاعٍ في الفهم، السؤالُ الثالث
+              ليس مساعدة. العقدُ هو من يقرّر هذا، لا الصفحة (ADR-0006). */}
+          {snap && stageOf(snap) === 'escalate' && !pending && (
+            <div style={{ marginTop: 2, border: '1.5px solid var(--info,#3B82F6)', borderRadius: 15, padding: 15, background: 'color-mix(in srgb, var(--info,#3B82F6) 8%, transparent)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink1)', lineHeight: 1.6 }}>
+                سولتك بزّاف وما زال ما فهمتش مزيان 🙏 خلّينا نديروها بطريقة أخرى: كتب اللي محتاج بكلماتك، ونوصّلوك بواحد يعاونك.
+              </div>
+              <button onClick={() => { setSnap(s => s && withDestination(s, { url: '/explore' })); go({ url: '/explore' }, text, result.intent, 'type'); }}
+                style={{ padding: '11px 16px', borderRadius: 12, border: 'none', background: 'var(--info,#3B82F6)', color: '#fff', fontSize: 14, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>
+                ✍️ نكتب بتفصيل
+              </button>
+            </div>
+          )}
+          {(pending || !result.steps) && !(!pending && !confirmed && decision?.mode === 'confirm') && !(snap && stageOf(snap) === 'escalate') && (
             <DestinationCard next={pending?.next || result.next}
               dest={pending ? { page: pending.page, url: pending.url } : { page: result.page, url: result.url }}
               intent={result.intent}

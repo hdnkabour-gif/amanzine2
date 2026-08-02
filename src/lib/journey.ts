@@ -233,6 +233,21 @@ export function recordClarificationAnswered(id: string, optionId: string, before
   _report({ kind: 'clarify', action: 'answered', name: `${id}:${optionId}`, source: String(Math.round(gain * 100)) });
 }
 
+/**
+ * لقطةُ الطلب عند إغلاقه (وجهةٌ أو تصعيد) — العقدُ كاملًا في سجلٍّ واحد.
+ *
+ *   بدل أن يُعيد كلُّ مستهلكٍ تركيبَ الحوار من أحداثٍ متفرّقة، تُرسَل اللقطةُ
+ *   كما هي: كم دورًا · ما سُئل · ما بقي · كم ارتفع الفهم. وبلا نصّ المستخدم
+ *   — القياسُ لا يحتاجه، والخصوصيّةُ تُصان افتراضًا لا استثناءً.
+ */
+export function recordSnapshot(t: { id: string; intent: string; stage: string; turns: number; gain: number; remaining: string[] }) {
+  _report({
+    kind: 'clarify', action: 'resolved',
+    name: `${t.intent}:${t.stage}`,
+    source: `t${t.turns}g${Math.round(t.gain * 100)}r${t.remaining.length}`,
+  });
+}
+
 /** إحصاءُ الاستيضاحات — أيُّ سؤالٍ يستحقّ البقاء. */
 export function clarifyStats() {
   const d = dload();

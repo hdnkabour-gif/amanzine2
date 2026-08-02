@@ -94,6 +94,11 @@ interface CatalogEntry extends Omit<Clarification, 'reason'> {
   missing: (s: Signals) => boolean;
   /** الأضيقُ أوّلًا: نسأل عن أكثرِ ما يحسم، لا عن أوّلِ ما نجد. */
   weight: number;
+  /**
+   * ملاذٌ أخير يطابق دائمًا. يُستعمل حين لا يبقى سؤالٌ حقيقيّ، لكنّه **ليس
+   * نقصًا**: عدُّه ضمن «ما بقي» يجعل القائمةَ تَعِد بسؤالٍ لا معنى له.
+   */
+  fallback?: boolean;
 }
 
 const CATALOG: CatalogEntry[] = [
@@ -149,6 +154,7 @@ const CATALOG: CatalogEntry[] = [
     id: 'no_signal',
     reason: 'no_signal',
     weight: 10,
+    fallback: true,
     question: 'قول ليا بكلماتك: شنو محتاج دابا؟',
     missing: () => true,      // الملاذُ الأخير — يطابق دائمًا
     options: [
@@ -211,3 +217,8 @@ const pct = (c: number) => `${Math.round(c * 100)}٪`;
 
 /** لأغراض الاختبار والتشخيص — كلُّ الهويّات المعروفة. */
 export const CLARIFICATION_IDS = CATALOG.map(c => c.id);
+
+/** هل هذه الهويّةُ ملاذٌ أخير لا نقصٌ حقيقيّ؟ */
+export function isFallback(id: string): boolean {
+  return !!CATALOG.find(c => c.id === id)?.fallback;
+}
