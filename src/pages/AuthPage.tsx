@@ -147,7 +147,19 @@ export default function AuthPage() {
   };
 
   // بعد الدخول: أكمِل الحاجة التي جاء بها بدل صفحةٍ عامّة — الرحلة واحدة.
+  // والوجهةُ تتبع نيّتَه: مَن جاء ليعرض خدمتَه أو نشاطَه يُفتح له النشرُ
+  // مباشرةً، لا سوقٌ يبحث فيه عن نفسه. (`next=publish` من الصفحة الأولى،
+  // أو الموقفُ المقروء وقتَ الكتابة.)
   const resumeNeed = (): boolean => {
+    let stance = '';
+    try { stance = sessionStorage.getItem('amanzine_need_stance') || ''; } catch { /* noop */ }
+    const wantsToOffer = stance === 'offer'
+      || new URLSearchParams(window.location.search).get('next') === 'publish';
+
+    if (wantsToOffer) {
+      try { sessionStorage.removeItem('amanzine_need_stance'); } catch { /* noop */ }
+      try { window.location.assign('/home?page=publish'); return true; } catch { return false; }
+    }
     if (!need?.text) return false;
     try { sessionStorage.removeItem('amanzine_need'); } catch { /* noop */ }
     const city = need.city ? `&city=${encodeURIComponent(need.city)}` : '';

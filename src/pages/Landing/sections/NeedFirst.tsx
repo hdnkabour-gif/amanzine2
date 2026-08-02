@@ -147,6 +147,12 @@ export default function NeedFirst() {
     ];
   }, [text, result, knowsWhat]);
 
+  // «الصفحةُ تُصغي»: عند التركيز تتقدّم الخانةُ نحو المستخدم ويتراجع ما حولها.
+  // ليس زينةً — هو إعلانٌ بصريٌّ بأنّ الدورَ صار له، فالسطرُ الفارغُ الصامت هو
+  // ما جعل الصفحةَ لا تدعو أحدًا للكتابة.
+  const [listening, setListening] = useState(false);
+  const engaged = listening || text.trim().length > 0;
+
   const go = (q?: string) => {
     const need = (q ?? text).trim();
     if (!need) { inputRef.current?.focus(); return; }
@@ -154,7 +160,15 @@ export default function NeedFirst() {
     try { sessionStorage.setItem('amanzine_need_seed', need); } catch { /* noop */ }
     const u: any = understand(need);
     const city = u.city ? `&city=${encodeURIComponent(u.city)}` : '';
-    navigate(`/market?q=${encodeURIComponent(need)}${city}`);
+    // النيّةُ تُقرأ ثمّ تُحترَم. كان كلُّ شيءٍ يذهب إلى السوق: مَن يشتري، ومَن
+    // يبحث عن حرفيّ، ومَن جاء ليعرض خدمتَه — يُفهَم ثمّ يُرمى الفهمُ ويُرسَل
+    // الجميعُ إلى مكانٍ واحد. القراءةُ التي لا تغيّر شيئًا ليست فهمًا.
+    const stance = (() => { try { return stanceOf(need); } catch { return null; } })();
+    const wantsToOffer = stance === 'offer' || /^(SELF|SELL)$/.test(String(u.intent || ''));
+    try { sessionStorage.setItem('amanzine_need_stance', wantsToOffer ? 'offer' : 'seek'); } catch { /* noop */ }
+    navigate(wantsToOffer
+      ? `/auth?next=publish&q=${encodeURIComponent(need)}`
+      : `/market?q=${encodeURIComponent(need)}${city}`);
   };
 
   return (
@@ -165,30 +179,46 @@ export default function NeedFirst() {
         @keyframes nfPulse { 0%,80%,100%{opacity:.25;transform:translateY(0)} 40%{opacity:1;transform:translateY(-3px)} }
         .nfFact { animation: nfIn .28s cubic-bezier(.16,1,.3,1) both; }
         .nfDot { width:6px; height:6px; border-radius:50%; background:currentColor; display:inline-block; animation: nfPulse 1s ease-in-out infinite; }
+        /* اهتزازةٌ واحدةٌ عند التركيز — «سمعتك». تُلغى لمن يطلب تقليلَ الحركة. */
+        @keyframes nfWake { 0%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(5px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(2px)} 100%{transform:translateX(0)} }
+        .nfWake { animation: nfWake .42s cubic-bezier(.36,.07,.19,.97) both; }
+        @media (prefers-reduced-motion: reduce) { .nfWake { animation: none; } }
       `}</style>
 
-      {/* الشعار + جملةٌ واحدة. لا أكثر. */}
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 'clamp(1.9rem,7vw,3rem)', fontWeight: 900, letterSpacing: '-.02em', color: C.ink, lineHeight: 1.1 }}>
-          AMANZINE
-        </div>
-        <div style={{ marginTop: 10, fontSize: 'clamp(1rem,3.4vw,1.35rem)', fontWeight: 700, color: C.ink2 }}>
-          قول غير أش خاصّك.
+      {/* الشعارُ ثمّ الجملة. يتراجعان حين يبدأ الكلام — لا يختفيان: الاختفاءُ
+          يقفز بما تحته، والتراجعُ يبدو إصغاءً. */}
+      <div style={{ textAlign: 'center',
+        transform: engaged ? 'scale(.72) translateY(-6px)' : 'scale(1)',
+        opacity: engaged ? .55 : 1,
+        transition: 'transform .5s cubic-bezier(.16,1,.3,1), opacity .4s ease',
+        transformOrigin: 'center bottom' }}>
+        <img src="/brand/amanzine-logo.png" alt="AMANZINE"
+          width={96} height={96}
+          style={{ width: 'clamp(64px,17vw,96px)', height: 'auto', objectFit: 'contain', display: 'block', margin: '0 auto' }}
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+        <div style={{ marginTop: 12, fontSize: 'clamp(1.05rem,3.6vw,1.4rem)', fontWeight: 800, color: C.ink2, letterSpacing: '-.01em' }}>
+          كلّ كلمة عندها طريق
         </div>
       </div>
 
-      {/* الخانة — بطلةُ الصفحة */}
-      <div style={{ width: '100%', maxWidth: 620 }}>
+      {/* الخانة — بطلةُ الصفحة. تكبر وتتقدّم عند التركيز، وتهتزّ اهتزازةً
+          واحدةً قصيرة: إشارةُ «سمعتك» لا حركةٌ زائدة. */}
+      <div style={{ width: '100%', maxWidth: 620,
+        transform: engaged ? 'scale(1.035)' : 'scale(1)',
+        transition: 'transform .45s cubic-bezier(.16,1,.3,1)' }}>
         <form onSubmit={e => { e.preventDefault(); go(); }}>
           <input
             ref={inputRef} value={text} onChange={e => setText(e.target.value)}
+            onFocus={() => setListening(true)} onBlur={() => setListening(false)}
+            className={listening ? 'nfWake' : undefined}
             placeholder={ph} autoFocus aria-label="اكتب حاجتك"
             style={{
-              width: '100%', boxSizing: 'border-box', padding: '20px 22px', borderRadius: 18,
+              width: '100%', boxSizing: 'border-box',
+              padding: engaged ? '24px 24px' : '20px 22px', borderRadius: 18,
               border: `1.5px solid ${facts.length ? C.orange : C.border}`, background: C.surface,
               color: C.ink, fontSize: 'clamp(15px,4vw,18px)', fontWeight: 650, fontFamily: 'inherit',
               outline: 'none', direction: 'rtl', boxShadow: facts.length ? C.shadowH : C.shadow,
-              transition: 'border-color .2s ease, box-shadow .3s ease',
+              transition: 'border-color .2s ease, box-shadow .3s ease, padding .45s cubic-bezier(.16,1,.3,1)',
             }} />
         </form>
 
