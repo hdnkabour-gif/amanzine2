@@ -639,6 +639,61 @@ const db = {
     );
     return id;
   },
+  // ── خرائط المدن ───────────────────────────────────────────────
+  async saveCityMappings(userId, providerRowId, mappings) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // استبدالٌ كامل: مزامنةٌ جديدة تعكس ما لدى الشركة الآن، فمدينةٌ حُذفت
+      // عندها يجب أن تختفي من الخريطة لا أن تبقى تُرسَل بمُعرِّفٍ ميّت.
+      await client.query(
+        'DELETE FROM delivery_provider_city_mappings WHERE provider_row_id = $1 AND user_id = $2',
+        [providerRowId, userId]
+      );
+      for (const m of mappings || []) {
+        await client.query(
+          `INSERT INTO delivery_provider_city_mappings
+             (user_id, provider_row_id, city_id, city_name, external_id, external_name, synced_at)
+           VALUES ($1,$2,$3,$4,$5,$6,NOW())
+           ON CONFLICT (provider_row_id, city_id) DO UPDATE
+             SET external_id = EXCLUDED.external_id,
+                 external_name = EXCLUDED.external_name,
+                 synced_at = NOW()`,
+          [userId, providerRowId, m.cityId, m.cityName, String(m.externalId), m.externalName || '']
+        );
+      }
+      await client.query('COMMIT');
+      return (mappings || []).length;
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  },
+  async getCityMappings(userId, providerRowId) {
+    const { rows } = await pool.query(
+      `SELECT city_id, city_name, external_id, external_name, synced_at
+         FROM delivery_provider_city_mappings
+        WHERE user_id = $1 AND provider_row_id = $2 ORDER BY city_name`,
+      [userId, providerRowId]
+    );
+    return rows.map(r => ({
+      cityId: r.city_id, cityName: r.city_name,
+      externalId: r.external_id, externalName: r.external_name || '',
+      syncedAt: r.synced_at ? new Date(r.synced_at).toISOString() : null,
+    }));
+  },
+  /** مُعرِّفُ المدينة عند شركةٍ بعينها — null إن لم تُطابَق بعد. */
+  async getExternalCityId(userId, providerRowId, cityId) {
+    const { rows } = await pool.query(
+      `SELECT external_id FROM delivery_provider_city_mappings
+        WHERE user_id = $1 AND provider_row_id = $2 AND city_id = $3`,
+      [userId, providerRowId, cityId]
+    );
+    return rows[0] ? rows[0].external_id : null;
+  },
+
   async deleteDeliveryProvider(id, userId) {
     if (userId) await pool.query('DELETE FROM delivery_providers WHERE id = $1 AND user_id = $2', [id, userId]);
     else await pool.query('DELETE FROM delivery_providers WHERE id = $1', [id]);

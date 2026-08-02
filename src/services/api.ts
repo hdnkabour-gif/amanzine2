@@ -265,6 +265,15 @@ export const deliveryAPI = {
     request<{ success: boolean; city: string; quotes: any[] }>('GET', `/delivery/quote?city=${encodeURIComponent(city)}${total != null ? `&total=${total}` : ''}`),
   // المزوّدون المتاحون وقدراتُهم — تبني الواجهةُ نفسَها منها لا من أسماء الشركات
   registry: () => request<{ providers: any[]; rejected: any[] }>('GET', '/delivery/registry'),
+  // ── محرّك المدن ──
+  // مدنُ AMANZINE المعياريّة — ما يراه التاجر مهما تبدّلت الشركة
+  canonicalCities: () => request<{ success: boolean; cities: { id: string; name: string }[] }>('GET', '/delivery/cities/canonical'),
+  // مزامنةُ مدن شركةٍ ومطابقتُها؛ تُعيد ما لم يُطابَق صراحةً لا صامتًا
+  syncCities: (providerRowId: string) =>
+    request<{ success: boolean; provider: string; matched: number; unmatched: { externalId: string; externalName: string }[] }>(
+      'POST', `/delivery/sync-cities/${providerRowId}`),
+  cityMappings: (providerRowId: string) =>
+    request<{ success: boolean; mappings: any[] }>('GET', `/delivery/city-mappings/${providerRowId}`),
   track:    (orderId: string) => request<{ success: boolean; status: string; history: any[]; trackingNumber: string }>('POST', `/delivery/track/${orderId}`),
 };
 

@@ -44,7 +44,8 @@ async function createShipment(order, cfg) {
     const payload = {
       recipientName: order.customerName || order.recipientName || '',
       phone:   order.phone || order.customerPhone || '',
-      city:    order.city || '',
+      // مُعرِّفُ المدينة عند Livo إن تُرجم عبر محرّك المدن، وإلّا الاسمُ نصًّا.
+      city:    order.cityId || order.cityName || order.city || '',
       address: order.address || '',
       cod:     order.codAmount != null ? order.codAmount : (order.total || 0),
       // الحقلُ الذي كانت Livo ترفض الطلبَ بدونه: "cost" is required

@@ -6,6 +6,7 @@ const { db } = require('../database');
 
 // سجلُّ المزوّدين — يكتشفهم بمسح المجلّد. لا استيرادَ باسم شركةٍ هنا.
 const registry = require('../services/delivery/registry');
+const cityEngine = require('../lib/cityEngine');
 
 // ── ترحيلٌ لمرّةٍ واحدة: settings.delivery.providers ⇒ delivery_providers ──────
 // شركاتٌ أُضيفت عبر «البسيط» أو «واتساب» أو «وصفة URL» كانت تُحفَظ في الإعدادات
@@ -120,13 +121,36 @@ router.post('/create/:orderId', auth, async (req, res) => {
     // لا فروعَ باسم شركة: السجلُّ يختار المزوّدَ من api_type (أو webhook عامًّا)،
     // والنتيجةُ تخرج بشكلٍ واحدٍ مهما اختلفت الشركة. إضافةُ شركةٍ = ملفٌّ جديد
     // في services/delivery/providers، بلا لمسِ هذا المسار.
+    // ترجمةُ المدينة إلى مُعرِّفِ الشركة قبل الإرسال. التاجرُ كتب «كازا» أو
+    // «الدار البيضاء»؛ الشركةُ تريد 18. غيابُ الخريطة ليس عطبًا — نُرسل الاسمَ
+    // كما كان (سلوكُ ما قبل هذه الطبقة) ونُسجّل الملاحظة.
+    const canonical = cityEngine.resolve(order.city);
+    let externalCityId = null;
+    if (canonical) {
+      try { externalCityId = await db.getExternalCityId(req.user.id, prov.id, canonical.id); }
+      catch { /* الخريطةُ اختياريّة */ }
+    }
+    if (canonical && !externalCityId) {
+      steps.push({
+        label: `مدينة «${canonical.name}» بلا مُعرِّفٍ لدى ${prov.name}`,
+        ok: true,
+        detail: 'يُرسَل الاسمُ نصًّا — زامِن المدن من صفحة التوصيل لدقّةٍ أعلى',
+      });
+    }
+
     const chosen = registry.resolve(prov);
     if (chosen) {
       const plugin = chosen.handler;
       const label = `إرسال بيانات الشحنة إلى ${prov.name} (${chosen.label})`;
       try {
         const result = await plugin.createShipment(
-          { ...order, currency: settings.brand?.currency || 'MAD' },
+          {
+            ...order,
+            currency: settings.brand?.currency || 'MAD',
+            // المزوّدُ يُفضّل المُعرِّفَ إن وُجد، ويقع على الاسم إن لم يوجد.
+            cityId: externalCityId || undefined,
+            cityName: canonical?.name || order.city,
+          },
           prov
         );
         if (result.success) {
@@ -138,6 +162,9 @@ router.post('/create/:orderId', auth, async (req, res) => {
             trackingNumber: realTracking,
             deliveryProvider: prov.name,
             providerId: plugin.meta.id,
+            // مُعرِّفُ المدينة عند الشركة يُحفَظ في الطلب: بعد سنةٍ تبقى الشحنةُ
+            // قابلةً لإعادة البناء حتى لو تغيّرت خرائطُ المدن أو الشركةُ نفسُها.
+            providerCityId: externalCityId || '',
             providerShipmentId: result.shipmentId || '',
             // العمودُ القديم يُملأ معه حتى تتوقّف القراءاتُ القديمة عنه.
             livoOrderId: result.shipmentId || '',
@@ -307,6 +334,58 @@ router.post('/track/:orderId', auth, async (req, res) => {
     });
   } catch (e) {
     console.error('[delivery/track]', e.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── خرائط المدن ──────────────────────────────────────────────────────────────
+
+// GET /api/delivery/cities/canonical — مدنُ AMANZINE المعياريّة (ما يراه التاجر)
+router.get('/cities/canonical', auth, (req, res) => {
+  res.json({ success: true, cities: cityEngine.all() });
+});
+
+// POST /api/delivery/sync-cities/:providerRowId — يجلب مدنَ الشركة ويُطابقها
+router.post('/sync-cities/:providerRowId', auth, async (req, res) => {
+  try {
+    const rows = await db.getDeliveryProviders(req.user.id);
+    const row = rows.find(r => r.id === req.params.providerRowId);
+    if (!row) return res.status(404).json({ error: 'شركة التوصيل غير موجودة' });
+
+    const chosen = registry.resolve(row);
+    const plugin = chosen?.handler;
+    if (!plugin || typeof plugin.getCities !== 'function' || plugin.capabilities?.cities !== 'api') {
+      return res.status(400).json({ error: `${row.name} لا تُقدّم قائمةَ مدنٍ عبر API` });
+    }
+
+    const result = await plugin.getCities(row);
+    if (!result.success) return res.status(502).json({ error: result.error || 'فشل جلب المدن' });
+
+    const { matched, unmatched } = cityEngine.matchAll(result.cities);
+    const saved = await db.saveCityMappings(req.user.id, row.id, matched);
+
+    await db.addLog({
+      userId: req.user.id, user: 'System',
+      action: `🗺️ مزامنة مدن ${row.name}`,
+      details: `${saved} مُطابَقة · ${unmatched.length} بلا مطابقة`,
+      type: 'delivery', severity: unmatched.length ? 'warning' : 'success',
+    });
+
+    // المجهولُ يُعاد صراحةً: مدينةٌ لدى الشركة لم تُفهَم يجب أن يراها التاجر
+    // بدل أن تختفي، وإلّا اكتشفها عند أوّل شحنةٍ فاشلة.
+    res.json({ success: true, provider: row.name, matched: saved, unmatched });
+  } catch (e) {
+    console.error('[delivery/sync-cities]', e.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/delivery/city-mappings/:providerRowId — الخريطة المحفوظة
+router.get('/city-mappings/:providerRowId', auth, async (req, res) => {
+  try {
+    res.json({ success: true, mappings: await db.getCityMappings(req.user.id, req.params.providerRowId) });
+  } catch (e) {
+    console.error('[delivery/city-mappings]', e.message);
     res.status(500).json({ error: 'Server error' });
   }
 });

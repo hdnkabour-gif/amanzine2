@@ -169,6 +169,23 @@ async function migrate() {
       await client.query(`ALTER TABLE delivery_providers ADD COLUMN IF NOT EXISTS ${col}`).catch(() => {});
     }
 
+    // 🗺️ خرائطُ المدن: مدينةُ AMANZINE واحدة، ومُعرِّفُها يختلف عند كلّ شركة.
+    // بلا هذا يُرسَل اسمُ المدينة نصًّا حرًّا فترفضه الشركةُ أو تُسلّم لغيرها.
+    // المدنُ المعياريّة نفسُها مُولَّدةٌ من قاعدة المعرفة (generated/cities.json)
+    // ولا تُخزَّن هنا — الجدولُ للخرائط وحدَها كي لا ينشأ مصدرُ حقيقةٍ ثانٍ.
+    await client.query(`CREATE TABLE IF NOT EXISTS delivery_provider_city_mappings (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      provider_row_id TEXT NOT NULL REFERENCES delivery_providers(id) ON DELETE CASCADE,
+      city_id TEXT NOT NULL,
+      city_name TEXT NOT NULL,
+      external_id TEXT NOT NULL,
+      external_name TEXT DEFAULT '',
+      synced_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (provider_row_id, city_id)
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_city_map_user
+      ON delivery_provider_city_mappings(user_id, city_id)`);
+
     await client.query(`CREATE TABLE IF NOT EXISTS broadcasts (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
