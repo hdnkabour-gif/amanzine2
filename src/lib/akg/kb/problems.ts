@@ -46,7 +46,7 @@ export const PROBLEMS: Record<string, Problem> = {
     related: ['water_leak'], category: 'السباكة', subcategory: 'التسليك', requiredExperience: 'intermediate',
   },
   electrical_blackout: {
-    id: 'electrical_blackout', name: 'انقطاع الكهرباء', symptoms: { darija: ['الضو مقطوع', 'الكهربا مقطوعة', 'الضو كيطيح', 'ديسجونكتور'], arabic: ['التيار مقطوع'], french: ["coupure d'électricité"], english: ['power outage'] },
+    id: 'electrical_blackout', name: 'انقطاع الكهرباء', symptoms: { darija: ['الضو مقطوع', 'الكهربا مقطوعة', 'الضو كيطيح', 'ديسجونكتور', 'الضو مشا', 'الضو طفا', 'مشا ليا الضو', 'ما كاينش الضو', 'الكهربا مشات'], arabic: ['التيار مقطوع'], french: ["coupure d'électricité"], english: ['power outage'] },
     severity: 'high', emergency: true,
     solutions: [{ profession: 'electrician', capabilities: ['diagnose_electrical', 'replace_fuse'], tools: ['multimeter'], estimatedDuration: '1-3 ساعات', difficulty: 'medium' }],
     causes: ['قاطع كهربائيّ', 'حمولة زائدة', 'عطب أسلاك'], related: ['short_circuit'], category: 'الكهرباء', subcategory: 'الأعطال', requiredExperience: 'expert',
