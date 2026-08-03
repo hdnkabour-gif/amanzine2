@@ -8,9 +8,10 @@ import type { FieldType } from '../blueprints';
 
 export type Widget =
   | 'text' | 'number' | 'money' | 'choice' | 'toggle'
-  | 'gallery' | 'video' | 'location' | 'phone';
+  | 'gallery' | 'video' | 'location' | 'phone' | 'tagset';
 
 export const WIDGET: Record<FieldType, Widget> = {
   text: 'text', number: 'number', money: 'money', select: 'choice',
   city: 'location', phone: 'phone', toggle: 'toggle', photos: 'gallery', video: 'video',
+  tags: 'tagset',
 };

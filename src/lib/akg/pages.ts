@@ -5,7 +5,7 @@
 // ============================================================
 
 import { registerPage } from './registry';
-import { baseFields } from '../catalog';
+import { baseFields, UNIVERSAL_KEYS } from '../catalog';
 
 // ── صفحة المنتجات — المتجر: أضف/عدّل/شارك المنتجات ──
 registerPage({
@@ -49,13 +49,15 @@ registerPage({
   services: ['ai.description', 'ai.enhance', 'design.image', 'ai.price', 'geo.city', 'share.whatsapp', 'share.social'],
   next: 'شارك الإعلان بعد نشره',
   keywords: ['نشر', 'إعلان', 'بيع', 'كراء', 'خدمة', 'publier', 'annonce'],
-  fields: [
-    { key: 'title',  label: 'العنوان',       kind: 'text',   essential: true },
-    { key: 'price',  label: 'الثمن',         kind: 'money',  essential: true },
-    { key: 'city',   label: 'المدينة',       kind: 'city',   essential: true },
-    { key: 'photos', label: 'الصور',         kind: 'photos', essential: true, evidence: true },
-    { key: 'desc',   label: 'الوصف',         kind: 'text' },
-  ],
+  // المفاتيحُ الكونيّةُ من `catalog.ts` — كانت مكتوبةً هنا بيدٍ ثالثة، فقالت
+  // «العنوان» و«الثمن» بينما تقول الاستمارةُ «اسم المنتج» و«الثمن (درهم)».
+  // حقلٌ واحدٌ باسمين يجعل التاجرَ يظنّهما حقلين.
+  fields: baseFields('product')
+    .filter(f => (UNIVERSAL_KEYS as readonly string[]).includes(f.key))
+    .map(f => ({
+      ...f, kind: f.kind as any,
+      ...(f.key === 'photos' ? { evidence: true } : {}),
+    })),
   actions: [
     { key: 'publish', label: 'انشر الآن',     outcome: 'ينشر الإعلان ويعطيك رابطًا للمشاركة', primary: true },
     { key: 'assume',  label: 'فكّر قبل السؤال', outcome: 'يفترض ما يقدر عليه ويؤكّده معك' },

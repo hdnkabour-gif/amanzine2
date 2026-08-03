@@ -1,4 +1,4 @@
-import { CATEGORIES, categoryForConcept, fieldsForCategory } from './catalog';
+import { CATEGORIES, categoryForConcept, fieldsForCategory, baseFields, UNIVERSAL_KEYS, type CategoryKind } from './catalog';
 import { resolveConcept } from './akg/kb/knowledge';
 
 /** تسمياتُ الفئات — مشتقّةٌ لا مكتوبة. */
@@ -11,7 +11,9 @@ const CATEGORY_LABELS = CATEGORIES.map(c => c.label);
 // يغذّي «نسبة الاكتمال». مستقبلًا: Living Blueprint يتعلّم من السوق (خادم).
 // ============================================================
 
-export type FieldType = 'text' | 'number' | 'money' | 'select' | 'city' | 'phone' | 'toggle' | 'photos' | 'video';
+// `tags` = قيمٌ متعدّدة (مقاسات · ألوان · تخصّصات). كان غيابُه سببَ أنّ
+// المقاسَ لم يكن يُسأل عنه في المساعد أصلًا: لا نوعَ حقلٍ يقبل أكثر من قيمة.
+export type FieldType = 'text' | 'number' | 'money' | 'select' | 'city' | 'phone' | 'toggle' | 'photos' | 'video' | 'tags';
 
 export interface BField {
   key: string;
@@ -33,23 +35,46 @@ export interface Blueprint {
   fields: BField[];
 }
 
+// ── جسرُ الكتالوج → القالب ────────────────────────────────────
+// الحقولُ الأساسيّةُ لم تعد تُكتب هنا. كانت مكتوبةً مرّتين فاختلفتا:
+//   الاستمارةُ تقول «اسم المنتج» والسيناريو يقول «العنوان» — حقلٌ واحدٌ
+//   باسمين. والسيناريو يسأل عن المدينة والاستمارةُ لا، والاستمارةُ تسأل عن
+//   المقاسات والسيناريو لا. فمن نشر من هنا فقَد مقاساته ومن نشر من هناك
+//   فقَد مدينته. الآن كلاهما يقرأ `catalog.baseFields`.
+const KIND_TO_TYPE: Record<string, FieldType> = {
+  text: 'text', money: 'money', number: 'number', select: 'select',
+  photos: 'photos', city: 'city', tags: 'tags', phone: 'phone', toggle: 'toggle',
+};
+const WEIGHTS: Record<string, number> = {
+  title: 20, photos: 20, price: 18, city: 12, category: 10,
+  desc: 8, sizes: 8, colors: 7, stock: 6, cost: 5, hashtags: 3,
+};
+function fromCatalog(kind: CategoryKind, keys?: readonly string[]): BField[] {
+  return baseFields(kind)
+    .filter(f => !keys || keys.includes(f.key))
+    .map(f => ({
+      key: f.key,
+      label: f.label,
+      type: KIND_TO_TYPE[f.kind] || 'text',
+      required: f.essential,
+      weight: WEIGHTS[f.key] ?? 5,
+      hint: f.hint,
+      ...(f.key === 'photos' ? { evidence: true } : {}),
+      ...(f.key === 'category' ? { options: CATEGORY_LABELS } : {}),
+    }));
+}
+
 // ── تعريفات القوالب (قابلة للتوسّع بلا لمس الكود المنطقيّ) ──
 const RAW: Blueprint[] = [
-  // القالب الأمّ: مشترك بين كل الإعلانات
-  { id: 'base', entity: 'base', label: 'إعلان', verb: 'ينشر إعلانًا', fields: [
-    { key: 'title', label: 'العنوان', type: 'text', required: true, weight: 20 },
-    { key: 'price', label: 'الثمن (درهم)', type: 'money', required: true, weight: 18 },
-    { key: 'city', label: 'المدينة', type: 'city', required: true, weight: 12 },
-    { key: 'photos', label: 'الصور', type: 'photos', evidence: true, weight: 20, hint: 'الإعلانات بصور تبيع أسرع' },
-    { key: 'desc', label: 'وصف', type: 'text', weight: 8 },
-  ]},
+  // القالب الأمّ: المفاتيحُ الكونيّةُ وحدَها — ما يصلح لسيّارةٍ وعقارٍ ومنتج.
+  // المقاسُ واللونُ ليسا هنا: لا مقاسَ لشقّة.
+  { id: 'base', entity: 'base', label: 'إعلان', verb: 'ينشر إعلانًا',
+    fields: fromCatalog('product', UNIVERSAL_KEYS) },
 
-  // منتج عامّ / إلكترونيات
+  // منتج عامّ / إلكترونيات — بقيّةُ أساسِ المنتج: فئة · مخزون · ألوان · مقاسات · تكلفة.
   { id: 'product', entity: 'product', label: 'منتج للبيع', verb: 'ينشر منتجًا', extends: 'base', fields: [
-    // الخياراتُ من `catalog.ts` — كانت قائمةً رابعةً للفئات تخالف الثلاثَ الأخرى.
-    { key: 'category', label: 'الفئة', type: 'select', options: CATEGORY_LABELS, required: true, weight: 10 },
+    ...fromCatalog('product').filter(f => !UNIVERSAL_KEYS.includes(f.key as any)),
     { key: 'condition', label: 'الحالة', type: 'select', options: ['جديد', 'مستعمل', 'كالجديد'], weight: 8 },
-    { key: 'warranty', label: 'فيه ضمان؟', type: 'toggle', weight: 4 },
   ]},
 
   // مركبة (سيّارة)
@@ -156,7 +181,13 @@ export function resolveBlueprint(intent: string, raw: string): { blueprint: Blue
   // القالبُ يعرف ما يعرفه نموذجُ المنتج: «عندي كسوة للبيع» ⇒ فئةُ الأطفال ⇒
   // نفسُ أسئلتها. كان المساعدُ يسأل ثلاثةَ أسئلةٍ عامّةٍ والاستمارةُ تسأل
   // عشرةً خاصّة — سؤالان مختلفان عن الشيء الواحد، وهو ما لاحظه المالك.
-  const base = resolveFields(id);
+  const cat = categoryForConcept(resolveConcept(raw)?.id);
+  // المقاساتُ والألوانُ تُقترَح من الفئة نفسِها — «كسوة العيد» ⇒ مقاساتُ
+  // الأطفال، «صباط» ⇒ ٣٥…٤٦. بلا هذا يبقى السؤالُ صندوقًا فارغًا يُملأ يدويًّا،
+  // وقد كان لا يُسأل أصلًا.
+  const base = resolveFields(id).map(f =>
+    cat && f.key === 'sizes' && cat.sizes.length ? { ...f, options: cat.sizes } :
+    cat && f.key === 'colors' && cat.colors.length ? { ...f, options: cat.colors } : f);
   const seen = new Set(base.map(f => f.key));
   const extra = categoryExtraFields(raw).filter(f => !seen.has(f.key));
   return { blueprint, fields: [...base, ...extra], entity };

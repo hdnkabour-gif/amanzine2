@@ -25,6 +25,7 @@ const COMPONENT: Record<Widget, string> = {
   video: 'VideoPicker',
   location: 'LocationInput',
   phone: 'PhoneInput',
+  tagset: 'TagsPicker',
 };
 
 export function toFieldView(field: UIField): FieldView {

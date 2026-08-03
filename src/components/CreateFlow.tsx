@@ -104,7 +104,8 @@ export default function CreateFlow({ def }: { def: PageDef }) {
   // القيمُ المجموعة → منتج/خدمة تُحفَظ فعلًا. الحقول تختلف بالقالب (سيّارة/عقار/
   // خدمة)، لذا نأخذ المعروف بالاسم ونُبقي الباقي في `data` بلا ضياع.
   const toProduct = (v: Values) => {
-    const KNOWN = ['title', 'profession', 'price', 'dailyPrice', 'desc', 'city', 'photos', 'video', 'category'];
+    const KNOWN = ['title', 'profession', 'price', 'dailyPrice', 'desc', 'city', 'photos', 'video',
+      'category', 'sizes', 'colors', 'stock', 'cost'];
     // حقولُ القالب الخاصّة (ماركة · سنة · كيلومتراج · خبرة · ضمانة…) تُحفَظ في
     // `customFields` — نفس الحقل الذي يقرأه السوق ويعرضه للزبون. بلا هذا كانت
     // تُجمَع في الواجهة ثمّ تُرمى عند الحفظ، فيُنشَر إعلانُ سيّارةٍ بلا ماركة.
@@ -124,14 +125,23 @@ export default function CreateFlow({ def }: { def: PageDef }) {
       }));
     const photos: string[] = Array.isArray(v.photos) ? v.photos : v.photos ? [String(v.photos)] : [];
     const num = (x: any) => { const n = parseFloat(String(x ?? '').replace(/[^\d.]/g, '')); return Number.isFinite(n) ? n : 0; };
+    // قيمٌ متعدّدة: قد تصل مصفوفةً من `TagsPicker` أو نصًّا مفصولًا بفواصل.
+    const list = (x: any): string[] =>
+      Array.isArray(x) ? x.map(s => String(s).trim()).filter(Boolean)
+      : x ? String(x).split(/\s*[،,]\s*/).map(s => s.trim()).filter(Boolean) : [];
     return {
       // الخادم يرفض اسمًا أقصر من حرفين — لا نترك النشر يفشل على تفصيلٍ كهذا.
       name: (String(v.title || v.profession || raw).trim() || 'إعلان جديد').slice(0, 120),
       description: String(v.desc || raw || ''),
       price: num(v.price ?? v.dailyPrice),
-      cost: 0, stock: 1,
+      // كانت هذه أربعَ قيمٍ ثابتةٍ تطمس ما كتبه التاجر: `cost: 0` تجعل كلَّ
+      // ربحٍ يبدو ١٠٠٪، و`stock: 1` تُغلق البيعَ بعد أوّل طلبٍ لمن عنده أربعون
+      // قطعة، و`sizes: []`/`colors: []` تبتلعان ما مَلأه. القيمةُ الآن من
+      // التاجر، والصفرُ افتراضٌ لا حكم.
+      cost: num(v.cost),
+      stock: v.stock != null && v.stock !== '' ? Math.max(0, Math.round(num(v.stock))) : 1,
       category: String(v.category || def.id),
-      sizes: [], colors: [],
+      sizes: list(v.sizes), colors: list(v.colors),
       status: 'published',
       emoji: '📦',
       imageUrl: photos[0] || '',

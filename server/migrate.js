@@ -335,6 +335,9 @@ async function migrate() {
 
     // Add product video column for existing databases
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT ''`).catch(() => {});
+    // المدينة: سؤالٌ إجباريٌّ في المساعد كان يسقط عند الحفظ لأنّ لا عمودَ له.
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS city TEXT DEFAULT ''`).catch(() => {});
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_products_city ON products(city) WHERE city <> ''`).catch(() => {});
 
     // Abandoned-cart reminder flag (H-4) — لتذكير موثوق عبر cron بدل setTimeout
     await client.query(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS cart_reminded BOOLEAN DEFAULT FALSE`).catch(() => {});

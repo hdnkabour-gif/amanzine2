@@ -35,6 +35,8 @@ export interface Product {
   stock: number;
   category: string;
   sku?: string;
+  /** مدينةُ الإعلان — سؤالٌ إجباريٌّ في المساعد، وكان بلا مستقرٍّ حتّى الآن. */
+  city?: string;
   sizes: string[];
   colors: string[];
   status: ProductStatus;

@@ -20,6 +20,9 @@ function _mapProduct(p) {
     stock:         +p.stock        || 0,
     sku:           p.sku           || '',
     category:      p.category      || '',
+    // المدينةُ كانت سؤالًا إجباريًّا في المساعد، تُرسَل إلى الخادم، ولا عمودَ
+    // لها في الجدول — فتسقط صامتةً في آخر خطوة. عمودٌ حقيقيّ الآن.
+    city:          p.city          || '',
     emoji:         p.emoji         || '📦',
     images:        Array.isArray(p.images)       ? p.images       : [],
     sizes:         Array.isArray(p.sizes)        ? p.sizes        : [],
@@ -247,17 +250,17 @@ const db = {
     const id = p.id || uid();
     const { rows } = await pool.query(
       `INSERT INTO products
-        (id,user_id,name,description,price,cost,stock,sku,category,emoji,
+        (id,user_id,name,description,price,cost,stock,sku,category,city,emoji,
          images,sizes,colors,color_images,image_url,video_url,is_for_children,age_range,
          size_type,views,sales,status,offer_type,duration,service_area,
          portfolio,custom_fields)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
        RETURNING *`,
       [
         id, p.userId, p.name || '', p.description || '',
         +p.price || 0, +(p.cost || 0), +(p.stock || 0),
         p.sku || id.slice(0, 8).toUpperCase(),
-        p.category || '', p.emoji || '📦',
+        p.category || '', p.city || '', p.emoji || '📦',
         JSON.stringify(p.images || []),
         JSON.stringify(p.sizes || []),
         JSON.stringify(p.colors || []),
@@ -283,6 +286,7 @@ const db = {
       name:         'name',         description:  'description',  price:   'price',
       cost:         'cost',         stock:        'stock',        sku:     'sku',
       category:     'category',     emoji:        'emoji',        status:  'status',
+      city:         'city',
       imageUrl:     'image_url',    videoUrl:     'video_url',    images:  'images',       sizes:   'sizes',
       colors:       'colors',       colorImages:  'color_images', isForChildren: 'is_for_children',
       ageRange:     'age_range',    sizeType:     'size_type',    views:   'views',
@@ -1259,11 +1263,13 @@ db.getProviderById = async (id) => {
 // مقدّمون approved، ومتاجر لها كتالوج عام. لا PII، لا أسرار.
 db.discoverProducts = async ({ city, q, limit = 24 } = {}) => {
   const conds = ["p.status = 'published'"]; const vals = []; let i = 1;
-  if (city) { conds.push(`s.data->'brand'->>'city' = $${i++}`); vals.push(city); }
+  // مدينةُ الإعلان أوّلًا، ومدينةُ المتجر احتياطًا: التاجرُ قد يبيع في مدينةٍ
+  // غير مدينة متجره، والزبونُ يبحث عمّا هو **قربه** لا عمّا سُجّل مالكُه.
+  if (city) { conds.push(`COALESCE(NULLIF(p.city,''), s.data->'brand'->>'city') = $${i++}`); vals.push(city); }
   if (q)    { conds.push(`(LOWER(p.name) LIKE $${i} OR LOWER(p.description) LIKE $${i} OR LOWER(p.category) LIKE $${i})`); vals.push('%' + String(q).toLowerCase() + '%'); i++; }
   vals.push(Math.min(+limit || 24, 60));
   const { rows } = await pool.query(
-    `SELECT p.id, p.user_id, p.name, p.price, p.category, p.emoji, p.image_url, p.views, p.offer_type,
+    `SELECT p.id, p.user_id, p.name, p.price, p.category, p.city, p.emoji, p.image_url, p.views, p.offer_type,
             s.data->'brand'->>'name' AS store_name,
             s.data->'brand'->>'city' AS store_city,
             s.data->'brand'->>'logo' AS store_logo
@@ -1274,6 +1280,7 @@ db.discoverProducts = async ({ city, q, limit = 24 } = {}) => {
     id: r.id, storeId: r.user_id, name: r.name, price: +r.price || 0,
     category: r.category || '', emoji: r.emoji || '📦', imageUrl: r.image_url || '',
     views: +r.views || 0, type: r.offer_type || 'product',
+    city: r.city || r.store_city || '',
     storeName: r.store_name || '', storeCity: r.store_city || '', storeLogo: r.store_logo || '',
   }));
 };

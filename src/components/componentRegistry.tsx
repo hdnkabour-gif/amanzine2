@@ -154,9 +154,57 @@ const VideoPicker: FieldComponent = ({ value, onChange, big, green }) => {
   );
 };
 
+// ── قيمٌ متعدّدة: مقاسات · ألوان · تخصّصات ────────────────────
+// لم يكن للنظام مكوّنٌ يقبل أكثر من قيمة، فكان المقاسُ واللونُ خارجَ المساعد
+// أصلًا — لا يُسأل عنهما ولا يُحفظان. المقترَحاتُ تأتي من الفئة أو من قاعدة
+// المعرفة (`services[]`)، ويبقى للتاجر أن يزيد ما ليس عندنا.
+const TagsPicker: FieldComponent = ({ value, onChange, props, big, accent, green }) => {
+  const [draft, setDraft] = useState('');
+  const picked: string[] = Array.isArray(value) ? value.map(String)
+    : value ? String(value).split(/\s*[،,]\s*/).filter(Boolean) : [];
+  const suggestions = ((props.choices as string[]) || []).filter(s => !picked.includes(s));
+  const commit = (v: string[]) => onChange(v.length ? v : undefined);
+  const add = (t: string) => { const s = t.trim(); if (s && !picked.includes(s)) commit([...picked, s]); };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+      {picked.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {picked.map(t => (
+            <button key={t} type="button" onClick={() => commit(picked.filter(x => x !== t))}
+              title="اضغط للحذف"
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: big ? '7px 13px' : '5px 11px', borderRadius: 99, border: `1px solid ${green}`, background: `color-mix(in srgb, ${green} 16%, transparent)`, color: green, fontSize: big ? 13.5 : 12, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>
+              {t} <span style={{ opacity: .7 }}>×</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {suggestions.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {suggestions.map(s => (
+            <button key={s} type="button" onClick={() => add(s)}
+              style={{ padding: big ? '8px 14px' : '6px 11px', borderRadius: 99, border: `1px dashed ${BORDER}`, background: 'transparent', color: 'var(--ink2)', fontSize: big ? 13.5 : 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
+              ＋ {s}
+            </button>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 7 }}>
+        <input value={draft} onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(draft); setDraft(''); } }}
+          placeholder={(props.placeholder as string) || 'زيد وحدة أخرى…'}
+          style={{ flex: 1, padding: big ? '11px 13px' : '9px 11px', borderRadius: 11, border: `1px solid ${BORDER}`, background: 'var(--panel,rgba(0,0,0,.15))', color: INK1, fontSize: big ? 15 : 13.5, fontWeight: 700, fontFamily: 'inherit', direction: 'rtl' }} />
+        <button type="button" onClick={() => { add(draft); setDraft(''); }} disabled={!draft.trim()}
+          style={{ padding: '0 15px', borderRadius: 11, border: `1px solid ${draft.trim() ? accent : BORDER}`, background: 'transparent', color: draft.trim() ? accent : INK3, fontSize: 13, fontWeight: 800, fontFamily: 'inherit', cursor: draft.trim() ? 'pointer' : 'default' }}>زيد</button>
+      </div>
+    </div>
+  );
+};
+
 // ── السجلّ ──────────────────────────────────────────────────
 const registry: Record<string, FieldComponent> = {
   TextInput,
+  TagsPicker,
   NumberInput: NumericInput,
   PhoneInput: NumericInput,
   LocationInput: TextInput,

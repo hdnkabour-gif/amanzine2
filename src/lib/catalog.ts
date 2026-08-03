@@ -119,21 +119,39 @@ export function fieldsForCategory(id: string): CatFieldDef[] {
  */
 export interface BaseField { key: string; label: string; kind: string; essential?: boolean; hint?: string }
 
+/**
+ * **المفاتيحُ الكونيّة** — ما يُسأل عنه في كلّ إعلانٍ مهما كان: منتجًا أو
+ * سيّارةً أو عقارًا أو خدمة. القالبُ الأمّ في `blueprints.ts` يشتقّ منها
+ * حرفيًّا بدل أن يكتبها مرّةً ثانية.
+ *
+ *   العطبُ الذي وُلد من غيابها: `title` كان «اسم المنتج» في الاستمارة
+ *   و«العنوان» في السيناريو — **حقلٌ واحدٌ باسمين**. وكان `city` سؤالًا
+ *   إجباريًّا في السيناريو وغائبًا عن الاستمارة، و`sizes`/`colors`/`stock`
+ *   في الاستمارة وغائبةً عن السيناريو. فمن نشر من المساعد فقَد مقاساته،
+ *   ومن نشر من الاستمارة فقَد مدينته.
+ */
+export const UNIVERSAL_KEYS = ['title', 'price', 'city', 'photos', 'desc'] as const;
+
 const BASE_PRODUCT: BaseField[] = [
   { key: 'title',    label: 'اسم المنتج',   kind: 'text',   essential: true, hint: 'واضح ومختصر' },
   { key: 'price',    label: 'الثمن (درهم)', kind: 'money',  essential: true },
+  { key: 'city',     label: 'المدينة',      kind: 'city',   essential: true },
   { key: 'category', label: 'الفئة',        kind: 'select', essential: true },
   { key: 'photos',   label: 'الصور',        kind: 'photos', essential: true, hint: 'المنتجات بصور تبيع أسرع' },
   { key: 'desc',     label: 'الوصف',        kind: 'text' },
   { key: 'stock',    label: 'الكمّيّة',      kind: 'number' },
   { key: 'colors',   label: 'الألوان',      kind: 'tags' },
   { key: 'sizes',    label: 'المقاسات',     kind: 'tags' },
+  // ثمنُ الشراء: خاصٌّ بالتاجر، لا يراه الزبون. بدونه يُحسَب الربحُ من صفرٍ
+  // فيظهر هامشًا ١٠٠٪ — وهو ما كان يقع لكلّ ما يُنشر من المساعد.
+  { key: 'cost',     label: 'ثمن الشراء',   kind: 'money',  hint: 'خاصٌّ بك — به يُحسَب ربحُك الحقيقيّ' },
   { key: 'hashtags', label: 'الهاشتاغات',   kind: 'tags',   hint: 'تزيد الوصول' },
 ];
 
 const BASE_SERVICE: BaseField[] = [
   { key: 'title',    label: 'اسم الخدمة',   kind: 'text',   essential: true },
   { key: 'price',    label: 'الثمن',        kind: 'money',  essential: true },
+  { key: 'city',     label: 'المدينة',      kind: 'city',   essential: true },
   { key: 'category', label: 'الفئة',        kind: 'select', essential: true },
   { key: 'photos',   label: 'صورٌ من عملك', kind: 'photos', hint: 'أعمالٌ سابقةٌ تُقنع أكثرَ من أيّ وصف' },
   { key: 'desc',     label: 'الوصف',        kind: 'text' },
@@ -144,6 +162,7 @@ const BASE_SERVICE: BaseField[] = [
 const BASE_DIGITAL: BaseField[] = [
   { key: 'title',    label: 'الاسم',        kind: 'text',   essential: true },
   { key: 'price',    label: 'الثمن',        kind: 'money',  essential: true },
+  { key: 'city',     label: 'المدينة',      kind: 'city' },
   { key: 'category', label: 'الفئة',        kind: 'select', essential: true },
   { key: 'photos',   label: 'صورةُ الغلاف', kind: 'photos' },
   { key: 'desc',     label: 'الوصف',        kind: 'text' },
