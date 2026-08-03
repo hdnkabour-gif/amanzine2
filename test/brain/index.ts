@@ -27,6 +27,7 @@ import './knowledgeReach.test';
 import './searchIntent.test';
 import './fashion.test';
 import './stance.test';
+import './places.test';
 import './routing.test';
 import './landingMirror.test';
 // من زيارةٍ ميدانيّةٍ لمحلّ غسلٍ في الدار البيضاء — جُملٌ حقيقيّةٌ لا مُختلَقة.

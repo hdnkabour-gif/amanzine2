@@ -10,6 +10,7 @@ import {
 } from './types';
 import * as api from './services/api';
 import { registerRuntimeConcepts } from './lib/akg/kb/knowledge';
+import { loadLearnedPlaces } from './lib/akg/kb/places';
 import { validateImport } from './utils/importSchema';
 import { Sounds } from './utils/sounds';
 
@@ -234,6 +235,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // C-3: ‏/auth/me يصادق عبر كوكي HttpOnly حتى بدون توكن في الذاكرة —
       // (وعند انتهاء توكن الوصول يجدّده تلقائياً من كوكي refresh داخل api.ts)
       const meData = await api.authAPI.me().catch(() => null);
+
+      // الأماكنُ التي اعتمدها الإنسانُ في مركز المعرفة — تدخل الفهرسَ قبل
+      // أيّ فهمٍ أو إكمال. بلا هذا السطرِ يعيش المكانُ المعتمَدُ في التخزين
+      // وحدَه، فلا يعرفه المحرّكُ ولا يظهر في خانة المدينة بعد إعادة التحميل.
+      loadLearnedPlaces();
 
       // المفاهيم المنشورة تُحمَّل عند الإقلاع وتُسجَّل في محرّك الفهم.
       // **مسارٌ عامّ** لا محميّ: الفهم يخصّ كلّ الناس، والمحميُّ كان يرجع 401

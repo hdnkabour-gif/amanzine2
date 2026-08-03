@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import PlaceImport from '../components/PlaceImport';
+import { registerLearnedPlaces } from '../lib/akg/kb/places';
 import { Brain, Check, X, Cloud, HardDrive, Sparkles, Star } from 'lucide-react';
 import { knowledgeAPI, type BrainStats } from '../services/api';
 import { getInteractions, knowledgeHealth } from '../lib/experienceLog';
@@ -34,6 +36,23 @@ function localMisses(): Miss[] {
 
 const PANEL = 'var(--panel,rgba(255,255,255,0.03))';
 const BORDER = '1px solid var(--border,rgba(255,255,255,0.08))';
+
+/**
+ * أماكنُ اعتمدها الإنسان — تُضاف إلى المعرفة وتعمل فورًا.
+ *
+ *   لا تعلُّمَ ذاتيّ: لا يُكتب هنا شيءٌ إلّا بنقرةِ الأدمن. وهي نفسُ القاعدة
+ *   التي تحكم `amanzine_learned` للمفاهيم — مصدرٌ واحدٌ للسلوك، لا استثناء.
+ */
+function addLearnedPlaces(names: string[]): void {
+  if (!names.length) return;
+  try {
+    const KEY = 'amanzine_learned_places';
+    const cur: string[] = JSON.parse(localStorage.getItem(KEY) || '[]');
+    const next = Array.from(new Set([...cur, ...names.map(n => n.trim()).filter(Boolean)]));
+    localStorage.setItem(KEY, JSON.stringify(next));
+    registerLearnedPlaces(names);
+  } catch { /* التخزينُ ممتلئٌ أو محجوب — لا نكسر الصفحة */ }
+}
 
 export default function KnowledgeStudio() {
   const [mode, setMode] = useState<'loading' | 'server' | 'local'>('loading');
@@ -210,6 +229,12 @@ export default function KnowledgeStudio() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* مقارنةُ مدنِ شركةٍ جديدة — المعرفةُ الجغرافيّةُ تكبر من الاستعمال
+          كما تكبر المفاهيمُ من الكلمات التي لم تُفهَم. */}
+      <div style={{ border: '1px solid var(--border2,rgba(255,255,255,.14))', borderRadius: 14, padding: 14 }}>
+        <PlaceImport onAdd={names => addLearnedPlaces(names)} />
       </div>
 
       <p style={{ fontSize: 12, color: 'var(--ink3,#7E877F)', lineHeight: 1.7, textAlign: 'center', margin: 0 }}>

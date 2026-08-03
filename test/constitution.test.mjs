@@ -32,13 +32,34 @@ test('① زرٌّ فعلُه الوحيد رسالةُ نجاح = ادّعاء'
   assert.deepEqual(bad, [], `أزرارٌ تعلن نجاحًا بلا فعل:\n  ${bad.join('\n  ')}`);
 });
 
+/**
+ * قائمةُ خصائصِ وسمٍ واحد — بوعيٍ بالأقواس المعقوفة.
+ *
+ *   الصيغةُ الأولى كانت تعبيرًا نمطيًّا ينتهي عند أوّل «>». وسهمُ الدالّة
+ *   `() =>` يحمل «>»، فكان الوسمُ يُقطَع عند أوّل مُعالِجٍ سهميّ ولا يُرى ما
+ *   بعده. النتيجة: `<button onMouseEnter={() => …} onClick={() => …}>` يُتّهم
+ *   بأنّه زرٌّ جامد. الخطأُ في المِسطرة لا في المقيس.
+ */
+function tagAttrs(src, i) {
+  let depth = 0, q = '';
+  for (let j = i; j < src.length; j++) {
+    const c = src[j];
+    if (q) { if (c === q && src[j - 1] !== '\\') q = ''; continue; }
+    if (c === '"' || c === "'" || c === '`') { q = c; continue; }
+    if (c === '{') depth++;
+    else if (c === '}') depth--;
+    else if (c === '>' && depth === 0) return src.slice(i, j);
+  }
+  return src.slice(i);
+}
+
 test('① زرٌّ بلا مُعالِج نقرٍ ولا disabled يبدو فعّالًا وهو جامد', () => {
   const bad = [];
   for (const f of FILES) {
-    const re = /<button\b((?:[^>"']|"[^"]*"|'[^']*')*?)>/gs;
+    const re = /<button\b/g;
     let m;
     while ((m = re.exec(f.s))) {
-      const a = m[1];
+      const a = tagAttrs(f.s, m.index + m[0].length);
       if (/on(Click|MouseDown|MouseUp|KeyDown|PointerDown|TouchStart)|type="submit"|\bdisabled\b/.test(a)) continue;
       bad.push(`${f.rel}:${f.s.slice(0, m.index).split('\n').length}`);
     }

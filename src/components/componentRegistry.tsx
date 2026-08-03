@@ -7,6 +7,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { shrinkForListing, MAX_PHOTOS } from '../lib/imageFile';
+import CityPicker from './CityPicker';
 
 const BORDER = 'var(--border2,rgba(255,255,255,.14))';
 const INK1 = 'var(--ink1)';
@@ -201,13 +202,21 @@ const TagsPicker: FieldComponent = ({ value, onChange, props, big, accent, green
   );
 };
 
+// ── المدينة ────────────────────────────────────────────────
+// كانت `LocationInput: TextInput` — خانةَ نصٍّ حرٍّ بلا معرفة، بينما يعرف
+// النظامُ ٤٠٩ أماكنَ بالعربيّة والفرنسيّة. المعرفةُ موجودةٌ ولا تصل الخانة.
+const CityInput: FieldComponent = ({ value, onChange, props, big, accent }) => (
+  <CityPicker value={String(value ?? '')} onChange={onChange} big={big} accent={accent}
+    required={!!props.required} {...(props.placeholder ? { placeholder: String(props.placeholder) } : {})} />
+);
+
 // ── السجلّ ──────────────────────────────────────────────────
 const registry: Record<string, FieldComponent> = {
   TextInput,
   TagsPicker,
   NumberInput: NumericInput,
   PhoneInput: NumericInput,
-  LocationInput: TextInput,
+  LocationInput: CityInput,
   MoneyInput,
   ChoiceCards,
   ToggleField,

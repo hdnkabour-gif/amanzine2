@@ -11,6 +11,7 @@
 import { CITIES, type ConceptData } from './knowledgeData';
 import { CONCEPTS } from './concepts';
 import { deArabizi } from './arabizi';
+import { resolvePlace } from './places';
 
 // ── تطبيعٌ عربيّ (المراحل ١-٨): تشكيل، توحيد حروف، تكرار، رموز ──
 const AR_DIAC = /[ً-ْٰـ]/g;   // تشكيل + تطويل
@@ -378,6 +379,11 @@ export function resolveCity(text: string): CityResolution | null {
   const tl = normLatin(text);
   for (const { term, c } of cityArIndex) if (ta.includes(term)) return { city: c.city, district: districtIn(ta, c) };
   for (const { term, c } of cityLatIndex) if (new RegExp(`(^|\\s)${term}(\\s|$)`).test(tl)) return { city: c.city };
+  // **الأماكنُ الصغيرة.** الفهرسُ أعلاه يحمل ٤٥ مدينةً كبرى بأحيائها؛ وعندنا
+  // ٤٠٩ أماكنَ في `places.ts`. لولا هذا السطرِ لعرف المُنتقي «تيفلت» ولم
+  // يعرفها المحرّك — عقلان يختلفان على المكان الواحد.
+  const p = resolvePlace(text);
+  if (p) return { city: p.ar };
   return null;
 }
 function districtIn(ta: string, c: CityMatch): string | undefined {
