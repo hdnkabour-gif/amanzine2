@@ -2,6 +2,7 @@ import type { Page } from '../types';
 import { readHuman, type HumanIntent } from './humanIntent';
 import { resolveConcept } from './akg/kb/knowledge';
 import { stanceOf } from './akg/kb';
+import { categoryForConcept } from './catalog';
 // السؤالُ يأتي من الناقص لا من النصّ (HU-2). المحرّكُ لا يعرف وجهةً ولا صفحة.
 import { nextClarification, type Clarification, type Signals } from './clarify';
 
@@ -48,6 +49,21 @@ export interface NeedResult {
   open?: string;          // جملة افتتاح ودّية عند وجود أسئلة
   object?: NeedObject;    // الكائن المنظّم لهذا الطلب (للتسجيل والتعلّم)
   confidence?: number;    // 0..1 — درجة اليقين. المنخفضة تعني: اسأل توضيحًا.
+  /**
+   * **المحورُ الثاني: يَعرض أم يطلب؟**
+   *
+   *   النيّةُ وحدَها لا تكفي. الدارجةُ تحمل محورين مستقلَّين:
+   *     • **الفعل**  — بيع · شراء · كراء · إصلاح
+   *     • **الموقف** — أنا أعرض (offer) أم أنا أطلب (seek)
+   *
+   *   «بغيت نكري دار» و«بغيت نكري داري» فعلُهما واحدٌ وموقفُهما ضدّان،
+   *   والفارقُ حرفٌ واحد. ومحورٌ واحدٌ لا يستطيع أن يحمل ضدَّين.
+   *
+   *   وكانت تُحسَب هنا (`stanceOf`) وتُستعمل في القواعد **ثمّ تُرمى** — فلا
+   *   يعرف من يستقبل النتيجةَ إن كان أمامه عارضٌ أم طالب. نفسُ نمطِ العطب
+   *   الذي وجدناه في `services[]` وفي دليل الفهم.
+   */
+  stance?: 'offer' | 'seek' | 'unknown';
 }
 
 // السياق: ما يحيط بالطلب (لا الطلب وحده) — الوقت، المكان، وما نعرفه عن المستخدم.
@@ -198,8 +214,13 @@ function coreParse(raw: string): NeedResult {
   const stance = stanceOf(raw);
 
   // 1) مشكل عاجل موصوف (أهمّ حالة): «الماء كيقطر»، «طاح الضو»
+  //
+  //    **لا تُطلَق على من يَعرض.** «أنا كهربائي فكازا» كانت تُقرأ **عُطلًا
+  //    كهربائيًّا عاجلًا** لأنّ «كهربائي» كلمةُ مشكلةٍ أيضًا — فيُستقبَل
+  //    الحرفيُّ الذي يعرّف بنفسه بشاشةِ طوارئ. الموقفُ يُقرأ قبل القاعدة،
+  //    وهو صنفٌ لا حالة: كلُّ قاعدةِ مشكلةٍ تصلح لأن تنقلب هكذا.
   for (const p of PROBLEM_TO_PRO) {
-    if (has(t, p.kw)) {
+    if (stance !== 'offer' && has(t, p.kw)) {
       const isUrgent = urgent || p.urgentByDefault;
       return {
         intent: isUrgent ? 'urgent' : 'find_pro',
@@ -216,8 +237,11 @@ function coreParse(raw: string): NeedResult {
 
   // 2) «أنا كندير…» → إنشاء صفحة خدمة. **عرضٌ صريح فقط**: غياب كلمة طلبٍ ليس
   //    إعلانًا عن النفس. «سبّاك» وحدها لا تعني «أنا سبّاك» — تُسأل في (6.5).
+  // «عندي محل للكراء» ليست تعريفًا بالنفس بل إعلانَ عقار. كلمةُ الإعلان
+  // (للكراء/للبيع) تحسم قبل أن تُقرأ كلمةُ المهنة.
+  const IS_LISTING = has(t, ['للكراء', 'للبيع', 'للإيجار', 'للايجار', 'للتفويت']);
   for (const p of IAM_PRO) {
-    if (stance === 'offer' && has(t, p.kw)) {
+    if (stance === 'offer' && !IS_LISTING && has(t, p.kw)) {
       return {
         intent: 'create_service',
         label: 'إنشاء خدمة',
@@ -245,7 +269,12 @@ function coreParse(raw: string): NeedResult {
       next: 'نجهّز متجرك — الاسم، الشعار، والمنتجات — وننشره للزبناء.',
     };
   }
-  if (stance !== 'seek' && has(t, ['عندي محل', 'محل ديالي', 'مطعم', 'كافي', 'سناك', 'حانوت', 'بقاله'])) {
+  // «عندي محل **للكراء**» ليست إنشاءَ نشاطٍ بل إعلانَ عقار. الكلمةُ الحاسمة
+  // هي ما بعد المحلّ لا المحلُّ نفسُه — وكانت هذه القاعدةُ تسبق قاعدةَ العقار
+  // فتبتلعها، فيُساق من يريد كراءَ محلِّه إلى إعداداتِ متجر.
+  const LISTING = ['للكراء', 'للبيع', 'للإيجار', 'للايجار', 'للتفويت'];
+  if (stance !== 'seek' && !has(t, LISTING)
+      && has(t, ['عندي محل', 'محل ديالي', 'مطعم', 'كافي', 'سناك', 'حانوت', 'بقاله'])) {
     return {
       intent: 'create_store',
       label: 'إنشاء متجر',
@@ -258,8 +287,10 @@ function coreParse(raw: string): NeedResult {
 
   // 4) عقار (كراء/شراء دار)
   if (has(t, ['دار', 'شقه', 'منزل', 'ستوديو', 'فيلا', 'محل تجاري']) || has(t, RENT)) {
-    // «عندي … للكراء/للبيع» = عرض (نشر) → محرّك السيناريوهات؛ وإلّا = بحث → السوق.
-    const offering = stance === 'offer' && has(t, ['عندي', 'عندنا', 'كنكري', 'للكراء عندي']);
+    // العرضُ يُقرأ من **الموقف** لا من كلمةٍ بعينها. كان يشترط «عندي»، فكانت
+    // «بغيت نبيع داري» تسقط في البحث — ويُرسَل صاحبُ الدار ليشتري ما يملك.
+    // والموقفُ يعرف الملكيّةَ الآن: «داري» · «ديالي» تقلبان الاتّجاه.
+    const offering = stance === 'offer';
     if (offering) {
       const pledge = has(t, PLEDGE);
       return {
@@ -370,6 +401,52 @@ function coreParse(raw: string): NeedResult {
       tags: [],
       page: 'bookings',
       next: 'يفتح الحجوزات — تختار المزوّد والوقت المناسب.',
+    };
+  }
+
+  // ── المحوران معًا: الفعلُ من المفهوم، والاتّجاهُ من الموقف ──────────
+  //
+  //   القاعدةُ التي تُغني عن قوائمَ يدويّة:
+  //     • يطلب + **شيء**  ⇒ شراء        «بغيت كسوة» · «خاصني حاسوب»
+  //     • يعرض + **مهنة** ⇒ إنشاء خدمة  «أنا كهربائي»
+  //
+  //   كان `IAM_PRO` قائمةً يدويّةً بثماني مهنٍ بجانب ١٩٧ مفهومًا في قاعدة
+  //   المعرفة، فمن ليست مهنتُه فيها يسقط في العامّ. و«بغيت كسوة» كانت تُقرأ
+  //   **بحثًا عن حرفيّ** لأنّ «بغيت» طلبٌ ولا قاعدةَ تقول إنّ الكسوةَ شيءٌ
+  //   لا إنسان — فيُساق من يريد ثوبًا إلى قائمة الصنّاع.
+  const known = resolveConcept(raw);
+  const kind = categoryForConcept(known?.id)?.kind;
+  // إعلانُ عقارٍ ليس تعريفًا بمهنة: «عندي محل للكراء» يقع فيها مفهومُ «محل»
+  // وهو خدمةٌ في القاعدة، فتبتلعها قاعدةُ العرض. كلمةُ الإعلان تحسم أوّلًا.
+  if (stance === 'offer' && IS_LISTING) {
+    const renting = has(t, RENT);
+    return {
+      intent: renting ? 'rent' : 'sell',
+      label: renting ? 'كراء' : 'عرض للبيع',
+      color: 'var(--mint,#12A150)',
+      tags: [renting ? 'عرض كراء' : 'عرض بيع'],
+      page: 'publish',
+      next: 'نبنيو الإعلان من جملتك مباشرة.',
+    };
+  }
+  if (stance === 'seek' && kind === 'product') {
+    return {
+      intent: 'buy',
+      label: 'شراء',
+      color: 'var(--info,#3B82F6)',
+      tags: known?.concept?.ar ? [`المطلوب → ${known.concept.ar}`] : [],
+      url: MARKET,
+      next: 'نعرضو عليك المتوفّر قربك.',
+    };
+  }
+  if (stance === 'offer' && kind === 'service') {
+    return {
+      intent: 'create_service',
+      label: 'تعريف',
+      color: 'var(--mint,#12A150)',
+      tags: known?.concept?.ar ? [`المهنة → ${known.concept.ar}`] : [],
+      page: 'publish',
+      next: 'نبنيو صفحة نشاطك — الخدمات، المدينة، والتواصل.',
     };
   }
 
@@ -691,14 +768,18 @@ export function parseNeed(raw: string, ctx: NeedContext = {}): NeedResult {
   // طبقةٌ أولى — «ماذا يحاول هذا الإنسان أن يفعل؟» قبل تصنيف المهنة/المنتج.
   const human = readHuman(raw);
   const hr = human.intent !== 'NONE' ? humanResult(human.intent) : null;
+  // الموقفُ يُحسَب مرّةً ويُرافق النتيجةَ إلى آخرها — لا يُحسَب ثمّ يُرمى.
+  const stance = stanceOf(raw);
   if (hr) {
     hr.confidence = confidenceOf(hr);
+    hr.stance = stance;
     hr.object = buildNeedObject(hr, raw, ctx);
     if (hr.object) { hr.object.confidence = hr.confidence; hr.object.reason = human.reason; }
     return hr;
   }
   const r = enrich(coreParse(raw), normalize(raw), ctx);
   r.confidence = confidenceOf(r);
+  r.stance = stance;
   r.object = buildNeedObject(r, raw, ctx);
   if (r.object) r.object.confidence = r.confidence;
   return r;
