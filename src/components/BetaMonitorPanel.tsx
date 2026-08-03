@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Timer, MessageSquare, MousePointerClick, Repeat, LogOut, Rocket, Cpu, CheckCircle2 } from 'lucide-react';
-import { receptionStats, journeyStats, decisionStats, snapshotDaily, trend } from '../lib/journey';
+import { Timer, MessageSquare, MousePointerClick, Repeat, LogOut, Rocket, Cpu, CheckCircle2, HelpCircle } from 'lucide-react';
+import { receptionStats, journeyStats, decisionStats, clarifyStats, snapshotDaily, trend } from '../lib/journey';
 
 // ============================================================
 // BetaMonitorPanel — لوحة بيتا الـ١٠ (قراءة فقط). تُحوّل ما قِسناه إلى أرقامٍ
@@ -32,6 +32,7 @@ export default function BetaMonitorPanel() {
   const [j] = useState(journeyStats);
   const [d] = useState(decisionStats);
   const [tr] = useState(() => { snapshotDaily(); return trend(); }); // لقطة اليوم + فرقٌ عن أمس
+  const [cl] = useState(clarifyStats);
 
   const secToUnderstand = r.avgUnderstoodMs ? `${(r.avgUnderstoodMs / 1000).toFixed(1)}ث` : '—';
   const guidedPct = d.totalModes ? Math.round(((d.modes.guided || 0) / d.totalModes) * 100) : 0;
@@ -126,6 +127,43 @@ export default function BetaMonitorPanel() {
               </div>
             )}
           </>
+        )}
+      </section>
+
+      {/* ── أيُّ سؤالٍ يستحقّ البقاء؟ ─────────────────────────────
+          `clarifyStats()` كانت مبنيّةً ومُصدَّرةً **ولا يقرؤها أحد** — نفسُ
+          صنفِ سجلِّ التدقيق: قياسٌ يُكتَب ولا يُعرَض. وهي بالضبط ما يُجيب
+          `UNKNOWN_AREAS#٦`: «هل ترفع الاستيضاحاتُ الفهمَ فعلًا؟» — سؤالٌ لم
+          يكن له جوابٌ ممكنٌ قبل إغلاق الحلقة (BROKEN_CHAINS#④).
+
+          الهويّةُ الثابتة هي ما يُقاس، لا نصُّ السؤال: النصُّ يتبدّل باللغة
+          والصياغة، والمعنى يبقى. */}
+      <section>
+        <div style={{ fontSize: 14, fontWeight: 900, color: INK1, marginBottom: 4 }}>الاستيضاح — أيُّ سؤالٍ يستحقّ البقاء؟</div>
+        <div style={{ fontSize: 11.5, color: INK3, marginBottom: 10 }}>
+          «رفع الفهم» = نسبةُ الأجوبة التي زادت الثقةَ فعلًا. سؤالٌ يُجاب كثيرًا ولا يرفع شيئًا سؤالٌ زائد.
+        </div>
+        {cl.length === 0 ? (
+          <div style={{ fontSize: 12.5, color: INK3, padding: '10px 0' }}>
+            لا استيضاحَ سُئل بعدُ على هذا الجهاز — الأرقامُ تظهر بعد أوّل حوارٍ ناقص.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {cl.map(c => (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 12.5, color: INK1, padding: '7px 11px', borderRadius: 9, background: 'var(--panel,rgba(255,255,255,.03))', border: BORDER }}>
+                <HelpCircle size={13} style={{ color: GOLD, flexShrink: 0 }} />
+                <span dir="ltr" style={{ fontWeight: 800, minWidth: 130 }}>{c.id}</span>
+                <span style={{ color: INK3 }}>سُئل {c.asked}</span>
+                <span style={{ color: INK3 }}>· أُجيب {c.answerRate ?? '—'}٪</span>
+                <span style={{
+                  marginRight: 'auto', fontWeight: 800,
+                  color: c.liftRate == null ? INK3 : c.liftRate >= 50 ? GREEN : 'var(--red,#F5484A)',
+                }}>
+                  رفعَ الفهم {c.liftRate ?? '—'}٪{c.avgGain != null ? ` (+${c.avgGain} نقطة)` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 

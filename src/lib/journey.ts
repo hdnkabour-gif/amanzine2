@@ -130,7 +130,8 @@ export function receptionEnd(outcome: Reception['outcome']) {
   rcpt = null; rcptIntents = [];
 }
 
-export function getReceptions(): Reception[] { return rload().slice().reverse(); }
+// (حُذفت `getReceptions`: قارئٌ خامٌّ لا يقرؤه أحد. `receptionStats()` هي
+//  طريقُ القراءة الوحيد، وهي مُستهلَكة.)
 
 // إحصاءات الاستقبال للبيتا: متوسّط زمن أوّل فهم، متوسّط الأدوار، نسبة الأزرار مقابل
 // الكتابة، نسبة «شرح نفسه مرّتين»، نقطة الخروج الأكثر.

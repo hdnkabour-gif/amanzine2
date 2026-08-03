@@ -530,3 +530,42 @@ test('لا مكوّنَ مبنيٌّ بصفر استيراد — يُركَّب 
   assert.deepEqual(orphans, [],
     `مكوّنٌ بلا مستورِد: ${orphans.join(' · ')} — رَكِّبه حيث يخدم، أو احذفه`);
 });
+
+test('قياسٌ يُكتب يجب أن يُقرأ — لا دالّةَ إحصاءٍ بلا شاشة', () => {
+  // نمطٌ تكرّر ثلاث مرّات في هذا التدقيق: القياسُ مبنيٌّ ومُصدَّرٌ ولا يقرؤه
+  // أحد. سجلُّ التدقيق (⑮) · `clarifyStats` · `getReceptions`. قياسٌ لا
+  // يُعرَض لا يُصحّح قرارًا — وهو نصفُ فائدة القياس المفقود.
+  const ROOT_DIR = new URL('..', import.meta.url).pathname;
+  const MEASURED = ['src/lib/journey.ts'];   // وحداتُ القياس المحروسة
+
+  const files = [];
+  (function walk(dir) {
+    for (const e of readdirSync(dir)) {
+      const full = join(dir, e);
+      if (statSync(full).isDirectory()) { walk(full); continue; }
+      if (/\.tsx?$/.test(e)) files.push(full);
+    }
+  })(join(ROOT_DIR, 'src'));
+
+  for (const rel of MEASURED) {
+    const src = readFileSync(join(ROOT_DIR, rel), 'utf8');
+    const exported = [...src.matchAll(/^export function (\w+)/gm)].map(m => m[1]);
+    assert.ok(exported.length > 5, `${rel}: تعذّر قراءةُ الصادرات`);
+
+    // **لا الاستيرادُ قراءةٌ ولا التعليق.** ملفٌّ يستورد الدالّةَ ولا يستدعيها،
+    // أو يذكر اسمَها في تعليقٍ يشرحها، كان يمرّ من ثقبٍ في هذا الحارس. تُحجَب
+    // أسطرُ الاستيراد والتعليقاتُ قبل البحث — نفسُ ما يفعله حارسُ التوصيل.
+    const strip = (t) => t
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+      .replace(/^\s*import[\s\S]*?from\s*['"][^'"]+['"];?$/gm, '');
+    const others = files
+      .filter(f => !f.endsWith(rel.split('/').pop()))
+      .map(f => strip(readFileSync(f, 'utf8')))
+      .join('\n');
+
+    const unread = exported.filter(fn => !new RegExp(`\\b${fn}\\b`).test(others));
+    assert.deepEqual(unread, [],
+      `${rel}: دالّةٌ تُصدَّر ولا يقرؤها أحد: ${unread.join(' · ')} — اعرضها أو احذفها`);
+  }
+});
