@@ -228,6 +228,98 @@ export const CATEGORY_FIELDS: Record<string, CatFieldDef[]> = {
     { id: 'freeUpdates', label: 'تحديثات مجانية مدى الحياة 🔄', type: 'boolean' },
   ],
 
+  // ── 🏃 رياضة ─────────────────────────────────────────────────
+  sport: [
+    { id: 'sportType', label: 'نوع المنتج', type: 'select', required: true,
+      options: ['تراكسي / سورفيتمو', 'تيشيرت رياضي', 'شورت', 'حذاء رياضي', 'قميص فريق', 'معدات لياقة', 'كرة', 'حقيبة رياضية', 'أخرى'] },
+    { id: 'sportKind', label: 'الرياضة', type: 'select',
+      options: ['كرة القدم', 'الجري', 'كمال الأجسام', 'اللياقة', 'كرة السلة', 'التنس', 'السباحة', 'عامّ'] },
+    { id: 'fabric', label: 'الخامة', type: 'select',
+      options: ['بوليستر', 'قطن', 'مخلوط', 'ليكرا', 'شبكي (mesh)'] },
+    { id: 'audience', label: 'للفئة', type: 'select', options: ['رجال', 'نساء', 'أطفال', 'للجميع'] },
+    { id: 'original', label: 'أصلي (ماركة)', type: 'boolean' },
+  ],
+
+  // ── 🚗 سيارات وقطع غيار ──────────────────────────────────────
+  //    كان بائعُ قطع الغيار يقع في «أخرى» — وهي **بلا حقلٍ واحد**.
+  auto: [
+    { id: 'autoType', label: 'نوع المعروض', type: 'select', required: true,
+      options: ['قطعة غيار', 'إطارات (بنيو)', 'زيوت وسوائل', 'بطارية', 'إكسسوارات داخلية', 'صوتيات', 'عجلات وجنوط', 'سيارة كاملة', 'دراجة نارية', 'أخرى'] },
+    { id: 'partCondition', label: 'حالة القطعة', type: 'select', required: true,
+      options: ['جديد', 'مستعمل — حالة ممتازة', 'مستعمل — حالة جيدة', 'مُجدَّد'] },
+    { id: 'compatibleMake', label: 'يناسب الماركة', type: 'select',
+      options: ['Dacia', 'Renault', 'Peugeot', 'Citroën', 'Volkswagen', 'Toyota', 'Hyundai', 'Kia', 'Ford', 'Fiat', 'Mercedes', 'BMW', 'Audi', 'Nissan', 'Skoda', 'Seat', 'Opel', 'Chevrolet', 'Suzuki', 'Honda', 'يناسب الجميع', 'أخرى'],
+      hint: 'أهمُّ حقلٍ عند الزبون — بدونه يسأل قبل أن يشتري' },
+    { id: 'compatibleModel', label: 'الموديل والسنة', type: 'text',
+      placeholder: 'مثال: Logan 2015-2020' },
+    { id: 'partNumber', label: 'مرجع القطعة (référence)', type: 'text',
+      placeholder: 'مثال: 8200 123 456', hint: 'يقطع الشكّ — من يعرفه يشتري فورًا' },
+    { id: 'fuelType', label: 'نوع الوقود', type: 'select',
+      options: ['بنزين', 'ديزل', 'هجين', 'كهربائي', 'لا يهمّ'] },
+    { id: 'warranty', label: 'الضمان', type: 'select',
+      options: ['بلا ضمان', 'أسبوع', 'شهر', '3 أشهر', '6 أشهر', 'سنة'] },
+    { id: 'installAvailable', label: 'التركيب متوفّر عندنا 🔧', type: 'boolean' },
+    { id: 'origin', label: 'المنشأ', type: 'select',
+      options: ['أصلي (OEM)', 'بديل معتمد', 'تجاري', 'مستورد'] },
+  ],
+
+  // ── 🔧 خدمات السيارات ────────────────────────────────────────
+  auto_service: [
+    { id: 'autoServiceType', label: 'نوع الخدمة', type: 'select', required: true,
+      options: ['ميكانيك عام', 'فيدانج (تبديل الزيت)', 'ديانيوستيك إلكتروني', 'كهرباء السيارات', 'صباغة وسمكرة', 'غسل وتلميع', 'إطارات وترصيص', 'تكييف', 'ميكانيك ديزل', 'فرامل وتعليق', 'زجاج', 'ستيكاج (تغليف)', 'مساعدة على الطريق'] },
+    { id: 'servicePlace', label: 'مكان الخدمة', type: 'select', required: true,
+      options: ['فالميكانيسيان (يأتي الزبون)', 'متنقّل — نجي عندك', 'الاثنان'] },
+    { id: 'vehicleTypes', label: 'المركبات المقبولة', type: 'multiselect',
+      options: ['سيارات صغيرة', 'سيارات نفعية', 'شاحنات', 'دراجات نارية', 'سيارات فاخرة'] },
+    { id: 'brandSpecialty', label: 'تخصّص بماركة', type: 'text',
+      placeholder: 'مثال: متخصّص في Dacia و Renault' },
+    { id: 'roadAssist', label: 'مساعدة على الطريق 🚨', type: 'boolean' },
+    { id: 'partsIncluded', label: 'القطع', type: 'select',
+      options: ['السعر بلا قطع', 'السعر شامل القطع', 'حسب الحالة'] },
+    { id: 'warrantyWork', label: 'ضمان على العمل', type: 'select',
+      options: ['بلا ضمان', 'أسبوع', 'شهر', '3 أشهر'] },
+    { id: 'experience', label: 'سنوات الخبرة', type: 'number', placeholder: '10' },
+  ],
+
+  // ── 💻 إلكترونيات ومعلوميات ──────────────────────────────────
+  tech: [
+    { id: 'techType', label: 'نوع المنتج', type: 'select', required: true,
+      options: ['هاتف', 'حاسوب محمول', 'حاسوب مكتبي', 'شاشة', 'طابعة', 'قرص/ذاكرة', 'مكوّنات (رام، كارت غرافيك…)', 'كاميرا مراقبة', 'راوتر/شبكة', 'سماعات', 'ساعة ذكية', 'لوحة رقمية', 'إكسسوارات', 'أخرى'] },
+    { id: 'deviceCondition', label: 'حالة الجهاز', type: 'select', required: true,
+      options: ['جديد مغلق', 'جديد مفتوح', 'مستعمل — كالجديد', 'مستعمل — جيد', 'مُجدَّد (reconditionné)', 'للقطع'] },
+    { id: 'brand', label: 'الماركة', type: 'select',
+      options: ['Apple', 'Samsung', 'Xiaomi', 'HP', 'Dell', 'Lenovo', 'Asus', 'Acer', 'MSI', 'Huawei', 'Oppo', 'Infinix', 'Tecno', 'realme', 'LG', 'Sony', 'Canon', 'Epson', 'TP-Link', 'أخرى'] },
+    { id: 'model', label: 'الموديل', type: 'text', placeholder: 'مثال: iPhone 13 Pro · HP ProBook 450 G8' },
+    { id: 'specs', label: 'المواصفات', type: 'text',
+      placeholder: 'مثال: i5 / 8GB RAM / 256GB SSD — أو — 128GB / 6GB',
+      hint: 'الزبونُ التقنيّ يقرأ هذا أوّلًا' },
+    { id: 'warranty', label: 'الضمان', type: 'select',
+      options: ['بلا ضمان', 'أسبوع', 'شهر', '3 أشهر', '6 أشهر', 'سنة', 'ضمان الوكيل'] },
+    { id: 'boxAccessories', label: 'ما يأتي معه', type: 'multiselect',
+      options: ['العلبة الأصلية', 'الشاحن', 'السماعات', 'الكابل', 'الفاتورة', 'حافظة'] },
+    { id: 'batteryHealth', label: 'صحّة البطارية (للهواتف والمحمول)', type: 'text',
+      placeholder: 'مثال: 92%' },
+    { id: 'unlocked', label: 'غير مقفل على مشغّل (débloqué) 🔓', type: 'boolean' },
+  ],
+
+  // ── 🛠️ خدمات تقنية ──────────────────────────────────────────
+  tech_service: [
+    { id: 'techServiceType', label: 'نوع الخدمة', type: 'select', required: true,
+      options: ['إصلاح هواتف', 'إصلاح حواسيب', 'تركيب نظام (ويندوز)', 'استرجاع بيانات', 'تركيب كاميرات مراقبة', 'شبكات وواي-فاي', 'تركيب بارابول/ريسيفر', 'تصميم مواقع', 'تطبيقات', 'تصميم جرافيك', 'دعم تقني للشركات', 'تركيب برامج'] },
+    { id: 'techPlace', label: 'مكان الخدمة', type: 'select', required: true,
+      options: ['فالمحلّ (يأتي الزبون)', 'متنقّل — نجي عندك', 'عن بُعد', 'الكلّ'] },
+    { id: 'devicesHandled', label: 'الأجهزة المقبولة', type: 'multiselect',
+      options: ['هواتف Android', 'iPhone', 'حواسيب محمولة', 'حواسيب مكتبية', 'طابعات', 'شاشات', 'خوادم', 'كاميرات'] },
+    { id: 'diagnosisFree', label: 'التشخيص مجّاني 🔍', type: 'boolean' },
+    { id: 'repairTime', label: 'مدّة الإصلاح المعتادة', type: 'text',
+      placeholder: 'مثال: نفس اليوم · 24-48 ساعة' },
+    { id: 'warrantyWork', label: 'ضمان على الإصلاح', type: 'select',
+      options: ['بلا ضمان', 'أسبوع', 'شهر', '3 أشهر'] },
+    { id: 'dataSafety', label: 'نضمن بياناتك 🔒', type: 'boolean',
+      hint: 'أكبرُ مخاوف الزبون عند تسليم جهازه' },
+    { id: 'experience', label: 'سنوات الخبرة', type: 'number', placeholder: '5' },
+  ],
+
   // ── 📦 أخرى — حقول يدوية فقط ─────────────────────────────────
   other: [],
 };

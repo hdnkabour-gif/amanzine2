@@ -1,3 +1,8 @@
+import { CATEGORIES, categoryForConcept, fieldsForCategory } from './catalog';
+import { resolveConcept } from './akg/kb/knowledge';
+
+/** تسمياتُ الفئات — مشتقّةٌ لا مكتوبة. */
+const CATEGORY_LABELS = CATEGORIES.map(c => c.label);
 // ============================================================
 // Blueprint Engine — قلب AMANZINE. لا نخزّن ملايين السيناريوهات، بل «قوالب».
 //   نصّ المستخدم → Intent (needEngine) + Entity (هنا) → Blueprint مناسب →
@@ -41,7 +46,8 @@ const RAW: Blueprint[] = [
 
   // منتج عامّ / إلكترونيات
   { id: 'product', entity: 'product', label: 'منتج للبيع', verb: 'ينشر منتجًا', extends: 'base', fields: [
-    { key: 'category', label: 'الفئة', type: 'select', options: ['إلكترونيات', 'ملابس', 'أحذية', 'أثاث', 'مأكولات', 'أخرى'], required: true, weight: 10 },
+    // الخياراتُ من `catalog.ts` — كانت قائمةً رابعةً للفئات تخالف الثلاثَ الأخرى.
+    { key: 'category', label: 'الفئة', type: 'select', options: CATEGORY_LABELS, required: true, weight: 10 },
     { key: 'condition', label: 'الحالة', type: 'select', options: ['جديد', 'مستعمل', 'كالجديد'], weight: 8 },
     { key: 'warranty', label: 'فيه ضمان؟', type: 'toggle', weight: 4 },
   ]},
@@ -122,6 +128,21 @@ export function classifyEntity(raw: string): Entity {
 }
 
 // اختيار القالب من (النيّة + الكيان). الكراء يغلّف الكيان.
+/** حقولُ الفئة (من `categoryFields`) بشكل حقلِ القالب — بلا نسخِ التعريفات. */
+function categoryExtraFields(raw: string): BField[] {
+  const cat = categoryForConcept(resolveConcept(raw)?.id);
+  if (!cat) return [];
+  const TYPE: Record<string, FieldType> = {
+    select: 'select', multiselect: 'select', text: 'text',
+    textarea: 'text', number: 'number', boolean: 'toggle',
+  };
+  return fieldsForCategory(cat.id).map(f => ({
+    key: f.id, label: f.label, type: TYPE[f.type] || 'text',
+    options: f.options, required: f.required, hint: f.hint,
+    weight: f.required ? 7 : 3,
+  }));
+}
+
 export function resolveBlueprint(intent: string, raw: string): { blueprint: Blueprint; fields: BField[]; entity: Entity } {
   const entity = classifyEntity(raw);
   let id: string;
@@ -131,7 +152,14 @@ export function resolveBlueprint(intent: string, raw: string): { blueprint: Blue
   else if (entity === 'realEstate') id = 'realEstate';
   else id = 'product';
   const blueprint = BP.get(id)!;
-  return { blueprint, fields: resolveFields(id), entity };
+
+  // القالبُ يعرف ما يعرفه نموذجُ المنتج: «عندي كسوة للبيع» ⇒ فئةُ الأطفال ⇒
+  // نفسُ أسئلتها. كان المساعدُ يسأل ثلاثةَ أسئلةٍ عامّةٍ والاستمارةُ تسأل
+  // عشرةً خاصّة — سؤالان مختلفان عن الشيء الواحد، وهو ما لاحظه المالك.
+  const base = resolveFields(id);
+  const seen = new Set(base.map(f => f.key));
+  const extra = categoryExtraFields(raw).filter(f => !seen.has(f.key));
+  return { blueprint, fields: [...base, ...extra], entity };
 }
 
 const isFilled = (f: BField, v: any) => f.type === 'toggle' ? v != null : v != null && String(v).trim() !== '';

@@ -168,7 +168,7 @@ export const ENRICH_CONCEPTS: ConceptData[] = [
     { darija: ['جلابة', 'جلابه', 'الجلابة', 'قفطان', 'القفطان', 'طاكشيطة', 'تاكشيطة', 'قندورة', 'سلهام', 'برنوس', 'جابادور', 'فوقية', 'مجدول'], arabizi: ['jellaba', 'djellaba', 'caftan', 'takchita', 'gandoura', 'selham'], ar: ['جلابة', 'قفطان', 'تكشيطة', 'قندورة', 'برنس'], fr: ['djellaba', 'caftan', 'takchita', 'gandoura'], en: ['djellaba', 'caftan', 'takchita'] },
     ['بغيت طاكشيطة للعرس', 'كنبيع الجلابات']),
   C('eid_clothing', 'fashion', 'كسوة العيد', 'كسوة العيد', 'Habits de fête', 'Eid clothing',
-    { darija: ['كسوة العيد', 'حوايج العيد', 'لباس العيد', 'كسوة لعيد'], ar: ['كسوة العيد', 'ملابس العيد'], fr: ['habits de fete', 'tenue aid'], en: ['eid clothes'] },
+    { darija: ['كسوة العيد', 'حوايج العيد', 'لباس العيد', 'كسوة لعيد', 'كسوة', 'كسوه', 'الكسوة'], ar: ['كسوة العيد', 'ملابس العيد'], fr: ['habits de fete', 'tenue aid'], en: ['eid clothes'] },
     ['عندي كسوة العيد', 'بغيت كسوة العيد للدراري']),
   C('used_clothing', 'fashion', 'سوق الملابس المستعملة', 'جوطية', 'Marché aux puces', 'Flea market',
     { darija: ['جوطية', 'الجوطية', 'جوطيه', 'سوق البالي', 'فريب', 'فريپ', 'حوايج بالية'], arabizi: ['joutia', 'friperie', 'frip'], ar: ['سوق مستعمل', 'سوق البالة'], fr: ['joutia', 'friperie', 'marche aux puces'], en: ['flea market', 'thrift'] },

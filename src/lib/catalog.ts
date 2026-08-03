@@ -1,0 +1,166 @@
+import { CATEGORY_FIELDS, type CatFieldDef } from '../data/categoryFields';
+
+// ============================================================
+// الكتالوج — **مصدرٌ واحدٌ للفئات**.
+//
+//   العطبُ الذي وُلد منه هذا الملفّ، كما لاحظه المالك: «صفحة المساعد الذكيّ
+//   تعطيني أسئلةً مغايرةً للتي في صفحة المنتجات — لماذا؟»
+//
+//   لأنّ الحقولَ كانت مكتوبةً **مرّتين في مكانين لا يعرف أحدُهما الآخر**:
+//     • `src/data/categoryFields.ts` — ٤٠+ حقلًا حسب الفئة، تقرؤها **الاستمارة**.
+//     • `src/lib/akg/pages.ts`      — ٩ حقولٍ عامّة، يقرؤها **العقل**.
+//   فالعقلُ يسأل عن «الوصف» والاستمارةُ تسأل عن «الخامة» و«الموسم». ليس
+//   خطأً في أحدهما — بل غيابُ مصدرٍ واحد.
+//
+//   وهنا يُحسَم أيضًا ما هو أعمق: **الفئةُ تُشتقّ ممّا يفهمه العقل.** كلُّ فئةٍ
+//   تُعلن مفاهيمَ قاعدةِ المعرفة التي تخصّها (`concepts`)، فحين يقرأ المحرّكُ
+//   «تراكسي» ⇒ `sportswear` ⇒ فئةُ «رياضة». لولا ذلك لكانت عندنا قائمتان
+//   للشيء نفسِه: العقلُ يعرف `tire_shop` والاستمارةُ تعرف «أخرى».
+// ============================================================
+
+export type CategoryKind = 'product' | 'service' | 'digital';
+
+export interface Category {
+  id: string;
+  icon: string;
+  label: string;
+  color: string;
+  kind: CategoryKind;
+  /** مقاساتٌ مقترحة — فارغةٌ حيث لا معنى لها. */
+  sizes: string[];
+  /** ألوانٌ مقترحة. */
+  colors: string[];
+  /** مفاهيمُ قاعدة المعرفة التي تقع في هذه الفئة — بها تُشتقّ الفئةُ من الفهم. */
+  concepts: string[];
+}
+
+/** مقاساتٌ متكرّرة — تُكتب مرّةً. */
+const S_LETTER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+const S_SHOE = ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'];
+const S_KIDS = ['0-6m', '6-12m', '1-2Y', '2-4Y', '4-6Y', '6-8Y', '8-10Y', '10-12Y'];
+const C_NEUTRAL = ['أسود', 'أبيض', 'رمادي', 'بني', 'بيج', 'أزرق'];
+
+export const CATEGORIES: Category[] = [
+  // ── أزياء ──────────────────────────────────────────────────
+  { id: 'men', icon: '👕', label: 'ملابس رجال', color: '#3B82F6', kind: 'product',
+    sizes: S_LETTER, colors: ['أسود', 'أبيض', 'رمادي', 'كحلي', 'بيج', 'أزرق', 'أحمر', 'زيتي'],
+    concepts: ['garment_top', 'garment_bottom', 'garment_outerwear', 'underwear_socks'] },
+  { id: 'women', icon: '👗', label: 'ملابس نساء', color: '#EC4899', kind: 'product',
+    sizes: S_LETTER.slice(0, 6), colors: ['أسود', 'أبيض', 'وردي', 'أحمر', 'بيج', 'نبيتي', 'تركواز', 'بنفسجي'],
+    concepts: ['garment_dress', 'traditional_clothing', 'womens_clothing'] },
+  { id: 'kids', icon: '🧒', label: 'أطفال', color: '#F59E0B', kind: 'product',
+    sizes: S_KIDS, colors: ['أزرق', 'وردي', 'أصفر', 'أبيض', 'أحمر', 'أخضر', 'برتقالي'],
+    concepts: ['kids_clothing', 'baby_clothing', 'eid_clothing'] },
+  { id: 'shoes', icon: '👟', label: 'أحذية', color: '#8B5CF6', kind: 'product',
+    sizes: S_SHOE, colors: C_NEUTRAL,
+    concepts: ['shoe_store', 'shoe_seller'] },
+  { id: 'access', icon: '👜', label: 'أكسسوارات', color: '#10B981', kind: 'product',
+    sizes: [], colors: ['أسود', 'بني', 'بيج', 'ذهبي', 'فضي', 'أحمر'],
+    concepts: ['fashion_accessories'] },
+  { id: 'sport', icon: '🏃', label: 'رياضة', color: '#22C55E', kind: 'product',
+    sizes: S_LETTER, colors: ['أسود', 'أبيض', 'أحمر', 'أزرق', 'أخضر', 'رمادي'],
+    concepts: ['sportswear'] },
+
+  // ── السيّارات — المجالُ الثاني للمالك. كانت **بلا فئةٍ واحدة**. ──
+  { id: 'auto', icon: '🚗', label: 'سيارات وقطع غيار', color: '#EF4444', kind: 'product',
+    sizes: [], colors: C_NEUTRAL,
+    concepts: ['car', 'tire_shop', 'car_parts', 'auto_parts_store'] },
+  { id: 'auto_service', icon: '🔧', label: 'خدمات السيارات', color: '#F97316', kind: 'service',
+    sizes: [], colors: [],
+    concepts: ['mechanic', 'car_wash', 'car_service', 'car_maintenance', 'car_diagnostics',
+      'car_painting', 'car_body_repair', 'car_polishing', 'car_wrapping', 'car_interior_cleaning',
+      'auto_body_paint', 'car_electrician'] },
+
+  // ── المعلوميّات — المجالُ الثالث. كانت **بلا فئةٍ واحدة**. ──
+  { id: 'tech', icon: '💻', label: 'إلكترونيات ومعلوميات', color: '#0EA5E9', kind: 'product',
+    sizes: [], colors: C_NEUTRAL,
+    concepts: ['computer_hardware_store', 'computer_repair', 'electronics_store', 'mobile_phone_shop'] },
+  { id: 'tech_service', icon: '🛠️', label: 'خدمات تقنية', color: '#6366F1', kind: 'service',
+    sizes: [], colors: [],
+    concepts: ['it_support', 'computer_repair_technician_it_technician', 'mobile_phone_repair',
+      'wifi_internet', 'network_technician', 'cctv_security_systems', 'satellite_receiver',
+      'web_development'] },
+
+  // ── الباقي ─────────────────────────────────────────────────
+  { id: 'home', icon: '🏠', label: 'ديكور ومنزل', color: '#F97316', kind: 'product',
+    sizes: [], colors: ['أسود', 'أبيض', 'بيج', 'بني', 'رمادي', 'ذهبي'],
+    concepts: ['furniture_store', 'home_decor'] },
+  { id: 'service', icon: '🔧', label: 'خدمة', color: '#8B5CF6', kind: 'service',
+    sizes: [], colors: [], concepts: [] },
+  { id: 'digital', icon: '💻', label: 'رقمي / دروس', color: '#0EA5E9', kind: 'digital',
+    sizes: [], colors: [], concepts: [] },
+  { id: 'other', icon: '📦', label: 'أخرى', color: '#6B7280', kind: 'product',
+    sizes: [], colors: [], concepts: [] },
+];
+
+const BY_ID = new Map(CATEGORIES.map(c => [c.id, c]));
+
+export function getCategory(id: string): Category | undefined {
+  return BY_ID.get(id);
+}
+
+/**
+ * الفئةُ التي يقع فيها مفهومٌ من قاعدة المعرفة — **بها يُشتقّ النموذجُ من
+ * الفهم**: يكتب التاجرُ «تراكسي» فتُختار «رياضة» بمقاساتها وحقولها وحدَها.
+ */
+export function categoryForConcept(conceptId: string | undefined | null): Category | undefined {
+  if (!conceptId) return undefined;
+  return CATEGORIES.find(c => c.concepts.includes(conceptId));
+}
+
+/** الحقولُ الخاصّةُ بفئة — من `categoryFields.ts`، لا نسخةَ ثانية. */
+export function fieldsForCategory(id: string): CatFieldDef[] {
+  return CATEGORY_FIELDS[id] || [];
+}
+
+/**
+ * الحقولُ الأساسيّةُ حسب نوع الفئة. مذكورةٌ هنا **مرّةً واحدة**، ويقرؤها
+ * العقلُ والاستمارةُ معًا فلا يسأل أحدُهما عمّا لا يسأل عنه الآخر.
+ */
+export interface BaseField { key: string; label: string; kind: string; essential?: boolean; hint?: string }
+
+const BASE_PRODUCT: BaseField[] = [
+  { key: 'title',    label: 'اسم المنتج',   kind: 'text',   essential: true, hint: 'واضح ومختصر' },
+  { key: 'price',    label: 'الثمن (درهم)', kind: 'money',  essential: true },
+  { key: 'category', label: 'الفئة',        kind: 'select', essential: true },
+  { key: 'photos',   label: 'الصور',        kind: 'photos', essential: true, hint: 'المنتجات بصور تبيع أسرع' },
+  { key: 'desc',     label: 'الوصف',        kind: 'text' },
+  { key: 'stock',    label: 'الكمّيّة',      kind: 'number' },
+  { key: 'colors',   label: 'الألوان',      kind: 'tags' },
+  { key: 'sizes',    label: 'المقاسات',     kind: 'tags' },
+  { key: 'hashtags', label: 'الهاشتاغات',   kind: 'tags',   hint: 'تزيد الوصول' },
+];
+
+const BASE_SERVICE: BaseField[] = [
+  { key: 'title',    label: 'اسم الخدمة',   kind: 'text',   essential: true },
+  { key: 'price',    label: 'الثمن',        kind: 'money',  essential: true },
+  { key: 'category', label: 'الفئة',        kind: 'select', essential: true },
+  { key: 'photos',   label: 'صورٌ من عملك', kind: 'photos', hint: 'أعمالٌ سابقةٌ تُقنع أكثرَ من أيّ وصف' },
+  { key: 'desc',     label: 'الوصف',        kind: 'text' },
+  { key: 'duration', label: 'المدّة',        kind: 'text' },
+  { key: 'workArea', label: 'منطقة العمل',  kind: 'text',   essential: true },
+];
+
+const BASE_DIGITAL: BaseField[] = [
+  { key: 'title',    label: 'الاسم',        kind: 'text',   essential: true },
+  { key: 'price',    label: 'الثمن',        kind: 'money',  essential: true },
+  { key: 'category', label: 'الفئة',        kind: 'select', essential: true },
+  { key: 'photos',   label: 'صورةُ الغلاف', kind: 'photos' },
+  { key: 'desc',     label: 'الوصف',        kind: 'text' },
+];
+
+export function baseFields(kind: CategoryKind): BaseField[] {
+  return kind === 'service' ? BASE_SERVICE : kind === 'digital' ? BASE_DIGITAL : BASE_PRODUCT;
+}
+
+/**
+ * **كلُّ** ما يُسأل عنه لفئةٍ ما: الأساسيُّ ثمّ الخاصّ. هذه هي الدالّةُ التي
+ * يجب أن يقرأها كلُّ من يسأل — الاستمارةُ والمساعدُ وشريطُ القدرات.
+ */
+export function allFieldsFor(categoryId: string): { base: BaseField[]; specific: CatFieldDef[] } {
+  const cat = getCategory(categoryId);
+  return {
+    base: baseFields(cat?.kind || 'product'),
+    specific: fieldsForCategory(categoryId),
+  };
+}

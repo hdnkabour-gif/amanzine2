@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useStore } from '../store';
+import { CATEGORIES, categoryForConcept } from '../lib/catalog';
+import { resolveConcept } from '../lib/akg/kb/knowledge';
 import { hasAI, hasImageAI } from '../lib/aiAvailability';
 import CapabilityBar from '../components/CapabilityBar';
 import {
@@ -27,58 +29,15 @@ const CAT_IMG: Record<string, string> = {
   other:  '/categories/other.svg',
 };
 
-const CATS = [
-  { id: 'men',     icon: '👕', label: 'ملابس رجال',   color: '#3B82F6', type: 'product' },
-  { id: 'women',   icon: '👗', label: 'ملابس نساء',   color: '#EC4899', type: 'product' },
-  { id: 'kids',    icon: '🧒', label: 'أطفال',        color: '#F59E0B', type: 'product' },
-  { id: 'shoes',   icon: '👟', label: 'أحذية',        color: '#8B5CF6', type: 'product' },
-  { id: 'access',  icon: '👜', label: 'أكسسوارات',   color: '#10B981', type: 'product' },
-  { id: 'home',    icon: '🏠', label: 'ديكور ومنزل', color: '#F97316', type: 'product' },
-  { id: 'service', icon: '🔧', label: 'خدمة',         color: '#8B5CF6', type: 'service' },
-  { id: 'digital', icon: '💻', label: 'رقمي / دروس',  color: '#0EA5E9', type: 'digital' },
-  { id: 'other',   icon: '📦', label: 'أخرى',         color: '#6B7280', type: 'product' },
-] as const;
+// الفئاتُ ومقاساتُها وألوانُها من `src/lib/catalog.ts` — **مصدرٌ واحد**.
+//   كانتا مكتوبتين هنا (`CATS` و`CAT_CFG`) ومكتوبتين ثانيةً في عقل التطبيق،
+//   فكان المساعدُ الذكيُّ يسأل أسئلةً غيرَ التي تسألها هذه الاستمارة — وهو ما
+//   لاحظه المالك. القائمةُ الآن واحدةٌ يقرؤها الاثنان.
+const CATS = CATEGORIES.map(c => ({ id: c.id, icon: c.icon, label: c.label, color: c.color, type: c.kind }));
+const CAT_CFG: Record<string, { emoji: string; sizes: string[]; colors: string[] }> =
+  Object.fromEntries(CATEGORIES.map(c => [c.id, { emoji: c.icon, sizes: c.sizes, colors: c.colors }]));
 
 // الحقول التفصيلية لكل فئة تأتي من الخريطة الكاملة في src/data/categoryFields.ts
-const CAT_CFG: Record<string, {
-  emoji: string;
-  sizes: string[];
-  colors: string[];
-}> = {
-  men: {
-    emoji: '👕',
-    sizes: ['XS','S','M','L','XL','XXL','XXXL'],
-    colors: ['أسود','أبيض','رمادي','كحلي','بيج','أزرق','أحمر','زيتي'],
-  },
-  women: {
-    emoji: '👗',
-    sizes: ['XS','S','M','L','XL','XXL'],
-    colors: ['أسود','أبيض','وردي','أحمر','بيج','نبيتي','تركواز','بنفسجي'],
-  },
-  kids: {
-    emoji: '🧒',
-    sizes: ['0-6m','6-12m','1-2Y','2-4Y','4-6Y','6-8Y','8-10Y','10-12Y'],
-    colors: ['أزرق','وردي','أصفر','أبيض','أحمر','أخضر','برتقالي'],
-  },
-  shoes: {
-    emoji: '👟',
-    sizes: ['35','36','37','38','39','40','41','42','43','44','45','46'],
-    colors: ['أسود','أبيض','رمادي','بني','بيج','أزرق'],
-  },
-  access: {
-    emoji: '👜',
-    sizes: [],
-    colors: ['أسود','بني','بيج','ذهبي','فضي','أحمر'],
-  },
-  home: {
-    emoji: '🏠',
-    sizes: [],
-    colors: ['أسود','أبيض','بيج','بني','رمادي','ذهبي'],
-  },
-  other:   { emoji: '📦', sizes: [], colors: [] },
-  service: { emoji: '🔧', sizes: [], colors: [] },
-  digital: { emoji: '💻', sizes: [], colors: [] },
-};
 
 // ── Variant types ─────────────────────────────────────────────
 
@@ -1392,7 +1351,17 @@ export default function ProductsPage() {
                       className="input" autoFocus
                       placeholder={data.type === 'service' ? 'مثال: تركيب كهرباء...' : data.type === 'digital' ? 'مثال: دورة تعلم البرمجة...' : 'مثال: قميص كتان أبيض...'}
                       value={data.name}
-                      onChange={e => setData(d => ({ ...d, name: e.target.value }))}
+                      onChange={e => {
+                        const name = e.target.value;
+                        // النموذجُ يُشتقّ من الفهم: يكتب التاجرُ «تراكسي» فيعرف
+                        // العقلُ أنّها ملابسُ رياضيّة، وتُختار الفئةُ بمقاساتها
+                        // وحقولها. لا نُبدّل اختيارًا يدويًّا — نقترح ما لم يُختَر.
+                        setData(d => {
+                          if (d.category && d.category !== 'other') return { ...d, name };
+                          const guess = categoryForConcept(resolveConcept(name)?.id);
+                          return guess ? { ...d, name, category: guess.id } : { ...d, name };
+                        });
+                      }}
                     />
                   </div>
                   <div>

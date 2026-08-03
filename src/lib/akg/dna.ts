@@ -12,6 +12,7 @@ import { moduleForEntity, moduleForIntent, type AppModule } from './modules';
 import { getServices, type AppService } from './services';
 import { relatedTo, followUps, type Relation } from './relations';
 import { pageForIntent, pagesForEntity, getPageCapability, type PageCapability, type PageField, type PageAction } from './registry';
+import { resolveConcept } from './kb/knowledge';
 
 export interface DnaPath {
   need: string;             // الجملة كما كتبها المستخدم
@@ -61,7 +62,18 @@ export function resolveDna(raw: string): DnaPath {
   const companions = relatedTo(entity);
   const follows = followUps(entity, intent);
 
-  return { need, intent, entity, module, page, fields, essentials, actions, services, next, workflow, companions, followUps: follows, verb: blueprint.verb, blueprintLabel: blueprint.label };
+  // العنوانُ يقول **ما فُهم**، لا «منتج للبيع» العامّة ولا صدى ما كتبه المستخدم.
+  //   «عندي كسوة للبيع» ⇒ «كسوة العيد» — فيرى الإنسانُ أنّ النظامَ فهمه فعلًا.
+  //   وإن لم يُفهَم شيءٌ بعينه بقي العنوانُ العامُّ: لا ندّعي دقّةً لا نملكها.
+  const named = resolveConcept(need)?.concept?.ar;
+  // «سيارة — سيّارة للبيع» تكرارٌ لا إفادة. والمقارنةُ تُجرَّد من الشدّة أوّلًا،
+  // وإلّا لم تُطابق «سيّارة» «سيارة» فبقي التكرارُ ظاهرًا.
+  const bare = (t: string) => t.replace(/[\u064B-\u0652]/g, '');
+  const redundant = !!named &&
+    (bare(blueprint.label).includes(bare(named)) || bare(named).includes(bare(blueprint.label)));
+  const blueprintLabel = named && !redundant ? `${named} — ${blueprint.label}` : blueprint.label;
+
+  return { need, intent, entity, module, page, fields, essentials, actions, services, next, workflow, companions, followUps: follows, verb: blueprint.verb, blueprintLabel };
 }
 
 // نسخة خفيفة للعرض/التتبّع — أسماء فقط (للاستوديو أو السجلّات).

@@ -5,6 +5,7 @@
 // ============================================================
 
 import { registerPage } from './registry';
+import { baseFields } from '../catalog';
 
 // ── صفحة المنتجات — المتجر: أضف/عدّل/شارك المنتجات ──
 registerPage({
@@ -18,17 +19,13 @@ registerPage({
   services: ['ai.description', 'ai.removeBg', 'design.image', 'brand.logo', 'share.whatsapp', 'share.social', 'share.qr', 'ai.price'],
   next: 'شارك المنتج على واتساب لتصل لزبنائك',
   keywords: ['بيع', 'منتج', 'سلعة', 'produit', 'متجر', 'catalogue'],
-  fields: [
-    { key: 'title',    label: 'اسم المنتج',    kind: 'text',   essential: true,  hint: 'واضح ومختصر' },
-    { key: 'price',    label: 'الثمن (درهم)',  kind: 'money',  essential: true },
-    { key: 'category', label: 'الفئة',         kind: 'select', essential: true },
-    { key: 'photos',   label: 'الصور',         kind: 'photos', essential: true, evidence: true, hint: 'المنتجات بصور تبيع أسرع' },
-    { key: 'desc',     label: 'الوصف',         kind: 'text' },
-    { key: 'hashtags', label: 'الهاشتاغات',    kind: 'tags',   hint: 'تزيد الوصول' },
-    { key: 'colors',   label: 'الألوان',       kind: 'tags' },
-    { key: 'sizes',    label: 'المقاسات',      kind: 'tags' },
-    { key: 'stock',    label: 'الكمّيّة',       kind: 'number' },
-  ],
+  // الحقولُ من `src/lib/catalog.ts` — **نفسُها التي تعرضها الاستمارة**.
+  //   كانت مكتوبةً هنا يدويًّا (٩ حقولٍ عامّة) ومكتوبةً هناك حسب الفئة (٤٠+)،
+  //   فكان المساعدُ يسأل عن «الوصف» والاستمارةُ تسأل عن «الخامة» و«الموسم».
+  fields: baseFields('product').map(f => ({
+    ...f, kind: f.kind as any,
+    ...(f.key === 'photos' ? { evidence: true } : {}),
+  })),
   actions: [
     { key: 'add',      label: 'أضف منتجًا',       outcome: 'يفتح نموذج منتج جديد', primary: true },
     { key: 'design',   label: 'صمّم صورة',        outcome: 'يفتح محرّر الصورة (خلفيّة/لوغو/نصّ)' },
