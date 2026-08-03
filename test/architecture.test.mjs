@@ -569,3 +569,126 @@ test('قياسٌ يُكتب يجب أن يُقرأ — لا دالّةَ إحص�
       `${rel}: دالّةٌ تُصدَّر ولا يقرؤها أحد: ${unread.join(' · ')} — اعرضها أو احذفها`);
   }
 });
+
+// ============================================================
+// ⑱ لا حالةَ ميّتة: عضوٌ في اتّحادِ حالاتٍ لا يبلغه انتقال.
+//
+//   وُجد في `Onboarding.tsx`: سبعُ حالاتٍ مُعلَنةٌ في `type Step`، وثلاثٌ في
+//   `ORDER` الذي يمشي فيه `next()`. فخمسُ شاشاتٍ مرسومةٌ بلا بابٍ يبلغها —
+//   نحو ١٩٠ سطرًا تُقرأ وتُصان ولا يراها أحد. ومنها وُلد ما رآه المالك:
+//   «الخطوة ١ من ١»، وهي `ORDER.length - 2` حرفيًّا.
+//
+//   هذا صنفٌ لا حالة: أيُّ آلةِ حالاتٍ تُعلن أكثرَ ممّا تصل إليه.
+// ============================================================
+test('لا حالةَ مُعلَنةٌ لا يبلغها انتقال', () => {
+  const files = [];
+  (function walk(dir) {
+    for (const e of readdirSync(dir)) {
+      const full = join(dir, e);
+      if (statSync(full).isDirectory()) { walk(full); continue; }
+      if (/\.tsx?$/.test(e)) files.push(full);
+    }
+  })(join(ROOT, 'src'));
+
+  const dead = [];
+  for (const f of files) {
+    const src = readFileSync(f, 'utf8');
+    // اتّحادُ نصوصٍ يُسمّى Step/Phase/Stage/Screen، ومصفوفةُ ترتيبٍ بجانبه.
+    const uni = src.match(/type\s+(Step|Phase|Stage|Screen)\s*=\s*([^;]+);/);
+    if (!uni) continue;
+    const members = [...uni[2].matchAll(/'([^']+)'/g)].map(m => m[1]);
+    if (members.length < 2) continue;
+
+    const order = src.match(/const\s+ORDER\s*:\s*\w+\[\]\s*=\s*\[([^\]]+)\]/);
+    if (!order) continue;                       // بلا مصفوفةِ ترتيبٍ لا حكم
+    const reachable = new Set([...order[1].matchAll(/'([^']+)'/g)].map(m => m[1]));
+    // حالةٌ يُنتقَل إليها صراحةً بـ setStep('x') تُعدّ قابلةَ الوصول أيضًا.
+    for (const m of src.matchAll(/set\w*(?:Step|Phase|Stage|Screen)\(\s*'([^']+)'/g)) reachable.add(m[1]);
+
+    const orphans = members.filter(m => !reachable.has(m));
+    if (orphans.length) dead.push(`${f.replace(ROOT, '')}: ${orphans.join(' · ')}`);
+  }
+  assert.deepEqual(dead, [],
+    `حالاتٌ مُعلَنةٌ لا يبلغها شيء — شاشاتٌ تُرسَم ولا تُرى:\n  ${dead.join('\n  ')}`);
+});
+
+// ============================================================
+// ⑲ لا إعدادَ يتيم: يُكتَب عبر `updateSettings` ولا يقرؤه أحد.
+//
+//   وُجد `businessCategory`: مرجعٌ واحدٌ في المشروع كلِّه هو سطرُ الكتابة
+//   نفسُه، وقيمتُه دائمًا فارغةٌ لأنّ الشاشةَ التي تملؤها كانت ميّتة.
+//   إعدادٌ كهذا يبدو ميزةً مبنيّةً وهو لا شيء.
+// ============================================================
+test('لا إعدادَ يُكتَب ولا يُقرَأ', () => {
+  const files = [];
+  (function walk(dir) {
+    for (const e of readdirSync(dir)) {
+      const full = join(dir, e);
+      if (statSync(full).isDirectory()) { walk(full); continue; }
+      if (/\.tsx?$/.test(e)) files.push(full);
+    }
+  })(join(ROOT, 'src'));
+
+  const all = files.map(f => ({ f, src: readFileSync(f, 'utf8') }));
+  const written = new Set();
+  for (const { src } of all)
+    for (const m of src.matchAll(/updateSettings\(\s*'(\w+)'/g)) written.add(m[1]);
+
+  // مفاتيحُ يقرؤها الخادمُ أو المخطّطُ لا الواجهة — قراءتُها خارج src.
+  const READ_ELSEWHERE = new Set(['onboardingDone', 'brand', 'ai', 'products', 'capabilities', 'role']);
+
+  const orphans = [];
+  for (const key of written) {
+    if (READ_ELSEWHERE.has(key)) continue;
+    // قراءةٌ = ورودُ المفتاح في **كودٍ** غيرِ سطر الكتابة. التعليقُ ليس قراءة:
+    // شرحُ العطبِ في رأس الملفّ كان يُمرِّر الحارسَ على العطب نفسِه — وهي
+    // ثالثُ مرّةٍ يقع فيها هذا الثقبُ عينُه في حرّاس هذا المشروع.
+    const reads = all.some(({ src }) => src
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+      .replace(/updateSettings\(\s*'\w+'[^\n]*/g, '')
+      .includes(key));
+    if (!reads) orphans.push(key);
+  }
+  assert.deepEqual(orphans, [],
+    `إعداداتٌ تُكتَب ولا يقرؤها شيء: ${orphans.join(' · ')} — اقرأها أو احذفها`);
+});
+
+// ============================================================
+// ⑳ لا قائمةَ فئاتٍ ثانية.
+//
+//   كان في المشروع **سبعُ** قوائمَ لفئاتٍ واحدة. آخرُها في شاشةِ ترحيبٍ
+//   ميّتةٍ تقول «إكسسوارات» بينما يقول الكتالوج «أكسسوارات» — إملاءان
+//   لشيءٍ واحد. لا تُكتشَف بالقراءة، وتُكتشَف هنا.
+// ============================================================
+test('لا مصفوفةَ نصوصٍ تُحاكي فئاتِ الكتالوج', () => {
+  // نقرأ التسمياتِ من نصّ الكتالوج لا باستيرادِه: هذا الحارسُ يعمل بـ node
+  // وحدَه بلا مترجم، وإدخالُ خطوةِ بناءٍ هنا يجعله يفشل لسببٍ ليس عطبًا.
+  const catalogSrc = readFileSync(join(ROOT, 'src/lib/catalog.ts'), 'utf8');
+  const labels = new Set([...catalogSrc.matchAll(/label:\s*'([^']+)'/g)].map(m => m[1]));
+  assert.ok(labels.size >= 10, 'تعذّر قراءةُ تسميات الكتالوج');
+  // تسمياتٌ عامّةٌ قد ترد بريئةً (فلاتر/ترجمات) — نقيس التطابقَ الكثيف وحدَه.
+  const files = [];
+  (function walk(dir) {
+    for (const e of readdirSync(dir)) {
+      const full = join(dir, e);
+      if (statSync(full).isDirectory()) { walk(full); continue; }
+      if (/\.tsx?$/.test(e)) files.push(full);
+    }
+  })(join(ROOT, 'src'));
+
+  const SOURCE = ['catalog.ts', 'categoryFields.ts', 'translations.ts', 'knowledgeData.ts',
+    'knowledgeExtra.ts', 'knowledgeExtra.generated.ts', 'blueprints.ts'];
+  const offenders = [];
+  for (const f of files) {
+    if (SOURCE.some(s => f.endsWith(s))) continue;
+    const src = readFileSync(f, 'utf8');
+    for (const arr of src.matchAll(/\[((?:\s*'[^']{2,30}'\s*,){2,}[^\]]*)\]/g)) {
+      const items = [...arr[1].matchAll(/'([^']+)'/g)].map(m => m[1]);
+      const hits = items.filter(i => labels.has(i));
+      if (hits.length >= 3) offenders.push(`${f.replace(ROOT, '')}: ${hits.join(' · ')}`);
+    }
+  }
+  assert.deepEqual(offenders, [],
+    `قائمةُ فئاتٍ ثانيةٌ — تتخلّف عن الكتالوج عند أوّل تعديل:\n  ${offenders.join('\n  ')}`);
+});
