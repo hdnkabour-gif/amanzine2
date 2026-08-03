@@ -18,7 +18,14 @@
 //   شتوية للبنات» أجاب سلفًا عن الموسم والجمهور — وكان التطبيقُ يسألهما.
 // ============================================================
 
-export type ContextKind = 'audience' | 'season' | 'occasion';
+export type ContextKind =
+  | 'audience'      // لمن؟
+  | 'season'        // متى يُلبَس/يُستعمل؟
+  | 'occasion'      // لأيّ مناسبة؟
+  | 'condition'     // جديد · مستعمل
+  | 'authenticity'  // أصليّ · تقليد — سؤالٌ مغربيٌّ بامتياز
+  | 'origin'        // صنع في…
+  | 'transaction';  // بالجملة · بالتقسيط
 
 export interface ContextSignal {
   kind: ContextKind;
@@ -84,6 +91,47 @@ const RULES: Rule[] = [
     'ديال الرياضة', 'للرياضة', 'رياضي', 'رياضية'] },
   { kind: 'occasion', key: 'occasion', value: 'يومي', terms: [
     'ديال الدار', 'ديال كل نهار', 'كاجوال', 'casual', 'quotidien'] },
+
+  // ── الحالة ─────────────────────────────────────────────────
+  // كان يُسأل عنها دائمًا ولو قالها التاجرُ في السطر نفسِه: «تلفون مستعمل».
+  { kind: 'condition', key: 'condition', value: 'جديد', terms: [
+    'جديد', 'جديدة', 'ناوي', 'ناويّة', 'مازال فالكارطون', 'neuf', 'neuve', 'new', 'brand new'] },
+  { kind: 'condition', key: 'condition', value: 'كالجديد', terms: [
+    'شبه جديد', 'شبه جديدة', 'كالجديد', 'بحال جديد', 'مستعمل نظيف',
+    'comme neuf', 'tres bon etat', 'like new'] },
+  { kind: 'condition', key: 'condition', value: 'مستعمل', terms: [
+    'مستعمل', 'مستعملة', 'مستعمَل', 'قديم', 'قديمة', 'خدام', 'occasion', 'used', 'second hand'] },
+
+  // ── الأصالة ────────────────────────────────────────────────
+  // سؤالٌ مغربيٌّ بامتياز، والصدقُ فيه يمنع نزاعًا بعد البيع.
+  { kind: 'authenticity', key: 'authenticity', value: 'أصلي', terms: [
+    'أصلي', 'اصلي', 'أصلية', 'اصلية', 'اوريجينال', 'original', 'authentique', 'authentic', 'genuine'] },
+  { kind: 'authenticity', key: 'authenticity', value: 'تقليد', terms: [
+    'كوبي', 'تقليد', 'مقلّد', 'مقلد', 'ريبليكا', 'copie', 'replique', 'replica', 'fake'] },
+
+  // ── المنشأ ─────────────────────────────────────────────────
+  // «جلابة صنع في المغرب» كانت تُقرأ **بحثًا عن حرفيّ** (find_pro) — لأنّ
+  // «صنع» فعلٌ. وهي وصفُ منشأ، لا طلبُ صانع.
+  { kind: 'origin', key: 'origin', value: 'المغرب', terms: [
+    'صنع في المغرب', 'صنع مغربي', 'مغربي الصنع', 'محلي', 'محليّ', 'بلادي',
+    'made in morocco', 'fabrique au maroc'] },
+  { kind: 'origin', key: 'origin', value: 'مستورد', terms: [
+    'مستورد', 'مستوردة', 'مستوردين', 'importe', 'imported'] },
+  { kind: 'origin', key: 'origin', value: 'تركيا', terms: [
+    'صنع في تركيا', 'تركي', 'تركية', 'turc', 'made in turkey'] },
+  { kind: 'origin', key: 'origin', value: 'الصين', terms: [
+    'صنع في الصين', 'صيني', 'صينية', 'chinois', 'made in china'] },
+
+  // ── نوعُ المعاملة ──────────────────────────────────────────
+  // «للبيع» و«للكراء» **ليست هنا**: هما نيّةٌ تُغيّر القالبَ نفسَه (الكراء له
+  // ثمنٌ يوميٌّ وضمانة)، ويقرؤهما `needEngine`. وضعُهما هنا أيضًا يُنشئ
+  // مصدرًا ثانيًا. ما هنا هو ما لا يُغيّر القالبَ بل يصف شروطَ البيع.
+  { kind: 'transaction', key: 'transaction', value: 'بالجملة', terms: [
+    'بالجملة', 'جملة', 'كميات', 'gros', 'en gros', 'wholesale', 'bulk'] },
+  { kind: 'transaction', key: 'transaction', value: 'بالتقسيط', terms: [
+    'بالتقسيط', 'تقسيط', 'كريدي', 'بالسلف', 'facilite', 'credit', 'installment'] },
+  { kind: 'transaction', key: 'transaction', value: 'تبديل', terms: [
+    'للتبديل', 'تبديل', 'نبدل', 'echange', 'troc', 'swap', 'trade'] },
 ];
 
 /**

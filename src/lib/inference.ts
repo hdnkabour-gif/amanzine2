@@ -106,6 +106,8 @@ function kbInfer(raw: string): Inferred[] {
   // التي أنتجته، فيُعرَض للتصحيح لا يُفرَض.
   const LABELS: Record<string, string> = {
     audience: 'لمن؟', season: 'الموسم', occasion: 'المناسبة',
+    condition: 'الحالة', authenticity: 'الأصالة', origin: 'المنشأ',
+    transaction: 'نوع البيع',
   };
   for (const c of extractContexts(raw))
     out.push({ key: c.key, label: LABELS[c.key] || c.key, value: c.value,
