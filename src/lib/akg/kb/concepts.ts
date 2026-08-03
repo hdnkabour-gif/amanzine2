@@ -6,7 +6,7 @@
 // ============================================================
 
 import { CONCEPTS as GENERATED, type ConceptData, type ConceptStance, type ConceptLinks } from './knowledgeData';
-import { EXTRA_CONCEPTS, ENRICH_CONCEPTS } from './knowledgeExtra';
+import { EXTRA_CONCEPTS, ENRICH_CONCEPTS, DISOWNED } from './knowledgeExtra';
 // مولَّدٌ من CSV عبر scripts/import-knowledge.mjs — يُدمَج بنفس قاعدة الـid.
 import { IMPORTED_CONCEPTS } from './knowledgeExtra.generated';
 
@@ -61,6 +61,17 @@ for (const c of [...ENRICH_CONCEPTS, ...EXTRA_CONCEPTS, ...IMPORTED_CONCEPTS]) {
   } else {
     byId.set(c.id, { ...c, variants: { ...c.variants } });
   }
+}
+
+// سحبُ المصطلحات العامّة التي يُطالب بها مفهومٌ لا تخصّه. يقع **بعد** الدمج
+// كلِّه: وإلّا أعادها ملفٌّ مولَّدٌ أو مستورَدٌ من الباب الخلفيّ.
+for (const [id, terms] of Object.entries(DISOWNED)) {
+  const c = byId.get(id);
+  if (!c) continue;
+  const drop = new Set(terms);
+  const variants: ConceptData['variants'] = {};
+  for (const [lang, list] of Object.entries(c.variants || {})) variants[lang] = (list || []).filter(t => !drop.has(t));
+  byId.set(id, { ...c, variants });
 }
 
 export const CONCEPTS: ConceptData[] = Array.from(byId.values());

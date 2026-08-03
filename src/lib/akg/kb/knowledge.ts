@@ -204,6 +204,36 @@ function knowledgeOf(id: string): Pick<ConceptResolution, 'services' | 'fields' 
   return c ? { services: c.services, fields: c.fields, examples: c.examples } : {};
 }
 
+/**
+ * **مطابقةُ المصطلح القصير تحتاج حدًّا.**
+ *
+ *   وقع مرّتين في القياس نفسِه:
+ *     «تصبينة» ⇒ بقّال    — لأنّ «صبي» تقع داخلها
+ *     «garment» ⇒ سيّارة  — لأنّ فكَّ الـArabizi يعطي «كارمنت»، وفيها «كار»
+ *   وقبلهما «دي» (من خطأٍ مطبعيّ) كانت تجعل «كندير الحلويات» تشخيصَ سيّارات.
+ *
+ *   العربيّةُ تلصق سوابقَها فلا تصلح المطابقةُ بالكلمة الكاملة («الحلاق» يجب
+ *   أن تُطابق «حلاق»). لكنّ مصطلحًا من ثلاثة أحرفٍ أو أقلّ يقع داخل عشرات
+ *   الكلمات بلا معنًى — فيُشترط له حدٌّ: بدايةُ كلمةٍ أو بعد «ال».
+ */
+const SHORT = 3;
+function hitsArabic(term: string, text: string): boolean {
+  if (!text) return false;
+  if (term.length > SHORT) return text.includes(term);
+  return new RegExp(`(^|\\s)(ال)?${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`).test(text);
+}
+
+/**
+ * ومسارُ الـArabizi أضيقُ بعد: نصٌّ إنجليزيٌّ أو فرنسيٌّ سليمٌ يُفكّ إلى حروفٍ
+ * عربيّةٍ لا معنى لها («clothes» ⇒ «كلوثس»)، فتصادفُ داخلَها مصطلحًا قصيرًا
+ * مصادفةً محضة. هنا **تُشترَط الكلمةُ الكاملة** مهما كان طولُ المصطلح — فمن
+ * كتب Arabizi حقيقيًّا («sbak») يُفكّ إلى كلمةٍ كاملة («سباك») ولا يتضرّر.
+ */
+function hitsArabizi(term: string, text: string): boolean {
+  if (!text) return false;
+  return new RegExp(`(^|\\s)(ال)?${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`).test(text);
+}
+
 export function resolveConcept(text: string): ConceptResolution | null {
   if (!text) return null;
   const hasArabic = /[؀-ۿ]/.test(text);
@@ -230,7 +260,7 @@ export function resolveConcept(text: string): ConceptResolution | null {
 // «حاسوب». بدونه كان أوّلُ مفهومٍ في الترتيب يفوز مهما كان مصطلحه عامًّا.
 // العربيّة: مطابقةٌ متّصلة (أدقّ) أوّلًا.
   for (const { term, c } of arIndex) {
-    if ((ta && ta.includes(term)) || (tda && tda.includes(term))) {
+    if (hitsArabic(term, ta) || hitsArabizi(term, tda)) {
       return { id: c.id, category: categoryFor(c.id, c.category), concept: c.concept,
         language: 'darija', services: c.services, fields: c.fields, examples: c.examples,
         matched: { term, via: 'exact' } };

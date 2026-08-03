@@ -45,10 +45,12 @@ export const CATEGORIES: Category[] = [
   // ── أزياء ──────────────────────────────────────────────────
   { id: 'men', icon: '👕', label: 'ملابس رجال', color: '#3B82F6', kind: 'product',
     sizes: S_LETTER, colors: ['أسود', 'أبيض', 'رمادي', 'كحلي', 'بيج', 'أزرق', 'أحمر', 'زيتي'],
-    concepts: ['garment_top', 'garment_bottom', 'garment_outerwear', 'underwear_socks'] },
+    concepts: ['garment_top', 'garment_bottom', 'garment_outerwear', 'underwear_socks',
+      'mens_clothing'] },
   { id: 'women', icon: '👗', label: 'ملابس نساء', color: '#EC4899', kind: 'product',
     sizes: S_LETTER.slice(0, 6), colors: ['أسود', 'أبيض', 'وردي', 'أحمر', 'بيج', 'نبيتي', 'تركواز', 'بنفسجي'],
-    concepts: ['garment_dress', 'traditional_clothing', 'womens_clothing'] },
+    concepts: ['garment_dress', 'traditional_clothing', 'womens_clothing',
+      'modest_wear', 'sleepwear'] },
   { id: 'kids', icon: '🧒', label: 'أطفال', color: '#F59E0B', kind: 'product',
     sizes: S_KIDS, colors: ['أزرق', 'وردي', 'أصفر', 'أبيض', 'أحمر', 'أخضر', 'برتقالي'],
     concepts: ['kids_clothing', 'baby_clothing', 'eid_clothing'] },
@@ -58,6 +60,12 @@ export const CATEGORIES: Category[] = [
   { id: 'access', icon: '👜', label: 'أكسسوارات', color: '#10B981', kind: 'product',
     sizes: [], colors: ['أسود', 'بني', 'بيج', 'ذهبي', 'فضي', 'أحمر'],
     concepts: ['fashion_accessories'] },
+  // المتجرُ العامُّ للملابس. بلا مطالبةٍ صريحةٍ كانت `clothing` تسقط في
+  // «خدمة» — لأنّ لها `services[]` فتلتقطها قاعدةُ «مَن يَفعل، خدمة».
+  // **المطالبةُ الصريحةُ تغلب القاعدةَ دائمًا**، وهذا موضعُها الصحيح.
+  { id: 'clothes', icon: '🧥', label: 'ملابس', color: '#A855F7', kind: 'product',
+    sizes: S_LETTER, colors: ['أسود', 'أبيض', 'رمادي', 'بيج', 'أزرق', 'أحمر', 'أخضر'],
+    concepts: ['clothing', 'used_clothing', 'fabric_shop'] },
   { id: 'sport', icon: '🏃', label: 'رياضة', color: '#22C55E', kind: 'product',
     sizes: S_LETTER, colors: ['أسود', 'أبيض', 'أحمر', 'أزرق', 'أخضر', 'رمادي'],
     concepts: ['sportswear'] },
