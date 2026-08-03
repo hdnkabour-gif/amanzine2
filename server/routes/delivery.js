@@ -156,6 +156,21 @@ router.post('/create/:orderId', auth, async (req, res) => {
       });
     }
 
+    // ── إثراءُ البنود بالـSKU ─────────────────────────────────────
+    // بعضُ الشركات (Livo) تطلب مُعرِّفَ منتجٍ من كتالوجها هي، والجسرُ الوحيدُ
+    // إليه حقلُ «مرجع الزبون» — أي الـSKU عندنا. وبنودُ الطلب تحمل
+    // `productId` و`productName` ولا تحمل الـSKU، فتُقرأ هنا مرّةً واحدة.
+    // المزوّدُ يبقى نقيًّا: لا قاعدةَ بياناتٍ داخل ملفّ شركة.
+    let enrichedItems = order.items || [];
+    try {
+      const catalog = await db.getProducts(req.user.id);
+      const bySku = new Map(catalog.map(p => [p.id, p.sku]));
+      enrichedItems = enrichedItems.map(it => ({
+        ...it,
+        sku: it.sku || bySku.get(it.productId) || '',
+      }));
+    } catch { /* الإثراءُ تحسينٌ لا شرط */ }
+
     const chosen = registry.resolve(prov);
     if (chosen) {
       const plugin = chosen.handler;
@@ -164,6 +179,7 @@ router.post('/create/:orderId', auth, async (req, res) => {
         const result = await plugin.createShipment(
           {
             ...order,
+            items: enrichedItems,
             currency: settings.brand?.currency || 'MAD',
             // المزوّدُ يُفضّل المُعرِّفَ إن وُجد، ويقع على الاسم إن لم يوجد.
             cityId: externalCityId || undefined,
