@@ -1,4 +1,5 @@
 import { CATEGORY_FIELDS, type CatFieldDef } from '../data/categoryFields';
+import { CONCEPTS } from './akg/kb/concepts';
 
 // ============================================================
 // الكتالوج — **مصدرٌ واحدٌ للفئات**.
@@ -64,17 +65,17 @@ export const CATEGORIES: Category[] = [
   // ── السيّارات — المجالُ الثاني للمالك. كانت **بلا فئةٍ واحدة**. ──
   { id: 'auto', icon: '🚗', label: 'سيارات وقطع غيار', color: '#EF4444', kind: 'product',
     sizes: [], colors: C_NEUTRAL,
-    concepts: ['car', 'tire_shop', 'car_parts', 'auto_parts_store'] },
+    concepts: ['car', 'tire_shop', 'auto_parts', 'auto_spare_parts'] },
   { id: 'auto_service', icon: '🔧', label: 'خدمات السيارات', color: '#F97316', kind: 'service',
     sizes: [], colors: [],
     concepts: ['mechanic', 'car_wash', 'car_service', 'car_maintenance', 'car_diagnostics',
       'car_painting', 'car_body_repair', 'car_polishing', 'car_wrapping', 'car_interior_cleaning',
-      'auto_body_paint', 'car_electrician'] },
+      'auto_body_paint', 'auto_electrician'] },
 
   // ── المعلوميّات — المجالُ الثالث. كانت **بلا فئةٍ واحدة**. ──
   { id: 'tech', icon: '💻', label: 'إلكترونيات ومعلوميات', color: '#0EA5E9', kind: 'product',
     sizes: [], colors: C_NEUTRAL,
-    concepts: ['computer_hardware_store', 'computer_repair', 'electronics_store', 'mobile_phone_shop'] },
+    concepts: ['computer_hardware_store', 'computer_repair', 'mobile_phone_repair_technician'] },
   { id: 'tech_service', icon: '🛠️', label: 'خدمات تقنية', color: '#6366F1', kind: 'service',
     sizes: [], colors: [],
     concepts: ['it_support', 'computer_repair_technician_it_technician', 'mobile_phone_repair',
@@ -84,7 +85,11 @@ export const CATEGORIES: Category[] = [
   // ── الباقي ─────────────────────────────────────────────────
   { id: 'home', icon: '🏠', label: 'ديكور ومنزل', color: '#F97316', kind: 'product',
     sizes: [], colors: ['أسود', 'أبيض', 'بيج', 'بني', 'رمادي', 'ذهبي'],
-    concepts: ['furniture_store', 'home_decor'] },
+    concepts: ['used_furniture_seller', 'furniture_upholsterer', 'interior_designer_decorator'] },
+  // `concepts: []` **عن قصد** — هذه فئةُ الخدمات العامّة، وهي تُدرِك مفاهيمَها
+  // **بقاعدةٍ لا بقائمة** (انظر `categoryForConcept`). القائمةُ اليدويّةُ هنا
+  // كانت ستصير المصدرَ الثامن: ١٦٠ مفهومًا بلا فئة، تُكتب بيدٍ ثمّ تتخلّف
+  // عن قاعدة المعرفة عند أوّل إضافة.
   { id: 'service', icon: '🔧', label: 'خدمة', color: '#8B5CF6', kind: 'service',
     sizes: [], colors: [], concepts: [] },
   { id: 'digital', icon: '💻', label: 'رقمي / دروس', color: '#0EA5E9', kind: 'digital',
@@ -105,7 +110,23 @@ export function getCategory(id: string): Category | undefined {
  */
 export function categoryForConcept(conceptId: string | undefined | null): Category | undefined {
   if (!conceptId) return undefined;
-  return CATEGORIES.find(c => c.concepts.includes(conceptId));
+  const claimed = CATEGORIES.find(c => c.concepts.includes(conceptId));
+  if (claimed) return claimed;
+
+  // ── القاعدةُ بدل القائمة ──────────────────────────────────
+  // ١٦٠ مفهومًا من ١٩٧ لا تطالب بها أيُّ فئةٍ صراحة. سردُها يدويًّا يُنشئ
+  // مصدرًا ثامنًا يتخلّف عن قاعدة المعرفة عند أوّل إضافة. القاعدةُ بدلًا منه:
+  //
+  //   **مَن يَفعل، خدمة.** المفهومُ الذي تعرف قاعدةُ المعرفة ما *يفعله*
+  //   (`services[]` مملوءة) هو مِهنةٌ أو حِرفةٌ أو محلٌّ يقدّم خدمات — لا سلعةٌ
+  //   على رفّ. فيأخذ حقولَ الخدمة السبعةَ عشرَ بدل ثمانيةٍ عامّة.
+  //
+  // مقيسٌ قبل هذه القاعدة: السبّاكُ والكهربائيُّ والمصوّرُ **ثمانيةُ حقولٍ
+  // متطابقةٌ حرفًا بحرف**، بينما الميكانيسيان خمسةَ عشرَ لأنّ `auto_service`
+  // وحدَها كانت تُعلن مفاهيمَها.
+  const c = CONCEPTS.find(x => x.id === conceptId);
+  if (c && (c.services || []).length > 0) return BY_ID.get('service');
+  return undefined;
 }
 
 /** الحقولُ الخاصّةُ بفئة — من `categoryFields.ts`، لا نسخةَ ثانية. */

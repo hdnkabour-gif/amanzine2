@@ -206,7 +206,10 @@ export const CATEGORY_FIELDS: Record<string, CatFieldDef[]> = {
       placeholder: 'مثال: الرد في أقل من 30 دقيقة' },
     { id: 'bonus', label: 'هدية مع الخدمة', type: 'text',
       placeholder: 'مثال: جلسة تجريبية مجانية' },
-    { id: 'deposit', label: 'مطلوب عربون عند الحجز', type: 'boolean' },
+    // كان اسمُه `deposit` — نفسُ مفتاحِ «الضمانة» في قالب الكراء. مفتاحٌ
+    // واحدٌ بمعنيين: عربونُ حجزٍ (نعم/لا) وضمانةُ كراءٍ (مبلغ). أحدُهما يطمس
+    // الآخر عند الحفظ.
+    { id: 'bookingDeposit', label: 'مطلوب عربون عند الحجز', type: 'boolean' },
     { id: 'freeCancel', label: 'إلغاء مجاني قبل 24 ساعة ↩️', type: 'boolean' },
   ],
 

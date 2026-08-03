@@ -181,13 +181,23 @@ export function resolveBlueprint(intent: string, raw: string): { blueprint: Blue
   // القالبُ يعرف ما يعرفه نموذجُ المنتج: «عندي كسوة للبيع» ⇒ فئةُ الأطفال ⇒
   // نفسُ أسئلتها. كان المساعدُ يسأل ثلاثةَ أسئلةٍ عامّةٍ والاستمارةُ تسأل
   // عشرةً خاصّة — سؤالان مختلفان عن الشيء الواحد، وهو ما لاحظه المالك.
-  const cat = categoryForConcept(resolveConcept(raw)?.id);
+  const found = resolveConcept(raw);
+  const cat = categoryForConcept(found?.id);
   // المقاساتُ والألوانُ تُقترَح من الفئة نفسِها — «كسوة العيد» ⇒ مقاساتُ
   // الأطفال، «صباط» ⇒ ٣٥…٤٦. بلا هذا يبقى السؤالُ صندوقًا فارغًا يُملأ يدويًّا،
   // وقد كان لا يُسأل أصلًا.
+  //
+  // والتخصّصاتُ تُقترَح من **قاعدة المعرفة نفسِها**: تعرف أنّ السبّاكَ يفتح
+  // المجاري ويركّب السخانات ويصلح التسربات — ستُّ خدماتٍ مكتوبةٌ منذ شهور.
+  // وكان التطبيقُ يسأله «التخصّصات» في خانةِ نصٍّ حرٍّ فارغة. المعرفةُ كانت
+  // تُرمى عند الباب لأنّ `resolveConcept` يُرجع المُعرِّفَ والتسميةَ فقط.
+  const known = found?.services || [];
   const base = resolveFields(id).map(f =>
     cat && f.key === 'sizes' && cat.sizes.length ? { ...f, options: cat.sizes } :
-    cat && f.key === 'colors' && cat.colors.length ? { ...f, options: cat.colors } : f);
+    cat && f.key === 'colors' && cat.colors.length ? { ...f, options: cat.colors } :
+    f.key === 'specialties' && known.length
+      ? { ...f, type: 'tags' as FieldType, options: known, hint: 'اختر ما كتخدم — ولا زيد اللي ناقص' }
+      : f);
   const seen = new Set(base.map(f => f.key));
   const extra = categoryExtraFields(raw).filter(f => !seen.has(f.key));
   return { blueprint, fields: [...base, ...extra], entity };

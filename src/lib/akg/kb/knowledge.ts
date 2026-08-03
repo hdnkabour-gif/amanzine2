@@ -45,14 +45,24 @@ const AUGMENT: Record<string, Partial<Record<string, string[]>>> = {
 };
 
 // ── فهارس المطابقة: عربيّ (ar+darija) ولاتينيّ (fr+en+arabizi) ──
-interface Match { id: string; category: string; concept: Record<string, string>; }
+// كان هذا `{ id, category, concept }` فقط — فتُرمى عند الباب `services`
+// (مملوءةٌ في ١٤٨ مفهومًا بمعرفةٍ مغربيّةٍ حقيقيّة) و`fields` و`examples`.
+// النتيجة: قاعدةُ المعرفة تعرف أنّ السبّاكَ يفتح المجاري ويركّب السخانات،
+// والتطبيقُ يسأله «التخصّصات» في خانةِ نصٍّ حرٍّ فارغة.
+interface Match {
+  id: string; category: string; concept: Record<string, string>;
+  services?: string[]; fields?: string[]; examples?: string[];
+}
 const stripAl = (t: string) => t.replace(/^ال/, '');
 const toks = (s: string) => s.split(/\s+/).map(stripAl).filter(t => t.length >= 2);
 const arIndex: { term: string; tokens: string[]; c: Match }[] = [];
 const latIndex: { term: string; c: Match }[] = [];
 
 for (const c of CONCEPTS) {
-  const m: Match = { id: c.id, category: c.category, concept: c.concept };
+  const m: Match = {
+    id: c.id, category: c.category, concept: c.concept,
+    services: c.services, fields: c.fields, examples: c.examples,
+  };
   const aug = AUGMENT[c.id] || {};
   for (const t of [...(c.variants.ar || []), ...(c.variants.darija || []), ...(aug.ar || []), ...(aug.darija || [])]) {
     const n = normArabic(t); if (n.length >= 2) arIndex.push({ term: n, tokens: toks(n), c: m });
@@ -72,7 +82,10 @@ export function registerRuntimeConcepts(list: ConceptData[]): number {
   let added = 0;
   for (const c of list || []) {
     if (!c?.id || !c.variants) continue;
-    const m: Match = { id: c.id, category: c.category, concept: c.concept || {} };
+    const m: Match = {
+      id: c.id, category: c.category, concept: c.concept || {},
+      services: c.services, fields: c.fields, examples: c.examples,
+    };
     for (const t of [...(c.variants.ar || []), ...(c.variants.darija || [])]) {
       const n = normArabic(t); if (n.length >= 2) { arIndex.push({ term: n, tokens: toks(n), c: m }); added++; }
     }
@@ -93,7 +106,20 @@ latIndex.sort((a, b) => b.term.length - a.term.length);
 const arTokenIndex = arIndex.filter(e => e.tokens.length >= 2).sort((a, b) => b.tokens.length - a.tokens.length);
 
 export type UnderLangDetect = 'darija' | 'ar' | 'fr' | 'en' | 'mixed';
-export interface ConceptResolution { id: string; category: string; concept: Record<string, string>; language: UnderLangDetect; }
+export interface ConceptResolution {
+  id: string; category: string; concept: Record<string, string>; language: UnderLangDetect;
+  /** ما يفعله هذا المفهوم — يُغذّي سؤالَ «شنو كتخدم؟» بخياراتٍ حقيقيّة. */
+  services?: string[];
+  /** لبناتُ المعلومة التي تخصّه (Knowledge Blocks). */
+  fields?: string[];
+  examples?: string[];
+  /**
+   * **الدليل**: أيُّ مصطلحٍ طابق، وبأيّ طريق. بدونه يبقى الفهمُ صندوقًا
+   * أسودَ: نعرف أنّ «تراكسي» صارت `sportswear` ولا نعرف لماذا — فلا نستطيع
+   * تصحيحَ خطأٍ ولا شرحَ قرارٍ للتاجر.
+   */
+  matched?: { term: string; via: 'composite' | 'exact' | 'latin' | 'tokens' };
+}
 
 // قواعد تركيبيّة: مجموعاتٌ يجب أن تُصيب كلُّها (فعل + مفعول…) ⇒ خدمة. تحلّ ترتيب
 // الكلمات وتخلّلها: «يغسل ليا الطوموبيل» · «الماكينة ديال الخياطة». لها الأولويّة.
@@ -172,6 +198,12 @@ export function categoryFor(id: string, dataCat: string): string {
 }
 
 // resolveConcept — يفهم المفهوم (خدمة/مهنة) من نصٍّ بأيّ لغة/كتابة.
+/** معرفةُ مفهومٍ بمُعرِّفه — للقواعد التركيبيّة التي تُنتج مُعرِّفًا لا مُطابَقة. */
+function knowledgeOf(id: string): Pick<ConceptResolution, 'services' | 'fields' | 'examples'> {
+  const c = CONCEPTS.find(x => x.id === id);
+  return c ? { services: c.services, fields: c.fields, examples: c.examples } : {};
+}
+
 export function resolveConcept(text: string): ConceptResolution | null {
   if (!text) return null;
   const hasArabic = /[؀-ۿ]/.test(text);
@@ -187,7 +219,11 @@ export function resolveConcept(text: string): ConceptResolution | null {
     return (na.length >= 2 && blob.includes(na)) || (nl.length >= 2 && blob.includes(nl));
   });
   for (const r of COMPOSITE) {
-    if (r.all.every(hits)) return { id: r.id, category: categoryFor(r.id, r.category), concept: conceptById(r.id), language: hasArabic ? 'darija' : 'en' };
+    if (r.all.every(hits)) return {
+      id: r.id, category: categoryFor(r.id, r.category), concept: conceptById(r.id),
+      language: hasArabic ? 'darija' : 'en', ...knowledgeOf(r.id),
+      matched: { term: r.all.map(g => g[0]).join(' + '), via: 'composite' },
+    };
   }
 
   // الأخصّ أوّلًا: الفهرسان مرتّبان بطول المصطلح تنازليًّا، فـ«بيع حواسيب» تسبق
@@ -195,21 +231,27 @@ export function resolveConcept(text: string): ConceptResolution | null {
 // العربيّة: مطابقةٌ متّصلة (أدقّ) أوّلًا.
   for (const { term, c } of arIndex) {
     if ((ta && ta.includes(term)) || (tda && tda.includes(term))) {
-      return { id: c.id, category: categoryFor(c.id, c.category), concept: c.concept, language: 'darija' };
+      return { id: c.id, category: categoryFor(c.id, c.category), concept: c.concept,
+        language: 'darija', services: c.services, fields: c.fields, examples: c.examples,
+        matched: { term, via: 'exact' } };
     }
   }
   // اللاتينيّة (fr/en/arabizi).
   for (const { term, c } of latIndex) {
     if (tl && new RegExp(`(^|\\s)${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`).test(tl)) {
       const lang: UnderLangDetect = hasArabic && hasLatin ? 'mixed' : /(je |un |le |la |cherche|besoin)/.test(tl) ? 'fr' : hasLatin ? 'en' : 'darija';
-      return { id: c.id, category: categoryFor(c.id, c.category), concept: c.concept, language: lang };
+      return { id: c.id, category: categoryFor(c.id, c.category), concept: c.concept,
+        language: lang, services: c.services, fields: c.fields, examples: c.examples,
+        matched: { term, via: 'latin' } };
     }
   }
   // العربيّة: مطابقةٌ بالكلمات (تحلّ ترتيب/تخلّل الكلمات: «الماكينة ديال الخياطة»).
   const textToks = new Set([...toks(ta), ...toks(tda)]);
   for (const { tokens, c } of arTokenIndex) {
     if (tokens.every(t => textToks.has(t))) {
-      return { id: c.id, category: categoryFor(c.id, c.category), concept: c.concept, language: 'darija' };
+      return { id: c.id, category: categoryFor(c.id, c.category), concept: c.concept,
+        language: 'darija', services: c.services, fields: c.fields, examples: c.examples,
+        matched: { term: tokens.join(' '), via: 'tokens' } };
     }
   }
   return null;
