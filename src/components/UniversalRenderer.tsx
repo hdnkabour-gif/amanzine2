@@ -51,9 +51,13 @@ function Assumptions({ list, values, gold, green, onCorrect }: {
         {list.map(a => {
           const high = a.confidence === 'high';
           return (
-            <button key={a.key} type="button" onClick={() => onCorrect?.(a.key)} title="اضغط لتصحيحه"
+            <button key={a.key} type="button" onClick={() => onCorrect?.(a.key)}
+              // **لماذا؟** بلا السبب يبقى القرارُ صندوقًا أسودَ: نعرض «الموسم:
+              // شتاء» ولا نقول لماذا، فلا يثق التاجرُ ولا يعرف ما يصحّح.
+              title={a.because ? `لأنّك قلت «${a.because}» — اضغط لتصحيحه` : 'اضغط لتصحيحه'}
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 99, border: `1px solid ${high ? green : gold}`, background: 'transparent', color: high ? green : gold, fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
               {a.label}: {String(values[a.key] ?? a.value)} {high ? '✓' : '~'}
+              {a.because && <span style={{ opacity: .65, fontWeight: 600 }}>· «{a.because}»</span>}
             </button>
           );
         })}

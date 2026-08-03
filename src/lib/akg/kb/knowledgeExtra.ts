@@ -188,7 +188,10 @@ export const ENRICH_CONCEPTS: ConceptData[] = [
     { darija: ['جلابة', 'جلابه', 'الجلابة', 'قفطان', 'القفطان', 'طاكشيطة', 'تاكشيطة', 'قندورة', 'سلهام', 'برنوس', 'جابادور', 'فوقية', 'مجدول'], arabizi: ['jellaba', 'djellaba', 'caftan', 'takchita', 'gandoura', 'selham'], ar: ['جلابة', 'قفطان', 'تكشيطة', 'قندورة', 'برنس'], fr: ['djellaba', 'caftan', 'takchita', 'gandoura'], en: ['djellaba', 'caftan', 'takchita'] },
     ['بغيت طاكشيطة للعرس', 'كنبيع الجلابات']),
   C('eid_clothing', 'fashion', 'كسوة العيد', 'كسوة العيد', 'Habits de fête', 'Eid clothing',
-    { darija: ['كسوة العيد', 'حوايج العيد', 'لباس العيد', 'كسوة لعيد', 'كسوة', 'كسوه', 'الكسوة'], ar: ['كسوة العيد', 'ملابس العيد'], fr: ['habits de fete', 'tenue aid'], en: ['eid clothes'] },
+    // «كسوة» و«الكسوة» مجرّدتَين تعنيان الملابسَ عامّةً ويملكهما `clothing`.
+    // ما يخصّ العيدَ هو ما قُيِّد به وحدَه — والعيدُ **سياقٌ** يلتقطه
+    // `contexts.ts` من كلمة «العيد» نفسِها لا من «كسوة».
+    { darija: ['كسوة العيد', 'حوايج العيد', 'لباس العيد', 'كسوة لعيد'], ar: ['كسوة العيد', 'ملابس العيد'], fr: ['habits de fete', 'tenue aid'], en: ['eid clothes'] },
     ['عندي كسوة العيد', 'بغيت كسوة العيد للدراري']),
   C('used_clothing', 'fashion', 'سوق الملابس المستعملة', 'جوطية', 'Marché aux puces', 'Flea market',
     { darija: ['جوطية', 'الجوطية', 'جوطيه', 'سوق البالي', 'فريب', 'فريپ', 'حوايج بالية'], arabizi: ['joutia', 'friperie', 'frip'], ar: ['سوق مستعمل', 'سوق البالة'], fr: ['joutia', 'friperie', 'marche aux puces'], en: ['flea market', 'thrift'] },
@@ -239,52 +242,61 @@ export const ENRICH_CONCEPTS: ConceptData[] = [
 
   // المتجرُ العامّ. «حوايج» و«كسوة» و«لبسة» — أكثرُ ما يُكتب في المغرب.
   C('clothing', 'fashion', 'ملابس', 'حوايج', 'Vêtements', 'Clothing',
-    // «كسوة» مطلقةً يملكها `eid_clothing` (أشهرُ استعمالٍ لها في المغرب)،
-    // و«قشاشة» يملكها `used_clothing`. المتجرُ العامُّ يحتفظ بالجُمَل
-    // («عندي كسوة» · «كنبيع الكسوة») لأنّها لا تلتبس.
-    { darija: ['حوايج', 'حويج', 'حويجات', 'لبسة', 'اللبسة', 'لباس', 'اللباس',
+    // «كسوة» مجرّدةً تعني الملابسَ عامّةً — والعيدُ **سياقٌ** يلتقطه
+    // `contexts.ts` من كلمة «العيد» نفسِها، لا معنًى مخبوءٌ في «كسوة».
+    // «قشاشة» يملكها `used_clothing`.
+    { darija: ['حوايج', 'حويج', 'حويجات', 'كسوة', 'الكسوة', 'لبسة', 'اللبسة', 'لباس', 'اللباس',
       'حوايج ديال البيع', 'كنبيع الحوايج', 'كنبيع الكسوة', 'عندي كسوة', 'عندي حوايج',
-      'لبسة الدار', 'لبسة الخروج', 'لبسة الخدمة', 'تصبينة'],
+      'لبسة الدار', 'لبسة الخروج', 'لبسة الخدمة', 'تصبينة',
+      // **تغطيةُ النيّة لا المرادف**: خمسُ جملٍ مختلفةٍ تمامًا تقول شيئًا
+      // واحدًا — «عندي محلّ ملابس». قياسُ المرادفات وحدَه كان يقول إنّ
+      // «ملابس» مغطّاة، و«بوتيك» و«حانوت ديال الحوايج» لا تُفهَمان أصلًا.
+      'بوتيك', 'البوتيك', 'حانوت ديال الحوايج', 'حانوت ديال الملابس',
+      'محل ديال الحوايج', 'محل حوايج', 'عندي محل حوايج', 'مغازة ديال الحوايج'],
       arabizi: ['hwayj', 'kiswa', 'lebsa', 'libas', 'sapes'],
       ar: ['ملابس', 'ثياب', 'أزياء', 'ألبسة', 'موضة', 'مستلزمات الملابس', 'بيع الملابس', 'بيع الأزياء'],
-      fr: ['vetement', 'vetements', 'habit', 'habits', 'mode', 'pret a porter', 'pret-a-porter', 'tenue'],
-      en: ['clothes', 'clothing', 'fashion', 'garment', 'apparel', 'outfit', 'wear', 'ready to wear'] },
+      fr: ['vetement', 'vetements', 'habit', 'habits', 'mode', 'pret a porter', 'pret-a-porter', 'tenue',
+        'boutique', 'magasin de vetements', 'pret a porter femme'],
+      en: ['clothes', 'clothing', 'fashion', 'garment', 'apparel', 'outfit', 'wear', 'ready to wear',
+        'boutique', 'clothing store', 'clothes shop'] },
     ['عندي كسوة للبيع', 'كنبيع الحوايج', 'بغيت نبيع اللباس']),
 
   // رجال — كانت «رجالي» و«ديال الرجال» لا تُفهَم.
   C('mens_clothing', 'fashion', 'ملابس رجالية', 'حوايج ديال الرجال', 'Vêtements homme', 'Menswear',
-    { darija: ['حوايج ديال الرجال', 'كسوة ديال الرجال', 'ديال الرجال', 'ديال الرجالة', 'حوايج رجالية'],
-      arabizi: ['homme', 'men', 'rjal'],
-      ar: ['ملابس رجالية', 'رجالي', 'رجالية', 'ملابس للرجال', 'أزياء رجالية'],
-      fr: ['vetement homme', 'vetements homme', 'mode homme', 'homme', 'masculin'],
-      en: ['menswear', 'mens clothing', 'men clothing', 'male'] },
+    // «ديال الرجال» مجرّدةً خرجت إلى `contexts.ts`: وصفٌ لا موصوف. بقاؤها
+    // هنا كان يجعلها تغلب «صباط» في «صباط ديال الرجال» فيضيع الحذاء.
+    { darija: ['حوايج ديال الرجال', 'كسوة ديال الرجال', 'حوايج رجالية'],
+      arabizi: ['rjal'],
+      ar: ['ملابس رجالية', 'ملابس للرجال', 'أزياء رجالية'],
+      fr: ['vetement homme', 'vetements homme', 'mode homme'],
+      en: ['menswear', 'mens clothing', 'men clothing'] },
     ['عندي حوايج ديال الرجال', 'كنبيع ملابس رجالية']),
 
   // نساء — «حريمي» و«ديال العيالات» أكثرُ ما يُقال في السوق.
   C('womens_clothing', 'fashion', 'ملابس نسائية', 'حوايج ديال العيالات', 'Vêtements femme', 'Womenswear',
-    { darija: ['حوايج ديال العيالات', 'ديال العيالات', 'ديال النساء', 'ديال البنات', 'حوايج نسائية', 'كسوة ديال العيالات'],
-      arabizi: ['femme', 'women', 'nssa', '3yalat'],
-      ar: ['ملابس نسائية', 'نسائي', 'نسائية', 'حريمي', 'سيدات', 'للبنات', 'أزياء نسائية'],
-      fr: ['vetement femme', 'vetements femme', 'mode femme', 'femme', 'feminin'],
-      en: ['womenswear', 'womens clothing', 'women', 'ladies', 'female'] },
+    { darija: ['حوايج ديال العيالات', 'حوايج نسائية', 'كسوة ديال العيالات'],
+      arabizi: ['nssa', '3yalat'],
+      ar: ['ملابس نسائية', 'سيدات', 'أزياء نسائية'],
+      fr: ['vetement femme', 'vetements femme', 'mode femme'],
+      en: ['womenswear', 'womens clothing'] },
     ['عندي حوايج ديال العيالات', 'كنبيع ملابس نسائية']),
 
   // أطفال — «دراري» أكثرُ ما يُقال، ولم تكن تُفهَم.
   C('kids_clothing', 'fashion', 'ملابس الأطفال', 'حوايج ديال الدراري', 'Vêtements enfant', 'Kids clothing',
-    { darija: ['حوايج ديال الدراري', 'ديال الدراري', 'دراري', 'الدراري', 'كسوة ديال الدراري', 'حوايج الصغار', 'ديال الصغار'],
-      arabizi: ['drari', 'enfant', 'kids'],
-      ar: ['ملابس أطفال', 'ملابس الأطفال', 'أطفال', 'للأطفال', 'ملابس صغار'],
-      fr: ['vetement enfant', 'vetements enfant', 'mode enfant', 'enfant', 'garcon', 'fille'],
-      en: ['kids clothing', 'kids', 'children clothing', 'child', 'children', 'toddler'] },
+    { darija: ['حوايج ديال الدراري', 'دراري', 'الدراري', 'كسوة ديال الدراري', 'حوايج الصغار'],
+      arabizi: ['drari'],
+      ar: ['ملابس أطفال', 'ملابس الأطفال', 'ملابس صغار'],
+      fr: ['vetement enfant', 'vetements enfant', 'mode enfant'],
+      en: ['kids clothing', 'children clothing', 'toddler'] },
     ['عندي حوايج ديال الدراري', 'كنبيع ملابس أطفال']),
 
   // رُضّع — «بيبي» و«مواليد» غيرُ مفهومتين.
   C('baby_clothing', 'fashion', 'ملابس رضّع', 'حوايج ديال البيبي', 'Vêtements bébé', 'Baby clothing'
-    , { darija: ['حوايج ديال البيبي', 'ديال البيبي', 'بيبي', 'البيبي', 'حوايج المواليد', 'ديال المواليد'],
-      arabizi: ['bebe', 'baby', 'mawalid'],
+    , { darija: ['حوايج ديال البيبي', 'بيبي', 'البيبي', 'حوايج المواليد'],
+      arabizi: ['mawalid'],
       ar: ['ملابس رضع', 'ملابس المواليد', 'رضيع', 'مواليد', 'حديث الولادة', 'ملابس حديثي الولادة'],
-      fr: ['vetement bebe', 'bebe', 'nouveau ne', 'nouveau-ne', 'layette'],
-      en: ['baby clothing', 'baby', 'infant', 'newborn'] },
+      fr: ['vetement bebe', 'nouveau ne', 'nouveau-ne', 'layette'],
+      en: ['baby clothing', 'infant'] },
     ['عندي حوايج ديال البيبي', 'كنبيع ملابس مواليد']),
 
   // فوقيّات: قميص · تيشيرت · هودي · سويت — كلُّها قطعةٌ تُلبَس فوق.
@@ -344,9 +356,9 @@ export const ENRICH_CONCEPTS: ConceptData[] = [
 
   // كسوةُ العيد — مناسبةٌ لها موسمُها وسعرُها، وهي بابُ المالك الأوّل.
   C('eid_clothing', 'fashion', 'كسوة العيد', 'كسوة العيد', 'Tenue de l’Aïd', 'Eid outfit',
-    // «كسوة» مطلقةً تعني الملابسَ عامّةً ويملكها `clothing`. هذا المفهومُ
-    // يملك ما قُيِّد بالعيد وحدَه — وإلّا صار كلُّ من قال «كسوة» بائعَ عيد.
-    { darija: ['كسوة العيد', 'لبسة العيد', 'كسوة ديال العيد', 'حوايج العيد', 'لبسة ديال العيد'],
+    // «كسوة» مجرّدةً يملكها `clothing`. هذا المفهومُ يملك ما قُيِّد بالعيد
+    // وحدَه — وإلّا صار كلُّ من قال «كسوة» بائعَ عيد.
+    { darija: ['كسوة العيد', 'لبسة العيد', 'كسوة ديال العيد', 'حوايج العيد', 'لبسة ديال العيد', 'حويج العيد'],
       arabizi: ['kiswat l3id', 'tenue aid', 'eid outfit'],
       ar: ['ملابس العيد', 'كسوة العيد', 'لباس العيد', 'ملابس عيد الفطر', 'ملابس عيد الأضحى'],
       fr: ['tenue aid', 'habits aid', 'vetement aid'],

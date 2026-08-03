@@ -27,6 +27,12 @@ export interface FieldDecision {
   value?: unknown;         // للـ auto/confirm/have
   confidence?: number;
   source: DecisionSource;
+  /**
+   * **لماذا؟** الكلمةُ التي أنتجت هذه القيمة. بدونها يبقى القرارُ صندوقًا
+   * أسودَ: نعرض «الموسم: شتاء» ولا نستطيع أن نقول للتاجر لماذا، فلا يثق
+   * ولا يصحّح. ومعها: «الموسم: شتاء — لأنّك قلت شتوية».
+   */
+  because?: string;
   // بيانات العرض (حتى تبقى الصفحة واجهة فقط تقرأ القرار):
   type: FieldType;
   options?: string[];
@@ -47,14 +53,15 @@ export interface Decisions {
 }
 
 // أعلى استنتاج (قيمة+ثقة) لكلّ مفتاح من كلّ المصادر.
-function bestSignals(entity: Entity, need: string): Map<string, { value: unknown; confidence: number; source: DecisionSource }> {
-  const map = new Map<string, { value: unknown; confidence: number; source: DecisionSource }>();
-  const add = (key: string, value: unknown, confidence: number, source: DecisionSource) => {
+type Signal = { value: unknown; confidence: number; source: DecisionSource; because?: string };
+function bestSignals(entity: Entity, need: string): Map<string, Signal> {
+  const map = new Map<string, Signal>();
+  const add = (key: string, value: unknown, confidence: number, source: DecisionSource, because?: string) => {
     const cur = map.get(key);
-    if (!cur || confidence > cur.confidence) map.set(key, { value, confidence, source });
+    if (!cur || confidence > cur.confidence) map.set(key, { value, confidence, source, because });
   };
-  for (const i of inferValues(entity, need)) add(i.key, i.value, i.confidence, 'inference');
-  for (const u of userInferences(entity)) add(u.key, u.value, u.confidence, 'user');
+  for (const i of inferValues(entity, need)) add(i.key, i.value, i.confidence, 'inference', i.because);
+  for (const u of userInferences(entity)) add(u.key, u.value, u.confidence, 'user', u.because);
   return map;
 }
 
@@ -76,7 +83,7 @@ export function decide(need: string, values: Record<string, unknown> = {}, admin
     const sig = signals.get(f.key);
     if (sig && sig.confidence >= CONF.confirm) {
       const kind: DecisionKind = sig.confidence >= CONF.auto ? 'auto' : 'confirm';
-      return { ...base, kind, value: sig.value, confidence: sig.confidence, source: sig.source };
+      return { ...base, kind, value: sig.value, confidence: sig.confidence, source: sig.source, because: sig.because };
     }
     // 3) أساسيّ وناقص → اسأل (حتّى لو قدر الذكاء يقترحه، الحقل مطلوب من المستخدم).
     if (essential) {

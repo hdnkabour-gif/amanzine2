@@ -25,6 +25,8 @@ export interface UIAssumption {
   label: string;
   value: string;
   confidence: 'high' | 'medium';   // ✓ متأكّد · ~ خمّنّا
+  /** الكلمةُ التي أنتجت هذا — «لأنّك قلت شتوية». */
+  because?: string;
 }
 
 export interface UIAction {
@@ -58,6 +60,7 @@ export function buildUIStep(need: string, values: Record<string, unknown> = {}, 
     .map(a => ({
       key: a.key, label: a.label, value: String(a.value),
       confidence: a.kind === 'auto' ? 'high' : 'medium',
+      because: a.because,
     }));
 
   const theme = themeOf(dec.entity);

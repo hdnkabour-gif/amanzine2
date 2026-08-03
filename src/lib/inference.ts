@@ -9,9 +9,14 @@
 
 import { categoryForConcept } from './catalog';
 import { resolveConcept } from './akg/kb/knowledge';
+import { extractContexts } from './akg/kb/contexts';
 import { understand } from './akg/kb';
 
-export interface Inferred { key: string; label: string; value: any; confidence: number; }
+export interface Inferred {
+  key: string; label: string; value: any; confidence: number;
+  /** **الدليل**: أيُّ كلمةٍ في نصّ المستخدم أنتجت هذا الاستنتاج. */
+  because?: string;
+}
 
 // موديل → ماركة (استنتاج الكيان الأب)
 const MODEL_BRAND: [RegExp, string][] = [
@@ -91,8 +96,20 @@ function kbInfer(raw: string): Inferred[] {
   // أطفال. كان المحرّكُ يعرف ذلك ويستعمله لاختيار الحقول، ثمّ يسأل التاجرَ
   // «فأشمن فئة؟» — سؤالٌ جوابُه معروفٌ سلفًا. ثقةٌ عالية: مصدرُها المعرفةُ
   // لا تخمينُ نصّ، وتبقى قابلةً للتصحيح بنقرةٍ كأيّ افتراض.
-  const cat = categoryForConcept(resolveConcept(raw)?.id);
-  if (cat) out.push({ key: 'category', label: 'الفئة', value: cat.label, confidence: 0.9 });
+  const found = resolveConcept(raw);
+  const cat = categoryForConcept(found?.id);
+  if (cat) out.push({ key: 'category', label: 'الفئة', value: cat.label, confidence: 0.9,
+    because: found?.matched?.term });
+
+  // **السياقُ يُجيب فلا يُسأل.** من كتب «كسوة شتوية للبنات» قال الموسمَ
+  // والجمهورَ بنفسه — وكان التطبيقُ يسألهما بعدها. وكلُّ التقاطٍ يحمل الكلمةَ
+  // التي أنتجته، فيُعرَض للتصحيح لا يُفرَض.
+  const LABELS: Record<string, string> = {
+    audience: 'لمن؟', season: 'الموسم', occasion: 'المناسبة',
+  };
+  for (const c of extractContexts(raw))
+    out.push({ key: c.key, label: LABELS[c.key] || c.key, value: c.value,
+      confidence: c.confidence, because: c.because });
   if (u.profession) {
     // المعرفة أدقّ من استخراج النصّ الخام → ثقة عالية تفوز على العنوان المستخرَج.
     out.push({ key: 'profession', label: 'المهنة', value: u.profession.label, confidence: 0.92 });

@@ -4,6 +4,8 @@ import { resolveConcept } from '../../src/lib/akg/kb/knowledge';
 import { categoryForConcept } from '../../src/lib/catalog';
 import { CONCEPTS } from '../../src/lib/akg/kb/concepts';
 import { expandQuery } from '../../src/lib/searchIntent';
+import { extractContexts, allContextTerms } from '../../src/lib/akg/kb/contexts';
+import { buildUIStep } from '../../src/lib/akg/uiContract';
 
 // ============================================================
 // مجالُ الملابس — المجالُ الأوّل للمالك.
@@ -25,9 +27,9 @@ const TERMS: [string, string[]][] = [
   ['عامّ · فرنسيّة',  ['vetement', 'vetements', 'habits', 'mode', 'tenue', 'friperie']],
   ['عامّ · إنجليزيّة', ['clothes', 'clothing', 'fashion', 'garment', 'apparel', 'outfit']],
   ['جُمَلُ بيع',      ['عندي كسوة للبيع', 'كنبيع الحوايج', 'بغيت نبيع اللباس', 'بيع الأزياء']],
-  ['نساء',            ['نسائي', 'حريمي', 'ديال العيالات', 'ديال البنات', 'femme', 'women', 'ladies']],
-  ['رجال',            ['رجالي', 'ديال الرجال', 'homme', 'menswear', 'male']],
-  ['أطفال',           ['دراري', 'بيبي', 'رضيع', 'مواليد', 'enfant', 'bebe', 'newborn', 'toddler']],
+  ['نساء',            ['ملابس نسائية', 'حوايج ديال العيالات', 'womenswear', 'vetements femme']],
+  ['رجال',            ['ملابس رجالية', 'حوايج ديال الرجال', 'menswear', 'vetements homme']],
+  ['أطفال',           ['دراري', 'بيبي', 'رضيع', 'مواليد', 'ملابس أطفال', 'vetements enfant', 'toddler']],
   ['قميص وتيشيرت',    ['قميص', 'شوميز', 'تيشيرت', 'تيشورت', 'chemise', 'shirt', 'tee', 'polo']],
   ['سروال',           ['سروال', 'بنطلون', 'جينز', 'جين', 'دينيم', 'pantalon', 'jean', 'jeans']],
   ['فستان',           ['فستان', 'روب', 'robe', 'dress']],
@@ -94,7 +96,7 @@ test('اللغاتُ الأربعُ تصل إلى المفهوم نفسِه', ()
   const same: [string, string[]][] = [
     ['traditional_clothing', ['جلابة', 'جلابية', 'djellaba', 'caftan']],
     ['sportswear',           ['تراكسي', 'ترينينغ', 'survetement', 'tracksuit']],
-    ['kids_clothing',        ['دراري', 'ملابس أطفال', 'enfant', 'kids clothing']],
+    ['kids_clothing',        ['دراري', 'ملابس أطفال', 'vetements enfant', 'kids clothing']],
     ['modest_wear',          ['حجاب', 'خمار', 'voile', 'hijab']],
   ];
   for (const [id, words] of same)
@@ -110,6 +112,75 @@ test('الزبونُ يجد بأيّ لغةٍ كتب', () => {
     assert.ok(FASHION_CATS.includes(it.category || ''),
       `«${q}» تُوجَّه إلى ${it.category ?? '—'} لا إلى الأزياء`);
   }
+});
+
+// ============================================================
+// السياقات — ما يَصِف المبيعَ ولا يكونه.
+//
+//   «نسائي» و«شتوي» و«ديال العيد» ليست أشياءَ تُباع بل صفاتٌ لما يُباع.
+//   كانت في فهرس المفاهيم، والفهرسُ يفوز فيه الأطول — فغلبت الصفةُ الموصوف:
+//
+//       «صباط ديال الرجال»   ⇒ ملابس رجال   (والحذاءُ ضاع)
+//       «تراكسي ديال البنات» ⇒ ملابس نساء   (والرياضةُ ضاعت)
+// ============================================================
+
+test('الوصفُ لا يغلب الموصوف', () => {
+  const cases: [string, string][] = [
+    ['صباط ديال الرجال',        'shoe_store'],
+    ['تراكسي ديال البنات',       'sportswear'],
+    ['تراكسي شتوي ديال البنات',  'sportswear'],
+    ['قفطان ديال العيالات',      'traditional_clothing'],
+    ['كسوة العيد ديال الدراري',  'eid_clothing'],
+  ];
+  for (const [q, expected] of cases) {
+    const c = resolveConcept(q);
+    assert.equal(c?.id, expected,
+      `«${q}» ⇒ ${c?.id} (طابق «${c?.matched?.term}») — الوصفُ غلب الموصوف`);
+  }
+});
+
+test('السياقُ يُلتقَط ومعه سببُه', () => {
+  const cases: [string, string, string][] = [
+    ['عندي كسوة شتوية للبنات',    'season',   'شتاء'],
+    ['عندي كسوة شتوية للبنات',    'audience', 'نساء'],
+    ['عندي تراكسي صيفي للرجال',   'season',   'صيف'],
+    ['كسوة ديال العيد',           'occasion', 'عيد'],
+    ['حوايج ديال المدرسة',        'occasion', 'مدرسة'],
+    ['روب ديال العرس',            'occasion', 'عرس'],
+  ];
+  for (const [need, key, value] of cases) {
+    const hit = extractContexts(need).find(c => c.key === key);
+    assert.ok(hit, `«${need}» لم يُلتقَط منه ${key}`);
+    assert.equal(hit!.value, value, `«${need}» ⇒ ${key}=${hit!.value}`);
+    assert.ok(hit!.because, `${key} بلا سبب — قرارٌ لا يُشرَح ولا يُصحَّح`);
+  }
+});
+
+test('السياقُ يُجيب فلا يُسأل', () => {
+  // من كتب «كسوة شتوية للبنات» قال الموسمَ والجمهورَ بنفسه — وكان التطبيقُ
+  // يسألهما بعدها. سؤالٌ جوابُه في السطر نفسِه.
+  const s = buildUIStep('عندي كسوة شتوية للبنات', {});
+  const labels = s.assumptions.map(a => a.label);
+  assert.ok(labels.includes('الموسم'), `الموسمُ لا يُفترَض — ${labels.join(' · ')}`);
+  assert.ok(!s.missing.includes('الموسم'), 'الموسمُ ناقصٌ وقد قِيل صراحةً');
+  // وكلُّ افتراضٍ يحمل سببَه ليُعرَض للتاجر.
+  const season = s.assumptions.find(a => a.label === 'الموسم');
+  assert.equal(season?.because, 'شتوية', 'الافتراضُ بلا سببٍ يُعرَض');
+});
+
+test('لا مصطلحَ سياقٍ داخلَ فهرس المفاهيم', () => {
+  // حارسُ الصنف: عودةُ «ديال الرجال» أو «شتوي» إلى مفهومٍ تُعيد العطبَ كلَّه.
+  const ctx = new Set(allContextTerms().map(t => t.toLowerCase().trim()));
+  // ما حمل الاسمَ معه مسموح: «حوايج ديال الرجال» فيها الموصوفُ والصفةُ معًا.
+  const offenders: string[] = [];
+  for (const c of CONCEPTS as any[])
+    for (const list of Object.values(c.variants || {}) as string[][])
+      for (const t of list || []) {
+        const k = String(t).toLowerCase().trim();
+        if (ctx.has(k)) offenders.push(`${c.id}: «${t}»`);
+      }
+  assert.deepEqual(offenders, [],
+    `مصطلحُ سياقٍ داخلَ فهرس المفاهيم — سيغلب الموصوفَ:\n  ${offenders.join('\n  ')}`);
 });
 
 test('لا مصطلحَ يملكه مفهومان في الأزياء', () => {
