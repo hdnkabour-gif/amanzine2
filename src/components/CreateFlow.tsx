@@ -287,9 +287,11 @@ export default function CreateFlow({ def }: { def: PageDef }) {
                 الكل» — لا يدلّ على أنّه نموذجٌ كامل، فلم يكن أحدٌ يعرف بوجوده.
                 صار مسمّى بصراحة، بلونٍ ظاهر، ومعه عددُ حقوله. */}
             <button onClick={() => setShowAll(s => !s)} style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 5, background: showAll ? 'transparent' : `color-mix(in srgb, ${accent} 14%, transparent)`, border: `1px solid ${accent}`, borderRadius: 99, padding: '5px 12px', color: accent, fontSize: 11.5, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>
+              {/* كان مكتوبًا «النموذج الكامل (٢٠ حقل)» — العددُ يُخيف قبل أن
+                  يبدأ التاجر، ولا يفيده في شيء. الدعوةُ فعلٌ لا إحصاء. */}
               {showAll
                 ? <><MessageCircle size={12} /> رجّع المحادثة</>
-                : <><List size={12} /> النموذج الكامل ({fullFields.length} حقل)</>}
+                : <><List size={12} /> عمّرها كلها بيدك</>}
             </button>
           </div>
 
@@ -297,7 +299,7 @@ export default function CreateFlow({ def }: { def: PageDef }) {
           {!showAll && Object.keys(values).length === 0 && (
             <div style={{ fontSize: 12, color: 'var(--ink3)', lineHeight: 1.75, marginTop: -6 }}>
               كنسولوك سؤالًا بسؤال باش تكون ساهلة. وإلا كتفضّل تعمّر كلشي بيدك،
-              حلّ <b style={{ color: accent }}>النموذج الكامل</b> من فوق.
+              اضغط <b style={{ color: accent }}>عمّرها كلها بيدك</b> من فوق.
             </div>
           )}
 

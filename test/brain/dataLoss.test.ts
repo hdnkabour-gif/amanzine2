@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { allUIFields } from '../../src/lib/akg/uiContract';
+import { allUIFields, buildUIStep } from '../../src/lib/akg/uiContract';
 import { baseFields, UNIVERSAL_KEYS } from '../../src/lib/catalog';
 import { allCapabilities as allPageCapabilities } from '../../src/lib/akg/registry';
 import '../../src/lib/akg/pages';
@@ -149,4 +149,51 @@ test('أساسُ الخدمة يسأل عن المدينة كما يسأل أس�
   for (const kind of ['product', 'service'] as const)
     assert.ok(baseFields(kind).some(f => f.key === 'city'),
       `أساسُ «${kind}» بلا مدينة`);
+});
+
+// ============================================================
+// أقلُّ الأسئلة الكافية — «المستخدمُ لا يفكّر في الحقول، بل في: كيف نبيع بسرعة؟»
+// ============================================================
+
+test('ما ينقص يُقال بالاسم لا بنسبةٍ وحدَها', () => {
+  // «اكتمل ٠٪» رقمٌ صحيحٌ حسابيًّا لا يقول للتاجر ما العمل. والمخطّطُ يعرف
+  // الأسماءَ أصلًا — كان يختزلها إلى نسبةٍ ثمّ يعرض النسبةَ وحدَها.
+  const s = buildUIStep('عندي كسوة العيد للبيع', {});
+  assert.ok(Array.isArray(s.missing));
+  assert.ok(s.missing.length > 0, 'إعلانٌ فارغٌ بلا شيءٍ ناقص؟');
+  assert.ok(s.missing.every(m => typeof m === 'string' && m.length > 1));
+});
+
+test('ما افترضناه ليس ناقصًا — لا رسالتان متناقضتان عن حقلٍ واحد', () => {
+  const s = buildUIStep('عندي كسوة العيد للبيع', {});
+  const assumedLabels = s.assumptions.map(a => a.label);
+  const both = s.missing.filter(m => assumedLabels.includes(m));
+  assert.deepEqual(both, [],
+    `حقلٌ يظهر في «ينقصك» وفي «افترضنا» معًا: ${both.join(' · ')}`);
+});
+
+test('الفئةُ تُشتقّ من الفهم فلا تُسأل', () => {
+  // كان المحرّكُ يعرف أنّ «كسوة العيد» ⇒ أطفال، يستعمل ذلك لاختيار الحقول،
+  // ثمّ يسأل التاجرَ «فأشمن فئة؟» — سؤالٌ جوابُه معروفٌ سلفًا.
+  for (const [need, cat] of [['عندي كسوة العيد للبيع', 'أطفال'], ['بغيت نبيع تراكسي', 'رياضة']] as const) {
+    const s = buildUIStep(need, {});
+    assert.ok(!s.missing.includes('الفئة'), `«${need}»: الفئةُ تُسأل وهي معروفة`);
+    assert.ok(s.assumptions.some(a => a.value === cat),
+      `«${need}»: الفئةُ «${cat}» غيرُ معروضةٍ في «افترضنا» — تُستعمل بلا أن يراها التاجر`);
+  }
+});
+
+test('كلُّ افتراضٍ يُعرَض ليُصحَّح — لا قرارَ صامت', () => {
+  const s = buildUIStep('بغيت نبيع تراكسي', {});
+  assert.ok(s.assumptions.length > 0, 'قراراتٌ تُتّخذ ولا تُعرَض');
+  for (const a of s.assumptions) {
+    assert.ok(a.key && a.label && a.value !== '', 'افتراضٌ ناقصُ العرض');
+    assert.ok(['high', 'medium'].includes(a.confidence));
+  }
+});
+
+test('لا عددَ حقولٍ في نصّ الدعوة — العددُ يُخيف ولا يُفيد', () => {
+  const src = SRC('src/components/CreateFlow.tsx');
+  assert.ok(!/\{fullFields\.length\}\s*حقل/.test(src),
+    '«النموذج الكامل (٢٠ حقل)» عادت — العددُ ليس دعوة');
 });

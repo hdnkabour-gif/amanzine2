@@ -24,6 +24,11 @@ export interface PlannerState {
   assumed: FieldDecision[];    // «فكّرنا قبل ما نسولوك» — للعرض
   aiOffers: FieldDecision[];   // حقول يقدر الذكاء يولّدها
   progress: number;            // 0..100 نسبة الأساسيّات المُنجزة
+  /**
+   * **ما ينقص، بالاسم.** «٠٪» رقمٌ صحيحٌ حسابيًّا وعديمُ المعنى للتاجر:
+   * لا يقول ما العمل. والمخطّطُ يعرف الجوابَ أصلًا — كان يختزله إلى نسبة.
+   */
+  missing: string[];
   complete: boolean;           // لا سؤال أساسيّ ناقص
 }
 
@@ -54,8 +59,12 @@ function phrase(key: string, label: string): string {
 export function planQuestion(need: string, values: Record<string, unknown> = {}): PlannerState {
   const d = decide(need, values);
   const essentials = d.fields.filter(f => f.essential);
-  const doneEssentials = essentials.filter(f => f.kind === 'have' || f.kind === 'auto').length;
-  const progress = essentials.length ? Math.round((doneEssentials / essentials.length) * 100) : 100;
+  // **`confirm` ليس نقصًا.** كان يُعدُّ ناقصًا فيظهر «اسم المنتج» في «ينقصك»
+  // وفي «افترضنا: اسم المنتج = كسوة العيد» معًا — رسالتان متناقضتان عن حقلٍ
+  // واحد. ما افترضناه معروضٌ للتاجر وقابلٌ للتصحيح بنقرة، فهو عندنا لا ناقص.
+  const held = essentials.filter(f => f.kind === 'have' || f.kind === 'auto' || f.kind === 'confirm');
+  const progress = essentials.length ? Math.round((held.length / essentials.length) * 100) : 100;
+  const missing = essentials.filter(f => !held.includes(f)).map(f => f.label);
 
   const a = d.askNow;
   const askNow: PlannerQuestion | undefined = a
@@ -68,6 +77,7 @@ export function planQuestion(need: string, values: Record<string, unknown> = {})
     assumed: d.assumed,
     aiOffers: d.aiOffers,
     progress,
+    missing,
     complete: !askNow,
   };
 }

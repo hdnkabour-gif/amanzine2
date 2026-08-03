@@ -41,6 +41,8 @@ export interface UIStep {
   field?: UIField;              // الحقل المطلوب الآن (في وضع question)
   assumptions: UIAssumption[];  // «فكّرنا قبل ما نسولوك»
   progress: number;             // 0..100
+  /** ما ينقص بالاسم — «ينقصك: الصور · الثمن · المقاس» بدل «٠٪». */
+  missing: string[];
   actions: UIAction[];          // الأفعال المتاحة (نشر/عرض الكل…)
   theme: DomainTheme;           // عالم المجال (لون/رمز/مزاج) — يستهلكه الـ Renderer
 }
@@ -70,7 +72,9 @@ export function buildUIStep(need: string, values: Record<string, unknown> = {}, 
       field: { key: q.key, widget: WIDGET[q.type], placeholder: q.hint, choices: q.options, required: q.required },
       assumptions,
       progress: plan.progress,
-      actions: [{ id: 'showAll', label: 'خلّصني دفعة وحدة ←', kind: 'secondary' }],
+      missing: plan.missing,
+      // «النموذج الكامل (٢٠ حقل)» كان يُخيف بعدد. الدعوةُ الآن فعلٌ لا عدد.
+      actions: [{ id: 'showAll', label: 'عمّرها كلها بيدك ←', kind: 'secondary' }],
       theme,
     };
   }
@@ -81,6 +85,7 @@ export function buildUIStep(need: string, values: Record<string, unknown> = {}, 
     scenarioLabel: dec.blueprintLabel,
     assumptions,
     progress: plan.progress,
+    missing: plan.missing,
     actions: [{ id: 'publish', label: 'نشر الآن', kind: 'primary' }],
     theme,
   };

@@ -58,7 +58,11 @@ function Assumptions({ list, values, gold, green, onCorrect }: {
           );
         })}
       </div>
-      <div style={{ fontSize: 10.5, color: INK3 }}>✓ متأكّدون · ~ خمّنّا (اضغط لتصحيح إلا خصّ)</div>
+      {/* كان الرمزُ يحمل المعنى كلَّه بحجم ١٠٫٥px: `✓` مقابل `~`. الكلمةُ
+          أوضحُ من الرمز، والتصحيحُ يُقال صراحةً لا يُلمَّح إليه. */}
+      <div style={{ fontSize: 11, color: INK3, lineHeight: 1.6 }}>
+        <b style={{ color: green }}>✓ متأكّدون</b> · <b style={{ color: gold }}>~ خمّنّا</b> — اضغط أيَّ وحدة باش تبدّلها
+      </div>
     </div>
   );
 }
@@ -76,11 +80,17 @@ export default function UniversalRenderer({ step, values, gold = 'var(--amz-gold
 
       <Assumptions list={step.assumptions} values={values} gold={gold} green={green} onCorrect={onCorrect} />
 
-      {/* نسبة الاكتمال */}
+      {/* ما ينقص — بالاسم لا بالنسبة.
+          «اكتمل ٠٪» رقمٌ صحيحٌ حسابيًّا وعديمُ المعنى: لا يقول للتاجر ما
+          العمل. والمخطّطُ يعرف الأسماءَ أصلًا وكان يختزلها إلى نسبة. */}
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
-          <span style={{ color: step.progress >= 80 ? green : accent }}>اكتمل {step.progress}٪</span>
-          {step.mode === 'question' && step.field && <span style={{ color: INK3 }}>التالي: «{step.headline}»</span>}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
+          <span style={{ color: step.progress >= 80 ? green : accent }}>
+            {step.missing.length === 0
+              ? 'كلشي واجد ✓'
+              : `ينقصك: ${step.missing.slice(0, 3).join(' · ')}${step.missing.length > 3 ? ` +${step.missing.length - 3}` : ''}`}
+          </span>
+          <span style={{ color: INK3, whiteSpace: 'nowrap' }}>{step.progress}٪</span>
         </div>
         <div style={{ height: 8, borderRadius: 99, background: 'var(--panel2,#132040)', overflow: 'hidden' }}>
           <div style={{ width: `${step.progress}%`, height: '100%', background: `linear-gradient(90deg, ${green}, ${accent})`, transition: 'width .4s ease' }} />

@@ -7,6 +7,8 @@
 //   قواعد فقط الآن (client)؛ لاحقًا Knowledge Graph + تعلّم من السوق (خادم).
 // ============================================================
 
+import { categoryForConcept } from './catalog';
+import { resolveConcept } from './akg/kb/knowledge';
 import { understand } from './akg/kb';
 
 export interface Inferred { key: string; label: string; value: any; confidence: number; }
@@ -84,6 +86,13 @@ function kbInfer(raw: string): Inferred[] {
   const out: Inferred[] = [];
   const u = understand(raw);
   if (u.city) out.push({ key: 'city', label: 'المدينة', value: u.city, confidence: 0.85 });
+
+  // **الفئةُ تُشتقّ من الفهم، فلا تُسأل.** «كسوة العيد» ⇒ `eid_clothing` ⇒
+  // أطفال. كان المحرّكُ يعرف ذلك ويستعمله لاختيار الحقول، ثمّ يسأل التاجرَ
+  // «فأشمن فئة؟» — سؤالٌ جوابُه معروفٌ سلفًا. ثقةٌ عالية: مصدرُها المعرفةُ
+  // لا تخمينُ نصّ، وتبقى قابلةً للتصحيح بنقرةٍ كأيّ افتراض.
+  const cat = categoryForConcept(resolveConcept(raw)?.id);
+  if (cat) out.push({ key: 'category', label: 'الفئة', value: cat.label, confidence: 0.9 });
   if (u.profession) {
     // المعرفة أدقّ من استخراج النصّ الخام → ثقة عالية تفوز على العنوان المستخرَج.
     out.push({ key: 'profession', label: 'المهنة', value: u.profession.label, confidence: 0.92 });
