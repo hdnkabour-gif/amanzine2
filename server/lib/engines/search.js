@@ -23,10 +23,13 @@ const INTENT_VERBS = ['أريد', 'بغيت', 'محتاج', 'نحتاج', 'كن�
 const norm = (s) => String(s || '').toLowerCase().trim().replace(/\s+/g, ' ');
 
 // 1) Normalize + 2) Intent
-function detectIntent(rawQuery) {
+function detectIntent(rawQuery, expanded = []) {
   const q = norm(rawQuery);
   if (!q) return { kind: 'general', nearby: false, cleaned: '', matched: [] };
-  const hitService = SERVICE_TERMS.filter(t => q.includes(t));
+  // المرادفاتُ الموسَّعةُ تُفحَص أيضًا: من كتب «بلومبي» يصل إلينا ومعه
+  // «سباك» و«Plombier»، فتُعرَف نيّةُ الخدمة ولو لم تُطابق القائمةَ أدناه.
+  const blob = [q, ...expanded.map(norm)].join(' ');
+  const hitService = SERVICE_TERMS.filter(t => blob.includes(t));
   const hitNearby  = NEARBY_TERMS.some(t => q.includes(t));
   const hitVerb    = INTENT_VERBS.some(t => q.includes(t));
   // خدمة إذا وُجد مصطلح خدمة، أو فعل نيّة + غياب دلائل منتج واضحة
@@ -69,8 +72,13 @@ function applyFilters(list, f = {}) {
 // 3-5) Engine → Ranking → Response
 // Discover = Search بدون Query: نفس المحرّك، بلا q → يرتّب Ranking حسب
 // المسافة/التقييم/الموثوقية/الشعبية فيظهر "قريب/الأعلى تقييماً/رائج" تلقائياً.
-async function execute({ q, city, lat, lng, type, radiusKm, limit = 24, weights, filters: userFilters = {}, view } = {}) {
-  const intent = detectIntent(q);
+// `terms` — مرادفاتُ المفهوم كما وسّعتها **الواجهة** من قاعدة المعرفة.
+// الخادمُ لا يفهم الدارجةَ ولا يحتاج: طبقةُ الفهم في المتصفّح (ADR ③) هي
+// من يترجم «بلومبي» إلى سباك · Plombier · Plumber · فتح المجاري، وهنا
+// يُستعمل الناتجُ كما هو. لولا هذا الفصلُ لصار محرّكُ البحث مسؤولًا عن اللغة.
+async function execute({ q, terms, city, lat, lng, type, radiusKm, limit = 24, weights, filters: userFilters = {}, view } = {}) {
+  const expanded = Array.isArray(terms) ? terms.filter(t => t && String(t).trim()) : [];
+  const intent = detectIntent(q, expanded);
   const effectiveType = type || (intent.kind === 'service' ? 'service' : undefined);
   // خريطة أو نيّة "قريب" → بحث بالموقع
   const wantNearby = (view === 'map' || intent.nearby) && lat != null && lng != null;
@@ -82,7 +90,7 @@ async function execute({ q, city, lat, lng, type, radiusKm, limit = 24, weights,
 
   let businesses = wantNearby
     ? await business.searchNearby({ lat, lng, radiusKm: radiusKm || 25, city, q, type: effectiveType, limit })
-    : await business.search({ city, q, type: effectiveType, limit });
+    : await business.search({ city, q, terms: expanded, type: effectiveType, limit });
 
   businesses = applyFilters(businesses, userFilters);
 
@@ -91,7 +99,7 @@ async function execute({ q, city, lat, lng, type, radiusKm, limit = 24, weights,
   ranked.forEach(b => { delete b.__relevance; });
 
   // المنتجات (تنتمي لنشاط) — تُعرض عندما لا تكون النيّة خدمة صرفة
-  let products = intent.kind === 'service' ? [] : await business.searchProducts({ city, q, limit });
+  let products = intent.kind === 'service' ? [] : await business.searchProducts({ city, q, terms: expanded, limit });
   if (userFilters.priceMax != null) products = products.filter(p => +p.price <= +userFilters.priceMax);
   if (userFilters.priceMin != null) products = products.filter(p => +p.price >= +userFilters.priceMin);
 

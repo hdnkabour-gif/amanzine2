@@ -1261,12 +1261,44 @@ db.getProviderById = async (id) => {
 // ── Discover — الطبقة الجامعة عبر كل المتاجر (Super App) ───────
 // قراءة عامة فقط لما هو منشور/معتمد صراحةً: منتجات published،
 // مقدّمون approved، ومتاجر لها كتالوج عام. لا PII، لا أسرار.
-db.discoverProducts = async ({ city, q, limit = 24 } = {}) => {
+// ── تطبيعٌ عربيٌّ للبحث ────────────────────────────────────────
+// الفهرسُ كان يقارن حرفيًّا: «جلابة» لا تجد «جلابه»، و«الحلاق» لا تجد
+// «حلاق». تطبيعٌ متطابقٌ مع `normArabic` في الواجهة — الطرفان يقارنان
+// الشكلَ نفسَه أو لا يلتقيان أبدًا.
+// نفسُ التطبيع، منفَّذًا داخل SQL على العمود. `TRANSLATE` أرخصُ من دالّةٍ
+// مخزّنة، ويكفي لما يقع فعلًا في السوق المغربيّ: الهمزات والتاء المربوطة.
+const AR_SQL = (col) => `TRANSLATE(LOWER(${col}), 'أإآٱةى', 'ااااهي')`;
+
+const AR_NORM = (t) => String(t || '').toLowerCase()
+  .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
+  .replace(/[\u0623\u0625\u0622\u0671]/g, '\u0627')
+  .replace(/\u0629/g, '\u0647').replace(/\u0649/g, '\u064A')
+  .replace(/\u0624/g, '\u0648').replace(/\u0626/g, '\u064A')
+  .replace(/\s+/g, ' ').trim();
+
+/**
+ * `terms` — مرادفاتُ المفهوم كما وسّعتها الواجهةُ من قاعدة المعرفة
+ * («بلومبي» ⇒ سباك · Plombier · Plumber · فتح المجاري …). الخادمُ يبقى
+ * محرّكَ بحثٍ ولا يعرف أنّها شيءٌ واحد — هذا عملُ طبقة الفهم، لا SQL.
+ */
+db.discoverProducts = async ({ city, q, terms, limit = 24 } = {}) => {
   const conds = ["p.status = 'published'"]; const vals = []; let i = 1;
   // مدينةُ الإعلان أوّلًا، ومدينةُ المتجر احتياطًا: التاجرُ قد يبيع في مدينةٍ
   // غير مدينة متجره، والزبونُ يبحث عمّا هو **قربه** لا عمّا سُجّل مالكُه.
   if (city) { conds.push(`COALESCE(NULLIF(p.city,''), s.data->'brand'->>'city') = $${i++}`); vals.push(city); }
-  if (q)    { conds.push(`(LOWER(p.name) LIKE $${i} OR LOWER(p.description) LIKE $${i} OR LOWER(p.category) LIKE $${i})`); vals.push('%' + String(q).toLowerCase() + '%'); i++; }
+  // كلُّ مرادفٍ فرصةٌ للعثور. بلا هذا كان من يكتب «بلومبي» لا يجد سبّاكًا
+  // ولو كان معروضًا أمامه — كلُّ الفهم كان يخدم التاجرَ وحدَه.
+  const words = [...new Set([q, ...(Array.isArray(terms) ? terms : [])]
+    .map(t => AR_NORM(t)).filter(t => t && t.length >= 2))].slice(0, 24);
+  if (words.length) {
+    const ors = words.map(w => {
+      vals.push('%' + w + '%');
+      const n = i++;
+      // التطبيعُ يقع على العمود أيضًا: «جلابة» المخزّنةُ تُطابق «جلابه» المكتوبة.
+      return `(${AR_SQL('p.name')} LIKE $${n} OR ${AR_SQL('p.description')} LIKE $${n} OR ${AR_SQL('p.category')} LIKE $${n})`;
+    });
+    conds.push(`(${ors.join(' OR ')})`);
+  }
   vals.push(Math.min(+limit || 24, 60));
   const { rows } = await pool.query(
     `SELECT p.id, p.user_id, p.name, p.price, p.category, p.city, p.emoji, p.image_url, p.views, p.offer_type,

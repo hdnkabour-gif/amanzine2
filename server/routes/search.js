@@ -26,6 +26,8 @@ function parseFilters(qs) {
 router.get('/', async (req, res) => {
   const q     = String(req.query.q || '').trim().slice(0, 80) || undefined;
   const city  = String(req.query.city || '').trim() || undefined;
+  // مرادفاتُ المفهوم من قاعدة المعرفة، وسّعتها الواجهةُ قبل الإرسال.
+  const terms = String(req.query.terms || '').split('|').map(t => t.trim()).filter(Boolean).slice(0, 24);
   const type  = ['store', 'service'].includes(req.query.type) ? req.query.type : undefined;
   const lat   = req.query.lat != null && req.query.lat !== '' ? +req.query.lat : undefined;
   const lng   = req.query.lng != null && req.query.lng !== '' ? +req.query.lng : undefined;
@@ -33,7 +35,7 @@ router.get('/', async (req, res) => {
   const view  = req.query.view === 'map' ? 'map' : undefined;
   const limit = Math.min(+req.query.limit || 24, 60);
   try {
-    const result = await searchEngine.execute({ q, city, type, lat, lng, radiusKm, view, limit, filters: parseFilters(req.query) });
+    const result = await searchEngine.execute({ q, terms, city, type, lat, lng, radiusKm, view, limit, filters: parseFilters(req.query) });
     // Activity: كل بحث حدث خاص يغذّي Search Analytics (كلمات، بلا نتائج، CTR)
     try {
       require('../lib/engines/activity').emit({ type: 'search.executed', category: 'search', visibility: 'private', city: city || null,

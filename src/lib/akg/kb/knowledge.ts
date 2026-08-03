@@ -288,9 +288,30 @@ export function resolveConcepts(text: string, max = 8): ConceptResolution[] {
       if (at < 0 || !free(at, term.length)) continue;
       taken.push([at, at + term.length]);
       seen.add(c.id);
-      out.push({ id: c.id, category: categoryFor(c.id, c.category), concept: c.concept, language: 'darija' });
+      out.push({ id: c.id, category: categoryFor(c.id, c.category), concept: c.concept,
+        language: 'darija', services: c.services, fields: c.fields, examples: c.examples,
+        matched: { term, via: 'exact' } });
     }
   }
+
+  // القواعدُ التركيبيّةُ أيضًا — كانت تُفحَص في المفرد وحدَه.
+  //   «بغيت نغسل الطوموبيل ونصبغ الدار» ⇒ كانت تُرجع الغسلَ فقط، لأنّ
+  //   «نصبغ الدار» قاعدةٌ تركيبيّةٌ (فعل + مفعول) لا مصطلحٌ في الفهرس.
+  //   فتضيع نصفُ الجملة صامتةً — وهي الحالةُ التي وُلدت من أجلها هذه الدالّة.
+  for (const r of COMPOSITE) {
+    if (out.length >= max || seen.has(r.id)) continue;
+    const anyHit = r.all.every(g => g.some(w => {
+      const na = normArabic(w), nl = normLatin(w);
+      return (na.length >= 2 && (ta.includes(na) || tda.includes(na)))
+          || (nl.length >= 2 && normLatin(text).includes(nl));
+    }));
+    if (!anyHit) continue;
+    seen.add(r.id);
+    out.push({ id: r.id, category: categoryFor(r.id, r.category), concept: conceptById(r.id),
+      language: 'darija', ...knowledgeOf(r.id),
+      matched: { term: r.all.map(g => g[0]).join(' + '), via: 'composite' } });
+  }
+
   const tl = normLatin(text);
   if (tl) {
     for (const { term, c } of latIndex) {
@@ -298,7 +319,9 @@ export function resolveConcepts(text: string, max = 8): ConceptResolution[] {
       if (seen.has(c.id)) continue;
       if (!new RegExp(`(^|\\s)${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`).test(tl)) continue;
       seen.add(c.id);
-      out.push({ id: c.id, category: categoryFor(c.id, c.category), concept: c.concept, language: 'en' });
+      out.push({ id: c.id, category: categoryFor(c.id, c.category), concept: c.concept,
+        language: 'en', services: c.services, fields: c.fields, examples: c.examples,
+        matched: { term, via: 'latin' } });
     }
   }
   return out;

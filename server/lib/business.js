@@ -189,11 +189,11 @@ function haversineKm(a, b) {
 const BusinessService = {
   capabilities, sectionsFor, CAP_KEYS, SECTION_ORDER, adapters: ADAPTERS,
 
-  async search({ city, q, type, limit = 24 } = {}) {
+  async search({ city, q, terms, type, limit = 24 } = {}) {
     const sources = sourcesForType(type);
     const settled = await Promise.allSettled(sources.map(src => {
       const listingType = src === 'listing' ? (type === 'store' ? 'product' : type) : type;
-      return ADAPTERS[src].search({ city, q, type: listingType, limit });
+      return ADAPTERS[src].search({ city, q, terms, type: listingType, limit });
     }));
     const out = [];
     settled.forEach((r, i) => {
@@ -205,8 +205,8 @@ const BusinessService = {
   },
 
   // المنتجات تنتمي لنشاط، فلا تُعامَل كـ Business مستقل
-  async searchProducts({ city, q, limit = 24 } = {}) {
-    try { return await db.discoverProducts({ city, q, limit }); }
+  async searchProducts({ city, q, terms, limit = 24 } = {}) {
+    try { return await db.discoverProducts({ city, q, terms, limit }); }
     catch { return []; }
   },
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BadgeCheck, Star, MapPin, Store, ArrowLeft } from 'lucide-react';
+import { expandQuery, toSearchParams } from '../lib/searchIntent';
 
 // ============================================================
 // Discover — الأقسام الجامعة في صفحة /market (Super App)
@@ -18,11 +19,17 @@ const PURPLE = '#8b5cf6';
 
 export default function DiscoverSections({ city, q }: { city: string; q: string }) {
   const [data, setData] = useState<{ products: DProduct[]; providers: DProvider[]; stores: DStore[] } | null>(null);
+  const [understood, setUnderstood] = useState<string | null>(null);
 
   useEffect(() => {
-    const qs = new URLSearchParams();
-    if (city) qs.set('city', city);
-    if (q) qs.set('q', q);
+    // ── طبقةُ الفهم قبل طبقة البحث ───────────────────────────
+    // كان الاستعلامُ يُرسَل خامًّا فيقابله `LIKE '%…%'`. فمن كتب «بلومبي» أو
+    // «plombier» أو «tomobil» لا يجد شيئًا ولو كان المطلوبُ أمامه في القاعدة:
+    // ١٩٧ مفهومًا بمرادفاتها كانت تخدم التاجرَ وحدَه. الآن يُفهَم الاستعلامُ
+    // هنا — في المتصفّح، حيث يسكن الفهم (ADR ③) — ويُرسَل موسَّعًا.
+    const intent = expandQuery(q);
+    const qs = toSearchParams(intent, city);
+    setUnderstood(intent.label && intent.label !== intent.raw ? intent.label : null);
     const t = setTimeout(() => {
       fetch(`/api/discover?${qs}`).then(r => r.json())
         .then(d => setData({ products: d.products || [], providers: d.providers || [], stores: d.stores || [] }))
@@ -35,6 +42,12 @@ export default function DiscoverSections({ city, q }: { city: string; q: string 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28, marginBottom: 32 }}>
+      {/* ما فُهم من كلامك — صدقٌ في الوسيط: الزبونُ يرى لماذا جاءته هذه النتائج */}
+      {understood && (
+        <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 99, background: 'rgba(139,92,246,.12)', border: '1px solid rgba(139,92,246,.35)', color: PURPLE, fontSize: 12, fontWeight: 700 }}>
+          فهمنا: {understood}
+        </div>
+      )}
       {/* 🛍️ منتجات من كل المتاجر */}
       {data.products.length > 0 && (
         <section>

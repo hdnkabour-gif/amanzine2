@@ -11,9 +11,12 @@ const searchEngine = require('../lib/engines/search');
 router.get('/', async (req, res) => {
   const city = String(req.query.city || '').trim() || undefined;
   const q    = String(req.query.q || '').trim().slice(0, 80) || undefined;
+  // المرادفاتُ التي وسّعتها الواجهةُ من قاعدة المعرفة — مفصولةٌ بـ«|».
+  const terms = String(req.query.terms || '').split('|')
+    .map(t => t.trim()).filter(Boolean).slice(0, 24);
   const limit = Math.min(+req.query.limit || 24, 60);
   try {
-    const { businesses, products } = await searchEngine.execute({ city, q, limit });
+    const { businesses, products } = await searchEngine.execute({ city, q, terms, limit });
     // إعادة تجميع النموذج الموحّد إلى المفاتيح القديمة (providers/stores/listings)
     res.json({
       city: city || null, q: q || null,
