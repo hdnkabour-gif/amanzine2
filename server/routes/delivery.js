@@ -118,7 +118,6 @@ router.post('/create/:orderId', auth, async (req, res) => {
     console.log(`[Delivery] Using provider: ${prov.name} (apiType: ${prov.apiType})`);
 
     const settings = preSettings;
-    const tracking = 'TRK-' + crypto.randomBytes(3).toString('hex').toUpperCase();
     const failures = [];
     const steps = [{
       label: 'تجهيز بيانات الشحنة',
@@ -173,7 +172,7 @@ router.post('/create/:orderId', auth, async (req, res) => {
           prov
         );
         if (result.success) {
-          const realTracking = result.trackingNumber || tracking;
+          const realTracking = result.trackingNumber || result.shipmentId || '';
           steps.push({ label, ok: true, detail: plugin.meta.id });
           steps.push({ label: 'استلام رقم التتبع من الشركة', ok: true, detail: realTracking });
           await db.updateOrder(order.id, {
@@ -214,28 +213,30 @@ router.post('/create/:orderId', auth, async (req, res) => {
     // ── Simulation fallback ──────────────────────────────────────────
     const why = failures.length ? failures.join(' · ') : 'لا يوجد مفتاح API أو Webhook مهيأ لهذه الشركة';
     if (!failures.length) steps.push({ label: `لا قناة ربط حقيقية مهيأة لشركة ${prov.name}`, ok: false, error: 'أضف مفتاح API أو Webhook من صفحة التوصيل، أو استخدم الإدخال اليدوي' });
-    steps.push({ label: 'توليد رقم تتبع داخلي (محاكاة — لم يصل للشركة)', ok: true, detail: tracking });
-    await db.updateOrder(order.id, { status: 'processing', trackingNumber: tracking, deliveryProvider: prov.name });
-    await db.addLog({ userId: req.user.id, user: 'System', action: `⚠️ محاكاة (لم يُرسل فعلياً): ${order.id}`, details: `${prov.name} — ${tracking} — السبب: ${why}`, type: 'delivery', severity: 'warning' });
-    await db.addNotification({ userId: req.user.id, type: 'warning', message: `⚠️ طلب ${order.id}: لم يُرسل لشركة ${prov.name} — أدخله يدوياً في موقعها (السبب: ${why})` });
-    res.json({ success: true, tracking, provider: prov.name, real: false, apiError: why, openUrl, steps, manual: { copyText: manualCopy, openUrl } });
+    // ── لا رقمَ تتبّعٍ مُفبرك ───────────────────────────────────────
+    //   كان يُولَّد `TRK-XXXXXX` ويُكتَب في **نفس حقل** رقمِ التتبّع الحقيقيّ،
+    //   فيظهر في بطاقة الطلب بلونٍ أخضرَ ويُطبَع على الفاتورة التي تُسلَّم
+    //   للزبون. لا شيءَ بعدها يميّز رقمًا جاء من الشركة عن رقمٍ اخترعناه —
+    //   والتاجرُ يفتح موقعَ الشركة فلا يجد شيئًا، بحقّ.
+    //
+    //   `trackingNumber` معناه من الآن **واحدٌ لا ثانيَ له**: رقمٌ جاء من
+    //   شركةِ توصيل. وحين لا نُرسل، نقول إنّنا لم نُرسل ونطلب الإدخالَ اليدويّ.
+    steps.push({ label: 'لم يُولَّد رقمُ تتبّع — لم تُرسَل الشحنةُ فعلًا', ok: false, error: 'أدخل الرقمَ من موقع الشركة بعد تسجيل الطلب فيه' });
+    await db.updateOrder(order.id, {
+      status: 'processing',
+      deliveryProvider: prov.name,
+      deliveryStatus: 'manual_required',
+      trackingNumber: '',
+    });
+    await db.addLog({ userId: req.user.id, user: 'System', action: `⚠️ لم تُرسَل — إدخالٌ يدويٌّ مطلوب: ${order.id}`, details: `${prov.name} — السبب: ${why}`, type: 'delivery', severity: 'warning' });
+    await db.addNotification({ userId: req.user.id, type: 'warning', message: `⚠️ طلب ${order.id}: لم يُرسل لشركة ${prov.name} — سجّله في موقعها وأدخل رقمَ التتبّع (السبب: ${why})` });
+    res.json({ success: true, tracking: '', provider: prov.name, real: false, needsManual: true, apiError: why, openUrl, steps, manual: { copyText: manualCopy, openUrl } });
   } catch (e) { console.error('[delivery/create]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
-// Legacy route kept for compatibility
-router.post('/simulate/:orderId', auth, async (req, res) => {
-  try {
-    const order = await db.getOrder(req.params.orderId);
-    if (!order || order.userId !== req.user.id) return res.status(404).json({ error: 'Order not found' });
-    const providers = (await db.getDeliveryProviders(req.user.id)).filter(p => p.enabled);
-    if (!providers.length) return res.status(400).json({ error: 'No delivery provider configured' });
-    const prov    = providers[0];
-    const tracking = 'TRK-' + crypto.randomBytes(3).toString('hex').toUpperCase();
-    await db.updateOrder(order.id, { status: 'processing', trackingNumber: tracking, deliveryProvider: prov.name });
-    await db.addLog({ userId: req.user.id, user: 'System', action: `⚠️ محاكاة (مسار قديم): ${order.id}`, details: `${prov.name} — ${tracking}`, type: 'delivery', severity: 'warning' });
-    res.json({ success: true, tracking, provider: prov.name, real: false, orderUrl: prov.addOrderPage || prov.websiteUrl });
-  } catch (e) { console.error('[delivery/simulate]', e.message); res.status(500).json({ error: 'Server error' }); }
-});
+// (حُذف `POST /simulate/:orderId`: مسارٌ قديمٌ يفبرك رقمَ تتبّعٍ ويكتبه في
+//  حقلِ الرقم الحقيقيّ — نفسُ العطب الذي أُصلح أعلاه، بمدخلٍ ثانٍ. لم تكن
+//  تناديه أيُّ شاشة؛ إبقاؤه كان يعني بابًا خلفيًّا يُعيد الكذبة.)
 
 // POST /api/delivery/test-connection — server-side URL reachability test
 router.post('/test-connection', auth, async (req, res) => {

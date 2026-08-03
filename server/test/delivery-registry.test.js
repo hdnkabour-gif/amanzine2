@@ -225,3 +225,42 @@ test('لا مزوّدَ يقرأ الردَّ بافتراضِ شكلٍ — ال
       `${f}: يقرأ result.data مباشرةً — استعمل pickObject`);
   }
 });
+
+// ============================================================
+// رقمُ التتبّع يعني شيئًا واحدًا: رقمٌ جاءَ من شركةِ توصيل.
+//
+//   كان مسارُ الشحن يفبرك `TRK-XXXXXX` حين يعجز عن الإرسال، ويكتبه في
+//   **نفس الحقل** الذي يحمل الرقمَ الحقيقيّ. فيظهر في بطاقة الطلب بلونٍ
+//   أخضرَ ويُطبَع على الفاتورة التي تُسلَّم للزبون — والتاجرُ يفتح موقعَ
+//   الشركة فلا يجد شيئًا، بحقّ. ومسارٌ قديمٌ ثانٍ (`/simulate`) كان يفعلها
+//   أيضًا بلا أن تناديه أيُّ شاشة.
+// ============================================================
+
+test('لا مسارَ يفبرك رقمَ تتبّعٍ ويكتبه في حقل الرقم الحقيقيّ', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const dir = path.join(__dirname, '..', 'routes');
+
+  for (const f of fs.readdirSync(dir).filter(x => x.startsWith('delivery'))) {
+    const src = fs.readFileSync(path.join(dir, f), 'utf8');
+    // أسطرُ الكودِ وحدَها: التعليقاتُ تشرح العطبَ فتذكر النصّ بالضرورة.
+    const code = src
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
+
+    const fabricates = /trackingNumber\s*:\s*tracking\b/.test(code)
+      && /const\s+tracking\s*=\s*['"`]TRK-/.test(code);
+    assert.ok(!fabricates,
+      `${f}: يكتب رقمًا مُولَّدًا محلّيًّا في trackingNumber — الحقلُ لِما جاء من الشركة وحدَه`);
+  }
+});
+
+test('حين لا تُرسَل الشحنةُ تُعلَن الحالةُ ولا يُخترَع رقم', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'routes', 'delivery.js'), 'utf8');
+  assert.ok(/deliveryStatus:\s*'manual_required'/.test(src),
+    'مسارُ العجز يجب أن يُعلن manual_required — لا أن يصمت');
+  assert.ok(!/router\.post\('\/simulate/.test(src),
+    'المسارُ القديم `/simulate` بابٌ خلفيٌّ يُعيد الفبركة');
+});

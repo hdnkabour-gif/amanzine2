@@ -31,7 +31,7 @@ export const EXTRA_CONCEPTS: ConceptData[] = [
 
   // ── اتصالات / تقنية ──
   C('wifi_internet', 'electronics', 'إنترنت وواي-فاي', 'الواي فاي', 'Internet / Wi-Fi', 'Internet & Wi-Fi',
-    { darija: ['واي فاي', 'الواي فاي', 'انترنت', 'الانترنت', 'كونيكسيون', 'الاشارة ضعيفة', 'الانترنت كيقطع', 'راوتر', 'مودم'], arabizi: ['wifi', 'internet', 'connexion', 'router', 'modem'], ar: ['إنترنت', 'واي فاي', 'مودم', 'راوتر', 'إشارة'], fr: ['internet', 'wifi', 'connexion', 'modem', 'routeur', 'debit'], en: ['internet', 'wifi', 'connection', 'modem', 'router', 'signal'] },
+    { darija: ['واي فاي', 'الواي فاي', 'انترنت', 'الانترنت', 'انطرنيت', 'الانطرنيت', 'أنترنيت', 'انترنيت', 'كونيكسيون', 'الاشارة ضعيفة', 'الانترنت كيقطع', 'راوتر', 'مودم', 'أدسل', 'adsl'], arabizi: ['wifi', 'internet', 'connexion', 'router', 'modem'], ar: ['إنترنت', 'واي فاي', 'مودم', 'راوتر', 'إشارة'], fr: ['internet', 'wifi', 'connexion', 'modem', 'routeur', 'debit'], en: ['internet', 'wifi', 'connection', 'modem', 'router', 'signal'] },
     ['الواي فاي كيقطع', 'بغيت نركب إنترنت فالدار', 'الإشارة ضعيفة']),
   C('satellite_receiver', 'electronics', 'تركيب/إصلاح البارابول والريسيفر', 'البارابول', 'Parabole / Récepteur', 'Satellite & Receiver',
     { darija: ['بارابول', 'البارابول', 'ريسيفر', 'الريسيفر', 'ديمو', 'التلفزة ما شاعلاش', 'القنوات تقطعات', 'دمو', 'قنوات'], arabizi: ['parabole', 'recepteur', 'demo', 'satellite'], ar: ['طبق', 'مستقبل', 'ريسيفر', 'قنوات', 'إشارة تلفاز'], fr: ['parabole', 'recepteur', 'demo', 'chaines'], en: ['satellite dish', 'receiver', 'channels'] },
@@ -131,4 +131,78 @@ export const ENRICH_CONCEPTS: ConceptData[] = [
   C('computer_repair', 'electronics', 'إصلاح الحاسوب', 'إصلاح البيسي', 'Réparation ordinateur', 'Computer repair',
     { darija: ['بيسي', 'لابتوب', 'حاسوب', 'تقيل بزاف', 'disque dur', 'قرص صلب', 'فورماتاج', 'الشاشة ما شاعلاش'], arabizi: ['pc', 'laptop', 'ordinateur', 'disque', 'formatage'], ar: ['حاسوب', 'محمول', 'قرص صلب', 'ذاكرة', 'تهيئة'], fr: ['ordinateur', 'disque dur', 'formatage', 'lent'], en: ['computer', 'hard drive', 'formatting', 'slow'] },
     ['البيسي تقيل بزاف', 'بغيت فورماتاج']),
+  // ══════════════════════════════════════════════════════════════
+  //  الملابس — المجالُ الأوّل الذي يبدأ به المالك.
+  //
+  //  قِيس قبل الكتابة: ٩ من ١٥ جملةً واقعيّةً كانت **لا تُفهَم**، وهي أعلى
+  //  نسبةِ فشلٍ في المجالات الثلاثة. السببُ أنّ المفهومَ الوحيد `clothing`
+  //  كان يحمل أربعَ كلماتٍ عامّة («حوايج · ملابس · لباس · قشاشة») — والناسُ
+  //  لا يكتبون «ملابس»، يكتبون **اسمَ القطعة**: «جلابة»، «تراكسي»، «بلغة».
+  //
+  //  التقسيمُ هنا بالقطعة لا بالجنس (رجال/نساء/أطفال)، لأنّ ما يكتبه الإنسان
+  //  هو القطعة، والجنسُ يُستنتَج منها أو يُسأل عنه. وهو نفسُه سببُ خطأٍ رأيناه:
+  //  «بغيت نبيع تراكسي» كانت تُقرأ **وكالةَ عقار** (تراكسي ≈ «تراس»).
+  // ══════════════════════════════════════════════════════════════
+  C('garment_top', 'fashion', 'قمصان وتيشيرتات', 'قميجة وتيشيرت', 'Hauts / T-shirts', 'Tops & shirts',
+    { darija: ['قميجة', 'قميص', 'تيشيرت', 'تي شيرت', 'مايوه', 'بولو', 'سويتشيرت', 'سويت شيرت', 'كنزة', 'تريكو'], arabizi: ['tshirt', 't-shirt', 'chemise', 'polo', 'sweat', 'pull'], ar: ['قميص', 'تيشيرت', 'كنزة', 'سترة خفيفة'], fr: ['chemise', 'tshirt', 'polo', 'pull', 'sweat'], en: ['shirt', 'tshirt', 'polo', 'sweater', 'hoodie'] },
+    ['بغيت قميص أبيض', 'كنبيع تيشيرتات']),
+  C('garment_bottom', 'fashion', 'سراويل', 'سروال', 'Pantalons', 'Pants',
+    { darija: ['سروال', 'سراويل', 'جينز', 'دجين', 'بنطلون', 'شورط', 'شورت', 'سروال قصير', 'كارغو'], arabizi: ['pantalon', 'jean', 'jeans', 'short', 'cargo'], ar: ['سروال', 'بنطلون', 'جينز', 'شورت'], fr: ['pantalon', 'jean', 'short'], en: ['pants', 'trousers', 'jeans', 'shorts'] },
+    ['بغيت سروال جينز', 'عندي سراويل للبيع']),
+  C('garment_dress', 'fashion', 'فساتين وبلوزات نسائية', 'روب وبلوزة', 'Robes', 'Dresses',
+    { darija: ['روب', 'فستان', 'بلوزة', 'بلايز', 'جيب', 'تنورة', 'روب سواريه'], arabizi: ['robe', 'jupe', 'blouse'], ar: ['فستان', 'بلوزة', 'تنورة', 'فستان سهرة'], fr: ['robe', 'jupe', 'blouse'], en: ['dress', 'skirt', 'blouse'] },
+    ['بغيت بلوزة نسائية', 'كنبيع الروبات']),
+  C('garment_outerwear', 'fashion', 'جواكت ومعاطف', 'فيست وكبوط', 'Vestes & manteaux', 'Jackets & coats',
+    { darija: ['فيست', 'جاكيط', 'جاكيت', 'كبوط', 'معطف', 'بلوزون', 'كوستيم', 'بدلة', 'جيليه', 'دوديون'], arabizi: ['veste', 'manteau', 'blouson', 'costume', 'gilet', 'doudoune'], ar: ['جاكيت', 'معطف', 'بدلة', 'صديري'], fr: ['veste', 'manteau', 'costume', 'gilet'], en: ['jacket', 'coat', 'suit', 'vest'] },
+    ['بغيت كوستيم للعرس', 'كنبيع الجاكيطات']),
+  C('sportswear', 'fashion', 'ملابس رياضية', 'تراكسي', 'Vêtements de sport', 'Sportswear',
+    { darija: ['تراكسي', 'طراكسي', 'سورفيتمو', 'جوغينغ', 'حوايج الرياضة', 'لباس رياضي', 'مايو الرياضة'], arabizi: ['tracksuit', 'survetement', 'jogging', 'sport'], ar: ['ملابس رياضية', 'بدلة رياضية'], fr: ['survetement', 'jogging', 'sport'], en: ['tracksuit', 'sportswear', 'jogging'] },
+    ['بغيت نبيع تراكسي', 'كنقلب على سورفيتمو']),
+  C('shoe_store', 'fashion', 'أحذية', 'صباط', 'Chaussures', 'Footwear',
+    { darija: ['صباط', 'صبابط', 'بلغة', 'بابوش', 'سباردينة', 'سبرديلة', 'سندالة', 'صندالة', 'كوطي', 'بوط', 'شبشب', 'نعالة'], arabizi: ['chaussure', 'basket', 'sandale', 'botte', 'sneakers'], ar: ['حذاء', 'أحذية', 'صندل', 'بلغة', 'بابوج'], fr: ['chaussures', 'baskets', 'sandales', 'bottes'], en: ['shoes', 'sneakers', 'sandals', 'boots'] },
+    ['بغيت صباط رجالي', 'بغيت نشري بابوش']),
+  C('fashion_accessories', 'fashion', 'إكسسوارات الأزياء', 'كاسكيطة وصاك', 'Accessoires', 'Fashion accessories',
+    { darija: ['كاسكيطة', 'شابو', 'شاش', 'حزام', 'سنطورة', 'صاك', 'ساك', 'محفظة', 'بورطفاي', 'لنيط', 'خاتم', 'سلسلة'], arabizi: ['casquette', 'ceinture', 'sac', 'portefeuille'], ar: ['قبعة', 'وشاح', 'حزام', 'حقيبة', 'محفظة'], fr: ['casquette', 'echarpe', 'ceinture', 'sac'], en: ['cap', 'scarf', 'belt', 'bag', 'wallet'] },
+    ['بغيت كاسكيطة', 'كنبيع الصاكات']),
+  C('traditional_clothing', 'fashion', 'اللباس التقليدي المغربي', 'جلابة وقفطان', 'Habit traditionnel', 'Traditional wear',
+    { darija: ['جلابة', 'جلابه', 'الجلابة', 'قفطان', 'القفطان', 'طاكشيطة', 'تاكشيطة', 'قندورة', 'سلهام', 'برنوس', 'جابادور', 'فوقية', 'مجدول'], arabizi: ['jellaba', 'djellaba', 'caftan', 'takchita', 'gandoura', 'selham'], ar: ['جلابة', 'قفطان', 'تكشيطة', 'قندورة', 'برنس'], fr: ['djellaba', 'caftan', 'takchita', 'gandoura'], en: ['djellaba', 'caftan', 'takchita'] },
+    ['بغيت طاكشيطة للعرس', 'كنبيع الجلابات']),
+  C('eid_clothing', 'fashion', 'كسوة العيد', 'كسوة العيد', 'Habits de fête', 'Eid clothing',
+    { darija: ['كسوة العيد', 'حوايج العيد', 'لباس العيد', 'كسوة لعيد'], ar: ['كسوة العيد', 'ملابس العيد'], fr: ['habits de fete', 'tenue aid'], en: ['eid clothes'] },
+    ['عندي كسوة العيد', 'بغيت كسوة العيد للدراري']),
+  C('used_clothing', 'fashion', 'سوق الملابس المستعملة', 'جوطية', 'Marché aux puces', 'Flea market',
+    { darija: ['جوطية', 'الجوطية', 'جوطيه', 'سوق البالي', 'فريب', 'فريپ', 'حوايج بالية'], arabizi: ['joutia', 'friperie', 'frip'], ar: ['سوق مستعمل', 'سوق البالة'], fr: ['joutia', 'friperie', 'marche aux puces'], en: ['flea market', 'thrift'] },
+    ['بغيت جوطية قريبة', 'فين كاينة الجوطية؟']),
+  C('underwear_socks', 'fashion', 'ملابس داخلية وجوارب', 'سلاوي وتريكو', 'Sous-vêtements', 'Underwear & socks',
+    { darija: ['تقاشر', 'سلاوي', 'ملابس داخلية', 'كيلوط', 'مايوه دياخل'], arabizi: ['chaussettes', 'sous vetement', 'slip'], ar: ['جوارب', 'ملابس داخلية'], fr: ['chaussettes', 'sous-vetements'], en: ['socks', 'underwear'] },
+    ['كنبيع التقاشر']),
+  C('fabric_shop', 'fashion', 'أقمشة وخياطة', 'الطوب والخياطة', 'Tissus', 'Fabric',
+    { darija: ['طوب', 'الطوب', 'قماش', 'اقمشة', 'خيط', 'الخيط', 'زواق', 'سفيفة', 'عقاد'], arabizi: ['tissu', 'tissus', 'fil'], ar: ['قماش', 'أقمشة', 'خيوط'], fr: ['tissu', 'tissus', 'mercerie'], en: ['fabric', 'textile'] },
+    ['بغيت طوب ديال الجلابة']),
+
+  // ── السيّارات: ما كان ناقصًا (المجالُ الأقوى أصلًا — ٣ فجوات) ──
+  C('car_service', 'automotive', 'تبديل الزيت والفلاتر', 'الفيدانج', 'Vidange', 'Oil change',
+    { darija: ['فيدانج', 'الفيدانج', 'تبديل الزيت', 'نبدل الزيت', 'الزيت', 'فيلطر', 'فلتر الزيت'], arabizi: ['vidange', 'huile', 'filtre'], ar: ['تغيير الزيت', 'زيت المحرك', 'فلتر'], fr: ['vidange', 'huile moteur', 'filtre'], en: ['oil change', 'engine oil', 'filter'] },
+    ['بغيت نبدل الزيت', 'وقت الفيدانج']),
+  C('tire_shop', 'automotive', 'العجلات والبنيوات', 'البنيو', 'Pneus', 'Tires',
+    { darija: ['بنيو', 'بنوات', 'البنيو', 'عجلة', 'عجلات', 'كوطشو', 'تجويف', 'إيكيليبراج'], arabizi: ['pneu', 'pneus', 'roue', 'equilibrage'], ar: ['إطار', 'إطارات', 'عجلة', 'ترصيص'], fr: ['pneu', 'pneus', 'roue', 'equilibrage'], en: ['tire', 'tyres', 'wheel', 'balancing'] },
+    ['بغيت نشري بنيو', 'البنيو مثقوب']),
+  C('car_diagnostics', 'automotive', 'الفحص الإلكتروني للسيارة', 'الديانيوستيك', 'Diagnostic auto', 'Car diagnostic',
+    // «ديagnostic» كان خطأً مطبعيًّا: `normArabic` تحذف اللاتينيّةَ فيبقى «دي» —
+    // مصطلحٌ من حرفين يوجد داخل «كنـدي‍ر» و«ديال» و«جديد»، فيبتلع كلَّ جملةٍ
+    // فيها أيٌّ منها. و«سكانير» ماسحُ مستنداتٍ قبل أن يكون جهازَ فحصِ سيّارات.
+    { darija: ['ديانيوستيك', 'فحص إلكتروني', 'الفحص ديال الطوموبيل', 'فاليز الفحص'], arabizi: ['diagnostic', 'diag', 'scanner', 'valise'], ar: ['فحص إلكتروني', 'تشخيص العطب'], fr: ['diagnostic', 'valise diagnostic'], en: ['car diagnostic', 'obd scan'] },
+    ['بغيت ديانيوستيك', 'ضو المحرك شعل']),
+
+  // ── المعلوميّات: ما كان ناقصًا (٤ فجوات) ──
+  C('it_support', 'electronics', 'تركيب نظام التشغيل', 'تركيب ويندوز', 'Installation système', 'OS install',
+    { darija: ['نركب ويندوز', 'ويندوز', 'تنصيب النظام', 'نصبت النظام', 'لينكس', 'اوفيس'], arabizi: ['windows install', 'linux', 'office'], ar: ['نظام تشغيل', 'ويندوز'], fr: ['installation systeme', 'windows'], en: ['windows install', 'os install'] },
+    ['بغيت نركب ويندوز', 'بغيت فورماتاج للبيسي']),
+  C('web_development', 'electronics', 'تصميم المواقع والتطبيقات', 'صناعة المواقع', 'Création de sites', 'Web development',
+    { darija: ['موقع', 'ديري ليا موقع', 'يدير ليا موقع', 'ويب سايت', 'تطبيق', 'ابليكاسيون', 'متجر إلكتروني', 'سايت'], arabizi: ['site', 'website', 'web', 'application', 'app'], ar: ['موقع إلكتروني', 'تطبيق', 'متجر إلكتروني', 'برمجة'], fr: ['site web', 'application', 'developpement'], en: ['website', 'web app', 'development'] },
+    ['بغيت واحد يدير ليا موقع', 'بغيت تطبيق لمحلّي']),
+  C('computer_repair', 'electronics', 'أقراص وذاكرة', 'ديسك دور وفلاشة', 'Stockage', 'Storage hardware',
+    { darija: ['ديسك دور', 'ديسك', 'قرص صلب', 'فلاشة', 'كارط ميموار', 'رام', 'ذاكرة', 'اس اس دي'], arabizi: ['disque dur', 'ssd', 'flash', 'ram', 'carte memoire'], ar: ['قرص صلب', 'ذاكرة', 'فلاشة'], fr: ['disque dur', 'ssd', 'ram', 'cle usb'], en: ['hard drive', 'ssd', 'ram', 'usb'] },
+    ['بغيت ديسك دور', 'بغيت نزيد رام']),
 ];
+

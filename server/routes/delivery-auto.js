@@ -82,14 +82,17 @@ router.post('/:orderId', auth, async (req, res) => {
 
     } catch (puppeteerError) {
       // Puppeteer not available — return manual assist data
-      const crypto = require('crypto');
-      const tracking = 'TRK-' + crypto.randomBytes(3).toString('hex').toUpperCase();
-      await db.updateOrder(order.id, { status: 'processing', trackingNumber: tracking, deliveryProvider: prov.name });
+      // لا رقمَ مُفبرك: `trackingNumber` يعني رقمًا جاء من شركةِ توصيل، لا غير.
+      await db.updateOrder(order.id, {
+        status: 'processing', deliveryProvider: prov.name,
+        deliveryStatus: 'manual_required', trackingNumber: '',
+      });
       await db.addLog({ userId: req.user.id, user: 'System', action: `Manual delivery assist: ${order.id}`, details: `Open ${recipe.createOrderUrl || prov.websiteUrl}`, type: 'delivery', severity: 'info' });
 
       return res.json({
         success: true,
-        tracking,
+        tracking: '',
+        needsManual: true,
         provider: prov.name,
         real: false,
         method: 'manual-assist',

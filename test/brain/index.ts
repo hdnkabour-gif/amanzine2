@@ -20,6 +20,7 @@ import './orderCosting.test';
 import './aiAvailability.test';
 import './clarifyLoop.test';
 import './navProgression.test';
+import './domains.test';
 import './routing.test';
 import './landingMirror.test';
 // من زيارةٍ ميدانيّةٍ لمحلّ غسلٍ في الدار البيضاء — جُملٌ حقيقيّةٌ لا مُختلَقة.

@@ -1,5 +1,22 @@
-// Service Worker — AI Commerce OS
-const CACHE = 'ai-commerce-v1';
+// ============================================================
+// Service Worker — AMANZINE
+//
+//   **العطبُ الذي وُلد منه هذا الملفُّ بشكله الحاليّ:** كانت الاستراتيجيّةُ
+//   «الذاكرةُ أوّلًا» لكلِّ شيءٍ من نطاقنا — بما فيه `index.html`. وهو الملفُّ
+//   الوحيد الذي **يُشير إلى حِزَم JS ذاتِ البصمات**. فمن زار الموقعَ مرّةً
+//   بقي محبوسًا في تلك النسخة إلى الأبد: كلُّ نشرٍ جديدٍ لا يصله، لأنّ
+//   المتصفّحَ لا يرى `index.html` جديدًا فلا يعرف أنّ هناك حِزَمًا جديدة.
+//   («التصفّحُ الخاصّ» يعرض الحقيقةَ لأنّه بلا عاملِ خدمةٍ أصلًا.)
+//
+//   القاعدةُ الصحيحة — وهي فرقٌ في **نوع الملفّ** لا في التفضيل:
+//   • صفحاتُ التنقّل (`index.html`): **الشبكةُ أوّلًا**. لا يجوز أن تَقدُم،
+//     لأنّها الفهرسُ. الذاكرةُ ملاذُها عند انقطاع الشبكة فقط.
+//   • الأصولُ ذاتُ البصمة (`/assets/x-a1b2c3.js`): **الذاكرةُ أوّلًا** — صحيحٌ
+//     تمامًا، لأنّ الاسمَ يتغيّر مع المحتوى فلا تكون النسخةُ المخزّنة خاطئةً أبدًا.
+//
+//   واسمُ الذاكرة يحمل رقمًا: تغييرُه يمسح القديمَ عند التفعيل.
+// ============================================================
+const CACHE = 'amanzine-v2';
 const OFFLINE = ['/'];
 
 self.addEventListener('install', e => {
@@ -29,27 +46,36 @@ self.addEventListener('fetch', e => {
   try { sameOrigin = new URL(e.request.url).origin === self.location.origin; } catch { sameOrigin = false; }
   if (!sameOrigin) return;
 
+  // ① صفحةُ تنقّل ⇒ الشبكةُ أوّلًا. الفهرسُ لا يُخزَّن قبل أن يُطلَب.
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if (res && res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put('/', clone)).catch(() => {});
+        }
+        return res;
+      }).catch(async () => {
+        const shell = await caches.match('/');
+        return shell || new Response('', { status: 504, statusText: 'Offline' });
+      })
+    );
+    return;
+  }
+
+  // ② الباقي ⇒ الذاكرةُ أوّلًا. الأصولُ ذاتُ البصمة لا تتغيّر تحت اسمها.
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       // كان هنا `.catch(() => cached)` و`cached` قد يكون undefined، فيصل إلى
-      // respondWith وعدٌ يُحلّ إلى undefined — وهو نصُّ الخطأ الذي ظهر في
-      // الكونسول، ويُسقط الطلب بدل أن يمرّره. الآن: استجابةٌ دائمًا.
+      // respondWith وعدٌ يُحلّ إلى undefined — ويُسقط الطلب بدل أن يمرّره.
       return fetch(e.request).then(res => {
         if (res.ok) {
           const clone = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone)).catch(() => {});
         }
         return res;
-      }).catch(async () => {
-        // شبكةٌ مقطوعة: صفحةُ تنقّلٍ ⇒ الجذر المخزَّن؛ وإلّا خطأٌ صريح
-        // (لا undefined) حتّى يعرف المتصفّح أنّ الطلب فشل فعلًا.
-        if (e.request.mode === 'navigate') {
-          const shell = await caches.match('/');
-          if (shell) return shell;
-        }
-        return new Response('', { status: 504, statusText: 'Offline' });
-      });
+      }).catch(() => new Response('', { status: 504, statusText: 'Offline' }));
     })
   );
 });

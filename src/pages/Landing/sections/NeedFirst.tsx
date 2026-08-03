@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { understand, stanceOf } from '../../../lib/akg/kb';
-import { parseNeed } from '../../../lib/needEngine';
+import { parseNeed, signalsFrom, clarificationStep } from '../../../lib/needEngine';
+import { clarify, applyAnswer, type Signals } from '../../../lib/clarify';
 import { C, apiBase } from '../theme';
 
 // ============================================================
@@ -153,22 +154,80 @@ export default function NeedFirst() {
   const [listening, setListening] = useState(false);
   const engaged = listening || text.trim().length > 0;
 
-  const go = (q?: string) => {
-    const need = (q ?? text).trim();
-    if (!need) { inputRef.current?.focus(); return; }
-    // نحمل الحاجة معنا — لا يُعاد شرحُها في الصفحة التالية.
+  // ── يفهم · يسأل · ثمّ يأخذ ─────────────────────────────────
+  //   كانت للصفحة وجهتان لا ثالثَ لهما: النشرُ لمن يعرض، و**السوقُ لكلّ من
+  //   عداه**. فمَن كتب «عندي مشكل» يُرمى في سوقٍ لا يعرف ما يبحث فيه، ومَن
+  //   لم يُفهَم أصلًا يُرمى فيه كذلك. الفهمُ الذي لا يغيّر الوجهةَ ليس فهمًا،
+  //   والسوقُ الذي يستقبل الجميعَ ليس وجهةً بل مكبًّا.
+  //
+  //   المحرّكُ نفسُه الذي يعمل داخل التطبيق (`clarify`) يقرّر هنا أيضًا —
+  //   مصدرٌ واحدٌ للقرار في الصفحتين: يقينٌ عالٍ ⇒ نمضي · ناقصٌ ⇒ **نسأل**.
+  //   سؤالٌ واحدٌ بشكلٍ واحد، مهما كان مصدرُه: قد يأتي من المحرّك نفسِه
+  //   (سؤالٌ خاصٌّ بالمجال: «واش كتقلّب على سبّاك، ولا نتا سبّاك؟») أو من
+  //   كتالوج الاستيضاح العامّ. **الأخصُّ يسبق**: تجاهلُ سؤالِ المحرّك وطرحُ
+  //   سؤالٍ عامٍّ مكانَه تراجعٌ في الفهم لا تقدّم.
+  type Ask = { id?: string; question: string; options: { id: string; label: string; page?: string; url?: string }[] };
+  const [ask, setAsk] = useState<Ask | null>(null);
+  const [signals, setSignals] = useState<Signals>({});
+
+  const routeTo = (need: string, page?: string, url?: string) => {
     try { sessionStorage.setItem('amanzine_need_seed', need); } catch { /* noop */ }
     const u: any = understand(need);
     const city = u.city ? `&city=${encodeURIComponent(u.city)}` : '';
-    // النيّةُ تُقرأ ثمّ تُحترَم. كان كلُّ شيءٍ يذهب إلى السوق: مَن يشتري، ومَن
-    // يبحث عن حرفيّ، ومَن جاء ليعرض خدمتَه — يُفهَم ثمّ يُرمى الفهمُ ويُرسَل
-    // الجميعُ إلى مكانٍ واحد. القراءةُ التي لا تغيّر شيئًا ليست فهمًا.
+    if (page) {
+      try { sessionStorage.setItem('amanzine_need_stance', page === 'publish' ? 'offer' : 'seek'); } catch { /* noop */ }
+      navigate(`/auth?next=${page}&q=${encodeURIComponent(need)}`);
+      return;
+    }
+    const target = url || '/market';
+    const sep = target.includes('?') ? '&' : '?';
+    navigate(`${target}${sep}q=${encodeURIComponent(need)}${city}`);
+  };
+
+  const go = (q?: string) => {
+    const need = (q ?? text).trim();
+    if (!need) { inputRef.current?.focus(); return; }
+    const r: any = parseNeed(need, {});
+    const sig = signalsFrom(r);
+
+    // ① سؤالُ المحرّك إن وُجد — أخصُّ وأدقُّ من أيّ سؤالٍ عامّ.
+    const own = r.steps?.[0];
+    if (own?.options?.length) {
+      setSignals(sig);
+      setAsk({ id: own.clarifyId, question: own.q, options: own.options.map((o: any, i: number) => ({
+        id: o.id || `opt${i}`, label: o.label, page: o.page, url: o.url,
+      })) });
+      return;
+    }
+
+    // ② وإلّا: ينقص شيء؟ نسأل هنا، ولا نُخرجه إلى مكانٍ لا يريده.
+    const d = clarify(sig);
+    if (d.mode === 'clarify' && d.clarification) {
+      setSignals(sig);
+      const step = clarificationStep(d.clarification);
+      setAsk({ id: d.clarification.id, question: step.q, options: step.options.map(o => ({
+        id: o.id!, label: o.label, page: o.page, url: o.url,
+      })) });
+      return;
+    }
+
+    const u: any = understand(need);
     const stance = (() => { try { return stanceOf(need); } catch { return null; } })();
     const wantsToOffer = stance === 'offer' || /^(SELF|SELL)$/.test(String(u.intent || ''));
     try { sessionStorage.setItem('amanzine_need_stance', wantsToOffer ? 'offer' : 'seek'); } catch { /* noop */ }
-    navigate(wantsToOffer
-      ? `/auth?next=publish&q=${encodeURIComponent(need)}`
-      : `/market?q=${encodeURIComponent(need)}${city}`);
+    if (wantsToOffer) { routeTo(need, 'publish'); return; }
+    routeTo(need, undefined, r.url || '/market');
+  };
+
+  /** جوابُ المستخدم يُدمَج، ثمّ يُسأل المحرّكُ ثانيةً — لا قفزَ أعمى. */
+  const answerAsk = (optionId: string) => {
+    if (!ask) return;
+    const need = text.trim();
+    const opt = ask.options.find(o => o.id === optionId);
+    // الجوابُ يُدمَج في الإشارات (يُقاس ويُبنى عليه)، ثمّ تُتَّبع وجهتُه.
+    if (ask.id) setSignals(applyAnswer(signals, ask.id as any, optionId));
+    setAsk(null);
+    routeTo(need, opt?.page, opt?.url);
   };
 
   return (
@@ -274,8 +333,32 @@ export default function NeedFirst() {
           </div>
         )}
 
+        {/* ── السؤالُ قبل الوجهة ────────────────────────────────────
+            حين ينقص ما يحسم، لا نُخرج الإنسانَ من الصفحة إلى السوق «لعلّه
+            يجد». نسأله هنا سؤالًا واحدًا بهويّةٍ ثابتة، وجوابُه هو الذي
+            يختار الوجهة. */}
+        {ask && (
+          <div style={{ marginTop: 15 }} className="nfFact">
+            <div style={{ fontSize: 14, color: C.ink, fontWeight: 800, marginBottom: 10, textAlign: 'center' }}>
+              {ask.question}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+              {ask.options.map(o => (
+                <button key={o.id} type="button" onClick={() => answerAsk(o.id)}
+                  style={{ padding: '10px 16px', borderRadius: 99, border: `1px solid ${C.border}`, background: C.surface, color: C.ink, fontSize: 13.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={() => setAsk(null)}
+              style={{ display: 'block', margin: '10px auto 0', background: 'none', border: 'none', color: C.ink3, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', textDecoration: 'underline' }}>
+              نكمّل نكتب بدل الاختيار
+            </button>
+          </div>
+        )}
+
         {/* «عندي مشكل» وحدها ⇒ مداخلُ بنقرة بدل «ما فهمناش» */}
-        {chips.length > 0 && (
+        {!ask && chips.length > 0 && (
           <div style={{ marginTop: 13 }}>
             <div style={{ fontSize: 12.5, color: C.ink3, fontWeight: 700, marginBottom: 8, textAlign: 'center' }}>شنو المشكل بالضبط؟</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
@@ -290,7 +373,7 @@ export default function NeedFirst() {
         )}
 
         {/* زرٌّ واحد — ولا يظهر قبل أن يكون له معنى */}
-        {text.trim().length >= 2 && (
+        {!ask && text.trim().length >= 2 && (
           <button onClick={() => go()} className="nfFact"
             style={{ width: '100%', marginTop: 14, padding: '15px 20px', borderRadius: 15, border: 'none', background: C.orange, color: '#fff', fontSize: 15.5, fontWeight: 900, fontFamily: 'inherit', cursor: 'pointer', boxShadow: C.shadow }}>
             متابعة

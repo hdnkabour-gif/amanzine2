@@ -538,12 +538,23 @@ export default function OrdersPage() {
                   </div>
 
                   {/* Address + Tracking */}
-                  <div style={{ display: 'grid', gridTemplateColumns: order.trackingNumber ? '1fr 1fr' : '1fr', gap: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: (order.trackingNumber || (order as any).deliveryStatus === 'manual_required') ? '1fr 1fr' : '1fr', gap: 10 }}>
                     <div style={{ padding: '10px 13px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--clr-border)' }}>
                       <p style={{ fontSize: 11, color: 'var(--txt-3)', fontWeight: 700, marginBottom: 4 }}>العنوان</p>
                       <p style={{ fontSize: 13, color: 'var(--txt-1)' }}>{order.address}, {order.city}</p>
                       <p style={{ fontSize: 12, color: 'var(--txt-3)', marginTop: 2 }}>{order.customerPhone}</p>
                     </div>
+                    {/* حالةٌ صريحة: لم تُرسَل. كان يُعرَض هنا رقمٌ مُفبركٌ بلونٍ
+                        أخضرَ لا يُميَّز عن رقمٍ جاء من الشركة — فيفتح التاجرُ
+                        موقعَ الشركة ولا يجد شيئًا، بحقّ. */}
+                    {!order.trackingNumber && (order as any).deliveryStatus === 'manual_required' && (
+                      <div style={{ padding: '10px 13px', borderRadius: 12, background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.28)' }}>
+                        <p style={{ fontSize: 11, color: '#fbbf24', fontWeight: 800, marginBottom: 4 }}>⚠️ لم تُرسَل للشركة</p>
+                        <p style={{ fontSize: 12, color: 'var(--txt-2)', lineHeight: 1.6 }}>
+                          سجّل الطلبَ في موقع {order.deliveryProvider || 'شركة التوصيل'} ثمّ ألصق رقمَ التتبّع بالأسفل.
+                        </p>
+                      </div>
+                    )}
                     {order.trackingNumber && (
                       <div style={{ padding: '10px 13px', borderRadius: 12, background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.22)' }}>
                         <p style={{ fontSize: 11, color: '#34d399', fontWeight: 700, marginBottom: 4 }}>رقم التتبع</p>

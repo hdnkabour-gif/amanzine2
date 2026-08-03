@@ -163,3 +163,55 @@ test('وشراءُ السلعة ما زال شراءً — التمييزُ لم
   assert.equal(parseNeed('باغي نشري تلفون مستعمل').intent, 'buy');
   assert.equal(parseNeed('بغيت نشري صباط').intent, 'buy');
 });
+
+// ============================================================
+// الصفحةُ الأولى: تفهم · تسأل · ثمّ تأخذ.
+//
+//   كانت لها وجهتان لا ثالثَ لهما: النشرُ لمن يعرض، و**السوقُ لكلّ من عداه**.
+//   فمَن كتب «عندي مشكل» يُرمى في سوقٍ لا يعرف ما يبحث فيه. هذه الاختباراتُ
+//   تُحاكي قرارَ `NeedFirst.go()` بالضبط.
+// ============================================================
+
+/** ما تفعله الصفحةُ الأولى: سؤالُ المحرّك أوّلًا، ثمّ الكتالوجُ العامّ. */
+function landingDecision(q: string): { kind: 'ask'; question: string } | { kind: 'go'; to: string } {
+  const r: any = parseNeed(q, {});
+  const own = r.steps?.[0];
+  if (own?.options?.length) return { kind: 'ask', question: own.q };
+  const d = clarify(signalsFrom(r));
+  if (d.mode === 'clarify' && d.clarification) {
+    return { kind: 'ask', question: clarificationStep(d.clarification).q };
+  }
+  return { kind: 'go', to: r.url || r.page || '' };
+}
+
+test('الغامضُ يُسأل ولا يُرمى في السوق', () => {
+  for (const q of ['عندي مشكل', 'بغيت شي حاجة', 'خاصني واحد', 'شنو كاين']) {
+    const d = landingDecision(q);
+    assert.equal(d.kind, 'ask', `«${q}» أُخذ إلى ${d.kind === 'go' ? d.to : ''} بلا سؤال`);
+  }
+});
+
+test('الواضحُ يمضي بلا سؤالٍ زائد', () => {
+  for (const q of ['الما كيقطر', 'الضو مشا', 'بغيت نبيع تلفون', 'بغيت نفتح متجر']) {
+    const d = landingDecision(q);
+    assert.equal(d.kind, 'go', `«${q}» سُئل رغم وضوحه`);
+    assert.ok(d.kind === 'go' && d.to, `«${q}» مضى بلا وجهة`);
+  }
+});
+
+test('سؤالُ المحرّك الأخصُّ يسبق السؤالَ العامّ', () => {
+  // «بغيت سبّاك» مفهومةٌ تمامًا؛ سؤالُها الصحيح عن الموعد لا «شنو محتاج؟».
+  const d = landingDecision('بغيت سباك فالرباط');
+  assert.equal(d.kind, 'ask');
+  assert.ok(d.kind === 'ask' && d.question.includes('سبّاك'),
+    `طُرح سؤالٌ عامٌّ مكان سؤالِ المحرّك: «${d.kind === 'ask' ? d.question : ''}»`);
+});
+
+test('كلُّ خيارٍ في سؤال الصفحة الأولى له وجهة — لا طريقَ مسدود', () => {
+  for (const q of ['عندي مشكل', 'بغيت شي حاجة', 'شنو كاين']) {
+    const r: any = parseNeed(q, {});
+    for (const o of (r.steps?.[0]?.options || [])) {
+      assert.ok(o.page || o.url, `«${q}» → خيار «${o.label}» بلا وجهة`);
+    }
+  }
+});
