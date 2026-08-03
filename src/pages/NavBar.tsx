@@ -12,6 +12,10 @@ import {
 import { NavIconCart, NavIconTruck, NavIconBrain, NavIconPackage, NavIconMessage } from '../components/icons';
 import React from 'react';
 import GlobalSearch from '../components/GlobalSearch';
+import {
+  isRevealed, hiddenCount, readVisited, rememberVisit, readShowAll, writeShowAll,
+  type NavEvidence,
+} from '../lib/navProgression';
 import { type Lang, LANGS, isRtlLang } from '../i18n';
 
 function LangSwitcher({ compact = false }: { compact?: boolean }) {
@@ -150,6 +154,13 @@ const PLATFORM_ONLY: ReadonlySet<string> = new Set(['knowledge', 'moderation', '
 const visibleItems = (items: NavItem[], isAdmin: boolean) =>
   isAdmin ? items : items.filter(i => !PLATFORM_ONLY.has(i.page as string));
 
+/**
+ * الترشيحُ التدريجيّ (HU-7) فوق ترشيح الصلاحيّات. `href` يعني سطحًا عامًّا
+ * (السوق · استكشف · الجديد) — لا يُخفى أبدًا: هو بابُ الباحث لا أداةُ التاجر.
+ */
+const revealedItems = (items: NavItem[], ev: NavEvidence, showAll: boolean) =>
+  showAll ? items : items.filter(i => !!i.href || isRevealed(i.page, ev));
+
 const SIDEBAR_NAV: NavItem[] = NAV_GROUPS.flatMap(g => g.items);
 // Desktop left sidebar = same grouped structure (descriptions ignored there).
 const DESKTOP_SIDEBAR_GROUPS = NAV_GROUPS;
@@ -157,10 +168,29 @@ const DESKTOP_SIDEBAR_GROUPS = NAV_GROUPS;
 export default function NavBar() {
   const {
     currentPage, setPage, settings, updateSettings,
-    orders, conversations, notifications,
+    orders, conversations, notifications, products, customers,
     sidebarOpen, setSidebarOpen, logout, user
   } = useStore();
   const isPlatformAdmin = !!(user as any)?.isPlatformAdmin;
+
+  // ── القائمةُ تكبر مع المستخدم (HU-7/HU-5) ──────────────────
+  const [visited, setVisited] = React.useState<Page[]>(() => readVisited());
+  const [showAll, setShowAll] = React.useState<boolean>(() => readShowAll());
+  React.useEffect(() => { setVisited(v => rememberVisit(currentPage, v)); }, [currentPage]);
+
+  const evidence: NavEvidence = React.useMemo(() => ({
+    products:  products.length,
+    services:  products.filter((p: any) => p.type === 'service' || p.category === 'service').length,
+    orders:    orders.length,
+    customers: customers.length,
+    visited,
+  }), [products, orders, customers, visited]);
+
+  const stillHidden = React.useMemo(
+    () => hiddenCount(SIDEBAR_NAV.filter(i => !i.href).map(i => i.page), evidence),
+    [evidence]
+  );
+  const toggleShowAll = () => setShowAll(v => { writeShowAll(!v); return !v; });
 
   const [showSearch, setShowSearch] = React.useState(false);
   const [fabOpen, setFabOpen] = React.useState(false);
@@ -371,7 +401,7 @@ export default function NavBar() {
               🏪 السوق المغربي الموحّد
             </a>
             <nav style={{ flex: 1, overflowY: 'auto', padding: '6px 0' }}>
-              {visibleItems(SIDEBAR_NAV, isPlatformAdmin).map(item => {
+              {revealedItems(visibleItems(SIDEBAR_NAV, isPlatformAdmin), evidence, showAll).map(item => {
                 const active = currentPage === item.page || (item.page === 'insights' && currentPage === 'analytics');
                 const b = badge(item.page);
                 return (
@@ -419,6 +449,14 @@ export default function NavBar() {
                   )
                 );
               })}
+              {(stillHidden > 0 || showAll) && (
+                <button onClick={toggleShowAll}
+                  style={{ width: '100%', padding: '12px 18px', background: 'transparent', border: 'none',
+                    borderTop: '1px solid var(--border)', color: 'var(--ink3)', fontSize: 13, fontWeight: 700,
+                    fontFamily: 'inherit', cursor: 'pointer', textAlign: 'right' }}>
+                  {showAll ? '↑ عرضٌ مبسّط' : `↓ كلّ الأدوات (${stillHidden})`}
+                </button>
+              )}
             </nav>
             <div style={{ padding: '12px 16px 14px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -440,7 +478,7 @@ export default function NavBar() {
       {/* ══ DESKTOP SIDEBAR (≥1024px) ══ */}
       <aside className="nav-desktop-sidebar" dir="rtl">
         {DESKTOP_SIDEBAR_GROUPS.map(group => {
-          const items = visibleItems(group.items, isPlatformAdmin);
+          const items = revealedItems(visibleItems(group.items, isPlatformAdmin), evidence, showAll);
           if (items.length === 0) return null;   // مجموعةٌ فرغت بعد الترشيح ⇒ لا عنوانَ يتيم
           return (
           <div key={group.label} style={{ marginBottom: 4 }}>
@@ -468,6 +506,15 @@ export default function NavBar() {
           </div>
           );
         })}
+        {/* لا شيءَ يُحبَس: الإخفاءُ ترتيبُ أولويّاتٍ لا منع. */}
+        {(stillHidden > 0 || showAll) && (
+          <button onClick={toggleShowAll}
+            style={{ margin: '4px 10px 0', padding: '9px 12px', borderRadius: 10, background: 'transparent',
+              border: '1px dashed var(--border2,rgba(255,255,255,.14))', color: 'var(--ink3)',
+              fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', textAlign: 'right' }}>
+            {showAll ? '↑ عرضٌ مبسّط' : `↓ كلّ الأدوات (${stillHidden})`}
+          </button>
+        )}
         <div style={{ marginTop: 'auto', padding: '12px 14px', borderTop: '1px solid var(--border2)' }}>
           <LangSwitcher compact />
         </div>

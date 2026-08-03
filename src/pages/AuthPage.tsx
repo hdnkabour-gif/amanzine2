@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { playGate } from '../lib/gateTransition';
 import { useStore } from '../store';
 import { Eye, EyeOff, User, Mail, Lock, ArrowLeft } from 'lucide-react';
 
@@ -35,12 +36,31 @@ const DS = {
 
 export default function AuthPage() {
   const { login, register } = useStore();
+  // ── HU-6: «نكمّل منين وقفنا» ────────────────────────────────
+  //   الصفحةُ كانت تقول «تسجيل الدخول» لمن دخل مئةَ مرّة. غطِّ الشعارَ فتصير
+  //   أيَّ SaaS. مَن عاد ليس غريبًا: نعرف اسمَه من آخر جلسة، فنكمل بدل أن
+  //   نبدأ. ولا نخترع شيئًا — إن لم نعرفه قلنا الجملةَ العاديّة.
+  const [known] = useState<{ name: string; email: string } | null>(() => {
+    try {
+      const raw = localStorage.getItem('ai_commerce_user');
+      if (!raw) return null;
+      const u = JSON.parse(raw);
+      const name = String(u?.name || '').trim();
+      const email = String(u?.email || '').trim();
+      return (name || email) ? { name, email } : null;
+    } catch { return null; }
+  });
+
   const [isLogin, setIsLogin]   = useState(true);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
   const [showPwd, setShowPwd]   = useState(false);
   const [logoErr, setLogoErr]   = useState(false);
-  const [form, setForm] = useState({ name:'', email:'', password:'', storeName:'' });
+  const [form, setForm] = useState(() => {
+    let email = '';
+    try { email = String(JSON.parse(localStorage.getItem('ai_commerce_user') || '{}')?.email || ''); } catch { /* noop */ }
+    return { name:'', email, password:'', storeName:'' };
+  });
   const [socialCfg, setSocialCfg] = useState<{ googleClientId: string; facebookAppId: string }>({ googleClientId: '', facebookAppId: '' });
   const [googleReady, setGoogleReady] = useState(false);
   const [socialBusy, setSocialBusy] = useState(false);
@@ -101,7 +121,7 @@ export default function AuthPage() {
         // C-3: الجلسة محمولة في كوكي HttpOnly ضبطه الخادم — لا توكن في localStorage.
         // نخزّن المستخدم فقط (غير سرّي) ليستعيد الإقلاع الجلسة فوراً بعد التحويل.
         localStorage.setItem('ai_commerce_user', JSON.stringify(j.user));
-        if (!resumeNeed()) window.location.href = '/home';
+        if (!resumeNeed()) enterThrough(() => { window.location.href = '/home'; });
       } else {
         setError(j.error || 'فشل تسجيل الدخول');
       }
@@ -150,6 +170,14 @@ export default function AuthPage() {
   // والوجهةُ تتبع نيّتَه: مَن جاء ليعرض خدمتَه أو نشاطَه يُفتح له النشرُ
   // مباشرةً، لا سوقٌ يبحث فيه عن نفسه. (`next=publish` من الصفحة الأولى،
   // أو الموقفُ المقروء وقتَ الكتابة.)
+  /**
+   * البوّابة — استعارةُ أمانزين نفسُها (`gateTransition`)، تُستعمَل في كلّ
+   * توجيهٍ من نيّةٍ داخل التطبيق. الدخولُ **أوّلُ** عبورٍ، فكان أولى بها؛
+   * وكان يقع بقفزةِ `location.href` بلا لحظةِ عبور.
+   * لا تحبس أحدًا: تحترم «تقليل الحركة» وتُنفّذ الوجهةَ دائمًا.
+   */
+  const enterThrough = (go: () => void) => playGate(go);
+
   const resumeNeed = (): boolean => {
     let stance = '';
     try { stance = sessionStorage.getItem('amanzine_need_stance') || ''; } catch { /* noop */ }
@@ -158,12 +186,12 @@ export default function AuthPage() {
 
     if (wantsToOffer) {
       try { sessionStorage.removeItem('amanzine_need_stance'); } catch { /* noop */ }
-      try { window.location.assign('/home?page=publish'); return true; } catch { return false; }
+      try { enterThrough(() => window.location.assign('/home?page=publish')); return true; } catch { return false; }
     }
     if (!need?.text) return false;
     try { sessionStorage.removeItem('amanzine_need'); } catch { /* noop */ }
     const city = need.city ? `&city=${encodeURIComponent(need.city)}` : '';
-    try { window.location.assign(`/market?q=${encodeURIComponent(need.text)}${city}`); return true; }
+    try { enterThrough(() => window.location.assign(`/market?q=${encodeURIComponent(need.text)}${city}`)); return true; }
     catch { return false; }
   };
 
@@ -291,6 +319,11 @@ export default function AuthPage() {
           <p style={{ color: DS.text3, fontSize: 11, letterSpacing: 'normal', fontWeight: 600 }}>
             كل كلمة عندها طريق
           </p>
+          {known && isLogin && (
+            <p style={{ color: '#1FA565', fontSize: 13.5, fontWeight: 800, marginTop: 10 }}>
+              {known.name ? `مرحبا ${known.name} 👋 — نكمّلو منين وقفنا` : 'نكمّلو منين وقفنا 👋'}
+            </p>
+          )}
 
           {/* الحاجة محمولةٌ من الهبوط: الصفحة تُكمل الحوار، لا تبدأ من الصفر. */}
           {need && (
@@ -324,7 +357,7 @@ export default function AuthPage() {
             display: 'flex', background: 'rgba(255,255,255,0.03)',
             borderRadius: DS.radiusSm, padding: 4, marginBottom: 24, gap: 4,
           }}>
-            {[['true', 'تسجيل الدخول'], ['false', 'إنشاء حساب']].map(([v, label]) => (
+            {[['true', known ? 'نكمّل' : 'دخول'], ['false', known ? 'حساب آخر' : 'حساب جديد']].map(([v, label]) => (
               <button key={v} onClick={() => { setIsLogin(v === 'true'); setError(''); }}
                 style={{
                   flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 13, fontWeight: 700,
@@ -477,7 +510,7 @@ export default function AuthPage() {
             {/* Demo + Home */}
             <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
               <button type="button"
-                onClick={() => { localStorage.setItem('ai_commerce_token', 'demo-token-local'); window.location.href = '/home'; }}
+                onClick={() => { localStorage.setItem('ai_commerce_token', 'demo-token-local'); enterThrough(() => { window.location.href = '/home'; }); }}
                 style={{
                   flex: 1, padding: '11px', borderRadius: DS.radiusSm,
                   background: 'rgba(255,122,0,0.06)', border: '1px solid rgba(255,122,0,0.15)',
