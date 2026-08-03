@@ -2,51 +2,102 @@
 // ============================================================
 // Payment Engine — واجهة موحّدة خلفها محوّلات (adapters) للطرق:
 //   cod (دفع عند الاستلام) · wallet (محفظة) · transfer (تحويل بنكي)
-//   cmi · stripe · paypal  (مقاعد تُفعَّل عند ضبط اعتمادات env)
+//   cmi · stripe · paypal  (مقاعدُ مُعلَنةٌ لم تُكتب بعد — راجع ADAPTERS)
 // كل الطبقات (حجز/طلب) تنادي charge() فقط → إضافة طريقة = adapter جديد
 // بلا تغيير المستهلكين. يصدر أحداث payment.* على الـBus.
 // ============================================================
 const { db } = require('../../database');
 const bus = require('./eventbus');
 
-// كل adapter: async ({ userId, amount, currency, orderId, meta }) → { status, ref, redirectUrl? }
+// ────────────────────────────────────────────────────────────
+// كلُّ محوّلٍ يُعلن نفسَه: هل هو **مُنفَّذ**؟ وهل هو **مُهيَّأ**؟ سؤالان لا
+// سؤالٌ واحد — وخلطُهما كان عطبًا حقيقيًّا:
+//
+//   المقاعدُ الثلاثة (cmi · stripe · paypal) كانت تُرجع `unavailable` حين
+//   ينقص المفتاح، فإذا **ضبط التاجرُ المفتاح** رجعت `pending` — فيسجّل
+//   `charge()` دفعةً في القاعدة ويُذيع `payment.pending` على الناقل، ولم
+//   يُرسَل شيءٌ إلى أيّ بوّابة. أي أنّ التهيئةَ وحدَها كانت تُشغّل كذبة:
+//   دفعاتٌ «قيد الانتظار» أبدًا، وزبونٌ ينتظر تحويلًا لم يبدأ.
+//
+//   القاعدة: **مقعدٌ غيرُ مُنفَّذٍ يبقى غيرَ متاحٍ مهما اكتملت البيئة.**
+//   `implemented: false` لا يُبطله متغيّرُ بيئة. ويومَ يُكتب المحوّلُ فعلًا
+//   تُقلَب الرايةُ مع الكود، لا قبلَه.
+//
+// شكلُ المحوّل: { implemented, configured(), charge({...}) }
+// ────────────────────────────────────────────────────────────
 const ADAPTERS = {
   // دفع عند الاستلام — يُنشأ كـ pending ويُؤكَّد عند التسليم
-  cod: async () => ({ status: 'pending', ref: 'COD' }),
+  cod: {
+    implemented: true,
+    configured: () => true,
+    charge: async () => ({ status: 'pending', ref: 'COD' }),
+  },
 
-  // تحويل بنكي — pending حتى تأكيد التاجر
-  transfer: async () => ({ status: 'pending', ref: 'BANK' }),
+  // تحويل بنكي — pending حتى يؤكّد التاجرُ وصولَ المبلغ.
+  // يُرجع بياناتِ الحساب إن ضبطها التاجر، وإلّا قال ذلك صراحةً: تحويلٌ بلا
+  // رقمِ حسابٍ ليس طريقةَ دفعٍ بل طريقٌ مسدود.
+  transfer: {
+    implemented: true,
+    configured: () => true,
+    charge: async ({ userId }) => {
+      let bank = null;
+      try {
+        const st = (await db.getSettings(userId)) || {};
+        const b = st.payments && st.payments.bank;
+        if (b && (b.rib || b.iban)) bank = { holder: b.holder || '', rib: b.rib || '', iban: b.iban || '', bankName: b.bankName || '' };
+      } catch { /* الإعداداتُ تعذّرت — نُبلغ بالنقص لا نخترع حسابًا */ }
+      return bank
+        ? { status: 'pending', ref: 'BANK', instructions: bank }
+        : { status: 'pending', ref: 'BANK', note: 'لا حسابَ بنكيٌّ مضبوطٌ في الإعدادات — الزبون لن يعرف أين يحوّل' };
+    },
+  },
 
   // المحفظة — خصم فوري إن كفى الرصيد
-  wallet: async ({ userId, amount }) => {
-    if (!userId) return { status: 'failed', error: 'مستخدم مطلوب' };
-    const r = await db.walletApply(userId, { type: 'payment', amount: -Math.abs(amount), note: 'دفع من المحفظة' });
-    return r.ok ? { status: 'paid', ref: 'WALLET' } : { status: 'failed', error: r.error };
+  wallet: {
+    implemented: true,
+    configured: () => true,
+    charge: async ({ userId, amount }) => {
+      if (!userId) return { status: 'failed', error: 'مستخدم مطلوب' };
+      const r = await db.walletApply(userId, { type: 'payment', amount: -Math.abs(amount), note: 'دفع من المحفظة' });
+      return r.ok ? { status: 'paid', ref: 'WALLET' } : { status: 'failed', error: r.error };
+    },
   },
 
-  // ── مقاعد بوابات خارجية: تُفعَّل عند توفّر الاعتمادات في env ──
-  cmi: async ({ amount, orderId }) => {
-    if (!process.env.CMI_MERCHANT_ID || !process.env.CMI_STORE_KEY) return { status: 'unavailable', error: 'CMI غير مُهيّأ' };
-    // TODO: توليد نموذج CMI الموقّع (hash) وإعادة redirectUrl — يتطلّب اعتمادات التاجر
-    return { status: 'pending', ref: 'CMI', redirectUrl: null, note: 'seam: أضف اعتمادات CMI' };
+  // ── مقاعدُ بوّاباتٍ خارجيّة: مُعلَنةٌ ولم تُكتب بعد ──
+  //    تحتاج عقدَ تاجرٍ مع البنك/المزوّد، لا سطرَ كودٍ فقط.
+  cmi: {
+    implemented: false,
+    configured: () => !!process.env.CMI_MERCHANT_ID && !!process.env.CMI_STORE_KEY,
+    charge: async () => ({ status: 'unavailable', error: 'CMI: المحوّل لم يُكتب بعد' }),
   },
-  stripe: async ({ amount, currency }) => {
-    if (!process.env.STRIPE_SECRET_KEY) return { status: 'unavailable', error: 'Stripe غير مُهيّأ' };
-    return { status: 'pending', ref: 'STRIPE', note: 'seam: أضف STRIPE_SECRET_KEY' };
+  stripe: {
+    implemented: false,
+    configured: () => !!process.env.STRIPE_SECRET_KEY,
+    charge: async () => ({ status: 'unavailable', error: 'Stripe: المحوّل لم يُكتب بعد' }),
   },
-  paypal: async () => {
-    if (!process.env.PAYPAL_CLIENT_ID) return { status: 'unavailable', error: 'PayPal غير مُهيّأ' };
-    return { status: 'pending', ref: 'PAYPAL', note: 'seam: أضف PAYPAL_CLIENT_ID' };
+  paypal: {
+    implemented: false,
+    configured: () => !!process.env.PAYPAL_CLIENT_ID,
+    charge: async () => ({ status: 'unavailable', error: 'PayPal: المحوّل لم يُكتب بعد' }),
   },
 };
 
+/** هل تُقبَل هذه الطريقةُ الآن؟ مُنفَّذةٌ **و** مُهيَّأة. مصدرٌ واحدٌ للجواب. */
+function isAvailable(k) {
+  const a = ADAPTERS[k];
+  return !!a && a.implemented === true && a.configured() === true;
+}
+
+/**
+ * الطرقُ وحالتُها — بثلاثِ حقائقَ منفصلة، فالواجهةُ تعرف **لماذا** لا تتاح
+ * طريقةٌ ما: أهي بلا كودٍ أم بلا مفتاح؟ الجمعُ بينهما كان يُخفي الفرق.
+ */
 function methods() {
   return Object.keys(ADAPTERS).map(k => ({
     provider: k,
-    available: ['cod', 'transfer', 'wallet'].includes(k) ||
-      (k === 'cmi' && !!process.env.CMI_MERCHANT_ID) ||
-      (k === 'stripe' && !!process.env.STRIPE_SECRET_KEY) ||
-      (k === 'paypal' && !!process.env.PAYPAL_CLIENT_ID),
+    available: isAvailable(k),
+    implemented: ADAPTERS[k].implemented,
+    configured: ADAPTERS[k].configured(),
   }));
 }
 
@@ -54,7 +105,17 @@ async function charge({ provider, userId, amount, currency = 'MAD', orderId, met
   const adapter = ADAPTERS[provider];
   if (!adapter) return { status: 'failed', error: 'طريقة دفع غير معروفة' };
   if (!(amount >= 0)) return { status: 'failed', error: 'مبلغ غير صالح' };
-  const result = await adapter({ userId, amount, currency, orderId, meta });
+  // البوّابةُ تُغلَق هنا لا داخلَ المحوّل: مقعدٌ غيرُ مُنفَّذٍ لا يُنشئ سجلَّ
+  // دفعةٍ ولا يُذيع حدثًا، مهما قال متغيّرُ البيئة.
+  if (!isAvailable(provider)) {
+    return {
+      status: 'unavailable',
+      error: !adapter.implemented
+        ? `${provider}: المحوّل لم يُكتب بعد`
+        : `${provider}: غيرُ مُهيّأ — تنقص الاعتمادات`,
+    };
+  }
+  const result = await adapter.charge({ userId, amount, currency, orderId, meta });
   if (result.status === 'unavailable') return result;
   const payment = await db.createPayment({ userId, orderId, provider, amount, currency, status: result.status, ref: result.ref || '' });
   bus.publish({ version: 1, id: payment.id, type: `payment.${result.status}`, category: 'payment', businessId: userId ? `store:${userId}` : null, visibility: 'private', createdAt: new Date().toISOString(), payload: { provider, amount, orderId } });
@@ -67,4 +128,4 @@ async function confirm(paymentId, status = 'paid') {
   return { ok: true };
 }
 
-module.exports = { charge, confirm, methods, ADAPTERS };
+module.exports = { charge, confirm, methods, isAvailable, ADAPTERS };

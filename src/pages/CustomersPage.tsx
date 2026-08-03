@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useStore } from '../store';
 import type { Customer } from '../types';
 import { Plus, Search, Star, Phone, MapPin, MessageCircle, Check, X, Edit2, ChevronRight, Trash2 } from 'lucide-react';
+import LoyaltyPanel from '../components/LoyaltyPanel';
 
 const STATUS_AR: Record<string,string> = {
   pending:'⏳',approved:'✅',processing:'⚙️',shipped:'🚚',delivered:'📦',cancelled:'❌',
@@ -106,6 +107,9 @@ export default function CustomersPage() {
           </div>
         ))}
       </div>
+
+      {/* الولاء — نقاطٌ كانت تُمنَح ولا يراها أحدٌ ولا تُصرَف (BROKEN_CHAINS#⑧) */}
+      <LoyaltyPanel currency={currency} onNotify={notify} />
 
       {/* Search + Filter */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

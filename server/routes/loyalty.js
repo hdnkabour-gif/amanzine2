@@ -26,4 +26,32 @@ router.post('/add', auth, async (req, res) => {
   } catch (e) { console.error('[loyalty]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
+// صرفُ النقاط — كان مفقودًا تمامًا: `redeemLoyaltyPoints` موجودةٌ في طبقة
+// القاعدة ولا مسارَ يستدعيها. برنامجُ ولاءٍ تُمنَح فيه النقاطُ ولا تُصرَف
+// ليس برنامجَ ولاء.
+router.post('/redeem', auth, async (req, res) => {
+  try {
+    const { customerId, points } = req.body || {};
+    const pts = Math.floor(Number(points));
+    if (!customerId || !isFinite(pts) || pts <= 0) {
+      return res.status(400).json({ error: 'customerId ونقاطٌ موجبةٌ مطلوبان' });
+    }
+    const r = await db.redeemLoyaltyPoints(req.user.id, customerId, pts);
+    if (!r.ok) {
+      return res.status(400).json({
+        error: r.reason === 'insufficient'
+          ? `الرصيدُ ${r.points} نقطة — لا يكفي لصرف ${pts}`
+          : 'قيمةٌ غيرُ صالحة',
+        points: r.points,
+      });
+    }
+    await db.addLog({
+      userId: req.user.id, user: 'المدير',
+      action: `صرفُ ${r.redeemed} نقطة ولاء`, details: `الزبون ${customerId}`,
+      type: 'settings', severity: 'info',
+    });
+    res.json({ ok: true, redeemed: r.redeemed, points: r.points });
+  } catch (e) { console.error('[loyalty]', e.message); res.status(500).json({ error: 'Server error' }); }
+});
+
 module.exports = router;

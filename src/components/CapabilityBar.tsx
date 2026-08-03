@@ -2,7 +2,12 @@
 // CapabilityBar — شريط القدرات القابل لإعادة الاستعمال. أيّ صفحة تعرض
 //   قدراتها (Services) من الـ AKG لا من كود مكرّر: زرّ لكلّ قدرة، مُفعّل إن
 //   استوفت مدخلاتها، ومُعطّل مع سبب واضح («يحتاج: صور») إن نقص شيء.
-//   الاستعمال: <CapabilityBar page="products" values={form} onRun={id => ...} />
+//   الاستعمال: <CapabilityBar page="products" values={form} handlers={{...}} />
+//
+//   **قاعدةٌ في التصميم:** لا يُعرَض زرٌّ لا مُشغِّلَ له. كان `onRun` اختياريًّا،
+//   فمن يُركّب المكوّنَ بلا معالجاتٍ يملأ صفحتَه أزرارًا لا تفعل شيئًا — وهو
+//   عينُ العطب الذي يُفترض بهذا المكوّن أن يمنعه. المعالجاتُ الآن هي القائمة:
+//   تُعرَض القدرةُ إن وُجد لها معالج، ولا تُعرَض إن لم يوجد.
 // ============================================================
 
 import { capabilitiesForPage, getPageCapability, type CapabilityState } from '../lib/akg';
@@ -17,12 +22,13 @@ const EMBER_SOFT = 'var(--ember-soft,rgba(255,106,0,.12))';
 interface Props {
   page: Page;
   values?: Record<string, unknown>;
-  onRun?: (serviceId: string) => void;
+  /** مُعرِّفُ القدرة → ما يُنفَّذ. ما ليس هنا لا يُعرَض. */
+  handlers: Record<string, () => void>;
   title?: string;
 }
 
-export default function CapabilityBar({ page, values = {}, onRun, title = 'قدرات هذه الصفحة' }: Props) {
-  const states = capabilitiesForPage(page, values);
+export default function CapabilityBar({ page, values = {}, handlers, title = 'قدرات هذه الصفحة' }: Props) {
+  const states = capabilitiesForPage(page, values).filter(s => !!handlers[s.service.id]);
   if (states.length === 0) return null;
 
   // خريطة مفتاح الحقل → عنوانه بالعربية (لسبب الانتظار).
@@ -47,7 +53,7 @@ export default function CapabilityBar({ page, values = {}, onRun, title = 'قد�
               key={s.service.id}
               type="button"
               disabled={disabled}
-              onClick={() => !disabled && onRun?.(s.service.id)}
+              onClick={() => { if (!disabled) handlers[s.service.id](); }}
               title={disabled ? `يحتاج: ${missLabel(s.missing)}` : s.service.outcome}
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { ShieldCheck, Package, Star, Heart, Settings as Cog, Store, ArrowLeft } from 'lucide-react';
 import { getInteractions } from '../lib/experienceLog';
+import MyActivities from '../components/MyActivities';
 import { playGate } from '../lib/gateTransition';
 import type { Page } from '../types';
 
@@ -80,6 +81,14 @@ export default function ProfilePage() {
           </button>
         ))}
       </div>
+
+      {/* أنشطتي — المخطّطُ يسمح بأكثرَ من نشاطٍ للحساب الواحد، والواجهةُ لم تكن
+          تعرض ذلك (BROKEN_CHAINS#⑨). */}
+      <MyActivities
+        storeName={(settings.brand as any)?.name || ''}
+        storeCity={(settings.brand as any)?.city}
+        onOpen={(p) => playGate(() => setPage(p))}
+      />
 
       {/* روابط سريعة */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>

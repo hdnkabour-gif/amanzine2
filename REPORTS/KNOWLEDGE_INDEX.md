@@ -33,7 +33,7 @@
 | النظام | المالك | الحالة | الثقة |
 |---|---|---|---|
 | **محرّك النيّة** | `src/lib/needEngine.ts` | `ACTIVE` | HIGH |
-| **محرّك الاستيضاح** | `src/lib/clarify.ts` | `PARTIAL` | HIGH |
+| **محرّك الاستيضاح** | `src/lib/clarify.ts` | `ACTIVE` — الحلقةُ مُغلَقة | HIGH |
 | **طبقة القرار** | `src/lib/interfaceDecision.ts` | `ACTIVE` | HIGH |
 | **قاعدة المعرفة** | `src/lib/akg/kb/` (٦٣ ملفًّا) | `ACTIVE` | HIGH |
 | النيّة الإنسانيّة | `src/lib/humanIntent.ts` | `ACTIVE` | HIGH |
@@ -50,8 +50,8 @@
 | ثمنُ التوصيل | `server/lib/deliveryPricing.js` | `ACTIVE` | HIGH |
 | قواعدُ التسعير | `server/lib/pricingEngine.js` | `ACTIVE` | HIGH |
 | الكوبونات | `server/routes/coupons.js` | `ACTIVE` | MEDIUM |
-| **الولاء** | `server/routes/loyalty.js` | `PARTIAL` — بلا شاشة | HIGH |
-| الدفع | `server/lib/engines/payment.js` | `PARTIAL` | HIGH |
+| **الولاء** | `server/routes/loyalty.js` | `ACTIVE` — شاشةٌ وصرفٌ ذرّيّ | HIGH |
+| الدفع | `server/lib/engines/payment.js` | `PARTIAL` — ٣ تعمل · ٣ مقاعدُ مُعلَنةٌ صادقة | HIGH |
 | الإعلانات | `server/routes/listings.js` | `ACTIVE` | MEDIUM |
 | الخدمات والحجوزات | `server/routes/providers.js` · `bookings.js` | `ACTIVE` | MEDIUM |
 
@@ -76,10 +76,10 @@
 |---|---|---|---|
 | **البحث الموحّد** | `lib/engines/search.js` | `ACTIVE` | **HIGH** (مُنفَّذ) |
 | الترتيب | `lib/engines/ranking.js` | `ACTIVE` | MEDIUM |
-| الخريطة | `lib/engines/map.js` + `MapView.tsx` | **`UNUSED`** — بلا باب | HIGH |
+| الخريطة | `lib/engines/map.js` + `MapView.tsx` | `ACTIVE` — بابُها في «الاكتشاف» | HIGH |
 | الملفُّ الموحّد | `server/lib/business.js` | `ACTIVE` | HIGH |
 | التوصية | `lib/engines/recommend.js` | `ACTIVE` | MEDIUM |
-| الخلاصة | `lib/engines/activity.js` + `ActivityFeed.tsx` | **`UNUSED`** | HIGH |
+| الخلاصة | `lib/engines/activity.js` + `ActivityFeed.tsx` | `ACTIVE` — بابُها في «الاكتشاف» | HIGH |
 
 الشجرة: [`CALL_GRAPH#④`](CALL_GRAPH.md) · المعطوب: [`BROKEN_CHAINS#⑥`](BROKEN_CHAINS.md)
 
@@ -141,7 +141,7 @@
 2. **`BROKEN_CHAINS`** — ①②⑦ أُصلحت؛ ③ تهيئةُ بيئة. الباقي مفتوحٌ ومرتَّبٌ بالشدّة.
 3. **`ARCHITECTURE#٨`** — القيودُ التي يوقفك خرقُها.
 4. **`RESPONSIBILITY_GRAPH`** — احفظ الجدول. يوفّر عليك ساعاتِ بحث.
-5. شغّل: `npm test` (٣٧٦ اختبارًا) · `npx tsc --noEmit` · `npm run build`.
+5. شغّل: `npm test` (٣٩٨ اختبارًا) · `npx tsc --noEmit` · `npm run build`.
 
 **ثلاثةُ أشياء ستوفّر عليك يومًا كاملًا:**
 - «المحادثة» شيئان مختلفان. لا محرّكَ محادثةٍ في الخادم.

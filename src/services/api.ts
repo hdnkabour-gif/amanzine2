@@ -313,9 +313,16 @@ export const aiAPI = {
 };
 
 // ── Loyalty ──────────────────────────────────────────────────
+export interface LoyaltyRow {
+  customerId: string; customerName: string; customerPhone: string; vip: boolean;
+  points: number; totalEarned: number; tier: 'silver' | 'gold' | 'diamond'; updatedAt: string | null;
+}
 export const loyaltyAPI = {
+  list: () => request<LoyaltyRow[]>('GET', '/loyalty'),
   get: (customerId: string) => request<any>('GET', `/loyalty/${customerId}`),
   add: (data: { customerId: string; amount: number }) => request<any>('POST', '/loyalty/add', data),
+  redeem: (data: { customerId: string; points: number }) =>
+    request<{ ok: boolean; redeemed: number; points: number }>('POST', '/loyalty/redeem', data),
 };
 
 // ── Services Marketplace (alloservix) ─────────────────────────

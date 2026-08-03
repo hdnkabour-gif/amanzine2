@@ -499,3 +499,34 @@ test('كلُّ مسارٍ عامٍّ مُسجَّلٍ له بابٌ في الو�
   assert.deepEqual(doorless, [],
     `مسارٌ يعمل ولا يصله أحد: ${doorless.join(' · ')} — ضَع له رابطًا أو احذفه`);
 });
+
+test('لا مكوّنَ مبنيٌّ بصفر استيراد — يُركَّب أو يُحذَف', () => {
+  // العطبُ الذي وُلد منه هذا: ستّةُ مكوّناتٍ مكتوبةٍ لا يستوردها أحد
+  // (BROKEN_CHAINS#⑩⑪) — منها `CapabilityBar` الذي يعرض قدراتِ الصفحة،
+  // و`CommandCenter` الذي هو تنفيذُ قرارٍ معتمَد (DR-0005). كودٌ ميّتٌ يبدو
+  // حيًّا: يُقرأ في المراجعات، ويُصان، ولا يخدم إنسانًا.
+  const ROOT_DIR = new URL('..', import.meta.url).pathname;
+  const COMPONENTS = join(ROOT_DIR, 'src/components');
+
+  const files = [];
+  (function walk(dir) {
+    for (const e of readdirSync(dir)) {
+      const full = join(dir, e);
+      if (statSync(full).isDirectory()) { walk(full); continue; }
+      if (/\.tsx?$/.test(e)) files.push(full);
+    }
+  })(join(ROOT_DIR, 'src'));
+  const all = files.map(f => readFileSync(f, 'utf8')).join('\n');
+
+  const orphans = [];
+  for (const e of readdirSync(COMPONENTS)) {
+    if (!e.endsWith('.tsx')) continue;
+    const name = e.replace(/\.tsx$/, '');
+    // الاستيرادُ المباشرُ أو الكسولُ — كلاهما تركيب. `MapView` يُستورَد
+    // بـ`lazy(() => import(...))` وحدَه، فحصرُ البحث في `from '…'` يقتله ظلمًا.
+    const rx = new RegExp(`(?:from|import\\()\\s*['"\`][^'"\`]*/${name}['"\`]`);
+    if (!rx.test(all)) orphans.push(name);
+  }
+  assert.deepEqual(orphans, [],
+    `مكوّنٌ بلا مستورِد: ${orphans.join(' · ')} — رَكِّبه حيث يخدم، أو احذفه`);
+});

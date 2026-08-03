@@ -9,6 +9,8 @@ import { isPushSupported, getPushPermission, subscribeToPush } from '../lib/push
 import { insightsAPI, type MerchantInsights } from '../services/api';
 import ActivityTimeline, { type TimelineItem } from '../components/ActivityTimeline';
 import MySpaceSections from '../components/MySpaceSections';
+import CommandCenter from '../components/CommandCenter';
+import { hasAI } from '../lib/aiAvailability';
 
 // ── نبض حيّ (Shopify-like): مقاييس المتجر من Analytics Engine ──
 function LivePulse() {
@@ -157,8 +159,30 @@ export default function DashboardPage() {
   }
   timeline.sort((a, b) => b.at - a.at);
 
+  // ── «اليوم» قبل الميزات (DR-0005 / القانون ١٢) ──────────────
+  //   `CommandCenter` تنفيذُ قرارٍ معتمَدٍ كُتب كودُه ولم يُركَّب قطّ
+  //   (BROKEN_CHAINS#⑪). يُركَّب هنا **فوق** اللوحة لا بدلًا منها: يعرض ما
+  //   يحتاج انتباهَك اليوم، ثمّ تبقى اللوحةُ لمن يريد التفصيل.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayRevenue = orders
+    .filter(o => o.status !== 'cancelled' && (o.createdAt || '').startsWith(todayStr))
+    .reduce((sum, o) => sum + (o.total || 0), 0);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {!isLoading && (
+        <CommandCenter
+          name={(settings.brand as any)?.name || ''}
+          pending={orders.filter(o => o.status === 'pending').length}
+          unread={conversations.reduce((n, c: any) => n + (c.unread || 0), 0)}
+          todayRevenue={todayRevenue}
+          currency={settings.brand.currency}
+          lowStock={products.filter(p => p.stock > 0 && p.stock <= (settings.products?.lowStockAlert ?? 3)).length}
+          aiActive={hasAI(settings)}
+          onGo={setPage}
+        />
+      )}
+
       {/* Cloud Banner */}
       {!isCloudConfigured && !isLoading && (
         <div style={{ background: 'linear-gradient(135deg, rgba(62,207,142,0.06), rgba(26,122,76,0.03))', border: '1px solid rgba(62,207,142,0.2)', borderRadius: 16, padding: '14px 18px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>

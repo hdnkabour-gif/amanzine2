@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import { hasAI, hasImageAI } from '../lib/aiAvailability';
+import CapabilityBar from '../components/CapabilityBar';
 import {
   Plus, Search, Edit3, Trash2, X, ChevronRight, ChevronLeft,
   Sparkles, Share2, Camera, Image, Download, Palette, Eye,
@@ -1284,6 +1285,32 @@ export default function ProductsPage() {
             {step > 1 && (
               <div className="progress-bar" style={{ height: 4, borderRadius: 0 }}>
                 <div className="progress-fill" style={{ width: `${progress}%`, transition: 'width .35s', background: 'linear-gradient(90deg,var(--ember),var(--ember2))' }} />
+              </div>
+            )}
+
+            {/* ── قدراتُ هذه الصفحة (القانون ٦) ─────────────────────────
+                `CapabilityBar` كان مبنيًّا بصفر استيراد (BROKEN_CHAINS#⑩).
+                يُركَّب هنا حيث المعالجاتُ موجودةٌ فعلًا — وهو لا يعرض قدرةً بلا
+                معالج، فلا يمكن أن يُنتج زرًّا ميّتًا. `values` هي قيَمُ النموذج
+                نفسُها، فالزرُّ المُعطَّل يقول ما ينقصه بلا تخمين. */}
+            {step > 1 && (
+              <div style={{ padding: '12px 20px 0' }}>
+                <CapabilityBar
+                  page="products"
+                  title="واش نقدر نعاونك دابا"
+                  values={{
+                    title: data.name,
+                    price: data.price,
+                    category: data.category,
+                    photos: data.images,
+                    desc: data.description,
+                  }}
+                  handlers={{
+                    'ai.description': generateAI,
+                    'design.image':   designWithAI,
+                    'share.whatsapp': () => { if (editProd) shareWA(editProd); else notify('info', 'احفظ المنتج أوّلًا باش تشاركه'); },
+                  }}
+                />
               </div>
             )}
 

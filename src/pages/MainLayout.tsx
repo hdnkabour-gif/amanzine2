@@ -3,6 +3,8 @@ import { lazy, Suspense, useEffect } from 'react';
 import { useStore } from '../store';
 import NavBar from './NavBar';
 import GlobalSearch from '../components/GlobalSearch';
+import KeyboardShortcuts from '../components/KeyboardShortcuts';
+
 import MasterBackground from '../components/MasterBackground';
 import FeedbackButton from '../components/FeedbackButton';
 import DeferredAuthBanner from '../components/DeferredAuthBanner';
@@ -126,6 +128,10 @@ export default function MainLayout() {
       {/* غلاف المحتوى فوق الخلفيّة (zIndex:1) — يحافظ على تخطيط flex */}
       <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
         <NavBar />
+        {/* اختصاراتُ لوحة المفاتيح — مكوّنٌ مبنيٌّ بصفر استيراد
+            (BROKEN_CHAINS#⑪). لا يرسم شيئًا حتى يُضغط «؟»، ويتجاهل
+            الكتابةَ داخل الحقول. */}
+        <KeyboardShortcuts />
         {showSearch && <GlobalSearch onClose={() => setShowSearch(false)} />}
         {/* Offline banner */}
         {!isOnline && (

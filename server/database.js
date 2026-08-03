@@ -941,11 +941,29 @@ const db = {
     );
     return rows[0] || null;
   },
+  /**
+   * كلُّ أرصدة الولاء لمتجرٍ واحد، **باسم الزبون معها**. كانت تُرجع صفوفًا
+   * خامًا بأسماء أعمدةٍ snake_case وبلا اسم — رقمٌ بجانب مُعرِّفٍ لا يعرفه أحد.
+   */
   async getLoyaltyAll(userId) {
     const { rows } = await pool.query(
-      'SELECT * FROM loyalty_points WHERE user_id=$1 ORDER BY total_earned DESC', [userId]
+      `SELECT l.*, c.name AS customer_name, c.phone AS customer_phone, c.vip
+         FROM loyalty_points l
+         LEFT JOIN customers c ON c.id = l.customer_id AND c.user_id = l.user_id
+        WHERE l.user_id = $1
+        ORDER BY l.total_earned DESC`,
+      [userId]
     );
-    return rows;
+    return rows.map(r => ({
+      customerId:   r.customer_id,
+      customerName: r.customer_name || '',
+      customerPhone: r.customer_phone || '',
+      vip:          !!r.vip,
+      points:       +r.points       || 0,
+      totalEarned:  +r.total_earned || 0,
+      tier:         r.tier || 'silver',
+      updatedAt:    r.updated_at ? new Date(r.updated_at).toISOString() : null,
+    }));
   },
   async addLoyaltyPoints(userId, customerId, amount) {
     const pts = Math.floor(amount / 10);
@@ -970,12 +988,24 @@ const db = {
       );
     }
   },
+  /**
+   * صرفُ نقاط. كانت `GREATEST(0, points-$1)` تقصّ الفائضَ بصمت: يطلب التاجرُ
+   * صرفَ ١٠٠ وعنده ٣٠ فيُصرَف ٣٠ ويُقال له «تمّ». الصرفُ الآن شرطيٌّ ذرّيّ:
+   * إمّا كلُّ المطلوب أو لا شيءَ مع سبب.
+   * @returns {Promise<{ok:boolean, redeemed:number, points:number, reason?:string}>}
+   */
   async redeemLoyaltyPoints(userId, customerId, pts) {
-    await pool.query(
-      `UPDATE loyalty_points SET points=GREATEST(0,points-$1),updated_at=NOW()
-       WHERE user_id=$2 AND customer_id=$3`,
-      [pts, userId, customerId]
+    const n = Math.floor(Number(pts) || 0);
+    if (n <= 0) return { ok: false, redeemed: 0, points: 0, reason: 'amount' };
+    const { rows } = await pool.query(
+      `UPDATE loyalty_points SET points = points - $1, updated_at = NOW()
+        WHERE user_id = $2 AND customer_id = $3 AND points >= $1
+        RETURNING points`,
+      [n, userId, customerId]
     );
+    if (rows.length) return { ok: true, redeemed: n, points: +rows[0].points || 0 };
+    const cur = await this.getLoyalty(userId, customerId);
+    return { ok: false, redeemed: 0, points: +(cur && cur.points) || 0, reason: 'insufficient' };
   },
 };
 
