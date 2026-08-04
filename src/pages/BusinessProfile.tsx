@@ -1,6 +1,8 @@
-import { useState, useEffect, type ReactElement } from 'react';
+import { useState, useEffect, lazy, Suspense, type ReactElement } from 'react';
 import { useParams } from 'react-router-dom';
 import { businessAPI, bookingsAPI, recommendAPI, feedAPI, trackAPI, type Business, type BusinessProfileData, type BusinessSource, type Activity } from '../services/api';
+// الخريطةُ تُحمَّل كسولًا — مكتبةُ Leaflet ثقيلةٌ ولا يحتاجها كلُّ زائر.
+const MapView = lazy(() => import('../components/MapView'));
 import { BadgeCheck, Star, MapPin, Phone, MessageCircle, Calendar, X, Clock, ArrowLeft } from 'lucide-react';
 
 // ============================================================
@@ -235,10 +237,31 @@ function LocationSection({ profile }: SectionProps) {
   const loc = profile.business.location, city = profile.business.city;
   if (!loc) return <Empty>الموقع غير محدّد. {city && `المدينة: ${city}`}</Empty>;
   const osm = `https://www.openstreetmap.org/?mlat=${loc.lat}&mlon=${loc.lng}#map=16/${loc.lat}/${loc.lng}`;
+
+  // **الخريطةُ داخل التطبيق لا خارجَه.**
+  //
+  //   كان هنا رابطٌ وحدَه: «افتح في الخريطة» يُخرج الزبونَ إلى موقعٍ آخر —
+  //   وأغلبُهم لا يعود. والمكوّنُ `MapView` (Leaflet + OpenStreetMap) مبنيٌّ
+  //   منذ زمن ويعمل، **ولا يستعمله إلّا `Explore`**: قدرةٌ كاملةٌ لا تصل
+  //   إلى الصفحة التي يُقرَّر فيها الشراء فعلًا.
+  //
+  //   ويُحمَّل كسولًا كما في `Explore`: مكتبةُ الخرائط ثقيلةٌ ولا تُنزَّل إلّا
+  //   لمن فتح القسم.
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {city && <div style={{ fontSize: 14 }}><MapPin size={14} style={{ verticalAlign: 'middle', color: PURPLE }} /> {city}</div>}
-      <a href={osm} target="_blank" rel="noreferrer" style={{ ...btnStyle(false), textDecoration: 'none', width: 'fit-content' }}>افتح في الخريطة</a>
+      <Suspense fallback={<div style={{ height: 240, borderRadius: 12, background: 'rgba(255,255,255,.04)' }} />}>
+        <MapView
+          height={240}
+          center={{ lat: loc.lat, lng: loc.lng }}
+          markers={[{
+            id: profile.business.id, source: 'business', name: profile.business.name,
+            lat: loc.lat, lng: loc.lng, type: 'store',
+            verified: !!profile.business.verified, href: '#',
+          }]}
+        />
+      </Suspense>
+      <a href={osm} target="_blank" rel="noreferrer" style={{ ...btnStyle(false), textDecoration: 'none', width: 'fit-content' }}>🧭 خذني للمحلّ</a>
     </div>
   );
 }
