@@ -483,4 +483,40 @@ router.get('/track-code/:code', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── دفترُ أحداث الطلب ────────────────────────────────────────────────────────
+// مسارُ قراءةٍ واحدٌ ومسارُ كتابةٍ واحد. لا مسارَ تعديلٍ ولا حذف: الدفترُ الذي
+// يُعدَّل ليس دفترًا، والتصحيحُ حدثٌ مضادٌّ يُسجَّل فوقه.
+
+// GET /api/orders/:id/timeline — الطلبُ وأحداثُه ووقائعُه المستنتَجة
+router.get('/:id/timeline', auth, async (req, res) => {
+  try {
+    const t = await db.getOrderTimeline(req.params.id, req.user.id);
+    if (!t) return res.status(404).json({ error: 'Order not found' });
+    res.json(t);
+  } catch (e) {
+    console.error('[orders/timeline]', e.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/orders/:id/events — تسجيلُ حدث
+router.post('/:id/events', auth, async (req, res) => {
+  try {
+    const r = await db.recordOrderEvent(req.params.id, req.user.id, {
+      type:        String(req.body?.type || '').trim(),
+      actor:       String(req.body?.actor || 'merchant').slice(0, 60),
+      note:        String(req.body?.note || '').slice(0, 500),
+      amountDelta: +req.body?.amountDelta || 0,
+      status:      req.body?.status ? String(req.body.status).trim() : undefined,
+      payload:     (req.body?.payload && typeof req.body.payload === 'object') ? req.body.payload : {},
+    });
+    // الرفضُ يُفصح عن سببه: «مالٌ يخرج بلا مُبرّر» لا «طلبٌ غيرُ صالح».
+    if (!r.ok) return res.status(400).json({ error: r.problems.join(' · '), problems: r.problems });
+    res.json(r);
+  } catch (e) {
+    console.error('[orders/events]', e.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;

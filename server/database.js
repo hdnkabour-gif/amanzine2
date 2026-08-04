@@ -2195,4 +2195,63 @@ db.updateNeedRequest = async (id, { status, matchedBusiness }) => {
  */
 db.raw = (sql) => pool.query(sql);
 
+// ── دفترُ أحداث الطلب — يُضاف إليه ولا يُعدَّل ولا يُحذَف منه ──────────────
+// لا `updateOrderEvent` ولا `deleteOrderEvent` هنا، وغيابُهما مقصود: الدفترُ
+// الذي يُعدَّل ليس دفترًا. التصحيحُ يكون بحدثٍ مضادٍّ يُسجَّل فوقه، فيبقى
+// الأوّلُ ظاهرًا ويُقرأ **لماذا** تغيّر المبلغ لا أنّه تغيّر فقط.
+
+const { validateEvent, deriveFacts } = require('./lib/orderLifecycle');
+
+/** أحداثُ طلبٍ بترتيب حدوثها. */
+db.getOrderEvents = async (orderId) => {
+  const { rows } = await pool.query(
+    `SELECT id, order_id, user_id, type, actor, note, amount_delta, payload, created_at
+       FROM order_events WHERE order_id=$1 ORDER BY id ASC`, [orderId]);
+  return rows.map(r => ({
+    id: String(r.id), orderId: r.order_id, userId: r.user_id, type: r.type,
+    actor: r.actor, note: r.note || '', amountDelta: +r.amount_delta || 0,
+    payload: (r.payload && typeof r.payload === 'object') ? r.payload : {},
+    createdAt: r.created_at,
+  }));
+};
+
+/**
+ * يُسجّل حدثًا بعد التحقّق منه على **الدفتر الحاليّ** لا على تصوّرٍ عنه.
+ * ويُحدّث حالةَ الطلب فقط إن حمل الحدثُ حالةً جديدةً مسموحة.
+ * @returns {{ok:true, event:object, facts:object} | {ok:false, problems:string[]}}
+ */
+db.recordOrderEvent = async (orderId, userId, ev) => {
+  const order = await db.getOrder(orderId);
+  if (!order || order.userId !== userId) return { ok: false, problems: ['الطلب غير موجود'] };
+
+  const existing = await db.getOrderEvents(orderId);
+  const problems = validateEvent(ev, order, existing);
+  if (problems.length) return { ok: false, problems };
+
+  const { rows } = await pool.query(
+    `INSERT INTO order_events (order_id, user_id, type, actor, note, amount_delta, payload)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at`,
+    [orderId, userId, ev.type, ev.actor || 'system', ev.note || '',
+     +ev.amountDelta || 0, JSON.stringify(ev.payload || {})]);
+
+  if (ev.status && ev.status !== order.status) {
+    await db.updateOrder(orderId, { status: ev.status });
+    order.status = ev.status;
+  }
+  const events = [...existing, { type: ev.type, amountDelta: +ev.amountDelta || 0, payload: ev.payload || {} }];
+  return {
+    ok: true,
+    event: { id: String(rows[0].id), createdAt: rows[0].created_at, ...ev },
+    facts: deriveFacts(order, events),
+  };
+};
+
+/** الطلبُ ودفترُه ووقائعُه المستنتَجة — قراءةٌ واحدةٌ لخدمة العملاء والمحاسبة. */
+db.getOrderTimeline = async (orderId, userId) => {
+  const order = await db.getOrder(orderId);
+  if (!order || order.userId !== userId) return null;
+  const events = await db.getOrderEvents(orderId);
+  return { order, events, facts: deriveFacts(order, events) };
+};
+
 module.exports = { db };

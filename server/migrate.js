@@ -72,6 +72,35 @@ async function migrate() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )`);
 
+    // ── سجلُّ أحداث الطلب — دفترٌ يُضاف إليه ولا يُعدَّل ولا يُحذَف منه ──
+    //
+    //   كانت حياةُ الطلب عمودًا واحدًا بخمس قيم. فإذا أُرجعت قطعةٌ من ثلاثٍ
+    //   وسُلِّمت الباقي، لم يكن للطلب حالةٌ تصفه: لا `delivered` صادقةٌ ولا
+    //   `returned`. والأسوأ أنّ تعديلَ المبلغ كان يكتب فوق القديم — فلا يبقى
+    //   أثرٌ يقول **لماذا** صار ٩٠ بعد أن كان ١٥٠، ولا متى، ولا من فعلها.
+    //
+    //   القاعدة: **الحالاتُ قليلة، والأحداثُ لا تُحصى.** «أُرجعت قطعةٌ» ليست
+    //   حالةً بل حدث؛ و«مُرجَعٌ جزئيًّا» ليست حالةً بل **استنتاجٌ** من الأحداث.
+    //   ولذلك لا عمودَ يُحدَّث هنا: كلُّ صفٍّ واقعةٌ حدثت في لحظةٍ ولا تُنكَر.
+    //
+    //   `amount_delta` يحمل أثرَ الحدث على المال (سالبٌ للإرجاع). فمجموعُه
+    //   على الطلب هو المبلغُ الواجبُ تحصيلُه — يُحسَب ولا يُخزَّن، فلا يفترقان.
+    await client.query(`CREATE TABLE IF NOT EXISTS order_events (
+      id BIGSERIAL PRIMARY KEY,
+      order_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      actor TEXT NOT NULL DEFAULT 'system',
+      note TEXT DEFAULT '',
+      amount_delta NUMERIC NOT NULL DEFAULT 0,
+      payload JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_order_events_order
+      ON order_events(order_id, id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_order_events_user
+      ON order_events(user_id, created_at DESC)`);
+
     // 🚚 Livo tracking sync (خطوة صغيرة إضافية — لا تمسّ أي عمود موجود):
     // livo_order_id كان يُرسَل من delivery.js لكن يُفقَد لأنه لم يكن له عمود ولا
     // مسار كتابة في updateOrder → استحال جلب حالة الشحنة لاحقاً. هذا يصلح ذلك.
