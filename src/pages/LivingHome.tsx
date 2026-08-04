@@ -375,6 +375,24 @@ export default function LivingHome() {
           ))}
           {activeStep && !pending && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, alignSelf: 'flex-start', maxWidth: '92%' }}>
+              {/* **كم بقي؟** الحوارُ بلا أفقٍ استجواب. المستخدمُ لا يعرف إن كان
+                  أمامه سؤالٌ أم عشرة، فينسحب عند الثاني. جملةٌ واحدةٌ تُبدّل
+                  الشعورَ كلَّه — ولا تُعرَض إن كان السؤالُ الأخير هو الوحيد. */}
+              {(result?.steps?.length || 0) > 1 && (
+                <div style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: 'var(--ink3,#7E877F)', fontWeight: 700 }}>
+                  <span style={{ display: 'inline-flex', gap: 3 }}>
+                    {result!.steps!.map((_, i) => (
+                      <span key={i} style={{
+                        width: 16, height: 4, borderRadius: 3,
+                        background: i <= stepIdx ? 'var(--amz-gold,#D4A017)' : 'var(--border2,rgba(255,255,255,.14))',
+                      }} />
+                    ))}
+                  </span>
+                  {stepIdx + 1 >= (result!.steps!.length)
+                    ? 'هادا آخر سؤال 👌'
+                    : `باقي ${result!.steps!.length - stepIdx - 1} ${result!.steps!.length - stepIdx - 1 === 1 ? 'سؤال' : 'أسئلة'} غير`}
+                </div>
+              )}
               <div style={{ alignSelf: 'flex-start', padding: '10px 14px', borderRadius: 14, fontSize: 14, background: 'var(--panel,rgba(255,255,255,.04))', color: 'var(--ink1)', border: '1px solid var(--border,rgba(255,255,255,.08))' }}>{activeStep.q}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {activeStep.options.map(opt => (

@@ -5,6 +5,7 @@ import { stanceOf } from './akg/kb';
 import { categoryForConcept } from './catalog';
 // السؤالُ يأتي من الناقص لا من النصّ (HU-2). المحرّكُ لا يعرف وجهةً ولا صفحة.
 import { nextClarification, type Clarification, type Signals } from './clarify';
+import { detectLifeNeed, saidLifeNeed, occasionLifeNeed, needSuggestions, type LifeNeed } from './akg/kb/goals';
 
 // ============================================================
 // needEngine — «شنو محتاج اليوم؟»
@@ -204,6 +205,30 @@ function domainStep(): NeedStep {
 }
 
 // ── المحرّك ─────────────────────────────────────────────────
+/**
+ * جوابُ حاجةِ الحياة — **صيغةٌ واحدة**.
+ *
+ *   يُستدعى من موضعَين (التصريحُ الصريحُ في رأس المحرّك، والمناسبةُ المستنتَجةُ
+ *   بعد حلّ المفهوم). ونسختان من نصٍّ واحدٍ تنحرفان بصمت: تُصلَح إحداهما
+ *   وتبقى الأخرى — وهو نمطُ العطب الذي أزلناه من الرسوم البيانيّة الثلاثة.
+ */
+function lifeNeedResult(need: LifeNeed): NeedResult {
+  const picks = needSuggestions(need);
+  return {
+    intent: need.intent,
+    label: need.label,
+    color: 'var(--amz-gold,#D4A017)',
+    tags: [`مناسبة → ${need.label}`],
+    open: need.ask,
+    steps: [{
+      q: need.ask,
+      clarifyId: `life_${need.id}`,
+      options: picks.slice(0, 8).map(p => ({ id: p.id, label: p.label, url: `${MARKET}?q=${encodeURIComponent(p.label)}` })),
+    }],
+    next: 'كلُّ اختيارٍ كيوصّلك مباشرةً لِمَن يقدّمه قربك.',
+  };
+}
+
 function coreParse(raw: string): NeedResult {
   // اسمُ المدينةِ يُنتزَع قبل قراءةِ الموضوع — وإلّا سُمّي طلبُ سبّاكٍ عقارًا.
   const t = maskCities(normalize(raw));
@@ -212,6 +237,18 @@ function coreParse(raw: string): NeedResult {
   // «أبحث» و«محتاج» و«خاصني» و«شكون»)، فكان «أبحث عن سبّاك» يُقرأ إعلانًا عن
   // النفس ويُلقى صاحبُه في صفحة النشر. الاتّجاه الآن يُقرأ مرّةً ويُحترَم.
   const stance = stanceOf(raw);
+
+  // 0) **تصريحٌ عن حالِ الحياة** — يسبق كلَّ قاعدةٍ موضوعيّة.
+  //
+  //   «تنقلت لدار جديدة» كانت تُقرأ **عرضَ عقارٍ للبيع**: القاعدةُ العقاريّةُ
+  //   ترى «دار» فتحسم قبل أن يصل الدورُ إلى الحاجة. ومَن انتقل لدارٍ لا يبيع
+  //   دارًا — يحتاج نقلًا وصباغةً وكهرباء.
+  //
+  //   ولا يدخل هنا إلّا **التصريحُ الصريح** («غادي نتزوج» · «عندي مولود»)،
+  //   أمّا المناسبةُ المستنتَجةُ من الوصف («قفطان ديال العرس») فتُفحَص متأخّرةً
+  //   وبشرطِ ألّا يكون الطلبُ واضحًا — وإلّا ثرثرنا على من يعرف ما يريد.
+  const said = saidLifeNeed(raw);
+  if (said && said.concepts.length) return lifeNeedResult(said);
 
   // 1) مشكل عاجل موصوف (أهمّ حالة): «الماء كيقطر»، «طاح الضو»
   //
@@ -416,6 +453,21 @@ function coreParse(raw: string): NeedResult {
   //   لا إنسان — فيُساق من يريد ثوبًا إلى قائمة الصنّاع.
   const known = resolveConcept(raw);
   const kind = categoryForConcept(known?.id)?.kind;
+
+  // ── حاجةُ الحياة: ما وراء الطلب ─────────────────────────────
+  //
+  //   «بنتي داخلة للمدرسة» و«غادي نتزوج» كانتا **نيّةً مجهولة**، و«عندي
+  //   مولود جديد» كانت تُقرأ **عرضَ خدمة** — أبٌ جديدٌ يُعامَل كتاجر.
+  //
+  //   ولا تُفحَص إلّا حين **لا يذكر المستخدمُ شيئًا بعينه**: مَن قال «قفطان
+  //   ديال العرس» يعرف ما يريد، فاقتراحُ القاعةِ والتصويرِ عليه ثرثرة. ومَن
+  //   قال «غادي نتزوج» لا يعرف من أين يبدأ — وهذا مَن نساعده.
+  {
+    // المناسبةُ وحدَها (بلا تصريحٍ عن الحال) لا تكفي إن كان الطلبُ واضحًا.
+    const need = known ? undefined : occasionLifeNeed(raw);
+    if (need && need.concepts.length) return lifeNeedResult(need);
+  }
+
   // إعلانُ عقارٍ ليس تعريفًا بمهنة: «عندي محل للكراء» يقع فيها مفهومُ «محل»
   // وهو خدمةٌ في القاعدة، فتبتلعها قاعدةُ العرض. كلمةُ الإعلان تحسم أوّلًا.
   if (stance === 'offer' && IS_LISTING) {
@@ -794,7 +846,10 @@ export function parseNeed(raw: string, ctx: NeedContext = {}): NeedResult {
   }
   const r = enrich(coreParse(raw), normalize(raw), ctx);
   r.confidence = confidenceOf(r);
-  r.stance = stance;
+  // **مَن أخبر عن حاجةِ حياةٍ طلبَ ولم يَعرض.** «عندي مولود جديد» تبدأ بـ«عندي»
+  // وهي علامةُ عرض، فكان الأبُ الجديدُ يُقرأ عارضًا. والقاعدةُ تُطبَّق هنا لا
+  // في `detectStance` كي لا تستورد طبقةُ المعرفة طبقةَ الأهداف فتدور الحلقة.
+  r.stance = detectLifeNeed(raw) ? 'seek' : stance;
   r.object = buildNeedObject(r, raw, ctx);
   if (r.object) r.object.confidence = r.confidence;
   return r;

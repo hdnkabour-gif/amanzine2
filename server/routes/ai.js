@@ -879,9 +879,30 @@ router.post('/report-unknown', async (req, res) => {
 });
 router.get('/unknown-report', auth, async (req, res) => {
   try {
-    const rows = await db.topUnknownTexts(Number(req.query.limit) || 100);
+    const rows = await db.topUnknownTexts(Number(req.query.limit) || 100, String(req.query.status || ''));
     return res.json({ unknowns: rows });
   } catch { return res.status(500).json({ error: 'report failed' }); }
+});
+
+/**
+ * ما فهمه الذكاءُ عن نصٍّ لم تفهمه القواعد — يُحفَظ اقتراحًا لا حقيقة.
+ *
+ *   مسارٌ عامٌّ كـ`report-unknown`: مَن يُبلّغ عن الجهل هو مَن يملك الجواب،
+ *   وهو زائرٌ غالبًا. والاعتمادُ وحدَه محميّ.
+ */
+router.post('/suggest-unknown', async (req, res) => {
+  try {
+    const ok = await db.suggestForUnknown(req.body?.text, req.body?.suggestion, req.body?.conceptId);
+    return res.json({ ok });
+  } catch { return res.json({ ok: false }); }
+});
+
+/** حكمُ الإنسان — محميّ. لا معرفةَ تدخل بلا اعتماد. */
+router.post('/judge-unknown', auth, async (req, res) => {
+  try {
+    const ok = await db.judgeUnknown(req.body?.text, req.body?.status);
+    return res.json({ ok });
+  } catch { return res.status(500).json({ error: 'judge failed' }); }
 });
 
 module.exports = router;

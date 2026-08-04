@@ -106,6 +106,9 @@ function _mapOrder(o) {
     codFee:           +o.cod_fee          || 0,
     providerId:       o.provider_id       || '',
     providerCityId:   o.provider_city_id  || '',
+    /** كيف يصل الطلب: `self` صاحبُ المحلّ · `provider` شركة · `neighbor` جارٌ
+     *  قريب · `pickup` يأخذه بنفسه. فارغٌ = لم يُختَر بعد. */
+    deliveryMode:     o.delivery_mode     || '',
     needsReview:      !!o.needs_review,
     reviewReason:     o.review_reason    || '',
     customerCode:     o.customer_code    || '',
@@ -413,8 +416,8 @@ const db = {
       `INSERT INTO orders
         (id,user_id,customer_id,customer_name,customer_phone,city,address,
          items,total,status,source,notes,customer_code,
-         delivery_fee,cod_fee,provider_id,provider_city_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+         delivery_fee,cod_fee,provider_id,provider_city_id,delivery_mode)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
       [
         id, o.userId, o.customerId || '', o.customerName || '',
         o.customerPhone || '', o.city || '', o.address || '',
@@ -426,6 +429,7 @@ const db = {
         customerCode,
         +o.deliveryFee || 0, +o.codFee || 0,
         o.providerId || '', o.providerCityId || '',
+        o.deliveryMode || '',
       ]
     );
     return _mapOrder(rows[0]);
@@ -445,6 +449,7 @@ const db = {
       deliverySyncedAt: 'delivery_synced_at',
       deliveryFee:      'delivery_fee',     codFee:          'cod_fee',
       providerId:       'provider_id',      providerCityId:  'provider_city_id',
+      deliveryMode:     'delivery_mode',
     };
     const parts = []; const vals = [id]; let idx = 2;
     for (const [jsKey, pgCol] of Object.entries(map)) {
@@ -1204,13 +1209,54 @@ db.bumpUnknownText = async (text) => {
        ON CONFLICT (text) DO UPDATE SET count = learning_unknowns.count + 1, last_seen = NOW()`, [t]);
   } catch { /* الجدول قد لا يوجد بعد — نتجاهل بلا كسر */ }
 };
-db.topUnknownTexts = async (limit = 100) => {
+db.topUnknownTexts = async (limit = 100, status = '') => {
   try {
+    const where = status ? `WHERE status = $2` : '';
+    const args = status
+      ? [Math.min(Number(limit) || 100, 500), String(status)]
+      : [Math.min(Number(limit) || 100, 500)];
     const { rows } = await pool.query(
-      `SELECT text, count, last_seen FROM learning_unknowns ORDER BY count DESC, last_seen DESC LIMIT $1`,
-      [Math.min(Number(limit) || 100, 500)]);
-    return rows.map(r => ({ text: r.text, count: +r.count, lastSeen: r.last_seen }));
+      `SELECT text, count, last_seen,
+              COALESCE(ai_suggestion,'') AS ai_suggestion,
+              COALESCE(ai_concept,'')    AS ai_concept,
+              COALESCE(status,'pending') AS status
+         FROM learning_unknowns ${where}
+        ORDER BY count DESC, last_seen DESC LIMIT $1`, args);
+    return rows.map(r => ({
+      text: r.text, count: +r.count, lastSeen: r.last_seen,
+      aiSuggestion: r.ai_suggestion, aiConcept: r.ai_concept, status: r.status,
+    }));
   } catch { return []; }
+};
+
+/**
+ * **ما فهمه الذكاءُ يُحفَظ ولا يُنسى.**
+ *
+ *   كان الجوابُ يُعرَض للمستخدم ثمّ يُرمى، فيُسأل عن الكلمة نفسِها في كلّ
+ *   مرّة. هنا يُخزَّن **اقتراحًا** لا حقيقة: `pending` حتّى يحكم إنسان.
+ */
+db.suggestForUnknown = async (text, suggestion, conceptId = '') => {
+  const t = String(text || '').trim().slice(0, 200);
+  if (t.length < 2) return false;
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE learning_unknowns
+          SET ai_suggestion = $2, ai_concept = $3
+        WHERE text = $1 AND status = 'pending'`,
+      [t, String(suggestion || '').slice(0, 300), String(conceptId || '').slice(0, 80)]);
+    return rowCount > 0;
+  } catch { return false; }
+};
+
+/** حكمُ الإنسان: `approved` أو `rejected`. لا شيءَ سواهما يُقبَل. */
+db.judgeUnknown = async (text, status) => {
+  const s = status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : '';
+  if (!s) return false;
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE learning_unknowns SET status = $2 WHERE text = $1`, [String(text || '').trim(), s]);
+    return rowCount > 0;
+  } catch { return false; }
 };
 
 // ── Wallet & Payments ─────────────────────────────────────────
@@ -1379,6 +1425,12 @@ function _mapProvider(p) {
     status: p.status, isVerified: !!p.is_verified,
     ratingAvg: +p.rating_avg || 0, ratingCount: +p.rating_count || 0,
     adminNote: p.admin_note || '',
+    // المحلُّ الذي يفتح ويُغلق — أعمدةٌ لا جدولٌ موازٍ. عمودٌ يُكتب ولا يُقرأ
+    // ضياعٌ صامت: نفسُ عطبِ المقاسات والألوان الذي قِسناه من قبل.
+    openingHours: p.opening_hours || {},
+    openState: p.open_state || 'open',
+    prepMinutes: +p.prep_minutes || 0,
+    deliveryModes: Array.isArray(p.delivery_modes) ? p.delivery_modes : [],
     createdAt: p.created_at ? new Date(p.created_at).toISOString() : now(),
   };
 }
@@ -1459,7 +1511,12 @@ db.createProvider = async (userId, d) => {
 };
 db.updateProvider = async (userId, id, d) => {
   const fields = { name: d.name, bio: d.bio, phone: d.phone, city: d.city, avatar_url: d.avatarUrl,
-    latitude: d.latitude, longitude: d.longitude, status: d.status, is_verified: d.isVerified, admin_note: d.adminNote };
+    latitude: d.latitude, longitude: d.longitude, status: d.status, is_verified: d.isVerified, admin_note: d.adminNote,
+    // ما يُقرأ يجب أن يُكتب. أربعةُ حقولٍ صارت في `_mapProvider`، ولو نُسيت
+    // هنا لَعرضها التطبيقُ فارغةً أبدًا مهما ملأها صاحبُ المحلّ.
+    opening_hours: d.openingHours === undefined ? undefined : JSON.stringify(d.openingHours || {}),
+    open_state: d.openState, prep_minutes: d.prepMinutes,
+    delivery_modes: d.deliveryModes === undefined ? undefined : (Array.isArray(d.deliveryModes) ? d.deliveryModes : []) };
   const set = [], args = [];
   for (const [col, v] of Object.entries(fields)) if (v !== undefined) { args.push(v); set.push(`${col} = $${args.length}`); }
   if (!set.length) return db.getProvider(userId, id);

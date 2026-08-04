@@ -309,7 +309,25 @@ export const aiAPI = {
     request<{ phone?: string; city?: string; name?: string; size?: string; color?: string }>(
       'POST', '/ai/extract-order', { history }
     ),
+
+  // ── حلقةُ التعلّم: ما لم تفهمه القواعد وفهمه الذكاء ──
+  unknowns: (status = 'pending', limit = 60) =>
+    request<{ unknowns: LearnedUnknown[] }>(
+      'GET', `/ai/unknown-report?status=${encodeURIComponent(status)}&limit=${limit}`),
+
+  judgeUnknown: (text: string, status: 'approved' | 'rejected') =>
+    request<{ ok: boolean }>('POST', '/ai/judge-unknown', { text, status }),
 };
+
+/** نصٌّ عجزت عنه القواعد — ومعه ما فهمه الذكاءُ إن سُئل. */
+export interface LearnedUnknown {
+  text: string;
+  count: number;
+  lastSeen: string;
+  aiSuggestion: string;
+  aiConcept: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
 
 // ── Loyalty ──────────────────────────────────────────────────
 export interface LoyaltyRow {

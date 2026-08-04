@@ -280,11 +280,23 @@ async function migrate() {
     )`);
 
     // Learning loop — «ما لم نفهمه» (unknown queries) لتطوير المعرفة
+    //
+    //   **الجسرُ كان مقطوعًا.** الجدولُ يحفظ النصَّ وعددَ مرّاته فقط: كلُّ
+    //   كلمةٍ يفهمها الذكاءُ الاصطناعيُّ تُنسى فورَ فهمها، فيُسأل عنها من
+    //   جديدٍ في كلّ مرّة — وإن انقطع الذكاءُ عاد الجهلُ كما كان.
+    //
+    //   العمودان يصلانه: `ai_suggestion` يحفظ ما فهمه الذكاءُ (مفهومًا
+    //   مقترحًا)، و`status` يحفظ حكمَ الإنسان. **ولا شيءَ يدخل المعرفةَ بلا
+    //   اعتماد** — القانون: لا تعلُّمَ ذاتيّ.
     await client.query(`CREATE TABLE IF NOT EXISTS learning_unknowns (
       text TEXT PRIMARY KEY,
       count INTEGER NOT NULL DEFAULT 1,
       last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`);
+    await client.query(`ALTER TABLE learning_unknowns ADD COLUMN IF NOT EXISTS ai_suggestion TEXT DEFAULT ''`).catch(() => {});
+    await client.query(`ALTER TABLE learning_unknowns ADD COLUMN IF NOT EXISTS ai_concept TEXT DEFAULT ''`).catch(() => {});
+    await client.query(`ALTER TABLE learning_unknowns ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`).catch(() => {});
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_unknowns_status ON learning_unknowns(status, count DESC)`).catch(() => {});
 
     // Performance indexes
     const indexes = [
@@ -659,6 +671,26 @@ async function migrate() {
     // حصّةُ التزكية: عددٌ محدود. «بلا حدّ» تعني ٢٠٠ محلٍّ وهميٍّ في ليلة.
     await client.query(`ALTER TABLE providers ADD COLUMN IF NOT EXISTS invite_quota INTEGER NOT NULL DEFAULT 0`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_providers_vouched ON providers(vouched_by)`);
+
+    // ── المحلُّ الذي يفتح ويُغلق ──────────────────────────────
+    //
+    //   **أعمدةٌ لا جداول.** الاقتراحُ الذي وصلنا كان خمسةَ جداولَ جديدة
+    //   (`restaurants` · `menu_items` · `food_orders` · `delivery_persons` …)
+    //   والمطعمُ **هو** `providers`، والطبقُ **هو** `products`، والطلبُ **هو**
+    //   `orders`. جداولُ موازيةٌ تعني تفريعَ التقييمات والولاء والبحث والتوصيل
+    //   والدفع — كلٌّ منها بتنفيذَين ينحرفان. الناقصُ فعلًا أربعةُ حقول:
+    //
+    //     • `opening_hours` — «مفتوح دابا؟» أوّلُ سؤالٍ يسأله جائع
+    //     • `open_state`    — مفتوح · مغلق · مشغول · عطلة (يضبطه صاحبُه بيده،
+    //                          فالساعاتُ المُعلَنةُ تكذب يومَ يمرض)
+    //     • `prep_minutes`  — كم يُنتظَر
+    //     • `delivery_modes`— ذاتيّ · شركة · جارٌ قريب · استلامٌ من المحلّ
+    await client.query(`ALTER TABLE providers ADD COLUMN IF NOT EXISTS opening_hours JSONB DEFAULT '{}'::jsonb`).catch(() => {});
+    await client.query(`ALTER TABLE providers ADD COLUMN IF NOT EXISTS open_state TEXT NOT NULL DEFAULT 'open'`).catch(() => {});
+    await client.query(`ALTER TABLE providers ADD COLUMN IF NOT EXISTS prep_minutes INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+    await client.query(`ALTER TABLE providers ADD COLUMN IF NOT EXISTS delivery_modes TEXT[] DEFAULT ARRAY[]::TEXT[]`).catch(() => {});
+    // وطريقةُ التوصيل تُحفَظ على الطلب نفسِه: الزبونُ يختار، والاختيارُ يُنفَّذ.
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_mode TEXT DEFAULT ''`).catch(() => {});
 
     // ── أنواعُ التحقّق ───────────────────────────────────────
     // `is_verified` بتٌّ واحدٌ يحمل **عدّة وقائعَ مختلفة**: هل وُجد المحلّ

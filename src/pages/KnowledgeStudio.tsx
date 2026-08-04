@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import PlaceImport from '../components/PlaceImport';
+import UnknownReview from '../components/UnknownReview';
 import { registerLearnedPlaces } from '../lib/akg/kb/places';
 import { Brain, Check, X, Cloud, HardDrive, Sparkles, Star } from 'lucide-react';
 import { knowledgeAPI, type BrainStats } from '../services/api';
@@ -235,6 +236,12 @@ export default function KnowledgeStudio() {
           كما تكبر المفاهيمُ من الكلمات التي لم تُفهَم. */}
       <div style={{ border: '1px solid var(--border2,rgba(255,255,255,.14))', borderRadius: 14, padding: 14 }}>
         <PlaceImport onAdd={names => addLearnedPlaces(names)} />
+      </div>
+
+      {/* حلقةُ التعلّم — ما عجزت عنه القواعد، ومعه ما فهمه الذكاءُ اقتراحًا.
+          بلا هذه اللوحة كان الجدولُ يكبر بلا قارئ، وما يفهمه الذكاءُ يُنسى. */}
+      <div style={{ border: '1px solid var(--border2,rgba(255,255,255,.14))', borderRadius: 14, padding: 14 }}>
+        <UnknownReview />
       </div>
 
       <p style={{ fontSize: 12, color: 'var(--ink3,#7E877F)', lineHeight: 1.7, textAlign: 'center', margin: 0 }}>

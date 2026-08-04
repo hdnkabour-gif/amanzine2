@@ -179,10 +179,36 @@ export async function understandHybrid(text: string, ctx?: UnderstandingContext)
     if (!p.available()) continue;
     try {
       const r = await p.understand(text, ctx);
-      if (r) return { ...r, reasoning: r.reasoning?.length ? r.reasoning : base.reasoning };
+      if (r) {
+        rememberEscalation(text, r);
+        return { ...r, reasoning: r.reasoning?.length ? r.reasoning : base.reasoning };
+      }
     } catch { /* مزوّدٌ فشل ⇒ نجرّب التالي */ }
   }
   return base;                                            // الأرضيّة: القواعد دائمًا
+}
+
+/**
+ * **ما فهمه الذكاءُ لا يُنسى.**
+ *
+ *   كانت الحلقةُ مقطوعةً هنا بالضبط: القواعدُ تعجز ⇒ يُسأل الذكاءُ ⇒ يُعرَض
+ *   جوابُه للمستخدم ⇒ **يُرمى**. فتُسأل الكلمةُ نفسُها في كلّ مرّة، وإن انقطع
+ *   الذكاءُ عاد الجهلُ كما كان.
+ *
+ *   ويُرسَل **اقتراحًا** لا حقيقة: يبقى `pending` حتّى يعتمده إنسانٌ من مركز
+ *   المعرفة. القانون: **لا تعلُّمَ ذاتيّ.** ولو تعلّم النظامُ وحدَه لَورث
+ *   أخطاءَ الذكاء بلا مراجعة، وهي أخطاءُ لغةٍ محلّيّةٍ لا يراها إلّا مغربيّ.
+ */
+function rememberEscalation(text: string, r: UnderstandingResult): void {
+  try {
+    if (typeof fetch === 'undefined') return;
+    const suggestion = [r.profession, r.problem, r.object, r.intent].filter(Boolean).join(' · ');
+    if (!suggestion) return;                       // جوابٌ فارغٌ ليس معرفة
+    fetch('/api/ai/suggest-unknown', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ text: text.trim().slice(0, 200), suggestion, conceptId: r.profession || '' }),
+    }).catch(() => { /* بلا شبكة ⇒ يبقى الجهلُ مسجَّلًا وحدَه */ });
+  } catch { /* noop */ }
 }
 
 // هل يوجد مزوّد ذكاءٍ مُهيّأ؟ (لعرض حالةٍ في لوحة البيتا مثلًا.)

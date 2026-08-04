@@ -1,37 +1,37 @@
 // ============================================================
-// Knowledge Graph (بذرة دلاليّة) — لا Graph DB، بل علاقات مُنسَّقة قابلة للنموّ.
-// التطبيق لا يحفظ كلمات فقط، بل «العلاقات بين الأشياء»: بعد صبّاغ غالبًا تحتاج
-// كهربائيًّا ونجّارًا وتنظيفًا. هذه البذرة تُثري تدفّق الـ Need باقتراح الخطوة
-// المجاورة — والتجارب/المرشّحات ستوسّعها لاحقًا بلا إعادة كتابة.
+// «ماذا يُطلَب بعد هذا؟» — الخطوةُ المجاورة.
+//
+//   **كان هنا رسمٌ بيانيٌّ ثانٍ.** خريطةٌ مكتوبةٌ بيدٍ مفاتيحُها **نصوصٌ
+//   عربيّة**: `'صبّاغ'` بشدّةٍ على الباء، `'نجّار'` بشدّةٍ على الجيم. عشرةُ
+//   حرفٍ من أصل ١٩٧ مفهومًا، ويومَ تُكتب «صباغ» بلا شدّةٍ في موضعٍ آخر ينكسر
+//   الربطُ بصمتٍ بلا اختبارٍ يشتكي.
+//
+//   وكان في المشروع رسمان آخران يقولان الشيءَ نفسَه بمفاتيحَ أصحّ:
+//     • `akg/kb/knowledgeGraph.ts` — `related` لكلّ مفهومٍ بمُعرِّفه
+//     • `akg/relations.ts`        — رفقاءُ الكائن وما بعد الفعل
+//
+//   ثلاثةُ مصادرَ لحقيقةٍ واحدة. فحُذفت الخريطةُ المكتوبةُ باليد، وصار هذا
+//   الملفُّ **جسرًا**: يحوّل ما يصله — مُعرِّفًا كان أو اسمًا عربيًّا — إلى
+//   مفهومٍ، ثمّ يسأل المعرفةَ نفسَها. النتيجة: ١٩٧ مفهومًا بدل عشرة، ولا
+//   إملاءَ يُكتب مرّتين.
 // ============================================================
 
-export type NodeType = 'profession' | 'category' | 'problem';
+import { resolveConcept } from '../akg/kb/knowledge';
+import { conceptGraph } from '../akg/kb/knowledgeGraph';
 
-interface GraphNode {
-  label: string;
-  type: NodeType;
-  alsoNeed?: string[];   // ما يُطلَب عادةً بعده (علاقة «often followed by»)
-  facets?: string[];     // أبعاد الفئة (للتصنيفات) — للتوسّع لاحقًا
-}
-
-// بذرة الحرف المغربية الشائعة + علاقاتها (منسّقة يدويًّا كنقطة انطلاق).
-const GRAPH: Record<string, GraphNode> = {
-  'صبّاغ':        { label: 'صبّاغ', type: 'profession', alsoNeed: ['كهربائي', 'نجّار', 'تنظيف بعد الأشغال'] },
-  'سبّاك':        { label: 'سبّاك', type: 'profession', alsoNeed: ['صبّاغ', 'بنّاي'] },
-  'كهربائي':      { label: 'كهربائي', type: 'profession', alsoNeed: ['تقني تركيبات', 'صبّاغ'] },
-  'حدّاد':        { label: 'حدّاد', type: 'profession', alsoNeed: ['صبّاغ', 'بنّاي', 'نجّار'] },
-  'نجّار':        { label: 'نجّار', type: 'profession', alsoNeed: ['صبّاغ', 'حدّاد'] },
-  'بنّاي':        { label: 'بنّاي', type: 'profession', alsoNeed: ['حدّاد', 'سبّاك', 'كهربائي', 'صبّاغ'] },
-  'كوافير':       { label: 'كوافير', type: 'profession', alsoNeed: ['حلّاقة', 'تجميل'] },
-  'تقني تبريد':   { label: 'تقني تبريد', type: 'profession', alsoNeed: ['كهربائي'] },
-  'تقني هواتف':   { label: 'تقني هواتف', type: 'profession', alsoNeed: ['ملحقات', 'كهربائي'] },
-  'تقني تركيبات': { label: 'تقني تركيبات', type: 'profession', alsoNeed: ['كهربائي'] },
-};
-
-// ما يُطلَب عادةً بعد هذا المفهوم (الخطوة المجاورة في الرسم).
+/**
+ * ما يُطلَب عادةً بعد هذا المفهوم.
+ *
+ *   يقبل ما يعطيه المتّصل: مُعرِّفًا (`plumber`) أو اسمًا عربيًّا («سبّاك»)
+ *   أو دارجةً — لأنّ مصدرَه `humanIntent` الذي يُخرج تسميةً بشريّةً لا مُعرِّفًا.
+ */
 export function relatedProfessions(concept?: string): string[] {
-  if (!concept) return [];
-  return GRAPH[concept]?.alsoNeed ? GRAPH[concept].alsoNeed!.slice(0, 3) : [];
+  const key = (concept || '').trim();
+  if (!key) return [];
+  // مُعرِّفٌ مباشرٌ أوّلًا، فإن لم يكن فحلٌّ من النصّ الحرّ.
+  const node = conceptGraph(key)
+    || (() => { const c = resolveConcept(key); return c ? conceptGraph(c.id) : undefined; })();
+  if (!node) return [];
+  // اسمُ المفهوم نفسِه لا يُقترَح على صاحبه.
+  return node.related.map(r => r.name).filter(n => n && n !== node.name).slice(0, 3);
 }
-
-export function graphSize(): number { return Object.keys(GRAPH).length; }

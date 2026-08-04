@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { conceptGraph, graphCoverage, stanceOf, CONCEPTS } from '../../src/lib/akg/kb';
+import { relatedProfessions } from '../../src/lib/knowledge/graph';
 
 // ============================================================
 // عُقد الرسم — لكلّ مفهومٍ أسئلةٌ توضيحيّة · خدماتٌ مرتبطة · مسارُ حجز.
@@ -93,4 +94,21 @@ test('stanceOf يميّز «أنا حدّاد» عن «بغيت حدّاد»', (
 
 test('stanceOf يقرأ اللاتينيّة أيضًا', () => {
   assert.equal(stanceOf('bghit haddad'), 'seek');
+});
+
+test('رسمٌ بيانيٌّ واحدٌ لا ثلاثة — والاسمُ العربيُّ يعبُر إليه', () => {
+  // **حارسُ تضارب.** كان في المشروع خريطةٌ ثانيةٌ مكتوبةٌ بيدٍ مفاتيحُها نصوصٌ
+  // عربيّةٌ مشكولة: `'صبّاغ'` بشدّة. عشرةُ حرفٍ من ١٩٧، ويومَ تُكتب «صباغ»
+  // بلا شدّةٍ ينكسر الربطُ بصمت.
+  const both = [relatedProfessions('صبّاغ'), relatedProfessions('صباغ')];
+  assert.ok(both[0].length > 0, '«صبّاغ» بلا مرتبطات');
+  assert.deepEqual(both[0], both[1], 'الشدّةُ تُغيّر الجواب — المفتاحُ نصٌّ لا مفهوم');
+
+  // والتغطيةُ تتعدّى الحرفَ العشرةَ القديمة إلى ما لم تكن الخريطةُ تعرفه.
+  for (const q of ['ميكانيكي', 'مطعم', 'قفطان', 'حلاق'])
+    assert.ok(relatedProfessions(q).length > 0, `«${q}» بلا خطوةٍ مجاورة`);
+
+  // ومُعرِّفٌ لاتينيٌّ يعمل كالاسم العربيّ — مصدرٌ واحدٌ للحقيقة.
+  assert.deepEqual(relatedProfessions('plumber'), relatedProfessions('سبّاك'));
+  assert.deepEqual(relatedProfessions('لا وجود له إطلاقًا'), []);
 });
