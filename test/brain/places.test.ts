@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PLACE_COUNT, allPlaces, resolvePlace, suggestPlaces, judgePlace, judgePlaceList,
-  registerLearnedPlaces, normPlace,
+  registerLearnedPlaces, normPlace, placeById,
 } from '../../src/lib/akg/kb/places';
 import { resolveCity } from '../../src/lib/akg/kb/knowledge';
 
@@ -90,14 +90,71 @@ test('الحيُّ لا يُقبَل مدينةً — وهذا يمنع فساد
 
 test('الجديدُ يبقى جديدًا — لا يُنسَب لأقربِ شبيهٍ بعيد', () => {
   // عتبةُ التشابه حارسٌ ذو حدَّين: إن ضاقت فاتَنا الإملاءُ الآخر، وإن اتّسعت
-  // ابتلعت أماكنَ حقيقيّةً مستقلّة. وهذه أسماءٌ على الحدّ:
-  //   «تمارة الجديدة»    تبعد ٤ أحرفٍ عن «واد الجديدة» — ومع ذلك مكانٌ آخر
-  //   «بني ملال الشرقية» تبعد ٨ أحرفٍ عن «بني ملال»    — ومع ذلك مكانٌ آخر
-  // لو رُفعت العتبةُ لصارت هذه «إملاءً آخرَ» فلم تُضَف أبدًا.
-  for (const q of ['Ville Inconnue XYZ', 'تمارة الجديدة', 'بني ملال الشرقية']) {
+  // ابتلعت أماكنَ مستقلّة. و«Berkanoua» على الحدّ: تبعد ٣ أحرفٍ عن «بركان».
+  // لو رُفعت العتبةُ لعُدَّت إملاءً آخرَ لها فلم تُضَف أبدًا.
+  //
+  //   (كان هنا «تمارة الجديدة» و«بني ملال الشرقية» — وكانتا خطأً منّي: اسمان
+  //    اخترعتُهما لا وجودَ لهما، وهما بصيغتهما المركّبة تخصيصٌ لمدينةٍ معروفةٍ
+  //    لا مكانٌ مستقلّ. الحارسُ لا يُبنى على مثالٍ مُختلَق.)
+  for (const q of ['Ville Inconnue XYZ', 'Berkanoua', 'دوار أولاد بلقاسم']) {
     const v = judgePlace(q);
     assert.equal(v.kind, 'new', `«${q}» نُسب إلى «${(v as any).place?.ar}» وهو مكانٌ مستقلّ`);
   }
+});
+
+// ── الاسمُ المركّب: أكثرُ ما تكتبه شركاتُ التوصيل ────────────
+
+test('«Temsia Agadir» ليست مدينةً جديدة — التخصيصُ لا يصنع مكانًا', () => {
+  // قوائمُ الشركات لا تكتب «تمسية» وحدَها. والفارقُ هنا **كلماتٌ لا حروف**،
+  // فلا تراه مسافةُ ليفنشتاين أبدًا مهما وُسّعت. بلا هذا التفكيك تُضاف تمسيةُ
+  // ثلاثَ مرّاتٍ عند إضافة ثلاثِ شركات.
+  const same: [string, string][] = [
+    ['Temsia Agadir', 'تمسية'], ['Temsia Chtouka Ait Baha', 'تمسية'],
+    ['الرشيدية المدينة', 'الرشيدية'], ['Casablanca Maarif', 'الدار البيضاء'],
+  ];
+  for (const [q, want] of same) {
+    const v = judgePlace(q);
+    assert.notEqual(v.kind, 'new', `«${q}» عُدّت مدينةً جديدة`);
+    assert.equal((v as any).place?.ar, want, `«${q}» ⇒ ${(v as any).place?.ar}`);
+  }
+});
+
+test('المدينةُ تسبق الحيّ عند تفكيك المركّب', () => {
+  // «تمارة» مُدرَجةٌ حيًّا في الرباط **وهي مدينةٌ قائمةٌ بذاتها**. لو قُدّم
+  // فهرسُ الأحياء لصارت «تمارة الجديدة» حيًّا في الرباط — والطردُ يُشحَن
+  // إلى مدينةٍ أخرى. الاسمُ الذي يعرفه المكانُ نفسُه أصدقُ من اسمِ جارِه.
+  const v = judgePlace('تمارة الجديدة');
+  assert.equal((v as any).place?.ar, 'تمارة', `⇒ ${(v as any).place?.ar}`);
+});
+
+test('من أخطأ في الكتابة يجد مدينتَه — لا قائمةً فارغة', () => {
+  // «tmara» ليست بدايةً لـ«temara» ولا جزءًا منها: كان الإكمالُ يخرج فارغًا
+  // فيظنّ الكاتبُ أنّ مدينتَه مجهولة.
+  const fuzzy: [string, string][] = [
+    ['tmara', 'تمارة'], ['tanjer', 'طنجة'], ['marakech', 'مراكش'], ['الدار البيضا', 'الدار البيضاء'],
+  ];
+  for (const [q, want] of fuzzy)
+    assert.equal(suggestPlaces(q, 3)[0]?.ar, want, `«${q}» ⇒ ${suggestPlaces(q, 3).map(p => p.ar).join('/') || 'فراغ'}`);
+});
+
+test('لكلّ مكانٍ مُعرِّفٌ ثابتٌ لا يتكرّر', () => {
+  // جدولُ ربطِ شركات التوصيل يخزّن `city_id`. لو كان المفتاحُ هو الاسمَ
+  // المعروضَ لانكسر كلُّ ربطٍ يومَ نُصحّح إملاءً.
+  const ids = allPlaces().map(p => p.id);
+  assert.equal(new Set(ids).size, ids.length, 'مُعرِّفان متطابقان لمكانَين');
+  assert.deepEqual(ids.filter(i => !i || /\s/.test(i)), [], 'مُعرِّفٌ فارغٌ أو فيه فراغ');
+  assert.equal(placeById('casablanca')?.ar, 'الدار البيضاء');
+  assert.equal(placeById(resolvePlace('أكادير')!.id)?.ar, 'أكادير', 'المُعرِّفُ لا يعود إلى صاحبه');
+
+  // **التصادم.** المُعرِّفُ يُشتقّ من الحروف اللاتينيّة، فاسمٌ يعتمده إنسانٌ
+  // مثل «Casablanca الشتوية» يُنتج `casablanca` نفسَه. بلا ترقيمٍ يُدهَس
+  // مُعرِّفُ الدار البيضاء في الفهرس ويُشحَن الطردُ إلى المكان الخطأ.
+  const clash = 'Casablanca الشتوية الاختباريّة';
+  assert.equal(registerLearnedPlaces([clash]), 1);
+  const added = resolvePlace(clash);
+  assert.equal(added?.ar, clash);
+  assert.notEqual(added!.id, 'casablanca', 'المكانُ الجديدُ سرق مُعرِّفَ الدار البيضاء');
+  assert.equal(placeById('casablanca')?.ar, 'الدار البيضاء', 'دُهس مُعرِّفُ الدار البيضاء');
 });
 
 test('الإملاءُ القريبُ يُلتقَط — العتبةُ ليست صفرًا', () => {

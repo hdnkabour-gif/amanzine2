@@ -20,6 +20,15 @@ import { PLACES, type PlaceData } from './places.data';
 // ============================================================
 
 export interface Place {
+  /**
+   * مُعرِّفٌ ثابتٌ لا يتغيّر بتغيّر الاسم المعروض.
+   *
+   *   `delivery_provider_city_mappings.city_id` يربط مدينتَنا بمُعرِّف الشركة.
+   *   ولو كان المفتاحُ هو الاسمَ المعروضَ لانكسر كلُّ ربطٍ يومَ نُصحّح إملاءً
+   *   («الدارالبيضاء» ⇐ «الدار البيضاء»). المُعرِّفُ يُشتقّ من الاسم الفرنسيّ
+   *   لأنّه أثبتُ إملاءً، ولا يُشتقّ من العربيّ إلّا عند غيابه.
+   */
+  id: string;
   ar: string;
   fr: string;
   /** أحياءٌ معروفةٌ إن كانت مدينةً كبرى — تُستعمل لتمييز العنوان عن المدينة. */
@@ -55,11 +64,32 @@ export function normPlace(s: string): string {
 
 // ── الدمج: الكبرى أوّلًا، ثمّ الصغرى بلا تكرار ────────────────
 const byKey = new Map<string, Place>();
+const byId = new Map<string, Place>();
+/** فهرسُ الأحياء: اسمُ الحيّ ⇐ مدينتُه. يُستعمل في تفكيك الأسماء المركّبة. */
+const districtByKey = new Map<string, Place>();
 const all: Place[] = [];
 
-function register(p: Place) {
-  all.push(p);
-  for (const k of p.keys) if (k && !byKey.has(k)) byKey.set(k, p);
+/** مُعرِّفٌ لاتينيٌّ قصير: «Aït Melloul» ⇐ `ait_melloul`. */
+function slugify(fr: string, ar: string): string {
+  const base = normLat(fr) || normLat(ar);
+  if (base) return base.replace(/ /g, '_');
+  // اسمٌ عربيٌّ محضٌ بلا مقابلٍ لاتينيّ — المُعرِّفُ يُبنى من حروفه المُطبَّعة.
+  return 'ar_' + normAr(ar).replace(/ /g, '_');
+}
+
+function register(p: Omit<Place, 'id'> & { id?: string }): Place {
+  let id = p.id || slugify(p.fr, p.ar);
+  // تصادمُ مُعرِّفَين (بلديّتان بالاسم نفسِه في إقليمَين) — يُرقَّم ولا يُدهَس.
+  if (byId.has(id)) { let n = 2; while (byId.has(`${id}_${n}`)) n++; id = `${id}_${n}`; }
+  const place = { ...p, id } as Place;
+  all.push(place);
+  byId.set(id, place);
+  for (const k of place.keys) if (k && !byKey.has(k)) byKey.set(k, place);
+  for (const d of place.districts) {
+    const n = normPlace(d);
+    if (n.length >= 3 && !districtByKey.has(n)) districtByKey.set(n, place);
+  }
+  return place;
 }
 
 for (const c of CITIES) {
@@ -134,6 +164,58 @@ export function resolvePlace(input: string): Place | undefined {
   return byKey.get(n);
 }
 
+/** البحثُ بالمُعرِّف الثابت — ما يخزّنه جدولُ ربطِ شركات التوصيل. */
+export function placeById(id: string): Place | undefined {
+  return byId.get(String(id || '').trim());
+}
+
+/**
+ * كلماتٌ إداريّةٌ لا تصنع مكانًا جديدًا. «الرشيدية المدينة» هي الرشيدية،
+ * و«عين السبع الحي الصناعي» هي عين السبع.
+ */
+const ADMIN_WORDS = new Set([
+  'المدينه', 'مدينه', 'الحي', 'حي', 'الصناعي', 'الصناعيه', 'جماعه', 'الجماعه',
+  'اقليم', 'الاقليم', 'عماله', 'جهه', 'الجهه', 'قياده', 'دائره', 'مركز', 'باشويه',
+  'ville', 'centre', 'commune', 'province', 'prefecture', 'region', 'cercle',
+  'zone', 'industrielle', 'quartier', 'municipalite', 'sud', 'nord', 'est', 'ouest',
+]);
+
+/**
+ * **تفكيكُ الاسم المركّب.** قوائمُ شركات التوصيل لا تكتب «تمسية» وحدَها، بل
+ * «Temsia Agadir» و«Temsia Chtouka Ait Baha» و«الرشيدية المدينة». هذه ليست
+ * ثلاثَ مدنٍ بل مدينةٌ واحدةٌ مُخصَّصة، وقياسُ التشابه لا يلتقطها لأنّ الفارقَ
+ * كلماتٌ لا حروف.
+ *
+ *   يُجرَّب أطولُ نافذةٍ أوّلًا: «سيدي بنور» تسبق «سيدي».
+ *   والباقي يُفحَص: إن كان كلماتٍ إداريّةً أو أماكنَ معروفةً فالتخصيصُ مؤكَّد.
+ */
+function decompose(n: string): { hit: Place; isDistrict: boolean; rest: string[]; sure: boolean } | null {
+  const t = n.split(' ').filter(Boolean);
+  if (t.length < 2) return null;
+  for (let len = t.length - 1; len >= 1; len--) {
+    for (let i = 0; i + len <= t.length; i++) {
+      const key = t.slice(i, i + len).join(' ');
+      if (key.length < 4) continue;      // نافذةٌ قصيرةٌ تُطابِق بالمصادفة
+      // **المدينةُ تسبق الحيّ.** «تمارة» مُدرَجةٌ حيًّا في الرباط وهي مدينةٌ
+      // قائمةٌ بذاتها؛ لو قُدّم فهرسُ الأحياءِ لصارت «تمارة الجديدة» حيًّا في
+      // الرباط. الاسمُ الذي يعرفه المكانُ نفسُه أصدقُ من الاسم الذي يعرفه جارُه.
+      const asCity = byKey.get(key);
+      const d = asCity ? undefined : districtByKey.get(key);
+      const p = asCity || d;
+      if (!p) continue;
+      const rest = [...t.slice(0, i), ...t.slice(i + len)];
+      const sure = rest.every(w =>
+        ADMIN_WORDS.has(w) || byKey.has(w) || districtByKey.has(w) ||
+        p.districts.some(x => normPlace(x) === w));
+      // إن لم يكن الباقي معروفًا، نقبل التخصيصَ فقط حين يتصدّر الاسمُ المعروفُ
+      // السطر — فهكذا تكتب الشركاتُ: المدينةُ أوّلًا ثمّ التخصيص.
+      if (!sure && i !== 0) continue;
+      return { hit: p, isDistrict: !!d, rest, sure };
+    }
+  }
+  return null;
+}
+
 /**
  * **الإكمالُ أثناء الكتابة.** يكتب المالكُ حرفًا فتظهر المطابقاتُ — لا
  * القائمةُ كلُّها. البدايةُ تسبق الاحتواء، والكبرى تسبق الصغرى: من كتب
@@ -151,7 +233,27 @@ export function suggestPlaces(query: string, limit = 8): Place[] {
   }
   const rank = (a: Place, b: Place) =>
     (b.major ? 1 : 0) - (a.major ? 1 : 0) || a.ar.length - b.ar.length;
-  return [...starts.sort(rank), ...contains.sort(rank)].slice(0, limit);
+  const hits = [...starts.sort(rank), ...contains.sort(rank)];
+
+  // **من أخطأ في الكتابة لا يُترَك بلا شيء.** «tmara» ليست بدايةً لِـ«temara»
+  // ولا جزءًا منها، فكانت القائمةُ تخرج فارغةً ويظنّ الكاتبُ أنّ مدينتَه
+  // مجهولة. القربُ يُقاس حين يعجز الاحتواء — لا قبلَه، كي لا يُزاحِم البعيدُ
+  // القريبَ.
+  if (!hits.length && n.length >= 3) {
+    const near: { p: Place; d: number }[] = [];
+    for (const p of all) {
+      let best = 99;
+      for (const k of p.keys) {
+        if (Math.abs(k.length - n.length) > 2) continue;
+        const d = distance(n, k);
+        if (d < best) best = d;
+      }
+      if (best <= 2) near.push({ p, d: best });
+    }
+    near.sort((a, b) => a.d - b.d || (b.p.major ? 1 : 0) - (a.p.major ? 1 : 0));
+    return near.slice(0, limit).map(x => x.p);
+  }
+  return hits.slice(0, limit);
 }
 
 // ── المقارنة: هل هذا الاسمُ جديدٌ فعلًا؟ ───────────────────────
@@ -176,7 +278,7 @@ function distance(a: string, b: string): number {
 }
 
 export type PlaceVerdict =
-  | { kind: 'known'; input: string; place: Place }
+  | { kind: 'known'; input: string; place: Place; why?: string }
   | { kind: 'similar'; input: string; place: Place; distance: number; why: string }
   | { kind: 'district'; input: string; place: Place; why: string }
   | { kind: 'new'; input: string };
@@ -199,12 +301,26 @@ export function judgePlace(input: string, maxDistance = 2): PlaceVerdict {
   if (exact) return { kind: 'known', input: raw, place: exact };
 
   // حيٌّ داخل مدينة؟ يُفحَص قبل التشابه: الحيُّ يُطابِق مدينتَه تمامًا.
-  for (const p of all) {
-    for (const d of p.districts) {
-      if (normPlace(d) === n) {
-        return { kind: 'district', input: raw, place: p, why: `حيٌّ داخل «${p.ar}»` };
-      }
+  const asDistrict = districtByKey.get(n);
+  if (asDistrict) {
+    return { kind: 'district', input: raw, place: asDistrict, why: `حيٌّ داخل «${asDistrict.ar}»` };
+  }
+
+  // اسمٌ مركّب؟ «Temsia Agadir» ليست مدينةً جديدة. يُفحَص قبل التشابه لأنّ
+  // الفارقَ هنا كلماتٌ لا حروف، فلا تراه مسافةُ ليفنشتاين أبدًا.
+  const parts = decompose(n);
+  if (parts) {
+    const extra = parts.rest.join(' ');
+    if (parts.isDistrict) {
+      return {
+        kind: 'district', input: raw, place: parts.hit,
+        why: `حيٌّ داخل «${parts.hit.ar}»${extra ? ` (${extra})` : ''}`,
+      };
     }
+    return {
+      kind: 'known', input: raw, place: parts.hit,
+      why: parts.sure ? `«${parts.hit.ar}» مع تخصيصٍ إداريّ` : `«${parts.hit.ar}» متبوعةً بـ«${extra}»`,
+    };
   }
 
   // أقربُ إملاءٍ معروف. النسبةُ تُقاس بطول الاسم: خطأُ حرفٍ في اسمٍ من
