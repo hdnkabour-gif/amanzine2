@@ -560,7 +560,11 @@ export default function DeliveryPage() {
   }>>({});
 
   // المزوّدون المسجَّلون في الخادم وقدراتُهم — لا قائمةَ أسماءٍ مكرّرةً هنا.
-  const [knownProviders, setKnownProviders] = useState<{ id: string; name: string; capabilities: Record<string, any> }[]>([]);
+  const [knownProviders, setKnownProviders] = useState<{
+    id: string; name: string; capabilities: Record<string, any>;
+    // ما تطلبه كلُّ شركةٍ من بيانات اعتماد — تُبنى منه الحقولُ أدناه.
+    credentials?: { key: string; label: string; required?: boolean; secret?: boolean; help?: string; placeholder?: string; maps?: string }[];
+  }[]>([]);
   useEffect(() => {
     deliveryAPI.registry().then(r => setKnownProviders(r.providers || [])).catch(() => {});
   }, []);
@@ -1121,9 +1125,43 @@ export default function DeliveryPage() {
                         <div style={{ gridColumn: '1/-1' }}>
                           <Input label="رابط صفحة تسجيل الدخول *" value={config.loginUrl || ''} onChange={v => setConfig(p => ({ ...p, loginUrl: v }))} ph="https://.../login" />
                         </div>
-                        <div style={{ gridColumn: '1/-1' }}>
-                          <Input label="مفتاح API (Bearer/Token)" value={config.apiKey || ''} onChange={v => setConfig(p => ({ ...p, apiKey: v }))} ph="sk_live_..." secret />
-                        </div>
+                        {/* حقولُ الاعتماد — **يُعلنها المزوّد، ولا تعرفها هذه الصفحة**.
+                            كان هنا حقلٌ واحدٌ اسمُه «مفتاح API» يُعرَض للجميع: فمن
+                            تطلب شركتُه مُعرِّفًا ثانيًا لم يجد أين يضعه، ومن لا تطلب
+                            مفتاحًا رأى حقلًا لا معنى له. الآن تُبنى الحقولُ ممّا
+                            يُصرّح به المزوّد، فشركةٌ تطلب ثلاثةَ حقولٍ غدًا لا
+                            تُعدّل هذا الملفّ. والقيمُ تُحفَظ في `fields`، وما له
+                            عمودٌ قياسيّ (`maps`) يُكتَب فيه أيضًا لتقرأه الصفوفُ القديمة. */}
+                        {(() => {
+                          const spec = knownProviders.find(k => k.id === (config.apiType || '').toLowerCase())?.credentials as
+                            | { key: string; label: string; required?: boolean; secret?: boolean; help?: string; placeholder?: string; maps?: string }[]
+                            | undefined;
+                          if (!spec?.length) {
+                            return (
+                              <div style={{ gridColumn: '1/-1' }}>
+                                <Input label="مفتاح API (Bearer/Token)" value={config.apiKey || ''} onChange={v => setConfig(p => ({ ...p, apiKey: v }))} ph="sk_live_..." secret />
+                              </div>
+                            );
+                          }
+                          return spec.map(f => (
+                            <div key={f.key} style={{ gridColumn: '1/-1' }}>
+                              <Input
+                                label={`${f.label}${f.required ? ' *' : ''}`}
+                                value={(config.fields?.[f.key] ?? (f.maps ? (config as any)[f.maps] : '') ?? '') as string}
+                                onChange={v => setConfig(p => ({
+                                  ...p,
+                                  fields: { ...(p.fields || {}), [f.key]: v },
+                                  ...(f.maps ? { [f.maps]: v } : {}),
+                                }))}
+                                ph={f.placeholder || ''}
+                                secret={!!f.secret}
+                              />
+                              {f.help && (
+                                <p style={{ fontSize: 10.5, color: 'var(--txt-3)', marginTop: 3 }}>{f.help}</p>
+                              )}
+                            </div>
+                          ));
+                        })()}
                         <div style={{ gridColumn: '1/-1' }}>
                           {/* الحقلُ الذي كان مخفيًّا فيقرّر مصيرَ الشحن. صفٌّ بلا
                               مزوّدٍ يعمل «كأنّه» مربوط ثمّ يُنتج شحنةً وهميّة. */}

@@ -20,7 +20,7 @@
 //   ٤٤١ مدينةً في Livo — **افحص، لا تفترض** (القاعدة في contract.js).
 // ============================================================
 
-const { makeQuote, pickArray } = require('../contract');
+const { makeQuote, pickArray, readCredentials } = require('../contract');
 
 const meta = {
   id: 'promo_livraison',
@@ -30,6 +30,22 @@ const meta = {
   version: '1.0',
   // تُعرِّف الشركةُ نفسَها بنطاقها؛ لا أحدَ خارج هذا الملفّ يعرف اسمَ النطاق.
   match: { hosts: ['promo-livraison.ma'] },
+  // ما تطلبه هذه الشركةُ بالضبط — تبني الواجهةُ النموذجَ من هنا.
+  credentials: [
+    {
+      key: 'token', label: 'الرمز (Token)', required: true, secret: true,
+      maps: 'apiKey', placeholder: 'انسخه من لوحة البائع',
+      help: 'لوحة البائع في promo-livraison.ma ← قسم API',
+    },
+    {
+      key: 'sellerId', label: 'مُعرِّف البائع (ID)', required: false,
+      placeholder: 'اختياريّ',
+      // ليس في وثيقتهم الحاليّة، لكنّ حساباتٍ متعدّدةَ المتاجر تطلبه. مُعلَنٌ
+      // غيرَ إجباريّ: يُرسَل إن مُلئ، ولا يُعطِّل الربطَ إن تُرك فارغًا —
+      // فلا نمنع تاجرًا اليوم بحقلٍ قد تطلبه الشركةُ غدًا.
+      help: 'اتركه فارغًا إن لم تُعطِك الشركةُ مُعرِّفًا منفصلًا',
+    },
+  ],
 };
 
 const capabilities = {
@@ -82,7 +98,11 @@ async function _post(fields, cfg) {
     if (v === undefined || v === null) continue;
     body.append(k, String(v));
   }
-  body.append('token', cfg?.apiKey || '');
+  // القراءةُ عبر العقد لا من العمود مباشرةً: الحقلُ قد يسكن `fields` أو
+  // `api_key`، والمزوّدُ لا يعنيه أيُّهما.
+  const creds = readCredentials(cfg, meta.credentials);
+  body.append('token', creds.token || '');
+  if (creds.sellerId) body.append('seller_id', creds.sellerId);
   const res = await fetch(_url(cfg), {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

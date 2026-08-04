@@ -9,6 +9,12 @@ const meta = {
   id: 'livo', name: 'Livo', country: 'MA', currency: 'MAD', version: '1.0',
   // تُعرِّف Livo نفسَها بنطاقاتها؛ لا أحدَ خارج هذا الملفّ يعرف أنّها «livo.ma».
   match: { hosts: ['livo.ma'] },
+  credentials: [
+    { key: 'apiKey', label: 'مفتاح API', required: true, secret: true, maps: 'apiKey',
+      placeholder: 'sk_live_…', help: 'my.livo.ma ← API ← Generate key' },
+    { key: 'apiEndpoint', label: 'نقطة نهاية API', required: false, maps: 'apiEndpoint',
+      placeholder: 'https://rest.livo.ma', help: 'اتركها فارغةً للافتراضيّ' },
+  ],
 };
 
 const capabilities = {

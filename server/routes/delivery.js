@@ -6,6 +6,7 @@ const { db } = require('../database');
 
 // سجلُّ المزوّدين — يكتشفهم بمسح المجلّد. لا استيرادَ باسم شركةٍ هنا.
 const registry = require('../services/delivery/registry');
+const { missingCredentials } = require('../services/delivery/contract');
 const cityEngine = require('../lib/cityEngine');
 const pricing = require('../lib/pricingEngine');
 const { resolveDeliveryFee } = require('../lib/deliveryPricing');
@@ -402,6 +403,7 @@ router.post('/track/:orderId', auth, async (req, res) => {
 router.post('/verify/:providerRowId', auth, async (req, res) => {
   const checks = [];
   let unmatchedCities = [];
+  let tariffs = [];
   const add = (key, label, ok, detail) => checks.push({ key, label, ok, detail: detail || '' });
   try {
     const rows = await db.getDeliveryProviders(req.user.id);
@@ -436,13 +438,20 @@ router.post('/verify/:providerRowId', auth, async (req, res) => {
     add('plugin', 'قناة الربط', true, `${chosen.label} (${chosen.kind === 'provider' ? 'مزوّد' : 'وسيلة اتصال'})`);
 
     const plugin = chosen.handler;
-    add('credentials', 'بيانات الاعتماد مُدخَلة', !!row.apiKey,
-      row.apiKey ? 'مفتاحٌ محفوظٌ ومشفَّر' : 'لا مفتاح — أدخِله أوّلًا');
 
-    // الفحصُ الحقيقيّ: المفتاحُ يُجرَّب على الشركة نفسِها.
+    // أيُّ حقلٍ ينقص **بالاسم**. كان الفحصُ يسأل عن `apiKey` وحدَه، فشركةٌ
+    // تطلب مُعرِّفًا ومفتاحًا تمرّ بنصف اعتمادها ثمّ تُرفَض عند الشركة —
+    // فيقرأ التاجرُ «رفضت الشركةُ المفتاح» ويبدّل مفتاحًا سليمًا بلا جدوى.
+    const credSpec = plugin.meta?.credentials;
+    const missing = missingCredentials(row, credSpec);
+    const hasCreds = credSpec?.length ? missing.length === 0 : !!row.apiKey;
+    add('credentials', 'بيانات الاعتماد مُدخَلة', hasCreds,
+      hasCreds ? 'محفوظةٌ ومشفَّرة' : `ينقص: ${missing.join(' · ') || 'المفتاح'}`);
+
+    // الفحصُ الحقيقيّ: الاعتمادُ يُجرَّب على الشركة نفسِها.
     if (typeof plugin.testConnection === 'function') {
-      if (!row.apiKey) {
-        add('auth', 'الشركة تقبل المفتاح', false, 'لا مفتاحَ ليُجرَّب');
+      if (!hasCreds) {
+        add('auth', 'الشركة تقبل المفتاح', false, 'لا اعتمادَ كاملًا ليُجرَّب');
       } else {
         try {
           const ok = await plugin.testConnection(row);
@@ -482,6 +491,26 @@ router.post('/verify/:providerRowId', auth, async (req, res) => {
       }
     }
 
+    // جدولُ الأثمان — «كلُّ ما تُقدّمه الشركة» لا المدنَ وحدَها. ثمنُ التوصيل
+    // أوّلُ ما يسأل عنه الزبون، ومَن تنشره شركتُه عبر API لا يُعقل أن يكتبه
+    // بيده. مَن لا تُقدّمه شركتُه لا يرى هذا السطر أصلًا — لا فحصٌ فاشلٌ ولا
+    // وعدٌ بما لا نملك.
+    if (plugin.capabilities?.pricing === 'api' && typeof plugin.getTariffs === 'function') {
+      try {
+        const t = await plugin.getTariffs(row);
+        if (!t?.success) {
+          add('tariffs', 'قراءة أثمان الشركة', false, t?.error || 'فشلت القراءة');
+        } else {
+          const list = Array.isArray(t.tariffs) ? t.tariffs : [];
+          add('tariffs', 'قراءة أثمان الشركة', true,
+            list.length ? `${list.length} سطرَ ثمن` : 'لا أسطرَ ثمنٍ منشورة');
+          tariffs = list;
+        }
+      } catch (e) {
+        add('tariffs', 'قراءة أثمان الشركة', false, e.message);
+      }
+    }
+
     // الخرائطُ المحفوظة — هل رُبطت العناصرُ فعلًا؟
     try {
       const maps = await db.getCityMappings(req.user.id, row.id);
@@ -491,7 +520,7 @@ router.post('/verify/:providerRowId', auth, async (req, res) => {
 
     const failed = checks.filter(c => c.ok === false);
     // المدنُ التي لم يفهمها المحرّك تخرج صراحةً: تُعرَض هنا لا عند أوّل شحنةٍ فاشلة.
-    res.json({ success: failed.length === 0, provider: row.name, checks, unmatched: unmatchedCities });
+    res.json({ success: failed.length === 0, provider: row.name, checks, unmatched: unmatchedCities, tariffs });
   } catch (e) {
     console.error('[delivery/verify]', e.message);
     res.status(500).json({ error: 'Server error' });

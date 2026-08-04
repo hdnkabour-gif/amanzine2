@@ -8,6 +8,12 @@ const { makeQuote } = require('../contract');
 const meta = {
   id: 'jibli', name: 'Jibli', country: 'MA', currency: 'MAD', version: '1.0',
   match: { hosts: ['jibli.ma'] },
+  credentials: [
+    { key: 'apiKey', label: 'مفتاح API (X-API-Key)', required: true, secret: true, maps: 'apiKey',
+      help: 'لوحة البائع في jibli.ma ← الإعدادات ← API' },
+    { key: 'apiEndpoint', label: 'نقطة نهاية API', required: false, maps: 'apiEndpoint',
+      placeholder: 'https://api.jibli.ma' },
+  ],
 };
 
 const capabilities = {

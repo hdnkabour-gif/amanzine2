@@ -181,6 +181,30 @@ test('انقطاعُ الشبكة يُعاد فشلًا موصوفًا — لا 
   } finally { global.fetch = real; }
 });
 
+test('مُعرِّفُ البائع يُرسَل إن مُلئ — ويُحذَف إن تُرك فارغًا', async () => {
+  // حقلٌ اختياريٌّ لا يُرسَل فارغًا: بعضُ الواجهات ترفض المفتاحَ الفارغَ
+  // بدل تجاهله، فيصير حقلٌ لم يملأه التاجرُ سببَ رفضٍ لا يفهمه.
+  let s = stub({ status: 200, msg: 'ok', tracking: 'T1' });
+  try {
+    await pl.createShipment(ORDER, { ...CFG, fields: { sellerId: 'S-42' } });
+    assert.equal(parse(s.calls[0].body).seller_id, 'S-42');
+  } finally { s.restore(); }
+
+  s = stub({ status: 200, msg: 'ok', tracking: 'T1' });
+  try {
+    await pl.createShipment(ORDER, CFG);
+    assert.equal('seller_id' in parse(s.calls[0].body), false);
+  } finally { s.restore(); }
+});
+
+test('الرمزُ يُقرأ من الحقيبة كما يُقرأ من العمود القديم', async () => {
+  const s = stub({ status: 200, msg: 'ok', tracking: 'T1' });
+  try {
+    await pl.createShipment(ORDER, { apiEndpoint: CFG.apiEndpoint, fields: { token: 'من-الحقيبة' } });
+    assert.equal(parse(s.calls[0].body).token, 'من-الحقيبة');
+  } finally { s.restore(); }
+});
+
 test('المزوّدُ يطابق العقدَ ويُسجَّل تلقائيًّا بمسح المجلّد', async () => {
   const { validateProvider } = require('../services/delivery/contract');
   assert.deepEqual(validateProvider(pl), []);

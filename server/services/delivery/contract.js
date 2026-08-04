@@ -61,11 +61,43 @@
  * @property {string}  [error]
  */
 
+/**
+ * وصفُ حقلِ اعتماد. كلُّ شركةٍ تطلب شيئًا مختلفًا: هذه رمزًا واحدًا، وتلك
+ * مُعرِّفَ حسابٍ **مع** مفتاح، وثالثةٌ اسمَ مستخدمٍ وكلمةَ سرّ.
+ *
+ *   وكان الحلُّ السابق حقلًا واحدًا اسمه «مفتاح API» يُعرَض للجميع. فمن
+ *   احتاج مُعرِّفًا ثانيًا لم يجد أين يضعه، ومن لم يحتج المفتاحَ رأى حقلًا
+ *   لا معنى له. والأسوأ: التاجرُ يملأ ما يظنّه صحيحًا ثمّ يُقال له «الشركة
+ *   رفضت المفتاح» بلا بيانِ أيِّ حقلٍ نقص.
+ *
+ *   الآن يُعلن كلُّ مزوّدٍ حقولَه، فتبني الواجهةُ النموذجَ منها بلا أن تعرف
+ *   اسمَ شركةٍ واحدة — وإضافةُ شركةٍ تطلب ثلاثةَ حقولٍ لا تُعدّل الواجهة.
+ *
+ * @typedef {Object} CredentialField
+ * @property {string}  key       مفتاحُ التخزين (لاتينيّ، بلا مسافات)
+ * @property {string}  label     كما يُعرَض للتاجر
+ * @property {boolean} [required]
+ * @property {boolean} [secret]  يُخفى في الواجهة ولا يظهر في السجلّات
+ * @property {string}  [help]    أين يجده التاجر عند الشركة
+ * @property {string}  [placeholder]
+ * @property {'apiKey'|'apiEndpoint'|'username'|'password'} [maps]
+ *           يُخزَّن في عمودٍ قياسيٍّ بدل `fields` — للحقول التي لها عمودٌ أصلًا.
+ */
+
 /** الدوالُّ التي يجب أن يُصدِّرها كلُّ مزوّد. */
 const REQUIRED_METHODS = ['createShipment'];
 
-/** دوالٌّ اختياريّة — غيابُها يعني «هذه القدرة غيرُ مدعومة»، لا عطبًا. */
-const OPTIONAL_METHODS = ['trackShipment', 'getCities', 'calculateQuote', 'testConnection'];
+/**
+ * دوالٌّ اختياريّة — غيابُها يعني «هذه القدرة غيرُ مدعومة»، لا عطبًا.
+ *
+ *   `getTariffs` أُضيفت لأنّ «جلبَ كلِّ ما تُقدّمه الشركة» كان يعني المدنَ
+ *   وحدَها. وبعضُ الشركات تنشر جدولَ أثمانها عبر API، وثمنُ التوصيل هو أوّلُ
+ *   ما يسأل عنه الزبون. مَن لا يُقدّمه لا يُصدّرها، وتبقى `pricing:'rules'`.
+ */
+const OPTIONAL_METHODS = ['trackShipment', 'getCities', 'getTariffs', 'calculateQuote', 'testConnection'];
+
+/** الأعمدةُ القياسيّة التي يجوز لحقلِ اعتمادٍ أن يُخزَّن فيها. */
+const CREDENTIAL_COLUMNS = ['apiKey', 'apiEndpoint', 'username', 'password'];
 
 const DEFAULT_CAPABILITIES = {
   cities: 'none', pricing: 'none', tracking: 'none', cod: false, pickup: false,
@@ -92,6 +124,28 @@ function validateProvider(mod) {
     const h = mod.meta.match?.hosts;
     if (!Array.isArray(h) || h.some(x => typeof x !== 'string' || !x.trim())) {
       problems.push('meta.match.hosts يجب أن يكون مصفوفةَ نطاقاتٍ نصّيّة');
+    }
+  }
+  // حقولُ الاعتماد اختياريّة، لكنّها إن وُجدت مشوّهةً بنت الواجهةُ نموذجًا
+  // معطوبًا — والتاجرُ يملأ حقلًا لا يصل الشركةَ ولا يعرف لماذا فشل الربط.
+  if (mod.meta && mod.meta.credentials !== undefined) {
+    const list = mod.meta.credentials;
+    if (!Array.isArray(list)) {
+      problems.push('meta.credentials يجب أن يكون مصفوفة');
+    } else {
+      const seen = new Set();
+      list.forEach((f, i) => {
+        if (!f || typeof f !== 'object') { problems.push(`credentials[${i}] ليس كائنًا`); return; }
+        if (typeof f.key !== 'string' || !/^[a-zA-Z][a-zA-Z0-9_]*$/.test(f.key)) {
+          problems.push(`credentials[${i}].key غيرُ صالح`);
+        } else if (seen.has(f.key)) {
+          problems.push(`credentials[${i}].key مكرّر: ${f.key}`);
+        } else seen.add(f.key);
+        if (typeof f.label !== 'string' || !f.label.trim()) problems.push(`credentials[${i}].label مفقود`);
+        if (f.maps !== undefined && !CREDENTIAL_COLUMNS.includes(f.maps)) {
+          problems.push(`credentials[${i}].maps غيرُ معروف: ${f.maps}`);
+        }
+      });
     }
   }
   for (const m of REQUIRED_METHODS) {
@@ -169,7 +223,49 @@ function makeQuote(partial = {}) {
   };
 }
 
+/**
+ * يقرأ قيمَ الاعتماد لمزوّدٍ من صفّ الإعداد — **مصدرٌ واحدٌ للقراءة**.
+ *
+ *   القيمُ تسكن مكانَين: أعمدةٌ قياسيّةٌ قديمة (`api_key`, `api_endpoint`…)
+ *   وحقيبةُ `fields` العامّة. ولو قرأ كلُّ مزوّدٍ بنفسه لتفرّقت القاعدة، وعاد
+ *   كلُّ ملفٍّ يعرف أين تُخزَّن الأشياء — وهو ما تتجنّبه هذه الطبقةُ أصلًا.
+ *
+ *   المزوّدُ يقول «أريد `token` و`sellerId`»، ويأخذهما. لا يعرف أنّ الأوّلَ
+ *   في عمودٍ والثاني في JSONB، ولا يتغيّر إن انتقلا غدًا.
+ *
+ * @param {object} cfg صفُّ `delivery_providers` كما تُعيده القاعدة
+ * @param {CredentialField[]} [spec] وصفُ الحقول (meta.credentials)
+ * @returns {Record<string,string>}
+ */
+function readCredentials(cfg, spec) {
+  const out = {};
+  const bag = (cfg && typeof cfg.fields === 'object' && cfg.fields) || {};
+  for (const f of Array.isArray(spec) ? spec : []) {
+    if (!f || typeof f.key !== 'string') continue;
+    // الحقيبةُ أوّلًا: ما كتبه التاجرُ صراحةً لهذا الحقل يغلب العمودَ القديم،
+    // وإلّا لظلّ مفتاحٌ قديمٌ منسيٌّ في `api_key` يغلب ما أدخله اليوم.
+    const v = bag[f.key] != null && String(bag[f.key]).trim() !== ''
+      ? bag[f.key]
+      : (f.maps ? cfg?.[f.maps] : undefined);
+    out[f.key] = v == null ? '' : String(v);
+  }
+  return out;
+}
+
+/**
+ * الحقولُ المطلوبةُ الناقصة — لتقول الواجهةُ **أيَّ** حقلٍ ينقص بالاسم،
+ * بدل «رفضت الشركةُ المفتاح» التي لا تدلّ على شيء.
+ * @returns {string[]} تسمياتُ الحقول الناقصة
+ */
+function missingCredentials(cfg, spec) {
+  const vals = readCredentials(cfg, spec);
+  return (Array.isArray(spec) ? spec : [])
+    .filter(f => f.required && !String(vals[f.key] || '').trim())
+    .map(f => f.label);
+}
+
 module.exports = {
-  REQUIRED_METHODS, OPTIONAL_METHODS, DEFAULT_CAPABILITIES,
+  REQUIRED_METHODS, OPTIONAL_METHODS, DEFAULT_CAPABILITIES, CREDENTIAL_COLUMNS,
   validateProvider, normalizeCapabilities, makeQuote, pickArray, pickObject,
+  readCredentials, missingCredentials,
 };
