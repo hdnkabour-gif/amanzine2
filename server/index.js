@@ -60,8 +60,16 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'",            // React needs inline scripts
         'https://accounts.google.com', 'https://apis.google.com',
         'https://connect.facebook.net',
+        // **hCaptcha — وثالثةُ مرّةٍ يقع فيها هذا الصنف بالذات.**
+        //   الودجت مكتوبٌ في `Storefront` والسكربتُ يُحقَن، لكنّ النطاقَ محجوبٌ
+        //   هنا. فلا يُحمَّل شيءٌ، ويبقى المربّعُ فارغًا، ثمّ يضغط الزبونُ
+        //   «أكّد» فيُقال له **«أكمل التحقّق الأمنيّ أولًا»** — تحقّقٌ لا وجودَ
+        //   له على الشاشة. النتيجة: **الطلبُ لا يُرسَل أبدًا** في الإنتاج،
+        //   وكلُّ سلّةٍ تموت عند آخر زرّ.
+        'https://js.hcaptcha.com', 'https://hcaptcha.com', 'https://*.hcaptcha.com',
       ],
-      styleSrc:  ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://accounts.google.com'],
+      styleSrc:  ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://accounts.google.com',
+        'https://hcaptcha.com', 'https://*.hcaptcha.com'],
       imgSrc:    ["'self'", 'data:', 'https:', 'blob:'],  // base64 product images
       connectSrc:["'self'",
         'https://api.openai.com',
@@ -69,9 +77,12 @@ app.use(helmet({
         'https://graph.facebook.com',
         'https://accounts.google.com', 'https://oauth2.googleapis.com',
         'https://www.googleapis.com',
+        'https://hcaptcha.com', 'https://*.hcaptcha.com',
       ],
       // One Tap ونافذةُ الاختيار تعملان داخل إطار — بلا frameSrc تُحجَبان.
-      frameSrc:  ["'self'", 'https://accounts.google.com', 'https://www.facebook.com', 'https://staticxx.facebook.com'],
+      // وhCaptcha كذلك: تحدّيه كلُّه داخل إطار.
+      frameSrc:  ["'self'", 'https://accounts.google.com', 'https://www.facebook.com', 'https://staticxx.facebook.com',
+        'https://hcaptcha.com', 'https://*.hcaptcha.com'],
       fontSrc:   ["'self'", 'https://fonts.gstatic.com', 'data:'],
       mediaSrc:  ["'self'", 'blob:'],
       objectSrc: ["'none'"],

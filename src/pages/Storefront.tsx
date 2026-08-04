@@ -739,10 +739,34 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
   const cur=storeInfo.brand.currency||'MAD';
   useBackToClose(true,onClose);
   const hcapKey=storeInfo.hcaptchaSiteKey||'';
+  // **مربّعُ التحقّق: يُحمَّل مرّةً، ويُرسَم كلَّ مرّة.**
+  //
+  //   العطبُ الأوّل: نطاقُ hCaptcha كان محجوبًا في سياسة الأمان بالإنتاج، فلا
+  //   يُحمَّل السكربتُ أصلًا ويبقى المربّعُ فارغًا — ثمّ يُقال للزبون «أكمل
+  //   التحقّق الأمنيّ أولًا» عن شيءٍ لا يراه. (أُصلح في `server/index.js`.)
+  //
+  //   والثاني هنا: hCaptcha يمسح الصفحةَ **عند تحميل سكربته فقط**. فمن أغلق
+  //   السلّةَ وفتحها ثانيةً يجد الخانةَ فارغةً أبدًا، لأنّ السكربتَ محمَّلٌ
+  //   سلفًا ولا يمسح من جديد. الرسمُ الصريحُ يعالجه.
   useEffect(()=>{
     if(step!=='checkout'||!hcapKey)return;
-    if(document.getElementById('hcap-script'))return;
-    const sc=document.createElement('script');sc.id='hcap-script';sc.src='https://js.hcaptcha.com/1/api.js';sc.async=true;document.head.appendChild(sc);
+    let alive=true;
+    const draw=()=>{
+      if(!alive)return;
+      const api=(window as any).hcaptcha;
+      const box=document.getElementById('hcap-box');
+      if(!api?.render||!box||box.childElementCount>0)return;
+      try{api.render('hcap-box',{sitekey:hcapKey,theme:'dark'});}catch{/* مرسومٌ سلفًا */}
+    };
+    if(!document.getElementById('hcap-script')){
+      const sc=document.createElement('script');sc.id='hcap-script';
+      sc.src='https://js.hcaptcha.com/1/api.js?render=explicit';sc.async=true;
+      sc.onload=draw;document.head.appendChild(sc);
+    } else draw();
+    // السكربتُ قد يكون قيد التحميل — نحاول مرّاتٍ قليلةً ثمّ نتوقّف.
+    const t=setInterval(draw,400);
+    const stop=setTimeout(()=>clearInterval(t),6000);
+    return()=>{alive=false;clearInterval(t);clearTimeout(stop);};
   },[step,hcapKey]);
 
   const promo=storeInfo.promotions;
@@ -806,7 +830,7 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
             <div><div style={{fontSize:12,fontWeight:700,color:DS.textTertiary,marginBottom:8}}>{T('ct.discountCode')}</div><div style={{display:'flex',gap:8}}><input style={{...inpStyle,flex:1,textTransform:'uppercase'}} placeholder={T('ct.enterCode')} value={couponCode} onChange={e=>{setCouponCode(e.target.value.toUpperCase());setCouponMsg('');}} dir="ltr"/><button onClick={applyCoupon} style={{padding:'0 16px',borderRadius:DS.radiusSm,background:DS.glassBg,border:DS.glassBorder,color:DS.textSecondary,fontSize:12,fontWeight:600,cursor:'pointer'}}>{T('ct.apply')}</button></div>{couponMsg&&<div style={{fontSize:11,marginTop:6,color:couponDiscount>0?'#10B981':'#EF4444',fontWeight:600}}>{couponMsg}</div>}</div>
             <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,color:DS.textSecondary}}><input type="checkbox" checked={form.subscribe} onChange={e=>setForm(f=>({...f,subscribe:e.target.checked}))} style={{accentColor:DS.purple,width:14,height:14}}/>{T('ct.wantOffers')}</label>
             <div style={{background:DS.glassBg,borderRadius:DS.radiusMd,padding:'16px',border:DS.glassBorder}}><div style={{fontSize:12,fontWeight:700,color:DS.textTertiary,marginBottom:10}}>{T('ct.orderSummary')}</div>{cart.items.map((item,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:DS.textSecondary,marginBottom:5}}><span>{item.product.name} ×{item.quantity}</span><span>{(item.product.price*item.quantity+(item.giftWrap?15:0)).toLocaleString()} {cur}</span></div>)}<div style={{paddingTop:10,borderTop:`1px solid ${DS.border}`,marginTop:10,display:'flex',flexDirection:'column',gap:5}}><div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:DS.textSecondary}}><span>{T('ct.subtotal')}</span><span>{cart.total.toLocaleString()} {cur}</span></div>{bestDiscount>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#10B981',fontWeight:600}}><span>{discountLabel}</span><span>-{bestDiscount.toLocaleString()} {cur}</span></div>}<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:freeShipping?'#10B981':DS.textSecondary,fontWeight:freeShipping?700:400}}><span>{T('ct.delivery')}</span><span>{freeShipping?T('ct.freeMark'):form.city?`${deliveryCost} ${cur}`:'—'}</span></div><div style={{display:'flex',justifyContent:'space-between',fontSize:16,fontWeight:900,paddingTop:8,borderTop:`1px solid ${DS.border}`}}><span>{T('ct.total')}</span><span style={{color:DS.orangeLight}}>{grandTotal.toLocaleString()} {cur}</span></div></div></div>
-            {hcapKey&&<div style={{display:'flex',justifyContent:'center'}}><div className="h-captcha" data-sitekey={hcapKey} data-theme="dark"/></div>}
+            {hcapKey&&<div style={{display:'flex',justifyContent:'center'}}><div id="hcap-box"/></div>}
             <button onClick={handleOrder} disabled={loading} style={{width:'100%',height:52,borderRadius:DS.radiusFull,background:'#25D366',border:'none',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',opacity:loading?0.7:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>{loading?T('svc.sending'):<><MessageCircle size={16}/> {T('ct.confirmWA')}</>}</button>
             <button onClick={()=>setStep('cart')} style={{background:'none',border:'none',color:DS.textTertiary,cursor:'pointer',fontSize:12,padding:6}}>{T('ct.back')}</button>
           </div>
