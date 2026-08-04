@@ -110,6 +110,11 @@ const RAW: Blueprint[] = [
     { key: 'profession', label: 'المهنة', type: 'text', required: true, weight: 16 },
     { key: 'specialties', label: 'التخصّصات', type: 'text', weight: 10, hint: 'مثلاً: مطابخ، أبواب، خزائن' },
     { key: 'city', label: 'المدينة', type: 'city', required: true, weight: 12 },
+    // **الحيُّ يصنع القُرب.** «كوافير في الدار البيضاء» لا تعني شيئًا لمن يسكن
+    // على بُعد عشرين كيلومترًا؛ «كوافير في حي الألفة» تعني «هادا قريب منّي».
+    // وكان `resolveCity` يستخرجه من الجملة ثمّ يُرمى لأنّ لا حقلَ يستقبله —
+    // نفسُ عطبِ «لا سؤالَ بلا مستقرّ» مقلوبًا: جوابٌ بلا خانة.
+    { key: 'district', label: 'الحيّ', type: 'text', weight: 11, hint: 'الزبناء كيقلّبو على اللي قريب منهم' },
     { key: 'experience', label: 'سنوات الخبرة', type: 'number', weight: 8 },
     { key: 'mobile', label: 'كتمشي عند الزبون؟', type: 'toggle', weight: 6 },
     { key: 'hours', label: 'أوقات العمل', type: 'text', weight: 6 },

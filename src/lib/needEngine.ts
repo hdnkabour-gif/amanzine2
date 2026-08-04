@@ -834,7 +834,27 @@ function humanResult(intent: HumanIntent): NeedResult | null {
 export function parseNeed(raw: string, ctx: NeedContext = {}): NeedResult {
   // طبقةٌ أولى — «ماذا يحاول هذا الإنسان أن يفعل؟» قبل تصنيف المهنة/المنتج.
   const human = readHuman(raw);
-  const hr = human.intent !== 'NONE' ? humanResult(human.intent) : null;
+  let hr = human.intent !== 'NONE' ? humanResult(human.intent) : null;
+
+  // **لا تسأل سؤالًا تعرف جوابه.**
+  //
+  //   قياسٌ من أهمّ لحظةٍ في المشروع — الحلّاقُ يكتب في محلّه «عندي محل حلاقة»:
+  //     المفهوم:  `barber` ✓ محلول
+  //     النيّة:   `create_service` ✓ صحيحة
+  //     والسؤال: «شنو نوع الخدمة اللي كتقدّم؟ 🔧 حرفيّ / 🎓 مهنيّ / 🏪 محلّ»
+  //
+  //   يعرف أنّه حلّاقٌ ثمّ يسأله إن كان حرفيًّا أم مهنيًّا. والسحرُ يموت هناك.
+  //   السببُ بنيويّ: طبقةُ النيّة الإنسانيّة تُجيب أوّلًا وتُرجع سؤالَ تصنيفٍ
+  //   عامًّا، فلا يصل الدورُ إلى المعرفة التي حلّت المفهومَ سلفًا.
+  //
+  //   والشرطُ ضيّقٌ عمدًا: يسقط **سؤالُ التصنيف** وحدَه حين يكون المجالُ
+  //   معلومًا. أمّا الاستيضاحاتُ الأخرى فتبقى — من قال «عندي مشكل» يُسأل عن
+  //   مشكله ولو عرفنا جهازَه.
+  const DOMAIN_QUESTIONS = ['service_kind', 'problem_kind'];
+  if (hr?.steps?.length && DOMAIN_QUESTIONS.includes(hr.steps[0].clarifyId || '')
+      && categoryForConcept(resolveConcept(raw)?.id)) {
+    hr = null;                       // نعرف المجال ⇒ لا نسأل عنه، نُكمل بالمعرفة
+  }
   // الموقفُ يُحسَب مرّةً ويُرافق النتيجةَ إلى آخرها — لا يُحسَب ثمّ يُرمى.
   const stance = stanceOf(raw);
   if (hr) {

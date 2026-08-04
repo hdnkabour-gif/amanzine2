@@ -8,7 +8,7 @@
 // ============================================================
 
 import { categoryForConcept } from './catalog';
-import { resolveConcept } from './akg/kb/knowledge';
+import { resolveConcept, resolveCity } from './akg/kb/knowledge';
 import { extractContexts } from './akg/kb/contexts';
 import { understand } from './akg/kb';
 
@@ -75,7 +75,11 @@ function baseInfer(raw: string): Inferred[] {
     .replace(/(^|\s)(ب|بـ|في|ف)(?=\s|$)/g, ' ')   // إزالة حروف جرّ الثمن المتبقّية
     .replace(/\s+/g, ' ').trim();
 
-  if (title) { out.push({ key: 'title', label: 'العنوان', value: title.slice(0, 60), confidence: 0.85 }); out.push({ key: 'profession', label: 'المهنة', value: title.slice(0, 40), confidence: 0.85 }); }
+  // **المهنةُ مفهومٌ لا جملة.** كان العنوانُ المستخرَجُ يملأ خانةَ المهنة
+  // أيضًا، فيرى الحلّاقُ في محلّه: «المهنة: محل حلاقة فحي الألفة الدار
+  // البيضاء». اسمُ المهنةِ يأتي من المعرفة وحدَها (أسفلُ في `kbInfer`)،
+  // والعنوانُ يبقى عنوانًا.
+  if (title) out.push({ key: 'title', label: 'العنوان', value: title.slice(0, 60), confidence: 0.85 });
   if (price) { out.push({ key: 'price', label: 'الثمن', value: price, confidence: 0.9 }); out.push({ key: 'dailyPrice', label: 'الثمن اليوميّ', value: price, confidence: 0.9 }); }
   if (year) out.push({ key: 'year', label: 'السنة', value: year[0], confidence: 0.85 });
   for (const [kw, c] of CATMAP) if (t.includes(kw)) { out.push({ key: 'category', label: 'الفئة', value: c, confidence: 0.8 }); break; }
@@ -116,6 +120,20 @@ function kbInfer(raw: string): Inferred[] {
     // المعرفة أدقّ من استخراج النصّ الخام → ثقة عالية تفوز على العنوان المستخرَج.
     out.push({ key: 'profession', label: 'المهنة', value: u.profession.label, confidence: 0.92 });
     if (u.problem) out.push({ key: 'specialties', label: 'التخصّص', value: u.problem.name, confidence: 0.7 });
+  } else if (found && cat?.kind === 'service') {
+    // **سجلُّ المهن يعرف عشرات، والمعرفةُ تعرف مئةً وسبعةً وتسعين.** «عندي محل
+    // حلاقة» يُحلّ إلى `barber` في المعرفة ولا يجد مهنةً في السجلّ، فتُترَك
+    // الخانةُ للعنوان المستخرَج. اسمُ المفهوم هو اسمُ المهنة.
+    out.push({ key: 'profession', label: 'المهنة',
+      value: found.concept?.ar || cat.label, confidence: 0.9, because: found.matched?.term });
+  }
+
+  // **الحيُّ كان يُستخرَج ويُرمى.** `resolveCity` يعرف «الألفة» حيًّا في الدار
+  // البيضاء، ولا حقلَ يستقبله — والحيُّ هو ما يجعل الزبونَ يقول «هادا قريب
+  // منّي». ولا يُفترَض إلّا مع مدينته: حيٌّ بلا مدينةٍ عنوانٌ ناقص.
+  const place = resolveCity(raw);
+  if (place?.city) {
+    if (place.district) out.push({ key: 'district', label: 'الحيّ', value: place.district, confidence: 0.88, because: place.district });
   }
   return out;
 }
