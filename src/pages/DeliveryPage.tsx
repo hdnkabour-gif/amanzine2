@@ -69,6 +69,10 @@ const TEMPLATES = [
   { name: 'Jibli Maroc', logo: '🚚', url: 'https://app.jibli.ma', loginUrl: 'https://app.jibli.ma/auth/login', addOrder: 'https://app.jibli.ma/shipments/create', guide: 'سجل على jibli.ma كبائع' },
   { name: 'Naqel', logo: '⚡', url: 'https://www.naqelexpress.com', loginUrl: 'https://merchant.naqelexpress.com/login', addOrder: '', guide: 'أنشئ حساب تاجر على naqelexpress.com' },
   { name: 'Livo', logo: '🛵', url: 'https://my.livo.ma', loginUrl: '', addOrder: '', apiEndpoint: 'https://rest.livo.ma', guide: 'REST API بمفتاح — الوثائق: my.livo.ma/api-docs' },
+  // الاسمُ هنا يجب أن يطابق `meta.name` في المزوّد حرفيًّا: الضغطةُ تبحث به
+  // في سجلّ الخادم لتضبط `apiType` تلقائيًّا. اختلافُ حرفٍ يعني قالبًا يملأ
+  // الحقولَ ويترك المزوّدَ فارغًا — فتُنشَأ شحنةٌ محاكاةٌ والتاجرُ يظنّها حقيقيّة.
+  { name: 'Promo Livraison', logo: '🚛', url: 'https://promo-livraison.ma', loginUrl: 'https://promo-livraison.ma/seller', addOrder: '', apiEndpoint: 'https://promo-livraison.ma/seller/api-parcels', guide: 'انسخ الرمز (Token) من لوحة البائع — الحقل «مفتاح API»' },
   { name: 'أخرى', logo: '🏢', url: '', loginUrl: '', addOrder: '', guide: 'أدخل بيانات شركتك يدوياً' },
 ];
 
