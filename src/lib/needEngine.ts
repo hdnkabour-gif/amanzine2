@@ -439,6 +439,21 @@ function coreParse(raw: string): NeedResult {
       next: 'نعرضو عليك المتوفّر قربك.',
     };
   }
+  // **الذراعُ الرابعة.** كانت ناقصةً، وقياسٌ كشفها: «كنقلب على ميكانيكي»
+  // ⇒ `buy` بينما «كنقلب على سباك» ⇒ `find_pro`. السببُ أنّ الحسمَ كان
+  // بقائمةِ أسماءِ أشخاصٍ مكتوبةٍ بيد (`SEEKS_PERSON`: مدرس · تقني · حرفي…)
+  // لا تعرف «ميكانيكي»؛ والمعرفةُ تعرفه خدمةً منذ البداية. **قاعدةٌ لا قائمة**:
+  // مَن طلب خدمةً طلب إنسانًا يؤدّيها، لا سلعةً في السوق.
+  if (stance === 'seek' && kind === 'service' && known) {
+    return {
+      intent: 'find_pro',
+      label: known.concept?.ar || 'حِرفي',
+      color: 'var(--info,#3B82F6)',
+      tags: known.concept?.ar ? [`المطلوب → ${known.concept.ar}`] : [],
+      url: MARKET,
+      next: 'نلقّيو ليك اللي كيخدم هاد الخدمة قربك.',
+    };
+  }
   if (stance === 'offer' && kind === 'service') {
     return {
       intent: 'create_service',
