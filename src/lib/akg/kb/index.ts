@@ -24,12 +24,14 @@ export type { CityData } from './knowledgeData';
 export * from './concepts';
 export * from './knowledge';
 export * from './ambiguity';
+export * from './facts';
 export * from './knowledgeGraph';
 
 import { conceptsIn, normalize, type VocabEntry } from './vocabulary';
 import { deArabizi } from './arabizi';
 import { resolveConcept, resolveCity } from './knowledge';
 import { detectAmbiguity, type Ambiguity } from './ambiguity';
+import { detectFacts, FACT_LABEL, type FactTopic } from './facts';
 import { getProblem, type Problem } from './problems';
 import { findProblemBySymptom } from './symptomGraph';
 import { getProfession, findProfessionByLabel, type Profession } from './professions';
@@ -55,6 +57,9 @@ export interface Understanding {
   // حين تُملأ، **يُسأل الإنسانُ ولا يُخمَّن له** — التخمينُ يأخذه للمكان الخطأ
   // بلا أثرٍ يُراجَع، والسؤالُ يُنهي الأمرَ في ثانية.
   ambiguity?: Ambiguity;
+  // الوقائعُ المذكورة: «واش كاين التوصيل» لا مهنةَ فيها ولا مفهوم — تسأل عن
+  // واقعةٍ عن نسخة. تُقرأ مع stance: طلبًا إن سُئلت، خبرًا إن أُخبِر بها.
+  facts?: FactTopic[];
 }
 
 // الاتّجاه: بدونه كان «أنا حدّاد» يُفهَم كطلبٍ لحدّاد، فيردّ التطبيق «نقلبو عليه»
@@ -148,6 +153,19 @@ const OWNED = [
 ];
 /** ما يُعرَض للكراء صراحة: «عندي دار للكراء» · «كنكري محلّي». */
 const OFFER_RENT = ['للكراء عندي', 'كنكري', 'كنكريو', 'نكري ديالي'];
+// السؤالُ طلبٌ لا عرض. كانت «انا ف طنجة امتا توصلني» تُقرأ **عرضًا**، لأنّ
+// «أنا» في علامات العرض — والضميرُ وحدَه لا يعرض شيئًا؛ الزبونةُ تُعرِّف نفسَها
+// لا تعرض بضاعة. تُفحَص بعد علامات الطلب وقبل علامات العرض: من يسأل يطلب،
+// ولو ذكر نفسَه. وهذا يُصلح معه «شحال القياس» و«بشحال التوصيل» — كانتا بلا
+// اتّجاهٍ أصلًا، فيُعامَل السائلُ معاملةَ عابرٍ لا زبون.
+const QUESTION = ['امتا', 'اماتا', 'فوقاش', 'كيفاش', 'شحال', 'بشحال', 'شنو', 'اشنو', 'شني',
+  // «واش» أداةُ استفهامٍ خالصةٌ في الدارجة — لا تُقال إلّا سؤالًا.
+  'واش',
+  // «عندك» خطابٌ لغيرك: سؤالٌ عمّا يملكه هو، لا إخبارٌ عمّا تملك أنت.
+  // («عندي» تبقى علامةَ عرضٍ — الفرقُ حرفٌ واحدٌ ومعنًى مقلوب.)
+  'عندك',
+  // صيغةُ الأمر: «وريني كساوي اللي عندك» طلبٌ صريحٌ كانت تُقرأ بلا اتّجاه.
+  'وريني', 'وريهم', 'ورينا', 'وريها', 'صيفط ليا', 'بين ليا', 'بيّن ليا'];
 
 const HAS = ['عندي', 'عندنا', 'فيا', 'لدي', 'لديّ'];
 
@@ -199,6 +217,7 @@ function detectStance(t: string, c?: { stance?: { offer?: string[]; seek?: strin
   // الطلب يغلب العرض عند اجتماعهما: «عندي مشكل وبغيت سبّاك» طلبٌ لا عرض.
   const seek  = SEEK_MARKS.some(w => t.includes(w));
   if (seek) return 'seek';
+  if (QUESTION.some(w => t.includes(w))) return 'seek';
   if (OFFER_MARKS.some(w => t.includes(w))) return 'offer';
   return 'unknown';
 }
@@ -311,7 +330,17 @@ export function understand(input: string): Understanding {
   // ولو بقي غامضًا فالجوابُ الصحيح **سؤال** لا نتيجة. لا نُلغي ما فُهم — نُرفقه.
   const ambiguity = detectAmbiguity(text) || undefined;
   if (ambiguity) reasoning.push(`❓ «${ambiguity.term}» تحتمل معنيَين — نسأل بدل أن نُخمّن`);
-  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity };
+
+  // الوقائع: جملةٌ بلا مهنةٍ ليست بالضرورة جملةً بلا معنى. «بشحال التوصيل»
+  // سؤالٌ كاملُ الوضوح عن واقعة — كان يرجع فارغًا لأنّنا نبحث عن نوعٍ فقط.
+  const factList = detectFacts(text);
+  const facts = factList.length ? factList : undefined;
+  if (facts) {
+    reasoning.push(`📋 وقائع: ${facts.map(f => FACT_LABEL[f]).join(' · ')}`);
+    // فهمُ الواقعةِ فهمٌ حقيقيّ، ولو لم نُصِب مفهومًا — فلا نتركها بثقة البداية.
+    confidence = Math.max(confidence, 0.4);
+  }
+  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts };
 }
 
 export function resolveTerm(term: string) { return normalize(term); }

@@ -52,6 +52,16 @@ export const EXTRA_CONCEPTS: ConceptData[] = [
   C('womens_clothing', 'fashion', 'ملابس نسائية', 'حوايج النسا', 'Vêtements femmes', 'Women clothing',
     { darija: ['حوايج النسا', 'كسوة النسا', 'لباس نساء', 'لباس النسا'], ar: ['ملابس نسائية', 'ملابس النساء'], fr: ['vetements femmes', 'habits femmes'], en: ['women clothing', 'womenswear'] },
     ['بغيت نبيع قشاشة ديال النسا']),
+  // من زيارةٍ ميدانيّة لبائعةٍ تبيع من بيتها. سُمّيت البضاعةُ بأسمائها التي
+  // تُنطَق فعلًا — «الطرطاقت» و«اونصومبلات» — ولم يُصنع منها مفهومُ «بائعةٌ
+  // من البيت» ولا «توصيلٌ لكلّ المدن»: تلك **وقائعُ عن هذه البائعة** لا أنواعُ
+  // بضاعة، ومكانُها حقلُ المزوّد لا القاموس (القاعدة ① في عقد المعرفة).
+  C('baby_onesies', 'fashion', 'ملابس داخلية للرضّع', 'طرطاقة', 'Body bébé', 'Baby onesie',
+    { darija: ['طرطاقة', 'طرطاقات', 'طرطاقت', 'الطرطاقت', 'بودي ديال الدراري', 'بودي رضيع'], ar: ['ملابس داخلية للرضع', 'بودي أطفال', 'لباس داخلي للرضع'], fr: ['body bebe', 'bodys bebe'], en: ['baby onesie', 'baby bodysuit'] },
+    ['بغيت طرطاقات لولدي', 'واش عندك طرطاقة قياس ٦ شهور']),
+  C('clothing_sets', 'fashion', 'أطقم ملابس', 'اونصومبل', 'Ensembles', 'Clothing sets',
+    { darija: ['اونصومبل', 'اونصومبلات', 'انصومبل', 'انصومبلات', 'طقم', 'أطقم'], ar: ['طقم ملابس', 'أطقم ملابس'], fr: ['ensemble', 'ensembles'], en: ['clothing set', 'outfit set'] },
+    ['بغيت اونصومبل ديال الدراري']),
   C('used_clothing', 'fashion', 'ملابس مستعملة', 'قشاشة', 'Vêtements occasion', 'Second-hand clothing',
     { darija: ['قشاشة', 'حوايج مستعملة', 'لباس مستعمل', 'فريپ', 'frip'], ar: ['ملابس مستعملة', 'ملابس مستعمَلة'], fr: ['vetements occasion', 'friperie'], en: ['second hand clothes', 'used clothes'] },
     ['بغيت نشري قشاشة رخيصة']),

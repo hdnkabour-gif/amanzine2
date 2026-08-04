@@ -56,6 +56,37 @@ interface Match {
 }
 const stripAl = (t: string) => t.replace(/^ال/, '');
 const toks = (s: string) => s.split(/\s+/).map(stripAl).filter(t => t.length >= 2);
+
+// حارسُ المتغيّرات: المتغيّرُ **اسمٌ للمفهوم**، لا كلمةٌ تُصادَف في أيّ جملة.
+// كانت «بيع» و«شراء» متغيّرَين لوكالةٍ عقاريّة، و«واش كاين» متغيّرًا لمطعم —
+// وهي كلماتٌ يقولها كلُّ الناس عن كلّ شيء. فكانت «كنبيع كسيوات ديال الدراري»
+// تُفهَم **سمسارًا عقاريًّا**، و«واش كاين التوصيل» تُفهَم **مطعمًا**.
+//
+// والمصرفُ أسوأُ من الصمت: الصامتُ يُسأل فيُصحَّح، والمخطئُ يُرسِل الإنسانَ
+// إلى مكانٍ آخر وهو واثق. ولأنّ الفهرس يفوز فيه الأطول، تكفي كلمةٌ عامّةٌ
+// واحدةٌ في مفهومٍ واحدٍ لتبتلع بابًا كاملًا من الكلام.
+//
+// الحارسُ يُسقطها عند بناء الفهرس — للمدمَج وللمُضاف من الواجهة معًا، لأنّ
+// الأدمن قد يكتب «بيع» متغيّرًا بحسن نيّة فيعيد العطبَ من الباب الخلفيّ.
+const VARIANT_STOP = new Set([
+  // أدواتُ استفهامٍ وإشارة
+  'واش', 'كاين', 'كاينه', 'كاينين', 'فين', 'وين', 'شكون', 'شحال', 'بشحال',
+  'علاش', 'امتا', 'فوقاش', 'كيفاش', 'شنو', 'اشنو', 'هاد', 'هادي', 'هادو',
+  // أفعالُ طلبٍ وملكيّة
+  'بغيت', 'باغي', 'بغا', 'خاصني', 'محتاج', 'عندي', 'عندك', 'عندنا', 'عندكم',
+  // أفعالُ تجارةٍ عامّة — تصف الفعل لا نوعَ الشيء (القاعدة ①)
+  'بيع', 'شراء', 'شرا', 'نبيع', 'كنبيع', 'يبيع', 'باع', 'نشري', 'كنشري',
+  // ضمائرُ وحروفٌ وكلماتٌ حاملة
+  'انا', 'احنا', 'نتا', 'نتي', 'ديال', 'ليا', 'ليك', 'شي', 'واحد',
+  'من', 'في', 'على', 'مع', 'طلب', 'خدمه', 'محل', 'مول',
+]);
+// المتغيّرُ زائفٌ إن كانت **كلُّ** كلماته من القائمة. «مول الورد» تنجو لأنّ
+// «الورد» ليست منها — الحاملُ وحدَه هو الزائف، لا الحاملُ مع المحمول.
+function isJunkVariant(normalized: string): boolean {
+  const words = normalized.split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  return words.every(w => VARIANT_STOP.has(w) || VARIANT_STOP.has(stripAl(w)));
+}
 const arIndex: { term: string; tokens: string[]; c: Match }[] = [];
 const latIndex: { term: string; c: Match }[] = [];
 
@@ -66,7 +97,7 @@ for (const c of CONCEPTS) {
   };
   const aug = AUGMENT[c.id] || {};
   for (const t of [...(c.variants.ar || []), ...(c.variants.darija || []), ...(aug.ar || []), ...(aug.darija || [])]) {
-    const n = normArabic(t); if (n.length >= 2) arIndex.push({ term: n, tokens: toks(n), c: m });
+    const n = normArabic(t); if (n.length >= 2 && !isJunkVariant(n)) arIndex.push({ term: n, tokens: toks(n), c: m });
   }
   for (const t of [...(c.variants.fr || []), ...(c.variants.en || []), ...(c.variants.arabizi || []), ...(aug.fr || []), ...(aug.en || []), ...(aug.arabizi || [])]) {
     const n = normLatin(t); if (n.length >= 2) latIndex.push({ term: n, c: m });
@@ -88,7 +119,7 @@ export function registerRuntimeConcepts(list: ConceptData[]): number {
       services: c.services, fields: c.fields, examples: c.examples,
     };
     for (const t of [...(c.variants.ar || []), ...(c.variants.darija || [])]) {
-      const n = normArabic(t); if (n.length >= 2) { arIndex.push({ term: n, tokens: toks(n), c: m }); added++; }
+      const n = normArabic(t); if (n.length >= 2 && !isJunkVariant(n)) { arIndex.push({ term: n, tokens: toks(n), c: m }); added++; }
     }
     for (const t of [...(c.variants.fr || []), ...(c.variants.en || []), ...(c.variants.arabizi || [])]) {
       const n = normLatin(t); if (n.length >= 2) { latIndex.push({ term: n, c: m }); added++; }
@@ -147,6 +178,18 @@ const WASH_V = ['غسل', 'يغسل', 'نغسل', 'تغسيل', 'غسله', 'غ�
   'lavage', 'laver', 'wash', 'clean', 'nettoyage', 'rincage'];
 const DIRT_N = ['موسخ', 'موسخه', 'مسخه', 'متسخه', 'وسخ', 'طبعه', 'بقعه', 'تراب'];
 
+// ── الملابس: من زيارةٍ ميدانيّةٍ لبائعةٍ تبيع من بيتها ──
+// اللبسُ اسمُ جنسٍ واحد، والذي يُفرِّق المفهومَ هو **لِمَن**: نفسُ كلمة «كسوة»
+// تعني بضاعتَين مختلفتَين في محلٍّ واحد. ولذلك قاعدةٌ تركيبيّة (لبس + متلقٍّ)
+// لا متغيّراتٌ منفصلة: «كسوة لبنتي» و«كسوة ليا» لا يفترقان إلّا بالمتلقّي.
+const CLOTHES_N = ['كسوه', 'كساوي', 'كسيوات', 'كسوات', 'حوايج', 'ملابس', 'لباس', 'قشاشه',
+  'فستان', 'فساتين', 'قاميجه', 'قمصان', 'تيشورت', 'سروال', 'سراول', 'جلابه',
+  'tenue', 'habits', 'vetements', 'clothes', 'robe'];
+const KIDS_N = ['دراري', 'صغار', 'بنتي', 'ولدي', 'طفل', 'اطفال', 'رضيع', 'بيبي', 'مولود',
+  'ولاد', 'صغير', 'صغيره', 'enfant', 'enfants', 'bebe', 'kids', 'baby'];
+const WOMEN_N = ['نسا', 'نساء', 'مرا', 'مرتي', 'خيتي', 'بنات', 'femme', 'femmes', 'women'];
+const MEN_N = ['رجال', 'راجل', 'خويا', 'homme', 'hommes', 'men'];
+
 const COMPOSITE: { id: string; category: string; all: string[][] }[] = [
   // الأخصُّ أوّلًا: «لداخل» تُحوّل الغسلَ إلى خدمةٍ أخرى بثمنٍ ووقتٍ مختلفَين.
   // لو جاءت قاعدةُ الغسل العامّ قبلها لابتلعت «بغيت نسبيري لداخل» — والقواعدُ
@@ -164,7 +207,26 @@ const COMPOSITE: { id: string; category: string; all: string[][] }[] = [
   { id: 'car_body_repair', category: 'automotive', all: [['شرطه', 'خدشه', 'خدش', 'ضربه', 'بوسه', 'صدمه', 'طق', 'مهرس', 'raye', 'rayure', 'bosse', 'dent'], [...CAR, ...CAR_PART]] },
   { id: 'mechanic', category: 'automotive', all: [['يصلح', 'صلح', 'نصلح', 'مصلح', 'عطل', 'عطب', 'خربان', 'reparer', 'repair', 'fix', 'panne', 'frein'], CAR] },
   { id: 'sewing_machine_repair', category: 'home_services', all: [['ماكينه', 'ماكينة', 'machine', 'makina'], ['خياطه', 'خياطة', 'couture', 'sewing', 'خيط']] },
+  // الملابس: المتلقّي يحسم. «كسيوات ديال الدراري» ≠ «كساوي ليا أنا» — نفس
+  // اللفظ، وبضاعتان لا تلتقيان. وبلا هذه القواعد كانت تُقرأ «ملابس» عامّةً،
+  // فتُعرَض على الأمّ التي تسأل عن ابنتها أثوابُ نساءٍ بمقاساتٍ لا تنفعها.
 ];
+
+// قواعدُ الملابس **احتياطيّةٌ لا سابقة** — وهذا موضعُها لا COMPOSITE.
+//
+//   المتلقّي يحسم حين لا يحسم غيرُه: «كسوة لبنتي» ملابسُ أطفال. لكنّها لو
+//   فُحصت قبل الفهرس لابتلعت ما هو أخصُّ منها: «حوايج للبيبي» ملابسُ رُضّع
+//   لا ملابسُ أطفال، و«كسوة العيد ديال الدراري» مناسبةٌ لا فئةُ عمر —
+//   ومفهوماهما موجودان في الفهرس. أسقطت القاعدةُ الأخصَّ حين سبقته.
+//
+//   فالترتيب: يُسأل الفهرسُ أوّلًا، فإن صمت سألنا المتلقّي. الأخصُّ أوّلًا،
+//   حرفيًّا — وهي نفسُ القاعدة التي تحكم ترتيب COMPOSITE من الداخل.
+const CLOTHING_BY_RECIPIENT: { id: string; all: string[][] }[] = [
+  { id: 'kids_clothing',   all: [CLOTHES_N, KIDS_N] },
+  { id: 'womens_clothing', all: [CLOTHES_N, WOMEN_N] },
+  { id: 'mens_clothing',   all: [CLOTHES_N, MEN_N] },
+];
+
 function conceptById(id: string): Record<string, string> {
   return CONCEPTS.find(c => c.id === id)?.concept || { ar: id };
 }
@@ -262,6 +324,17 @@ export function resolveConcept(text: string): ConceptResolution | null {
 // العربيّة: مطابقةٌ متّصلة (أدقّ) أوّلًا.
   for (const { term, c } of arIndex) {
     if (hitsArabic(term, ta) || hitsArabizi(term, tda)) {
+      // تخصيصٌ يُحسّن العامَّ ولا يبتلع الأخصّ: «كسوة» وحدَها ملابسٌ عامّة،
+      // و«كسوة لبنتي» ملابسُ أطفال. لا يُطبَّق إلّا حين يكون الفهرسُ قد وقف
+      // عند `clothing` العامّة — فـ`baby_clothing` و`eid_clothing` لا تُمَسّان،
+      // وهما ما كسرَته القاعدةُ حين كانت تسبق الفهرس.
+      if (c.id === 'clothing') {
+        const spec = CLOTHING_BY_RECIPIENT.find(r => r.all.every(hits));
+        if (spec) {
+          return { id: spec.id, category: categoryFor(spec.id, 'fashion'), concept: conceptById(spec.id),
+            language: 'darija', matched: { term, via: 'composite' } };
+        }
+      }
       return { id: c.id, category: categoryFor(c.id, c.category), concept: c.concept,
         language: 'darija', services: c.services, fields: c.fields, examples: c.examples,
         matched: { term, via: 'exact' } };
@@ -283,6 +356,13 @@ export function resolveConcept(text: string): ConceptResolution | null {
       return { id: c.id, category: categoryFor(c.id, c.category), concept: c.concept,
         language: 'darija', services: c.services, fields: c.fields, examples: c.examples,
         matched: { term: tokens.join(' '), via: 'tokens' } };
+    }
+  }
+  // آخرُ ما يُسأل: لِمَن اللبس؟ لا تصل هنا جملةٌ عرف الفهرسُ لها مفهومًا.
+  for (const r of CLOTHING_BY_RECIPIENT) {
+    if (r.all.every(hits)) {
+      return { id: r.id, category: categoryFor(r.id, 'fashion'), concept: conceptById(r.id),
+        language: hasArabic ? 'darija' : 'en', matched: { term: r.id, via: 'composite' } };
     }
   }
   return null;
