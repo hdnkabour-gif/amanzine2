@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
+import ShareShop from './ShareShop';
 import { Sparkles, Camera, Mic, MessageCircle, FileText, Check, ArrowLeft, Rocket, List, Clock } from 'lucide-react';
 import { startJourney, jMeta, jStep, finishJourney, setJourneyFeedback, type Journey } from '../lib/journey';
 import { buildContext } from '../lib/core/context';
@@ -194,6 +195,19 @@ export default function CreateFlow({ def }: { def: PageDef }) {
           </div>
         )}
         <p style={{ margin: 0, fontSize: 13, color: 'var(--ink3)' }}>صار مرئيًّا للباحثين قربك.{finished?.twinId ? ` · معرّف: ${finished.twinId}` : ''}</p>
+
+        {/* **الرابطُ في اليد.** كانت الشاشةُ تقول «نُشِر» ثمّ تنتهي: يخرج التاجرُ
+            من المحلّ بلا شيءٍ يأخذه معه. والزيارةُ الميدانيّةُ تُربَح هنا —
+            رابطٌ يصيفطو لزبنائه اليوم، قبل أن يصل أيُّ زبونٍ من التطبيق. */}
+        {user?.id && (
+          <div style={{ width: '100%', maxWidth: 340 }}>
+            <ShareShop
+              userId={String(user.id)}
+              name={rec.title || rec.profession || 'المحلّ ديالي'}
+              where={[rec.district, rec.city].filter(Boolean).join('، ')}
+            />
+          </div>
+        )}
 
         <div style={{ width: '100%', maxWidth: 340, padding: 14, borderRadius: 14, background: 'var(--panel,rgba(255,255,255,.03))', border: '1px solid var(--border,rgba(255,255,255,.08))' }}>
           {!fb ? (

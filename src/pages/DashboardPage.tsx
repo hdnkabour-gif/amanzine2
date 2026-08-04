@@ -10,6 +10,9 @@ import { insightsAPI, type MerchantInsights } from '../services/api';
 import ActivityTimeline, { type TimelineItem } from '../components/ActivityTimeline';
 import MySpaceSections from '../components/MySpaceSections';
 import CommandCenter from '../components/CommandCenter';
+// «الميزة تجيء إليك» — النصفُ الناقصُ من DR-0005: الهيكلُ كان يستقبل
+// الملاحظاتِ ولا أحدَ يُنتجها.
+import { nudgesFor } from '../lib/merchantSuccess';
 import { hasAI } from '../lib/aiAvailability';
 
 // ── نبض حيّ (Shopify-like): مقاييس المتجر من Analytics Engine ──
@@ -179,6 +182,18 @@ export default function DashboardPage() {
           currency={settings.brand.currency}
           lowStock={products.filter(p => p.stock > 0 && p.stock <= (settings.products?.lowStockAlert ?? 3)).length}
           aiActive={hasAI(settings)}
+          nudges={nudgesFor({
+            profession: (settings.brand as any)?.activity || '',
+            city: (settings.brand as any)?.city || '',
+            district: (settings.brand as any)?.district || '',
+            phone: (settings.brand as any)?.phone || '',
+            photoCount: products.reduce((n, p: any) => n + ((p.images || []).length || (p.imageUrl ? 1 : 0)), 0),
+            serviceCount: products.filter((p: any) => p.type === 'service').length,
+            productCount: products.length,
+            orderCount: orders.length,
+            hasHours: !!(settings.brand as any)?.hours,
+            hasBooking: products.some((p: any) => p.type === 'service'),
+          })}
           onGo={setPage}
         />
       )}
