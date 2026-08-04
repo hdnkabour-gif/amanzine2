@@ -13,7 +13,7 @@
     "start": "node server/index.js",
     "lint": "tsc --noEmit",
     "test:brain": "node scripts/run-brain-tests.mjs",
-    "test:constitution": "node --test test/constitution.test.mjs",
+    "test:constitution": "node --test test/constitution.test.mjs test/theme.test.mjs",
     "test:knowledge": "node --test test/knowledge-health.test.mjs",
     "test:architecture": "node --test test/architecture.test.mjs test/architecture-freshness.test.mjs",
     "audit:knowledge": "node scripts/knowledge-audit.mjs",

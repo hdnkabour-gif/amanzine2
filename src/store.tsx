@@ -198,6 +198,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState(s => ({ ...s, notifications: [{ id: uid(), type, message, timestamp: Date.now(), read: false }, ...s.notifications].slice(0, 50) }));
   }, []);
 
+  // ── السمةُ تصل إلى الصفحة ────────────────────────────────
+  //
+  //   **الحلقةُ التي لم تكن موجودة.** السمةُ كانت تُحفَظ في الإعدادات وفي
+  //   `localStorage`، ويُحدَّث الحقلُ في الحالة… ولا تصل إلى DOM أبدًا: لا
+  //   `data-theme` على الجذر، ولا قاعدةَ CSS واحدةً للفاتح. فالمبدّلُ يعمل
+  //   والشاشةُ لا تتغيّر — وهو أسوأُ من زرٍّ معطَّل، لأنّ المستخدمَ يظنّ أنّه
+  //   ضغط خطأً فيُعيد المحاولةَ مرّاتٍ ثمّ يستسلم.
+  //
+  //   ويُكتَب هنا لا في كلّ صفحة: مصدرٌ واحدٌ للحقيقة، ويتبع الحالةَ مهما
+  //   تغيّرت (تبديلٌ يدويٌّ · تحميلٌ من الخادم · استرجاعٌ من التخزين).
+  const theme = state.settings.design?.theme === 'light' ? 'light' : 'dark';
+  useEffect(() => {
+    try {
+      document.documentElement.setAttribute('data-theme', theme);
+      // شريطُ المتصفّح يتبع السمةَ أيضًا — وإلّا بقي شريطٌ أسودُ فوق صفحةٍ بيضاء.
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', theme === 'light' ? '#FAF7F2' : '#060B14');
+    } catch { /* بيئةٌ بلا DOM (اختبار) — لا نكسر شيئًا */ }
+  }, [theme]);
+
   const log = useCallback((user: string, action: string, details: string, type: LogType, severity: LogSeverity) => {
     setState(s => ({ ...s, auditLogs: [{ id: Date.now(), timestamp: nowStr(), user, action, details, type, severity }, ...s.auditLogs].slice(0, 300) }));
   }, []);
