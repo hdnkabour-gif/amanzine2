@@ -809,6 +809,24 @@ async function migrate() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_need_requests_open
       ON need_requests(status, concept, city, created_at DESC)`);
 
+    // ── ذاكرةُ المستخدم: ما يعرفه التطبيقُ عن شخصٍ بعينه ────────────
+    // تسعةُ مخازنِ معرفةٍ كانت تعيش في `localStorage` وحدَه، فيفقدها مَن يبدّل
+    // هاتفَه ولا يجدها مَن يفتح من حاسوبٍ آخر. صفٌّ لكلّ مخزن، والدمجُ في
+    // `lib/userMemory.js` — لأنّ جهازَين يتعلّمان أشياءَ مختلفة.
+    await client.query(`CREATE TABLE IF NOT EXISTS user_memory (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      key TEXT NOT NULL,
+      value JSONB NOT NULL DEFAULT '{}',
+      -- مصدرُ آخر كتابة: يُميّز ما رُفع من متصفّحٍ قديم عن كتابةٍ حيّة.
+      source TEXT DEFAULT 'client',
+      -- عدّادٌ يتزايد مع كلّ دمج: يعرف العميلُ أنّ عنده قديمًا بلا مقارنة القيمة.
+      rev INTEGER NOT NULL DEFAULT 1,
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, key)
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_user_memory_user
+      ON user_memory(user_id, updated_at DESC)`);
+
     await client.query('COMMIT');
     console.log('[DB] ✅ Migrations complete');
   } catch (err) {

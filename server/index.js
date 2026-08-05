@@ -270,6 +270,7 @@ app.use('/api/discover',      require('./routes/discover'));    // legacy alias 
 app.use('/api/business',      require('./routes/business'));    // Universal Business Engine — الملف الموحد
 app.use('/api/knowledge',     require('./routes/knowledge'));   // Knowledge layer (أدمن): search misses (DR-0002)
 app.use('/api/needs',         require('./routes/needs'));       // Demand Capture: «ما لقيناش» تصير طلبًا مؤكّدًا
+app.use('/api/memory',        require('./routes/memory'));      // ذاكرةُ المستخدم: ما يعرفه التطبيقُ عن شخصٍ بعينه
 
 
 // ── Serve uploaded media ─────────────────────────────────────

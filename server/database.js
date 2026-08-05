@@ -2254,4 +2254,69 @@ db.getOrderTimeline = async (orderId, userId) => {
   return { order, events, facts: deriveFacts(order, events) };
 };
 
+// ── ذاكرةُ المستخدم ─────────────────────────────────────────────
+// القراءةُ تُرجع كلَّ المخازن دفعةً واحدة: العميلُ يحتاجها كلَّها عند الإقلاع،
+// وطلبٌ واحدٌ أرخصُ من تسعة.
+db.getUserMemory = async (userId) => {
+  const { rows } = await pool.query(
+    'SELECT key, value, rev, updated_at FROM user_memory WHERE user_id = $1', [userId]
+  );
+  const out = {};
+  for (const r of rows) out[r.key] = { value: r.value, rev: r.rev, updatedAt: r.updated_at };
+  return out;
+};
+
+/**
+ * يدمج دفعةً واردةً من جهاز.
+ *
+ *   **داخل معاملةٍ واحدةٍ مع قفلِ صفّ** (`FOR UPDATE`): جهازان يُزامنان في
+ *   نفس اللحظة كانا سيقرآن نفسَ القيمة القديمة ويكتب كلٌّ منهما فوق الآخر،
+ *   فيضيع ما تعلّمه أحدُهما بلا أثرٍ ولا شكوى. القفلُ يجعل الثاني ينتظر
+ *   ويدمج فوق نتيجة الأوّل.
+ *
+ * @returns {Promise<Record<string,{rev:number, added:number}>>}
+ */
+db.mergeUserMemory = async (userId, entries, source = 'client') => {
+  const { mergeValue } = require('./lib/userMemory');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = {};
+    for (const [key, incoming] of Object.entries(entries || {})) {
+      const cur = await client.query(
+        'SELECT value, rev FROM user_memory WHERE user_id = $1 AND key = $2 FOR UPDATE',
+        [userId, key]
+      );
+      const stored = cur.rows[0] ? cur.rows[0].value : undefined;
+      const { value, added } = mergeValue(key, stored, incoming);
+      const { rows } = await client.query(
+        `INSERT INTO user_memory (user_id, key, value, source, rev, updated_at)
+         VALUES ($1,$2,$3,$4,1,NOW())
+         ON CONFLICT (user_id, key) DO UPDATE
+           SET value = EXCLUDED.value, source = EXCLUDED.source,
+               rev = user_memory.rev + 1, updated_at = NOW()
+         RETURNING rev`,
+        [userId, key, JSON.stringify(value), source]
+      );
+      result[key] = { rev: rows[0].rev, added };
+    }
+    await client.query('COMMIT');
+    return result;
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+};
+
+// المحوُ صريحٌ ولمفتاحٍ واحد — «انسَ ما تعلّمتَه عنّي» حقٌّ للمستخدم، لكنّه
+// لا يقع بالخطأ: لا مسحَ جماعيًّا بلا طلبٍ صريحٍ لكلّ مخزن.
+db.clearUserMemory = async (userId, key) => {
+  const { rowCount } = await pool.query(
+    'DELETE FROM user_memory WHERE user_id = $1 AND key = $2', [userId, key]
+  );
+  return rowCount;
+};
+
 module.exports = { db };

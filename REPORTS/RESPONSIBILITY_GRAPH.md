@@ -96,6 +96,7 @@
 | «ما لم نفهمه» | `server/lib/engines/knowledge.js` → `search_misses` |
 | قِمعُ التعلّم | `server/lib/engines/learning.js` → `learning_daily` |
 | التقاطُ الطلب غيرِ الملبّى | `server/routes/needs.js` → `need_requests` |
+| ذاكرةُ المستخدم عبر الأجهزة | `server/routes/memory.js` → `user_memory` |
 | المفاهيمُ المخصّصة + النسخ | `server/routes/knowledge.js` |
 | الوصفُ الذاتيّ للنظام | `src/lib/akg/describe.ts` · `systemMap.ts` |
 

@@ -660,6 +660,19 @@ export const knowledgeAPI = {
 
 // ── Demand Capture — «ما لقيناش» تصير طلبًا مؤكّدًا ───────────
 export interface NeedDemandRow { concept: string; city: string; count: number; reachable: number; last_at: string; }
+// ذاكرةُ المستخدم — ما يعرفه التطبيقُ عن شخصٍ بعينه. كانت تسعةُ مخازنَ
+// تعيش في `localStorage` وحدَه، فيفقدها مَن يبدّل جهازَه.
+export const memoryAPI = {
+  get: () => request<{ memory: Record<string, { value: unknown; rev: number }>; keys: unknown[] }>(
+    'GET', '/memory'),
+  // يرفع ويستقبل في طلبٍ واحد: الخادمُ يدمج ويُعيد الحصيلةَ كاملة.
+  sync: (entries: Record<string, unknown>) =>
+    request<{ ok: boolean; merged: Record<string, { rev: number; added: number }>;
+              memory: Record<string, { value: unknown; rev: number }> }>(
+      'POST', '/memory/sync', { entries }),
+  forget: (key: string) => request<{ ok: boolean; removed: number }>('DELETE', `/memory/${key}`),
+};
+
 export const needsAPI = {
   create: (n: { raw: string; city?: string; concept?: string; contact?: string }) =>
     request<{ id: string; ok: boolean; reachable: boolean }>('POST', '/needs', n),

@@ -105,6 +105,7 @@
 | القواعد | `lib/engines/rules.js` | `ACTIVE` | MEDIUM |
 | المعرفة والفجوات | `lib/engines/knowledge.js` | `ACTIVE` | MEDIUM |
 | التقاطُ الطلب | `server/routes/needs.js` | `ACTIVE` | MEDIUM |
+| ذاكرةُ المستخدم | `server/routes/memory.js` · `server/lib/userMemory.js` | `ACTIVE` | HIGH |
 
 ### الإشعار
 

@@ -10,6 +10,7 @@ import {
 } from './types';
 import * as api from './services/api';
 import { registerRuntimeConcepts } from './lib/akg/kb/knowledge';
+import { syncMemory } from './lib/userMemory';
 import { loadLearnedPlaces } from './lib/akg/kb/places';
 import { validateImport } from './utils/importSchema';
 import { Sounds } from './utils/sounds';
@@ -284,6 +285,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
 
       try { localStorage.setItem('ai_commerce_user', JSON.stringify(currentUser)); } catch {}
+
+      // ذاكرةُ المستخدم: تُرفَع وتُستقبَل في جولةٍ واحدة. كان ما يتعلّمه
+      // التطبيقُ عن شخصٍ بعينه يعيش في `localStorage` وحدَه — فمَن يبدّل
+      // هاتفَه يجده لا يعرفه. لا انتظارَ هنا: الإقلاعُ لا يقف على الشبكة،
+      // والذاكرةُ المحلّيّة تعمل حتى تصل النسخةُ المدموجة.
+      void syncMemory();
       // جلسة كوكي مستعادة بلا توكن في الذاكرة: جدّد للحصول على توكن وصول
       // (تحتاجه الصفحات التي ترسل Bearer مباشرة + مصافحة WS)
       if (!api.getToken()) await api.authAPI.refresh();
