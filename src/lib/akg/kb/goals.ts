@@ -1,5 +1,6 @@
 import { extractContexts } from './contexts';
 import { CONCEPTS } from './concepts';
+import { normLoose } from '../../normalize';
 
 // ============================================================
 // حاجةُ الحياة — ما وراء الطلب.
@@ -116,7 +117,7 @@ export function phantomConcepts(): string[] {
   return RAW.flatMap(n => n.concepts.filter(id => !KNOWN.has(id)).map(id => `${n.id}: ${id}`));
 }
 
-const norm = (s: string) => (s || '').toLowerCase().replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/\s+/g, ' ').trim();
+const norm = normLoose;   // كان نسخةً محلّيّةً أضعف
 
 /**
  * حاجةُ الحياة في نصّ — إن وُجدت.

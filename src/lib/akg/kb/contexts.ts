@@ -18,6 +18,7 @@
 //   شتوية للبنات» أجاب سلفًا عن الموسم والجمهور — وكان التطبيقُ يسألهما.
 // ============================================================
 
+import { normLoose } from '../../normalize';
 export type ContextKind =
   | 'audience'      // لمن؟
   | 'season'        // متى يُلبَس/يُستعمل؟
@@ -41,13 +42,7 @@ export interface ContextSignal {
 interface Rule { kind: ContextKind; key: string; value: string; terms: string[] }
 
 /** تطبيعٌ مطابقٌ لِما في `knowledge.ts` — الطرفان يقارنان الشكلَ نفسَه أو لا يلتقيان. */
-const norm = (s: string) => (s || '').toLowerCase()
-  .replace(/[ً-ْٰـ]/g, '')
-  .replace(/[أإآٱ]/g, 'ا')
-  .replace(/ة/g, 'ه').replace(/ى/g, 'ي')
-  .replace(/ؤ/g, 'و').replace(/ئ/g, 'ي')
-  .normalize('NFD').replace(/[̀-ͯ]/g, '')
-  .replace(/\s+/g, ' ').trim();
+const norm = normLoose;   // كان نسخةً محلّيّةً أضعف
 
 const RULES: Rule[] = [
   // ── الجمهور ────────────────────────────────────────────────

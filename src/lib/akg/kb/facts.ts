@@ -22,6 +22,7 @@
 //   فتنفع الطبقةُ الواحدةُ في قراءة إعلان البائعة وفي قراءة سؤال الزبونة معًا.
 // ============================================================
 
+import { normLoose } from '../../normalize';
 export type FactTopic =
   | 'location'                // فين كاينة؟
   | 'availability'            // مزال عندك؟
@@ -34,10 +35,7 @@ export type FactTopic =
   | 'price_includes_delivery' // واش هاد الثمن معاه التوصيل؟
   | 'payment';                // كيفاش نخلّص؟
 
-const norm = (s: string) => (s || '').toLowerCase()
-  .replace(/[ً-ْٰـ]/g, '')
-  .replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
-  .replace(/\s+/g, ' ').trim();
+const norm = normLoose;   // كان نسخةً محلّيّةً أضعف
 
 const DELIVERY = ['التوصيل', 'توصيل', 'توصلني', 'توصلو', 'يوصل', 'نوصل', 'ليفريزو', 'الليفريزو',
   'غاماسور', 'كوسيور', 'livraison', 'livrer', 'delivery'];

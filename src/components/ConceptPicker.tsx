@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Search, Check, X } from 'lucide-react';
+import { normLoose } from '../lib/normalize';
 import { CONCEPTS } from '../lib/akg/kb/concepts';
 
 // ============================================================
@@ -17,11 +18,7 @@ const INK3 = 'var(--ink3,#7E877F)';
 const BORDER = '1px solid var(--border2,rgba(255,255,255,0.14))';
 
 // تطبيعٌ خفيف يسمح بالبحث بأيّ لغة (يزيل التشكيل/الهمزات وتوحيد الحروف اللاتينيّة).
-const norm = (s: string) => String(s || '').toLowerCase()
-  .replace(/[ً-ٰٟ]/g, '')
-  .replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
-  .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-  .replace(/\s+/g, ' ').trim();
+const norm = normLoose;   // كان نسخةً محلّيّة
 
 interface Row { id: string; label: string; category: string; hay: string }
 

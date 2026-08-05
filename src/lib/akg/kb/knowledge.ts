@@ -11,31 +11,13 @@
 import { CITIES, type ConceptData } from './knowledgeData';
 import { CONCEPTS } from './concepts';
 import { deArabizi } from './arabizi';
+import { normArabic, normLatin } from '../../normalize';
 import { resolvePlace } from './places';
 import { isContainerWithContents, resolveMerchandise } from './merchandise';
 
-// ── تطبيعٌ عربيّ (المراحل ١-٨): تشكيل، توحيد حروف، تكرار، رموز ──
-const AR_DIAC = /[ً-ْٰـ]/g;   // تشكيل + تطويل
-function normArabic(input: string): string {
-  let s = (input || '').toLowerCase();
-  s = s.replace(AR_DIAC, '');
-  s = s
-    .replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
-    .replace(/ؤ/g, 'و').replace(/ئ/g, 'ي')
-    .replace(/[گﮒ]/g, 'ك').replace(/ڭ/g, 'ك').replace(/ڤ/g, 'ف').replace(/پ/g, 'ب');
-  s = s.replace(/(.)\1{2,}/g, '$1');                 // حلااااق → حلاق
-  s = s.replace(/[^؀-ۿ0-9\s]/g, ' ');       // أبقِ العربيّة/الأرقام فقط
-  return s.replace(/\s+/g, ' ').trim();
-}
+// التطبيعُ من `lib/normalize.ts` — مصدرٌ واحدٌ للمشروع كلِّه. كان هنا نسخةٌ
+// كاملة، وكانت أحدَ عشرَ ملفًّا آخرَ تحمل نسخًا **أضعفَ منها** بصمت.
 
-// ── تطبيعٌ لاتينيّ (fr/en/arabizi): حروف صغيرة، إزالة النبرات، تكرار، رموز ──
-function normLatin(input: string): string {
-  let s = (input || '').toLowerCase();
-  s = s.normalize('NFD').replace(/[̀-ͯ]/g, '');   // é→e, è→e…
-  s = s.replace(/(.)\1{2,}/g, '$1');
-  s = s.replace(/[^a-z0-9\s]/g, ' ');
-  return s.replace(/\s+/g, ' ').trim();
-}
 
 // ── إثراءُ متغيّرات (لتغطية صياغاتٍ شائعة لم يوفّرها الملف حرفيًّا) ──
 const AUGMENT: Record<string, Partial<Record<string, string[]>>> = {

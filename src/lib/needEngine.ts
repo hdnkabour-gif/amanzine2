@@ -1,5 +1,6 @@
 import type { Page } from '../types';
 import { readHuman, type HumanIntent } from './humanIntent';
+import { normLoose } from './normalize';
 import { resolveConcept } from './akg/kb/knowledge';
 import { stanceOf } from './akg/kb';
 import { categoryForConcept } from './catalog';
@@ -94,14 +95,10 @@ export interface NeedObject {
 
 // ── تطبيع الدارجة: توحيد الهمزات والتاء المربوطة وإزالة التشكيل ──
 export function normalize(s: string): string {
-  return (s || '')
-    .toLowerCase()
-    .replace(/[إأآا]/g, 'ا')
-    .replace(/ى/g, 'ي')
-    .replace(/ة/g, 'ه')
-    .replace(/[ًٌٍَُِّْ]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  // كانت نسخةً أضعفَ من نسخة الفهرس: تفوت `ٰ` و`ـ` و`ٱ` و«ؤئ» والحروفَ
+  // الفارسيّة وطيَّ التكرار. فكانت «عندي مشڭل ف الضو» تُقرأ عرضَ خدمةٍ بدل
+  // طلبِ كهربائيّ. و`normLoose` تُبقي اللاتينيّة — فالمدنُ والفرنسيّةُ تمرّ.
+  return normLoose(s);
 }
 
 const has = (t: string, words: string[]) => words.some(w => t.includes(w));

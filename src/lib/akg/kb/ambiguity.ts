@@ -16,6 +16,7 @@
 //   ولذلك سجلٌّ مفتوحٌ لا شرطٌ متناثرٌ في الكود.
 // ============================================================
 
+import { normLoose } from '../../normalize';
 export interface AmbiguityOption {
   id: string;        // المفهوم إن اختير
   label: string;     // كما يُعرَض للإنسان
@@ -27,10 +28,7 @@ export interface Ambiguity {
   options: AmbiguityOption[];
 }
 
-const norm = (s: string) => (s || '').toLowerCase()
-  .replace(/[ً-ْٰـ]/g, '')
-  .replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
-  .replace(/\s+/g, ' ').trim();
+const norm = normLoose;   // كان نسخةً محلّيّةً أضعف
 
 export const AMBIGUOUS: Ambiguity[] = [
   {

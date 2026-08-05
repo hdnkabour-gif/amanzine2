@@ -28,6 +28,7 @@
 // ============================================================
 
 import { deArabizi } from './arabizi';
+import { normLoose } from '../../normalize';
 
 /** ما يريد فعلَه. */
 export type ActionVerb = 'view' | 'create' | 'update' | 'delete' | 'share' | 'send';
@@ -53,10 +54,7 @@ export interface ActionRead {
   reason: string;
 }
 
-const norm = (s: string) => (s || '').toLowerCase()
-  .replace(/[ً-ْٰـ]/g, '')
-  .replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
-  .replace(/\s+/g, ' ').trim();
+const norm = normLoose;   // كان نسخةً محلّيّةً أضعف
 
 // ── الأفعال ───────────────────────────────────────────────────
 // «بغيت» وحدَها ليست فعلًا إداريًّا: «بغيت نبيع» تجارةٌ لا إعداد. فلا تدخل

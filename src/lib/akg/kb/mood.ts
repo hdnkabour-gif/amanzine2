@@ -25,6 +25,7 @@
 // ============================================================
 
 import { deArabizi } from './arabizi';
+import { normLoose } from '../../normalize';
 
 export type Mood =
   | 'commit'       // يُنفَّذ
@@ -44,10 +45,7 @@ export interface MoodRead {
   reason: string;
 }
 
-const norm = (s: string) => (s || '').toLowerCase()
-  .replace(/[ً-ْٰـ]/g, '')
-  .replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
-  .replace(/\s+/g, ' ').trim();
+const norm = normLoose;   // كان نسخةً محلّيّةً أضعف
 
 // الترتيبُ من الأشمل إلى الأضيق — **جزءٌ من المعنى**: «قال ليا الزبون يمكن
 // نبيع» نقلٌ قبل أن تكون ترّددًا، لأنّ النقلَ يُحيط بالجملة كلِّها.

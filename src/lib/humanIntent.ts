@@ -12,6 +12,8 @@
 
 import { deArabizi } from './akg/kb/arabizi';
 
+import { normLoose } from './normalize';
+
 export type HumanIntent = 'SELF' | 'HELP' | 'SELL' | 'BUY' | 'QUESTION' | 'EXPLORE' | 'NONE';
 
 export interface HumanRead {
@@ -22,14 +24,9 @@ export interface HumanRead {
 
 // تطبيع خفيف مستقلّ (لا يعتمد على needEngine — طبقة مكتفية بذاتها).
 function norm(s: string): string {
-  return (s || '')
-    .toLowerCase()
-    .replace(/[إأآا]/g, 'ا')
-    .replace(/ى/g, 'ي')
-    .replace(/ة/g, 'ه')
-    .replace(/[ًٌٍَُِّْ]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  // كانت نسخةً محلّيّةً أضعفَ من نسخة الفهرس — والقياسُ أظهر أنّ «عندييي محل»
+  // تُسقط `SELF` إلى `NONE`، أي أنّ من يعرّف بنفسه لا يُعرَف.
+  return normLoose(s);
 }
 
 const has = (t: string, words: string[]) => words.some(w => t.includes(w));

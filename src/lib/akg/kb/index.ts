@@ -31,6 +31,7 @@ export * from './knowledgeGraph';
 
 import { conceptsIn, normalize, type VocabEntry } from './vocabulary';
 import { deArabizi } from './arabizi';
+import { normLoose } from '../../normalize';
 import { resolveConcept, resolveCity } from './knowledge';
 import { detectAmbiguity, type Ambiguity } from './ambiguity';
 import { detectFacts, FACT_LABEL, type FactTopic } from './facts';
@@ -238,57 +239,78 @@ const WORK_OFFER = [
   'باغي خدمة عندكم', 'بغيت نشتغل', 'باغي نشتغل', 'كنقلب على الخدمة',
 ];
 
+
+// ── مطابقةٌ مطبَّعةُ الطرفَين ──────────────────────────────────────
+//
+//   قياسٌ تفاضليٌّ على ٧٤ صيغةً لا يفرّق بينها إنسان أظهر أنّ الاتّجاهَ
+//   والنيّةَ يتغيّران بحرفٍ واحد: «عندي مشڭل ف الضو» تُقرأ **عرضَ خدمة**
+//   بدل طلبِ كهربائيّ، و«شحااال الثمن» تسقط إلى `unknown`.
+//
+//   وكان النصُّ يصل هنا بلا تطبيعٍ عربيٍّ أصلًا (`deArabizi` وحدَه). لكنّ
+//   تطبيعَ النصّ وحدَه **يكسر** المطابقة، لأنّ قوائمَ المصطلحات نفسَها تحمل
+//   «مشكلة» و«خدامة» و«موسخة» — فالتاء المربوطةُ تصير هاءً في النصّ ولا
+//   تصير في المصطلح.
+//
+//   فالطرفان يُطبَّعان معًا. وهذا **يزيد** الإصابات ولا يُنقصها: كلُّ ما كان
+//   يُطابق يبقى، ويُضاف ما كان يسقط بفارق همزةٍ أو تكرارٍ أو «ڭ».
+const NZ = (() => {
+  const memo = new Map<string, string>();
+  return (w: string) => { let v = memo.get(w); if (v === undefined) { v = normLoose(w); memo.set(w, v); } return v; };
+})();
+/** `t` مطبَّعٌ سلفًا؛ يُطبَّع المصطلحُ هنا مرّةً ويُحفَظ. */
+const inc = (t: string, w: string) => t.includes(NZ(w));
+
 function detectStance(t: string, c?: { stance?: { offer?: string[]; seek?: string[] } }): Stance {
   // العملُ يُعرَض ولو بصيغة الطلب — يُفحَص قبل كلّ شيءٍ لأنّ فيه «بغيت».
-  if (WORK_OFFER.some(w => t.includes(w))) return 'offer';
-  if (BODY_NEED.some(w => t.includes(w))) return 'seek';
-  if (COMPLAINT.some(w => t.includes(w))) return 'seek';
+  if (WORK_OFFER.some(w => inc(t, w))) return 'offer';
+  if (BODY_NEED.some(w => inc(t, w))) return 'seek';
+  if (COMPLAINT.some(w => inc(t, w))) return 'seek';
   // «عندي» + عيب ⇒ شكوى. و«موسخ» شكوى بذاتها بلا «عندي».
-  if (HAS.some(h => t.includes(h)) && DEFECT.some(d => t.includes(d))) return 'seek';
-  if (DIRTY.some(w => t.includes(w))) return 'seek';
+  if (HAS.some(h => inc(t, h)) && DEFECT.some(d => inc(t, d))) return 'seek';
+  if (DIRTY.some(w => inc(t, w))) return 'seek';
   // النفيُ بعد الشكوى: «ما كيخدمش» شكوى لا نفيَ نيّة. وما بقي بعدها نفيٌ
   // حقيقيٌّ يُبطل الاتّجاه — ولا يقلبه، فمن نفى لم يقل ماذا يريد.
   if (isNegated(t)) return 'unknown';
   // عطبٌ مذكورٌ بلا «عندي» شكوى أيضًا: «الثلاجة خاسرة» — من يصف عطبًا يطلب
   // إصلاحَه، ولا يعرضه للبيع.
-  if (DEFECT.some(w => t.includes(w))) return 'seek';
+  if (DEFECT.some(w => inc(t, w))) return 'seek';
   // عباراتُ المفهوم أدقّ من العلامات العامّة ⇒ تُفحَص أوّلًا.
-  for (const ph of c?.stance?.offer || []) if (ph && t.includes(ph)) return 'offer';
-  for (const ph of c?.stance?.seek  || []) if (ph && t.includes(ph)) return 'seek';
+  for (const ph of c?.stance?.offer || []) if (ph && inc(t, ph)) return 'offer';
+  for (const ph of c?.stance?.seek  || []) if (ph && inc(t, ph)) return 'seek';
   // **الملكيّةُ قبل كلّ شيء.** «بغيت نكري داري» صياغتُها طلبٌ ومعناها عرض،
   // والفارقُ حرفٌ واحد. تُفحَص قبل علامات الطلب وإلّا غلبت «بغيت» الياءَ.
-  if (OWNED.some(w => t.includes(w))) return 'offer';
-  if (OFFER_RENT.some(w => t.includes(w))) return 'offer';
+  if (OWNED.some(w => inc(t, w))) return 'offer';
+  if (OFFER_RENT.some(w => inc(t, w))) return 'offer';
   // «عندي X للكراء/للبيع» عرضٌ مهما سبقته أداةُ طلب.
-  if (HAS.some(h => t.includes(h)) && ['للكراء', 'للبيع', 'للإيجار', 'للايجار'].some(w => t.includes(w))) return 'offer';
+  if (HAS.some(h => inc(t, h)) && ['للكراء', 'للبيع', 'للإيجار', 'للايجار'].some(w => inc(t, w))) return 'offer';
   // فعلُ العرض يغلب أداةَ الطلب: «بغيت نبيع طوموبيل» صياغتُه طلبٌ ومعناه عرض.
   // بدون هذا كان صاحبُ السيّارة يُرسَل إلى السوق ليشتري ما يريد بيعه.
-  if (SELF_OFFER.some(w => t.includes(w))) return 'offer';
+  if (SELF_OFFER.some(w => inc(t, w))) return 'offer';
   // الإخبارُ عن حرفةٍ عرضٌ: «كنوصل الطلبات» — بعد علامات الطلب الصريحة
   // كي لا تغلب القاعدةُ الصرفيّةُ عبارةً أوضحَ منها.
-  if (HABITUAL.test(t) && !HABITUAL_SEEK.some(w => t.includes(w))) return 'offer';
+  if (HABITUAL.test(t) && !HABITUAL_SEEK.some(w => inc(t, w))) return 'offer';
   // الطلب يغلب العرض عند اجتماعهما: «عندي مشكل وبغيت سبّاك» طلبٌ لا عرض.
-  const seek  = SEEK_MARKS.some(w => t.includes(w));
+  const seek  = SEEK_MARKS.some(w => inc(t, w));
   if (seek) return 'seek';
-  if (QUESTION.some(w => t.includes(w))) return 'seek';
-  if (OFFER_MARKS.some(w => t.includes(w))) return 'offer';
+  if (QUESTION.some(w => inc(t, w))) return 'seek';
+  if (OFFER_MARKS.some(w => inc(t, w))) return 'offer';
   return 'unknown';
 }
 
 // اتّجاهُ نصٍّ بذاته (بلا فهمٍ كامل) — يحتاجه المساعد ليختار أيّ أسئلةٍ يعرض:
 // «أنا حدّاد» يُسأل سؤالَ العارض، و«بغيت حدّاد» يُسأل سؤالَ الطالب.
 export function stanceOf(input: string, conceptId?: string): Stance {
-  const t = deArabizi(input).toLowerCase().trim();
+  const t = normLoose(deArabizi(input));
   return detectStance(t, conceptId ? ALL_CONCEPTS.find(x => x.id === conceptId) : undefined);
 }
 
-const has = (t: string, arr: string[]) => arr.some(w => t.includes(w));
+const has = (t: string, arr: string[]) => arr.some(w => inc(t, w));
 
 // الجسر إلى المحرّكات — يفهم النصّ عبر السجلّات (المشكلة أوّلًا).
 export function understand(input: string): Understanding {
   // 0) طبقة اللاتينيّة — «bghit 3andi mouchkil» → «بغيت عندي مشكل» قبل أيّ قراءة.
   const text = deArabizi(input);
-  const t = text.toLowerCase().trim();
+  const t = normLoose(text);
   const reasoning: string[] = [];
   if (text !== input) reasoning.push('🔤 حوّلنا الكتابة اللاتينيّة إلى دارجة');
   const concepts = conceptsIn(text);

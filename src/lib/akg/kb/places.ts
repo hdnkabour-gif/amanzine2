@@ -1,3 +1,4 @@
+import { normLoose, normLatin } from '../../normalize';
 import { CITIES } from './knowledgeData';
 import { PLACES, type PlaceData } from './places.data';
 
@@ -40,22 +41,10 @@ export interface Place {
 }
 
 /** تطبيعٌ عربيّ — مطابقٌ لِما في `knowledge.ts` وإلّا لم يلتقِ الطرفان. */
-export function normAr(s: string): string {
-  return (s || '').toLowerCase()
-    .replace(/[ً-ْٰـ]/g, '')
-    .replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
-    .replace(/ؤ/g, 'و').replace(/ئ/g, 'ي')
-    .replace(/[گﮒڭ]/g, 'ك').replace(/ڤ/g, 'ف').replace(/پ/g, 'ب')
-    .replace(/\s+/g, ' ').trim();
-}
+export const normAr = normLoose;   // كان نسخةً محلّيّة
 
 /** تطبيعٌ لاتينيّ — يزيل النبرات والشرطات: «Sabaâ Aïyoun» ⇒ «sabaa aiyoun». */
-export function normLat(s: string): string {
-  return (s || '').toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ').trim();
-}
+export const normLat = normLatin;   // كان نسخةً محلّيّة
 
 /** الشكلُ المُطبَّعُ أيًّا كانت لغةُ الكتابة. */
 export function normPlace(s: string): string {

@@ -43,3 +43,4 @@ import './mood.test';
 import './executionPolicy.test';
 import './merchandise.test';
 import './correction.test';
+import './normalize.test';
