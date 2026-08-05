@@ -24,6 +24,7 @@ import {
 import UnderstandingCard from '../components/UnderstandingCard';
 import { correctionOptions, applyCorrection, buildMisread, thankFor, type CorrectionOption } from '../lib/correction';
 import { abilityFor } from '../lib/abilities';
+import { readPersonFacts, rememberFacts, forgetFact, describeFacts } from '../lib/personFacts';
 import { decideExecution } from '../lib/executionPolicy';
 import { reportMisread } from '../lib/journey';
 import { understand } from '../lib/akg/kb';
@@ -70,6 +71,8 @@ export default function LivingHome() {
   const [thanks, setThanks] = useState('');
   // ما يقوله التطبيقُ حين لا يملك فعلًا — «ما نقدرش» بدل صمتٍ أو فعلٍ ناقص.
   const [said, setSaid] = useState('');
+  // ما تعلّمناه عن الشخص من جملته — يُعرَض ليراجعه، لا ليُخفى.
+  const [learned, setLearned] = useState('');
 
   /**
    * يُنهي التصحيح: يبلّغ الأدمنَ عدًّا، ويُطبّق التصحيحَ **لهذا الشخص وحدَه**.
@@ -86,6 +89,12 @@ export default function LivingHome() {
     const m = buildMisread(text, u, wrong.field);
     if (m) reportMisread(m);
     if (wrong.field !== 'all') applyCorrection(text, fixText);
+    // **ما لا يُنسى لا يُكتَب**: تصحيحُ الحقل يمحو ما حفظناه عنه، وإلّا بقي
+    // الخطأُ يعمل من الذاكرة بعد أن صحّحه صاحبُه في الجملة.
+    if (wrong.field === 'profession') forgetFact('activity');
+    if (wrong.field === 'city') forgetFact('city');
+    if (wrong.field === 'all') { forgetFact('activity'); forgetFact('city'); }
+    setLearned('');
     setThanks(thankFor(wrong.field));
     setCorrecting(false);
     setWrong(null);
@@ -199,6 +208,11 @@ export default function LivingHome() {
     const match = abilityFor({ action: understand(q).action, intent: r.intent });
     const verdict = decideExecution(understand(q), true, match || undefined);
     setSaid(verdict.verdict === 'refuse' || verdict.verdict === 'explain' ? verdict.say : '');
+    // ── حقائقُ الشخص ────────────────────────────────────────────
+    //   «أنا خضار» تصريحٌ يُحفَظ، و«بغيت نبيع طوموبيل» نيّةٌ لا تُحفَظ —
+    //   فمن باع سيّارتَه مرّةً ليس بائعَ سيّارات. وما يُحفَظ يُعرَض فورًا
+    //   ليراجعه صاحبُه، لأنّ حقيقةً خاطئةً تدوم أسوأُ من صفرِ حقائق.
+    setLearned(describeFacts(rememberFacts(readPersonFacts(q))));
     recordDecision(dec.mode, r.intent, dec.reason, q);       // قياس: القرار + السبب + التقاط جملة «ما لم نفهمه»
     setJourney(j);
     // عقدُ الطلب يُفتح هنا ويرافقه حتى النهاية — بدل أن يُعيد كلُّ جزءٍ من
@@ -218,7 +232,7 @@ export default function LivingHome() {
     setText(q); setResult(r); setStepIdx(0); setPending(null); setConfirmed(false);
     setTurns([{ who: 'user', text: q }, ...(r.open ? [{ who: 'sys' as const, text: r.open }] : [])]);
   };
-  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); setSaid(''); };
+  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); setSaid(''); setLearned(''); };
 
   const pickOption = (opt: NeedOption) => {
     receptionTurn(opt.label, 'button');                      // قياس: دورٌ بالأزرار
@@ -412,6 +426,11 @@ export default function LivingHome() {
       {said && !correcting && (
         <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', padding: '11px 15px', borderRadius: 13, border: '1px solid rgba(245,158,11,.28)', background: 'rgba(245,158,11,.07)', fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>
           {said}
+        </div>
+      )}
+      {learned && !correcting && !said && (
+        <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', padding: '10px 15px', borderRadius: 13, border: '1px solid rgba(10,143,111,.25)', background: 'rgba(10,143,111,.06)', fontSize: 12.5, fontWeight: 700, color: 'var(--ink3)' }}>
+          🧠 عرفت عليك: {learned} — إلى ماشي هاكّا، قول ليا.
         </div>
       )}
       {thanks && (
