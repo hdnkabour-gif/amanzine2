@@ -144,3 +144,41 @@ test('فخُّ `orders.provider_id` ما زال قائمًا كما تصفه ا�
   assert.ok(stillDelivery,
     '`orders.provider_id` لم يعد يُملأ من مزوّد التوصيل — حدِّث DOMAIN_MAP ③');
 });
+
+// ── مبادئُ التجربة تبقى صادقة ─────────────────────────────────
+// مبدأٌ بلا حارسٍ يتعفّن. والوثيقةُ تُصنّف مبادئَها بصراحة (محروس/مقيس/ذوق)
+// — فهذه الحرّاسُ تتحقّق أنّ ما ادُّعي **محروسًا** له حارسٌ فعلًا.
+test('مبادئُ التجربة موجودةٌ ومصنَّفةٌ بلا ادّعاء', () => {
+  const p = path.join(ROOT, 'docs', 'EXPERIENCE_PRINCIPLES.md');
+  assert.ok(fs.existsSync(p), 'ناقص: docs/EXPERIENCE_PRINCIPLES.md');
+  const doc = read(p);
+  for (const tag of ['🛡️', '📏', '🎨']) {
+    assert.ok(doc.includes(tag), `تصنيفٌ مفقود: ${tag}`);
+  }
+  // مبدأٌ بلا وسمٍ يعني ادّعاءً بلا موضع. كلُّ عنوانٍ يحمل واحدًا.
+  const heads = doc.split('\n').filter(l => /^## [٠-٩0-9]+ · /.test(l));
+  assert.ok(heads.length >= 10, `مبادئُ قليلة (${heads.length})`);
+  for (const h of heads) {
+    assert.ok(/🛡️|📏|🎨/.test(h), `مبدأٌ بلا تصنيف: ${h}`);
+  }
+});
+
+test('كلُّ مبدأٍ موسومٍ «محروس» له حارسٌ فعليّ', () => {
+  // الادّعاءُ الأخطر: أن يُكتب «محروس» ولا حارسَ — فيُطمأنّ إلى ما لا يحرسه أحد.
+  const guards = {
+    'لا يوجد نوعُ حساب':          () => !/req\.user\.role\s*===/.test(read(path.join(ROOT, 'server', 'routes', 'orders.js'))),
+    'يُسأل الإنسانُ ولا يُخمَّن له': () => fs.existsSync(path.join(ROOT, 'src', 'lib', 'akg', 'kb', 'ambiguity.ts')),
+    'لا يبتلع العامُّ الخاصّ':      () => /isJunkVariant/.test(read(path.join(ROOT, 'src', 'lib', 'akg', 'kb', 'knowledge.ts'))),
+    'حين لا نسأل، نقول لماذا':     () => /explainFilled/.test(read(path.join(ROOT, 'src', 'lib', 'knownContext.ts'))),
+    'ما لا يُسترجَع يُؤكَّد':        () => /لا يُسترجَع/.test(read(path.join(ROOT, 'src', 'lib', 'akg', 'kb', 'actions.ts'))),
+  };
+  for (const [name, ok] of Object.entries(guards)) {
+    assert.ok(ok(), `مبدأٌ موسومٌ «محروس» بلا حارس: ${name}`);
+  }
+});
+
+test('الذاكرةُ لا تُعاند صاحبَها — المبدأ ٤ محروسٌ فعلًا', () => {
+  const kc = read(path.join(ROOT, 'src', 'lib', 'knownContext.ts'));
+  assert.ok(/if \(!out\.place && known\.city\)/.test(kc),
+    'الذاكرةُ صارت تغلب الجملةَ الحاضرة — يسقط المبدأ ٤');
+});

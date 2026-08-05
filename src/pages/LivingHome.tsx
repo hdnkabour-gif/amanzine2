@@ -14,6 +14,7 @@ import { relatedProfessions } from '../lib/knowledge/graph';
 import { playGate } from '../lib/gateTransition';
 import { useNavigate } from 'react-router-dom';
 import { personaGreeting, personaWelcome } from '../lib/persona';
+import { knownAbout, enrichSignals, explainFilled } from '../lib/knownContext';
 import { decideInterface, confirmPrompt } from '../lib/interfaceDecision';
 import { receptionStart, receptionTurn, receptionUnderstood, receptionStep, receptionEnd, recordDecision, recordConfirm, recordClarificationAsked, recordClarificationAnswered, recordSnapshot } from '../lib/journey';
 import {
@@ -72,6 +73,8 @@ export default function LivingHome() {
   // قراءته: سؤالٌ واحدٌ عمليًّا، ولا انتقالَ لإنسانٍ بعد سؤالين (ADR-0006).
   const [signals, setSignals] = useState<Signals>({});
   const [escalated, setEscalated] = useState(false);
+  // لماذا لم نسأل — يُعرَض للإنسان، فالصمتُ بلا تفسيرٍ يبدو تخمينًا.
+  const [knownWhy, setKnownWhy] = useState('');
 
   const [returning, setReturning] = useState(false);
   useEffect(() => {
@@ -158,12 +161,21 @@ export default function LivingHome() {
     // عقدُ الطلب يُفتح هنا ويرافقه حتى النهاية — بدل أن يُعيد كلُّ جزءٍ من
     // النظام تفسيرَ الحوار من الصفر (HU-4).
     setSnap(openSnapshot(q, { intent: r.intent, confidence: r.confidence ?? 0 }));
-    setSignals(signalsFrom(r));                              // إشاراتُ البداية — مصدرُ اشتقاقٍ واحد
+    // «لا يسأل التطبيقُ سؤالًا يعرف جوابَه». كانت الإشاراتُ تُبنى من الجملة
+    // الحاضرة وحدَها، فيُسأل التاجرُ عن مدينةٍ قالها في كلّ طلبٍ سابق.
+    // والذاكرةُ تملأ الفراغَ فقط ولا تُصحّح إنسانًا في حاضره.
+    const { signals: enriched, filled } = enrichSignals(signalsFrom(r), knownAbout({
+      // ما يعرفه التطبيقُ فعلًا: مدينةُ آخر طلبٍ أو منتَج، ووجودُ كتالوج.
+      city: orders.find(o => o.city)?.city || products.find(p => p.city)?.city,
+      hasWorkspace: products.length > 0,
+    }));
+    setSignals(enriched);
+    setKnownWhy(explainFilled(filled));
     setEscalated(false);
     setText(q); setResult(r); setStepIdx(0); setPending(null); setConfirmed(false);
     setTurns([{ who: 'user', text: q }, ...(r.open ? [{ who: 'sys' as const, text: r.open }] : [])]);
   };
-  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); };
+  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); };
 
   const pickOption = (opt: NeedOption) => {
     receptionTurn(opt.label, 'button');                      // قياس: دورٌ بالأزرار
@@ -345,6 +357,13 @@ export default function LivingHome() {
             {result.confidence != null && (
               <span title="درجة يقين الفهم" style={{ fontSize: 10.5, fontWeight: 800, borderRadius: 99, padding: '4px 9px', color: result.confidence >= 0.85 ? 'var(--mint,#12A150)' : result.confidence >= 0.5 ? 'var(--warn,#F59E0B)' : 'var(--ink3,#7E877F)', background: 'var(--panel,rgba(255,255,255,.04))', border: '1px solid var(--border,rgba(255,255,255,.08))' }}>
                 يقين {Math.round(result.confidence * 100)}٪
+              </span>
+            )}
+            {/* لماذا لم نسأل: «ما سولتكش على المدينة — قلتيها من قبل». الصمتُ
+                بلا تفسيرٍ يبدو تخمينًا، والتفسيرُ يجعله ذاكرة. */}
+            {knownWhy && (
+              <span title="عرفناها من قبل" style={{ fontSize: 10.5, fontWeight: 700, borderRadius: 99, padding: '4px 9px', color: 'var(--ink3,#7E877F)', background: 'var(--panel,rgba(255,255,255,.04))', border: '1px solid var(--border,rgba(255,255,255,.08))' }}>
+                🧠 {knownWhy}
               </span>
             )}
             {result.tags.map(tg => (

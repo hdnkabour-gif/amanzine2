@@ -38,3 +38,4 @@ import './landingMirror.test';
 import './carwash.test';
 import './clothing.test';
 import './actions.test';
+import './knownContext.test';
