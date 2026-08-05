@@ -115,3 +115,32 @@ test('السلاسلُ المقطوعة كلُّها ذاتُ شدّةٍ وثق�
     assert.ok(/الثقة/.test(s), `«${title}»: بلا ثقة`);
   }
 });
+
+// ── خريطةُ المجال تبقى صادقة ──────────────────────────────────
+// وثيقةٌ تصف الكودَ تكذب متى تغيّر الكود. هذه الحرّاسُ تُبقيها صادقةً أو
+// تُسقط البناء — لأنّ محرّكَين يعملان هنا، ووثيقةٌ كاذبةٌ أسوأُ من غيابها.
+test('خريطةُ المجال موجودةٌ وتحمل قراراتِها', () => {
+  const p = path.join(ROOT, 'docs', 'DOMAIN_MAP.md');
+  assert.ok(fs.existsSync(p), 'ناقص: docs/DOMAIN_MAP.md');
+  const doc = read(p);
+  for (const k of ['ق-١', 'ق-٢', 'ق-٣', 'ق-٤', 'ق-٥', 'ق-٦', 'ق-٧', 'ق-٨', 'ق-٩']) {
+    assert.ok(doc.includes(k), `قرارٌ مفقود: ${k}`);
+  }
+});
+
+test('ادّعاءُ «تعدّدُ الأنشطة مسموح» ما زال صحيحًا', () => {
+  // الوثيقةُ تبني عليه القرارَ ق-١ كلَّه. قيدُ تفرّدٍ يُضاف غدًا يجعلها كاذبة.
+  const mig = read(path.join(ROOT, 'server', 'migrate.js'));
+  assert.ok(!/UNIQUE[^\n]*providers\s*\(\s*user_id/i.test(mig),
+    'أُضيف قيدُ تفرّدٍ على providers(user_id) — يسقط أساسُ ق-١ في DOMAIN_MAP');
+});
+
+test('فخُّ `orders.provider_id` ما زال قائمًا كما تصفه الوثيقة', () => {
+  // إن صار يومًا يشير إلى جدول providers، يجب أن تُحدَّث الوثيقةُ لا أن تبقى.
+  const doc = read(path.join(ROOT, 'docs', 'DOMAIN_MAP.md'));
+  const del = read(path.join(ROOT, 'server', 'routes', 'delivery.js'));
+  const stillDelivery = /providerId:\s*plugin\.meta\.id/.test(del);
+  assert.ok(doc.includes('delivery_provider_key'), 'الوثيقةُ لا تذكر إعادةَ التسمية المقترحة');
+  assert.ok(stillDelivery,
+    '`orders.provider_id` لم يعد يُملأ من مزوّد التوصيل — حدِّث DOMAIN_MAP ③');
+});
