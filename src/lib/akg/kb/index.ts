@@ -26,6 +26,7 @@ export * from './knowledge';
 export * from './ambiguity';
 export * from './facts';
 export * from './actions';
+export * from './mood';
 export * from './knowledgeGraph';
 
 import { conceptsIn, normalize, type VocabEntry } from './vocabulary';
@@ -34,6 +35,7 @@ import { resolveConcept, resolveCity } from './knowledge';
 import { detectAmbiguity, type Ambiguity } from './ambiguity';
 import { detectFacts, FACT_LABEL, type FactTopic } from './facts';
 import { readAction, type ActionRead } from './actions';
+import { readMood, type MoodRead } from './mood';
 import { getProblem, type Problem } from './problems';
 import { findProblemBySymptom } from './symptomGraph';
 import { getProfession, findProfessionByLabel, type Profession } from './professions';
@@ -69,6 +71,9 @@ export interface Understanding {
   // نفيٌ صريح: «ماشي بغيت نبيع». الاتّجاهُ يُبطَل ولا يُقلَب — من نفى لم يقل
   // ماذا يريد، فالجوابُ الصحيح سؤالٌ لا تخمينٌ معكوس.
   negated?: boolean;
+  // صيغةُ الكلام: التزامٌ يُنفَّذ، أم نقلٌ عن غيره أو ترّددٌ أو شرطٌ أو سؤالُ
+  // «كيفاش»؟ التنفيذُ على غير الالتزام فعلٌ **لم يطلبه أحد**.
+  mood?: MoodRead;
 }
 
 // الاتّجاه: بدونه كان «أنا حدّاد» يُفهَم كطلبٍ لحدّاد، فيردّ التطبيق «نقلبو عليه»
@@ -392,9 +397,11 @@ export function understand(input: string): Understanding {
   // قد تحمل فعلًا ومفهومًا معًا («بدّل ثمن الطرطاقة»).
   const negated = isNegated(t) || undefined;
   if (negated) reasoning.push('🚫 نفيٌ صريح — لا نُخمّن ما يريده، نسأله');
+  const mood = readMood(input);
+  if (!mood.executable) reasoning.push(`🗣️ صيغة: ${mood.mood} (${mood.reason}) — لا نُنفّذ`);
   const action = readAction(input) || undefined;
   if (action) reasoning.push(`⚙️ فعل: ${action.verb}/${action.object} (${action.reason})`);
-  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts, action, negated };
+  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts, action, negated, mood };
 }
 
 export function resolveTerm(term: string) { return normalize(term); }
