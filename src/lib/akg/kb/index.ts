@@ -66,6 +66,9 @@ export interface Understanding {
   // يريد صاحبُ الحساب أن **يفعل** شيئًا بتطبيقه لا أن يشتري أو يبيع.
   // `needs` تقول ما ينقص — فيُسأل سؤالٌ واحد ولا يُخمَّن.
   action?: ActionRead;
+  // نفيٌ صريح: «ماشي بغيت نبيع». الاتّجاهُ يُبطَل ولا يُقلَب — من نفى لم يقل
+  // ماذا يريد، فالجوابُ الصحيح سؤالٌ لا تخمينٌ معكوس.
+  negated?: boolean;
 }
 
 // الاتّجاه: بدونه كان «أنا حدّاد» يُفهَم كطلبٍ لحدّاد، فيردّ التطبيق «نقلبو عليه»
@@ -173,6 +176,42 @@ const QUESTION = ['امتا', 'اماتا', 'فوقاش', 'كيفاش', 'شحا�
   // صيغةُ الأمر: «وريني كساوي اللي عندك» طلبٌ صريحٌ كانت تُقرأ بلا اتّجاه.
   'وريني', 'وريهم', 'ورينا', 'وريها', 'صيفط ليا', 'بين ليا', 'بيّن ليا'];
 
+/**
+ * **النفيُ يُبطل الاتّجاه، ولا يقلبه.**
+ *
+ *   قياسٌ كشف أنّ «ماشي بغيت نبيع طوموبيل» تُقرأ **مطابقةً** لـ«بغيت نبيع
+ *   طوموبيل»: عرضُ بيعِ سيّارة. أي أنّ التطبيقَ يفعل **عكسَ** ما قاله
+ *   الإنسان — وهذا أسوأُ من ألّا يفهم، لأنّه يمضي واثقًا.
+ *
+ *   وسببُه بنيويّ: المطابقةُ تبحث عن وجودِ كلمات، و«ماشي» كلمةٌ زائدةٌ في
+ *   نظرها. فالنفيُ لا يُرى إلّا إن بحثنا عنه صراحةً.
+ *
+ *   ── ولماذا لا يُقلَب ──
+ *   «ماشي بغيت نبيع» **لا تعني** «بغيت نشري». من نفى لم يقل ماذا يريد.
+ *   فقلبُ الاتّجاه تخمينٌ ثانٍ فوق الأوّل. الصوابُ: `unknown` ثمّ سؤال —
+ *   وهي نفسُ قاعدة `ambiguity.ts`: **اسأل، ولا تُخمّن**.
+ *
+ *   وصيغُ النفي في الدارجة ثلاث: «ماشي» و«ما…ش» المحيطة و«لا» الصريحة.
+ *   والثانيةُ هي الأصعب لأنّها تُحيط بالفعل: «ما بغيتش» · «ما كنبيعش».
+ */
+const NEG_WORDS = ['ماشي', 'ماشى', 'ماغاديش', 'ما غاديش', 'لا بغيت'];
+
+/**
+ *   **النفيُ يقع على فعل المتكلّم، لا على حال الأشياء.** ولولا هذا التمييزُ
+ *   لابتلع النفيُ الشكاوى كلَّها: «ما كيخدمش الفريجيدير» صيغتُها منفيّةٌ
+ *   ومعناها **طلبُ مساعدة**، لا نفيَ نيّة. وقد كسر هذا ثلاثةَ اختباراتٍ
+ *   قائمةً حين وسّعتُ النفيَ إلى كلّ «ما…ش».
+ *
+ *   فالمنفيُّ هنا محصورٌ في أفعال الإرادة والتجارة بصيغة المتكلّم.
+ */
+const NEG_VERBS = 'بغيت|بغينا|باغي|نبيع|نشري|كنبيع|كنشري|غادي|خاصني|محتاج|نقلب';
+const NEG_CIRCUM = new RegExp(`(^|\\s)ما\\s?(${NEG_VERBS})[ء-ي]{0,3}ش(\\s|$)`);
+
+export function isNegated(t: string): boolean {
+  const s = (t || '').toLowerCase();
+  return NEG_WORDS.some(w => s.includes(w)) || NEG_CIRCUM.test(s);
+}
+
 const HAS = ['عندي', 'عندنا', 'فيا', 'لدي', 'لديّ'];
 
 /**
@@ -202,6 +241,9 @@ function detectStance(t: string, c?: { stance?: { offer?: string[]; seek?: strin
   // «عندي» + عيب ⇒ شكوى. و«موسخ» شكوى بذاتها بلا «عندي».
   if (HAS.some(h => t.includes(h)) && DEFECT.some(d => t.includes(d))) return 'seek';
   if (DIRTY.some(w => t.includes(w))) return 'seek';
+  // النفيُ بعد الشكوى: «ما كيخدمش» شكوى لا نفيَ نيّة. وما بقي بعدها نفيٌ
+  // حقيقيٌّ يُبطل الاتّجاه — ولا يقلبه، فمن نفى لم يقل ماذا يريد.
+  if (isNegated(t)) return 'unknown';
   // عطبٌ مذكورٌ بلا «عندي» شكوى أيضًا: «الثلاجة خاسرة» — من يصف عطبًا يطلب
   // إصلاحَه، ولا يعرضه للبيع.
   if (DEFECT.some(w => t.includes(w))) return 'seek';
@@ -348,9 +390,11 @@ export function understand(input: string): Understanding {
   }
   // الفعلُ الإداريّ يُقرأ أخيرًا وعلى النصّ الأصليّ. لا يُلغي ما فُهم: جملةٌ
   // قد تحمل فعلًا ومفهومًا معًا («بدّل ثمن الطرطاقة»).
+  const negated = isNegated(t) || undefined;
+  if (negated) reasoning.push('🚫 نفيٌ صريح — لا نُخمّن ما يريده، نسأله');
   const action = readAction(input) || undefined;
   if (action) reasoning.push(`⚙️ فعل: ${action.verb}/${action.object} (${action.reason})`);
-  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts, action };
+  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts, action, negated };
 }
 
 export function resolveTerm(term: string) { return normalize(term); }
