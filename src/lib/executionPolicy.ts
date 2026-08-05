@@ -19,6 +19,7 @@
 // ============================================================
 
 import { CONFIDENCE } from './clarify';
+import { RISK_THRESHOLD, type Ability } from './abilities';
 import type { Understanding } from './akg/kb';
 
 export type Verdict =
@@ -43,9 +44,13 @@ const DESTRUCTIVE = new Set(['delete']);
  * الحكمُ الواحد.
  *
  * @param u ما فهمته الطبقات
- * @param canDo هل يملك التطبيقُ فعلًا لهذه النيّة؟ (حدُّ القدرة)
+ * @param canDo هل يملك التطبيقُ فعلًا لهذه النيّة؟ (حدُّ القدرة). كانت
+ *              تُمرَّر `true` دائمًا لأنّ لا قائمةَ قدراتٍ تُسأل — فلم يقل
+ *              التطبيقُ «ما نقدرش» قطّ. صارت تُقرأ من `abilities.canDo`.
+ * @param match القدرةُ المطابِقة إن عُرفت. وجودُها يُبدّل **العتبة**: العرضُ
+ *              والبحثُ ينفّذان بثقةٍ أقلّ، والحذفُ لا ينفّذ مهما بلغت.
  */
-export function decideExecution(u: Understanding, canDo = true): Decision {
+export function decideExecution(u: Understanding, canDo = true, match?: Ability): Decision {
   const trace: string[] = [];
 
   // ① صيغةُ الكلام تسبق كلَّ شيء: من يحكي عن غيره لا يُنفَّذ له فعلٌ ولو
@@ -85,20 +90,28 @@ export function decideExecution(u: Understanding, canDo = true): Decision {
 
   // ⑥ ما لا يُسترجَع يُؤكَّد — **بعد** اكتمال الفهم لا قبله، وإلّا سألنا
   //    التأكيدَ على فعلٍ لم نفهمه بعد.
-  if (u.action && DESTRUCTIVE.has(u.action.verb)) {
-    trace.push('فعلٌ لا يُسترجَع');
-    return { verdict: 'confirm', say: 'واش متأكّد؟ هادشي ما كيرجعش.', trace };
+  if ((u.action && DESTRUCTIVE.has(u.action.verb)) || match?.risk === 'high') {
+    trace.push(match ? `فعلٌ خطِر: ${match.id}` : 'فعلٌ لا يُسترجَع');
+    return { verdict: 'confirm', say: match ? `واش متأكّد باغي ${match.say}؟` : 'واش متأكّد؟ هادشي ما كيرجعش.', trace };
   }
 
-  // ⑦ الثقة — آخرَ ما يُنظَر فيه. عتبةٌ واحدةٌ مشتركةٌ مع `clarify`، فلا
-  //    يختلف عقلان على نفس الجملة.
+  // ⑦ الثقة — آخرَ ما يُنظَر فيه.
+  //
+  //    **والعتبةُ تتبع الخطورةَ لا العكس.** كانت واحدةً (٠٫٩٠) لكلّ شيء،
+  //    وسقفُ الفهم الواقعيّ ٠٫٦٠ — فصار «نفّذ» بابًا لا يُفتَح: ٣٢ من ٣٦
+  //    جملةً تُقابَل بسؤال. ومَن يسأل دائمًا يبدو استمارةً لا مساعدًا.
+  //
+  //    والخفضُ العامُّ ليس حلًّا: يُحذَف متجرٌ بثقةٍ ضعيفة. فالصواب أن يُنفَّذ
+  //    العرضُ والبحثُ بما يليق بهما، ويبقى الحذفُ مغلقًا مهما بلغ اليقين.
   const c = u.confidence ?? 0;
-  if (c >= CONFIDENCE.ACT) {
-    trace.push(`يقين ${Math.round(c * 100)}٪`);
+  const act = match ? RISK_THRESHOLD[match.risk] : CONFIDENCE.ACT;
+  const why = match ? ` (${match.risk})` : '';
+  if (c >= act) {
+    trace.push(`يقين ${Math.round(c * 100)}٪ ≥ ${Math.round(act * 100)}٪${why}`);
     return { verdict: 'execute', say: '', trace };
   }
   if (c >= CONFIDENCE.CONFIRM) {
-    trace.push(`يقين ${Math.round(c * 100)}٪ — دون حدّ التنفيذ`);
+    trace.push(`يقين ${Math.round(c * 100)}٪ — دون حدّ التنفيذ${why}`);
     return { verdict: 'confirm', say: 'فهمت. واش هادشي هو اللي بغيتي؟', trace };
   }
   trace.push(`يقين ${Math.round(c * 100)}٪ — ضعيف`);

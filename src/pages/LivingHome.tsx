@@ -23,6 +23,8 @@ import {
 } from '../lib/intentSnapshot';
 import UnderstandingCard from '../components/UnderstandingCard';
 import { correctionOptions, applyCorrection, buildMisread, thankFor, type CorrectionOption } from '../lib/correction';
+import { abilityFor } from '../lib/abilities';
+import { decideExecution } from '../lib/executionPolicy';
 import { reportMisread } from '../lib/journey';
 import { understand } from '../lib/akg/kb';
 import type { Journey } from '../lib/core/plugins';
@@ -66,6 +68,8 @@ export default function LivingHome() {
   const [wrong, setWrong] = useState<CorrectionOption | null>(null);
   const [fixText, setFixText] = useState('');
   const [thanks, setThanks] = useState('');
+  // ما يقوله التطبيقُ حين لا يملك فعلًا — «ما نقدرش» بدل صمتٍ أو فعلٍ ناقص.
+  const [said, setSaid] = useState('');
 
   /**
    * يُنهي التصحيح: يبلّغ الأدمنَ عدًّا، ويُطبّق التصحيحَ **لهذا الشخص وحدَه**.
@@ -187,6 +191,14 @@ export default function LivingHome() {
     const { result: r, journey: j } = orchestrate(q, uctx); // Context → Orchestrator → Journey (+ تعلّم الخادم)
     if (r.intent !== 'unknown') receptionUnderstood();       // قياس: زمن أوّل فهم
     const dec = decideInterface(r);
+    // ── حدُّ القدرة (القانون: الفهمُ يُقاس بما نستطيع فعلَه) ──────
+    //   كانت `canDo` تُمرَّر `true` دائمًا لأنّ لا قائمةَ قدراتٍ تُسأل، فلم
+    //   يقل التطبيقُ «ما نقدرش» قطّ — وهو أصدقُ ما يقوله حين لا يملك فعلًا.
+    //   ولا تُخمَّن قدرةٌ قريبة: `abilityFor` تُرجع `null` حين لا تطابق،
+    //   فيبقى الحكمُ على العتبة العامّة بدل تنفيذِ فعلٍ لم يطلبه أحد.
+    const match = abilityFor({ action: understand(q).action, intent: r.intent });
+    const verdict = decideExecution(understand(q), true, match || undefined);
+    setSaid(verdict.verdict === 'refuse' || verdict.verdict === 'explain' ? verdict.say : '');
     recordDecision(dec.mode, r.intent, dec.reason, q);       // قياس: القرار + السبب + التقاط جملة «ما لم نفهمه»
     setJourney(j);
     // عقدُ الطلب يُفتح هنا ويرافقه حتى النهاية — بدل أن يُعيد كلُّ جزءٍ من
@@ -206,7 +218,7 @@ export default function LivingHome() {
     setText(q); setResult(r); setStepIdx(0); setPending(null); setConfirmed(false);
     setTurns([{ who: 'user', text: q }, ...(r.open ? [{ who: 'sys' as const, text: r.open }] : [])]);
   };
-  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); };
+  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); setSaid(''); };
 
   const pickOption = (opt: NeedOption) => {
     receptionTurn(opt.label, 'button');                      // قياس: دورٌ بالأزرار
@@ -391,6 +403,15 @@ export default function LivingHome() {
               </form>
             </>
           )}
+        </div>
+      )}
+      {/* ── حدُّ القدرة: «ما نقدرش» ────────────────────────────────
+          قولُ «لا أستطيع» بصراحةٍ خيرٌ من فعلٍ ناقصٍ يُوهم أنّه تمّ، وخيرٌ
+          من صمتٍ يجعل الإنسانَ يظنّ أنّه أخطأ الكتابة. هذا أوّلُ موضعٍ
+          يقول فيه التطبيقُ ذلك — كانت `canDo` تُمرَّر `true` دائمًا. ── */}
+      {said && !correcting && (
+        <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', padding: '11px 15px', borderRadius: 13, border: '1px solid rgba(245,158,11,.28)', background: 'rgba(245,158,11,.07)', fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>
+          {said}
         </div>
       )}
       {thanks && (
