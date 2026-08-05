@@ -7,8 +7,18 @@
   "minPersonFacts": 11,
   "minAbilityMatched": 59,
   "minExecute": 20,
-  "maxAsk": 29,
   "maxBrainSplit": 24,
   "maxSilent": 0,
-  "maxVariantDrift": 0
+  "maxVariantDrift": 0,
+  "minCorrect": 20,
+  "judged": 25,
+  "maxNeedlessAsks": 5,
+  "minStages": {
+    "التطبيع": 295,
+    "المفهوم": 35,
+    "الاتّجاه": 54,
+    "الحقائق": 5,
+    "القدرة": 59,
+    "القرار": 20
+  }
 }

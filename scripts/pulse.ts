@@ -22,7 +22,7 @@ import { readHuman } from '../src/lib/humanIntent';
 import { decideExecution } from '../src/lib/executionPolicy';
 import { abilityFor, canDo } from '../src/lib/abilities';
 import { readPersonFacts } from '../src/lib/personFacts';
-import { ALL, MUST_NOT_ACT } from '../test/corpus.mjs';
+import { ALL, EXPECT_NEVER_EXECUTE, EXPECT_ASK, EXPECT_CONFIRM, EXPECT_NOT_ASK } from '../test/corpus.mjs';
 
 export interface Pulse {
   /** حجمُ المدوّنة — يُذكَر كي لا تُقارَن نسبتان من مدوّنتَين. */
@@ -42,8 +42,6 @@ export interface Pulse {
    * `unknown`، أو العكس. هذا هو الرقمُ الذي يقيس الانقسامَ البنيويّ.
    */
   brainSplit: number;
-  /** جملٌ يجب ألّا يُنفَّذ لها شيءٌ — ونُفِّذ. **يجب أن يبقى صفرًا.** */
-  wrongExecutions: number;
   /** جملٌ لم يفهمها أحدٌ إطلاقًا. */
   silent: number;
   /**
@@ -53,12 +51,38 @@ export interface Pulse {
    * مكتوبةٌ بصيغةٍ واحدة، والناسُ يكتبون بصيغٍ شتّى.
    */
   variantDrift: number;
+
+  // ── جودةُ القرار، لا عدده ───────────────────────────────────
+  //
+  //   سبرٌ أثبت أنّ عدَّ التنفيذ وحدَه يكافئ التهوّر: خفضُ العتبات إلى صفرٍ
+  //   يرفع `execute` من ٢٠ إلى ٤٥ **والسقّاطةُ خضراء**. فهذه الأرقامُ تسأل
+  //   السؤالَ الآخر: أكان القرارُ في محلّه؟
+  /** نُفِّذ ما لا يجوز تنفيذُه — **يجب أن يبقى صفرًا**. */
+  wrongExecutions: number;
+  /** نُفِّذت جملةٌ غامضةٌ بدل أن تُسأل — تهوّر. */
+  recklessExecutions: number;
+  /** فعلٌ لا يُسترجَع مرّ بلا تأكيد — أخطرُ الأصناف. */
+  unconfirmedDestructive: number;
+  /** سُئلت جملةٌ واضحةٌ — «موتُ السحر». */
+  needlessAsks: number;
+  /** كم من الأحكام المحكومِ عليها كان صحيحًا (من أصل `judged`). */
+  correct: number;
+  judged: number;
+
+  // ── أين تنكسر السلسلة ───────────────────────────────────────
+  //
+  //   «فُهم ٥٩٪» لا يقول أين وقع الخلل: أفي التطبيع؟ أم في المفهوم؟ أم في
+  //   القدرة؟ وهذه الأرقامُ تقيس **كلَّ حلقةٍ وحدَها**، فيُعرَف موضعُ الجهد
+  //   بدل أن يُخمَّن. والحلقةُ الأضعفُ هي التي تُصلَح، لا التي نظنّها.
+  stages: { name: string; ok: number; of: number }[];
 }
 
 export function measure(): Pulse {
   const verdicts: Record<string, number> = {};
   let understood = 0, stanceKnown = 0, personFacts = 0, abilityMatched = 0;
   let brainSplit = 0, wrongExecutions = 0, silent = 0, variantDrift = 0;
+  let recklessExecutions = 0, unconfirmedDestructive = 0, needlessAsks = 0;
+  let correct = 0, judged = 0;
 
   // تحويلاتٌ من الشارع: لوحاتُ مفاتيحَ مختلفة، ومدُّ الحروف، وتشكيلٌ.
   const VARIANTS: ((x: string) => string)[] = [
@@ -90,15 +114,45 @@ export function measure(): Pulse {
     if (aKnows !== bKnows) brainSplit++;
 
     if (!aKnows && !bKnows && readHuman(s).intent === 'NONE' && stanceOf(s) === 'unknown') silent++;
-    // ما لا يجوز تنفيذُه: نقلٌ · نفيٌ · سؤالُ «كيفاش» · شرطٌ · ماضٍ.
-    if (MUST_NOT_ACT.includes(s) && d.verdict === 'execute') wrongExecutions++;
+    // ── الحكمُ على الحكم ──
+    if (EXPECT_NEVER_EXECUTE.includes(s)) {
+      judged++;
+      if (d.verdict === 'execute') wrongExecutions++; else correct++;
+    }
+    if (EXPECT_ASK.includes(s)) {
+      judged++;
+      if (d.verdict === 'execute') recklessExecutions++;
+      if (d.verdict === 'ask') correct++;
+    }
+    if (EXPECT_CONFIRM.includes(s)) {
+      judged++;
+      if (d.verdict === 'execute') unconfirmedDestructive++;
+      if (d.verdict === 'confirm') correct++;
+    }
+    if (EXPECT_NOT_ASK.includes(s)) {
+      judged++;
+      if (d.verdict === 'ask') needlessAsks++; else correct++;
+    }
 
     const ref = print(s);
     for (const f of VARIANTS) { const v = f(s); if (v !== s && print(v) !== ref) variantDrift++; }
   }
 
-  return { sentences: ALL.length, understood, stanceKnown, personFacts,
-    abilityMatched, verdicts, brainSplit, wrongExecutions, silent, variantDrift };
+  // كلُّ حلقةٍ تُقاس على ما **يخصّها**: التطبيعُ على كلّ الجمل، والحقائقُ
+  // على ما يُنتظَر منه حقائقُ فقط — وإلّا حُوسبت حلقةٌ على عملِ غيرها.
+  const factExpected = ALL.filter(x => EXPECT_NOT_ASK.includes(x));
+  const stages = [
+    { name: 'التطبيع',  ok: ALL.length * 5 - variantDrift, of: ALL.length * 5 },
+    { name: 'المفهوم',  ok: understood,     of: ALL.length },
+    { name: 'الاتّجاه',  ok: stanceKnown,    of: ALL.length },
+    { name: 'الحقائق',  ok: factExpected.filter(x => readPersonFacts(x).length).length, of: factExpected.length },
+    { name: 'القدرة',   ok: abilityMatched, of: ALL.length },
+    { name: 'القرار',   ok: correct,        of: judged },
+  ];
+
+  return { sentences: ALL.length, understood, stanceKnown, personFacts, stages,
+    abilityMatched, verdicts, brainSplit, silent, variantDrift,
+    wrongExecutions, recklessExecutions, unconfirmedDestructive, needlessAsks, correct, judged };
 }
 
 /** جدولٌ يُقرأ بالعين — يُطبع عند التشغيل المباشر. */
@@ -116,6 +170,19 @@ export function render(p: Pulse): string {
     `انقسامُ العقلَين : ${pct(p.brainSplit)}   ← كلّما قلّ كان أفضل`,
     `صمتٌ تامّ        : ${pct(p.silent)}`,
     `انحرافُ الصيغة  : ${p.variantDrift}   ← كلّما قلّ كان أفضل`,
-    `تنفيذٌ خاطئ      : ${p.wrongExecutions}   ← يجب أن يبقى صفرًا`,
+    '',
+    `── جودةُ القرار (${p.judged} جملةً محكومًا عليها) ──`,
+    `صوابُ الحكم     : ${p.correct}/${p.judged} (${Math.round(p.correct / p.judged * 100)}٪)`,
+    `تنفيذُ ما لا يجوز: ${p.wrongExecutions}   ← صفرٌ مطلق`,
+    `تنفيذٌ متهوّر     : ${p.recklessExecutions}   ← نُفِّذت جملةٌ غامضة`,
+    `حذفٌ بلا تأكيد   : ${p.unconfirmedDestructive}   ← صفرٌ مطلق`,
+    `سؤالٌ بلا داعٍ    : ${p.needlessAsks}   ← سُئلت جملةٌ واضحة`,
+    '',
+    '── أين تنكسر السلسلة ──',
+    ...p.stages.map(st => {
+      const r = st.of ? st.ok / st.of : 1;
+      const bar = '█'.repeat(Math.round(r * 20)).padEnd(20, '░');
+      return `${st.name.padEnd(9)} ${bar} ${Math.round(r * 100)}٪  (${st.ok}/${st.of})`;
+    }),
   ].join('\n');
 }

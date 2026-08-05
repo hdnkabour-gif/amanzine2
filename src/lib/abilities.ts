@@ -105,6 +105,12 @@ export const ABILITIES: Ability[] = [
     risk: 'medium', needs: ['شنو نوع النشاط؟'], auth: true, page: 'settings', api: '/api/settings' },
   { id: 'UPDATE_WORKSPACE', verb: 'update', entity: 'workspace', say: 'تبدّل معلومات المحلّ',
     risk: 'medium', needs: [], auth: true, page: 'settings', api: '/api/settings' },
+  { id: 'DELETE_WORKSPACE', verb: 'delete', entity: 'workspace', say: 'تحيّد المحلّ ديالك',
+    // كشفه النبضُ حين قِيست جودةُ القرار: «بغيت نحيد هاد المحل» كانت تُطابق
+    // `FIND_PROVIDER` — قدرةً **منخفضةَ الخطر** — لأنّ الكتالوج لا يحوي
+    // حذفَ محلٍّ أصلًا، بينما `DELETE /api/providers/:id` يعمل على الخادم.
+    // ونجت من التنفيذ بحارسٍ آخر لا بخطورتها، وهو نجاةٌ بالصدفة.
+    risk: 'high', needs: ['أيّ محلّ؟'], auth: true, page: 'settings', api: '/api/providers' },
   { id: 'CREATE_PRODUCT', verb: 'create', entity: 'product', say: 'تزيد منتوج',
     risk: 'medium', needs: ['شنو المنتوج؟', 'بشحال؟'], auth: true, page: 'products', api: '/api/products' },
   { id: 'UPDATE_PRODUCT', verb: 'update', entity: 'product', say: 'تبدّل منتوج (الثمن، الستوك، التصويرة)',
