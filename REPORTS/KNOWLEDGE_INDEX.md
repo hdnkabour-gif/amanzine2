@@ -35,7 +35,8 @@
 | **محرّك النيّة** | `src/lib/needEngine.ts` | `ACTIVE` | HIGH |
 | **محرّك الاستيضاح** | `src/lib/clarify.ts` | `ACTIVE` — الحلقةُ مُغلَقة | HIGH |
 | **طبقة القرار** | `src/lib/interfaceDecision.ts` | `ACTIVE` | HIGH |
-| **قاعدة المعرفة** | `src/lib/akg/kb/` (٦٣ ملفًّا) | `ACTIVE` | HIGH |
+| **قاعدة المعرفة** | `src/lib/akg/kb/` (٢٦ ملفًّا) | `ACTIVE` | HIGH |
+| الوعاءُ والبضاعة | `src/lib/akg/kb/merchandise.ts` | `ACTIVE` | HIGH |
 | النيّة الإنسانيّة | `src/lib/humanIntent.ts` | `ACTIVE` | HIGH |
 | قياسُ الرحلة | `src/lib/journey.ts` | `ACTIVE` | HIGH |
 

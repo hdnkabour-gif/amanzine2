@@ -12,6 +12,7 @@ import { CITIES, type ConceptData } from './knowledgeData';
 import { CONCEPTS } from './concepts';
 import { deArabizi } from './arabizi';
 import { resolvePlace } from './places';
+import { isContainerWithContents, resolveMerchandise } from './merchandise';
 
 // ── تطبيعٌ عربيّ (المراحل ١-٨): تشكيل، توحيد حروف، تكرار، رموز ──
 const AR_DIAC = /[ً-ْٰـ]/g;   // تشكيل + تطويل
@@ -150,7 +151,7 @@ export interface ConceptResolution {
    * أسودَ: نعرف أنّ «تراكسي» صارت `sportswear` ولا نعرف لماذا — فلا نستطيع
    * تصحيحَ خطأٍ ولا شرحَ قرارٍ للتاجر.
    */
-  matched?: { term: string; via: 'composite' | 'exact' | 'latin' | 'tokens' };
+  matched?: { term: string; via: 'composite' | 'exact' | 'latin' | 'tokens' | 'container' };
 }
 
 // قواعد تركيبيّة: مجموعاتٌ يجب أن تُصيب كلُّها (فعل + مفعول…) ⇒ خدمة. تحلّ ترتيب
@@ -319,11 +320,24 @@ export function resolveConcept(text: string): ConceptResolution | null {
     };
   }
 
+  // الوعاءُ يُؤجَّل ولا يُلغى: «حانوت ديال الحوت» بائعُ سمكٍ لا بقّال، لكنّ
+  // «عندي حانوت» بقّالٌ حقًّا. فنحتفظ بمطابقة الوعاء جانبًا ونُكمل البحث —
+  // فإن حسم المحتوى فهو الحكم، وإن صمت رجعنا للوعاء. الإصلاحُ بلا صمتٍ جديد.
+  let deferredContainer: ConceptResolution | null = null;
+
   // الأخصّ أوّلًا: الفهرسان مرتّبان بطول المصطلح تنازليًّا، فـ«بيع حواسيب» تسبق
 // «حاسوب». بدونه كان أوّلُ مفهومٍ في الترتيب يفوز مهما كان مصطلحه عامًّا.
 // العربيّة: مطابقةٌ متّصلة (أدقّ) أوّلًا.
   for (const { term, c } of arIndex) {
     if (hitsArabic(term, ta) || hitsArabizi(term, tda)) {
+      // `via:'container'` دليلٌ صريحٌ على أنّ المطابقَ اسمُ المكان لا بضاعتُه —
+      // فمن قرأ الأثرَ عرف أنّ هذا **افتراضٌ** لا قراءةُ ما قاله الإنسان.
+      if (isContainerWithContents(term, ta, tda)) {
+        deferredContainer ||= { id: c.id, category: categoryFor(c.id, c.category), concept: c.concept,
+          language: 'darija', services: c.services, fields: c.fields, examples: c.examples,
+          matched: { term, via: 'container' } };
+        continue;
+      }
       // تخصيصٌ يُحسّن العامَّ ولا يبتلع الأخصّ: «كسوة» وحدَها ملابسٌ عامّة،
       // و«كسوة لبنتي» ملابسُ أطفال. لا يُطبَّق إلّا حين يكون الفهرسُ قد وقف
       // عند `clothing` العامّة — فـ`baby_clothing` و`eid_clothing` لا تُمَسّان،
@@ -340,6 +354,16 @@ export function resolveConcept(text: string): ConceptResolution | null {
         matched: { term, via: 'exact' } };
     }
   }
+  // البضاعةُ تدلّ على الحرفة — بعد الفهرس لأنّ اسمَ الحرفة أدقُّ من اسم
+  // بضاعتها («خضّار» أصرحُ من «الخضرة»)، وقبل اللاتينيّة لأنّ الجملةَ عربيّة.
+  // هنا يُفهَم «عندي محل ديال الخضرة»: المغربيُّ يقول ما يبيع لا ما يُسمّى.
+  const merch = resolveMerchandise(ta, tda);
+  if (merch) {
+    return { id: merch.id, category: categoryFor(merch.id, ''), concept: conceptById(merch.id),
+      language: hasArabic ? 'darija' : 'en', ...knowledgeOf(merch.id),
+      matched: { term: merch.term, via: 'exact' } };
+  }
+
   // اللاتينيّة (fr/en/arabizi).
   for (const { term, c } of latIndex) {
     if (tl && new RegExp(`(^|\\s)${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`).test(tl)) {
@@ -365,7 +389,9 @@ export function resolveConcept(text: string): ConceptResolution | null {
         language: hasArabic ? 'darija' : 'en', matched: { term: r.id, via: 'composite' } };
     }
   }
-  return null;
+  // ولا شيءَ حسم المحتوى ⇒ الوعاءُ يعود. «حانوت ديال المواد الغذائيّة» يبقى
+  // بقّالًا — أُصلح الخطأُ بلا أن نُورِث المكانَ صمتًا.
+  return deferredContainer;
 }
 
 // resolveConcepts (جمع) — **كلُّ** ما تحمله الجملة، لا أوّلَ ما تصادف.

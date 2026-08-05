@@ -41,3 +41,4 @@ import './actions.test';
 import './knownContext.test';
 import './mood.test';
 import './executionPolicy.test';
+import './merchandise.test';
