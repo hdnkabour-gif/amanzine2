@@ -25,6 +25,7 @@ export * from './concepts';
 export * from './knowledge';
 export * from './ambiguity';
 export * from './facts';
+export * from './actions';
 export * from './knowledgeGraph';
 
 import { conceptsIn, normalize, type VocabEntry } from './vocabulary';
@@ -32,6 +33,7 @@ import { deArabizi } from './arabizi';
 import { resolveConcept, resolveCity } from './knowledge';
 import { detectAmbiguity, type Ambiguity } from './ambiguity';
 import { detectFacts, FACT_LABEL, type FactTopic } from './facts';
+import { readAction, type ActionRead } from './actions';
 import { getProblem, type Problem } from './problems';
 import { findProblemBySymptom } from './symptomGraph';
 import { getProfession, findProfessionByLabel, type Profession } from './professions';
@@ -60,6 +62,10 @@ export interface Understanding {
   // الوقائعُ المذكورة: «واش كاين التوصيل» لا مهنةَ فيها ولا مفهوم — تسأل عن
   // واقعةٍ عن نسخة. تُقرأ مع stance: طلبًا إن سُئلت، خبرًا إن أُخبِر بها.
   facts?: FactTopic[];
+  // فعلٌ إداريٌّ: «بدّل رقم الهاتف» · «وريني الطلبات» · «زيد محل». يُملأ حين
+  // يريد صاحبُ الحساب أن **يفعل** شيئًا بتطبيقه لا أن يشتري أو يبيع.
+  // `needs` تقول ما ينقص — فيُسأل سؤالٌ واحد ولا يُخمَّن.
+  action?: ActionRead;
 }
 
 // الاتّجاه: بدونه كان «أنا حدّاد» يُفهَم كطلبٍ لحدّاد، فيردّ التطبيق «نقلبو عليه»
@@ -340,7 +346,11 @@ export function understand(input: string): Understanding {
     // فهمُ الواقعةِ فهمٌ حقيقيّ، ولو لم نُصِب مفهومًا — فلا نتركها بثقة البداية.
     confidence = Math.max(confidence, 0.4);
   }
-  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts };
+  // الفعلُ الإداريّ يُقرأ أخيرًا وعلى النصّ الأصليّ. لا يُلغي ما فُهم: جملةٌ
+  // قد تحمل فعلًا ومفهومًا معًا («بدّل ثمن الطرطاقة»).
+  const action = readAction(input) || undefined;
+  if (action) reasoning.push(`⚙️ فعل: ${action.verb}/${action.object} (${action.reason})`);
+  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts, action };
 }
 
 export function resolveTerm(term: string) { return normalize(term); }

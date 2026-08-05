@@ -37,3 +37,4 @@ import './landingMirror.test';
 // من زيارةٍ ميدانيّةٍ لمحلّ غسلٍ في الدار البيضاء — جُملٌ حقيقيّةٌ لا مُختلَقة.
 import './carwash.test';
 import './clothing.test';
+import './actions.test';
