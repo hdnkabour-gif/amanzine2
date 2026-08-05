@@ -1,0 +1,14 @@
+{
+  "_": "خطُّ الأساس — يُحدَّث فقط حين تتحسّن الأرقام. انظر test/pulse.test.mjs",
+  "measuredAt": "2026-08-05",
+  "sentences": 59,
+  "minUnderstood": 35,
+  "minStanceKnown": 54,
+  "minPersonFacts": 11,
+  "minAbilityMatched": 59,
+  "minExecute": 20,
+  "maxAsk": 29,
+  "maxBrainSplit": 24,
+  "maxSilent": 0,
+  "maxVariantDrift": 0
+}
