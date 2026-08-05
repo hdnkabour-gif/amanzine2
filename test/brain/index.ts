@@ -40,3 +40,4 @@ import './clothing.test';
 import './actions.test';
 import './knownContext.test';
 import './mood.test';
+import './executionPolicy.test';
