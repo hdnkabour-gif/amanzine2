@@ -174,8 +174,12 @@ interface DecisionLog {
   // السؤالُ الذي يُسأل كثيرًا ولا يرفع الثقةَ سؤالٌ سيّئٌ يجب أن يُبدَّل —
   // ولا يُعرَف ذلك إلّا بقياسه، ولذلك لكلّ استيضاحٍ هويّةٌ ثابتة.
   clarify: Record<string, { asked: number; answered: number; lifted: number; sumGain: number }>;
+  // ما فهمناه **غلطًا**. كان عندنا `unknownTexts` لما لم نفهمه ولا شيءَ لهذا،
+  // مع أنّه أخطر: الصامتُ يُسأل فيُصحَّح، والواثقُ المخطئُ يمضي بالإنسان إلى
+  // بابٍ ليس بابَه. فأشدُّ أخطائنا كان وحدَه بلا قياس.
+  misreads: { text: string; said: string; field: string; confidence: number; count: number }[];
 }
-function emptyLog(): DecisionLog { return { modes: {}, intents: {}, reasons: {}, unknown: 0, confirmYes: 0, confirmNo: 0, conf: { low: { y: 0, n: 0 }, mid: { y: 0, n: 0 }, high: { y: 0, n: 0 } }, unknownTexts: {}, clarify: {} }; }
+function emptyLog(): DecisionLog { return { modes: {}, intents: {}, reasons: {}, unknown: 0, confirmYes: 0, confirmNo: 0, conf: { low: { y: 0, n: 0 }, mid: { y: 0, n: 0 }, high: { y: 0, n: 0 } }, unknownTexts: {}, clarify: {}, misreads: [] }; }
 const bucketOf = (c: number): Bucket => c < 0.5 ? 'low' : c < 0.7 ? 'mid' : 'high';
 
 function dload(): DecisionLog { try { const v = JSON.parse(localStorage.getItem(DKEY) || 'null'); if (v && v.modes && v.conf) return v; } catch { /* noop */ } return emptyLog(); }
@@ -189,6 +193,38 @@ function reportUnknown(text: string) {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
       body: JSON.stringify({ text }),
     }).catch(() => { /* بلا شبكة ⇒ يبقى محليًّا في unknownTexts */ });
+  } catch { /* noop */ }
+}
+
+/**
+ * يسجّل فهمًا واثقًا ردّه صاحبُه — القناةُ المقابلة لـ`reportUnknown`.
+ *
+ *   يُجمَع بالنصّ + الحقل: نفسُ الغلطة على نفس الجملة تزيد العدّادَ ولا
+ *   تُكرّر السطر. فالسطرُ ذو العدّاد العالي عطبٌ بنيويٌّ لا هفوةُ إنسان.
+ *
+ *   والثقةُ تُحفَظ لأنّها ترتيبُ الخطورة: ٠٫٩ مردودةً أسوأُ من ٠٫٤ مردودة.
+ */
+function recordMisread(m: { text: string; said: string; field: string; confidence: number }) {
+  const text = String(m?.text || '').trim().slice(0, 200);
+  if (!text) return;
+  const d = dload();
+  if (!Array.isArray(d.misreads)) d.misreads = [];
+  const hit = d.misreads.find(x => x.text === text && x.field === m.field);
+  if (hit) { hit.count++; hit.confidence = Math.max(hit.confidence, m.confidence || 0); }
+  else d.misreads.unshift({ text, said: String(m.said || ''), field: String(m.field || ''), confidence: m.confidence || 0, count: 1 });
+  d.misreads = d.misreads.slice(0, 100);
+  dsave(d);
+}
+
+/** يبلّغ الخادمَ (fire-and-forget) ثمّ يحفظ محلّيًّا مهما كانت الشبكة. */
+export function reportMisread(m: { text: string; said: string; field: string; confidence: number }) {
+  recordMisread(m);
+  try {
+    if (typeof fetch === 'undefined') return;
+    fetch('/api/ai/report-misread', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify(m),
+    }).catch(() => { /* بلا شبكة ⇒ يبقى محليًّا في misreads */ });
   } catch { /* noop */ }
 }
 
@@ -293,6 +329,10 @@ export function decisionStats() {
   const rate = (yn: YN) => { const t = yn.y + yn.n; return t ? Math.round((yn.y / t) * 100) : null; };
   return {
     modes: d.modes, totalModes, topIntents, topReasons, topUnknown, unknown: d.unknown,
+    // الأشدُّ خطرًا أوّلًا: ثقةٌ عاليةٌ رُدّت مرارًا.
+    topMisreads: (d.misreads || []).slice()
+      .sort((a, b) => (b.count * b.confidence) - (a.count * a.confidence)).slice(0, 8),
+    misreadTotal: (d.misreads || []).reduce((s, m) => s + m.count, 0),
     confirmYes: d.confirmYes, confirmNo: d.confirmNo,
     confirmAcceptRate: confirmTotal ? Math.round((d.confirmYes / confirmTotal) * 100) : null,
     // قبول التأكيد حسب الثقة: ثقةٌ عالية برفضٍ عالٍ ⇒ مشكلة فهمٍ لا قرار.

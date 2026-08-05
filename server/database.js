@@ -1229,6 +1229,60 @@ db.topUnknownTexts = async (limit = 100, status = '') => {
   } catch { return []; }
 };
 
+// ── القناةُ المقابلة: «ما فهمناه غلطًا» ──────────────────────────────────
+//
+//   يبلّغه العميلُ حين يضغط الإنسانُ «ماشي هادشي» ويقول أيَّ جزءٍ ردّ.
+//   ومثلَ المجهولات: عدٌّ لا حكم — لا معرفةَ تدخل بلا اعتماد إنسان (#٣).
+db.bumpMisread = async ({ text, field = 'all', said = '', confidence = 0 } = {}) => {
+  const t = String(text || '').trim().slice(0, 200);
+  if (t.length < 2) return false;
+  const f = String(field || 'all').slice(0, 40);
+  const c = Number.isFinite(+confidence) ? Math.max(0, Math.min(1, +confidence)) : 0;
+  try {
+    await pool.query(
+      `INSERT INTO learning_misreads (text, field, said, confidence, count)
+            VALUES ($1, $2, $3, $4, 1)
+       ON CONFLICT (text, field) DO UPDATE
+            SET count      = learning_misreads.count + 1,
+                -- نحتفظ بأعلى ثقةٍ سُجّلت: أسوأُ حالةٍ لا آخرُها.
+                confidence = GREATEST(learning_misreads.confidence, EXCLUDED.confidence),
+                said       = CASE WHEN EXCLUDED.said <> '' THEN EXCLUDED.said ELSE learning_misreads.said END,
+                last_seen  = NOW()`,
+      [t, f, String(said || '').slice(0, 200), c]);
+    return true;
+  } catch { return false; }   // الجدول قد لا يوجد بعد — نتجاهل بلا كسر
+};
+
+/** الأشدُّ خطرًا أوّلًا: ثقةٌ عاليةٌ رُدّت مرارًا. */
+db.topMisreads = async (limit = 100, status = '') => {
+  try {
+    const where = status ? `WHERE status = $2` : '';
+    const args = status
+      ? [Math.min(Number(limit) || 100, 500), String(status)]
+      : [Math.min(Number(limit) || 100, 500)];
+    const { rows } = await pool.query(
+      `SELECT text, field, said, confidence, count, status, last_seen
+         FROM learning_misreads ${where}
+        ORDER BY (count * confidence) DESC, count DESC, last_seen DESC LIMIT $1`, args);
+    return rows.map(r => ({
+      text: r.text, field: r.field, said: r.said,
+      confidence: +r.confidence, count: +r.count, status: r.status, lastSeen: r.last_seen,
+    }));
+  } catch { return []; }
+};
+
+/** حكمُ الإنسان على سوء فهمٍ: `fixed` أو `rejected`. لا شيءَ سواهما. */
+db.judgeMisread = async (text, field, status) => {
+  const s = status === 'fixed' ? 'fixed' : status === 'rejected' ? 'rejected' : '';
+  if (!s) return false;
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE learning_misreads SET status = $3 WHERE text = $1 AND field = $2`,
+      [String(text || '').trim(), String(field || 'all'), s]);
+    return rowCount > 0;
+  } catch { return false; }
+};
+
 /**
  * **ما فهمه الذكاءُ يُحفَظ ولا يُنسى.**
  *

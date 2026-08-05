@@ -327,6 +327,30 @@ async function migrate() {
     await client.query(`ALTER TABLE learning_unknowns ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`).catch(() => {});
     await client.query(`CREATE INDEX IF NOT EXISTS idx_unknowns_status ON learning_unknowns(status, count DESC)`).catch(() => {});
 
+    // ما فهمناه **غلطًا** — وردّه صاحبُه بـ«ماشي هادشي».
+    //
+    //   `learning_unknowns` أعلاه يلتقط ما لم نفهمه. ولم يكن لما فهمناه
+    //   غلطًا قناةٌ أصلًا، مع أنّه أخطر: الصامتُ يُسأل فيُصحَّح، والواثقُ
+    //   المخطئُ يمضي بالإنسان إلى بابٍ ليس بابَه — فأشدُّ أخطائنا كان وحدَه
+    //   بلا قياس.
+    //
+    //   المفتاحُ (نصّ + حقل): نفسُ الغلطة على نفس الجملة تزيد العدّاد ولا
+    //   تُكرّر السطر، فالعدّادُ العالي عطبٌ بنيويٌّ لا هفوةُ إنسان. و`said`
+    //   ما ادّعيناه — بدونه نعرف أنّنا أخطأنا ولا نعرف إلى أين انحرفنا.
+    await client.query(`CREATE TABLE IF NOT EXISTS learning_misreads (
+      text TEXT NOT NULL,
+      field TEXT NOT NULL DEFAULT 'all',
+      said TEXT NOT NULL DEFAULT '',
+      confidence REAL NOT NULL DEFAULT 0,
+      count INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL DEFAULT 'pending',
+      last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (text, field)
+    )`);
+    // الترتيبُ بالخطورة: عدّادٌ عالٍ × ثقةٌ عالية. الثقةُ العاليةُ المردودةُ
+    // أسوأُ من الضعيفة — تلك تخمينٌ ظاهر، وهذه خطأٌ يمضي واثقًا.
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_misreads_rank ON learning_misreads(status, count DESC, confidence DESC)`).catch(() => {});
+
     // Performance indexes
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_products_user_id    ON products(user_id)`,

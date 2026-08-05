@@ -135,7 +135,7 @@ activity.emit('ai.understood', { provider })      ← أيُّ محرّكٍ أج
 |---|---|
 | معزولةٌ بـ`user_id` (٢٢) | `products` `orders` `customers` `conversations` `coupons` `settings` `providers` `delivery_providers` `wallets` `payments` `notifications` `audit_logs` … |
 | ابنةٌ لأبٍ (٧) | `availability_slots` `availability_templates` `provider_services` `provider_concepts` `provider_verifications` `field_visits` → `providers` · `reviews` → `listings` |
-| عامّةٌ/عالميّة (١١) | `users` `listings` `otp_tokens` `custom_concepts` `concept_versions` `concept_aliases` `search_misses` `search_daily` `search_terms_daily` `learning_daily` `learning_unknowns` |
+| عامّةٌ/عالميّة (١١) | `users` `listings` `otp_tokens` `custom_concepts` `concept_versions` `concept_aliases` `search_misses` `search_daily` `search_terms_daily` `learning_daily` `learning_unknowns` `learning_misreads` |
 
 ### علاقاتٌ تكشف التصميم
 

@@ -22,6 +22,9 @@ import {
   stageOf, toTelemetry, type IntentSnapshot,
 } from '../lib/intentSnapshot';
 import UnderstandingCard from '../components/UnderstandingCard';
+import { correctionOptions, applyCorrection, buildMisread, thankFor, type CorrectionOption } from '../lib/correction';
+import { reportMisread } from '../lib/journey';
+import { understand } from '../lib/akg/kb';
 import type { Journey } from '../lib/core/plugins';
 import type { Page } from '../types';
 
@@ -58,6 +61,34 @@ export default function LivingHome() {
   // عقدُ الطلب — يُفتح مع أوّل جملةٍ ويرافقه إلى الوجهة أو التصعيد (HU-4).
   const [snap, setSnap] = useState<IntentSnapshot | null>(null);
   const [xpLog] = useState<Interaction[]>(getInteractions); // تفاعلات الجلسات السابقة (تُقرأ مرّة)
+  // التصحيحُ الفوريّ: الحقلُ المردود، ثمّ ما يكتبه الإنسانُ بدلًا عمّا قلناه.
+  const [correcting, setCorrecting] = useState(false);
+  const [wrong, setWrong] = useState<CorrectionOption | null>(null);
+  const [fixText, setFixText] = useState('');
+  const [thanks, setThanks] = useState('');
+
+  /**
+   * يُنهي التصحيح: يبلّغ الأدمنَ عدًّا، ويُطبّق التصحيحَ **لهذا الشخص وحدَه**.
+   *
+   *   القانون #٣ يمنع التعديلَ الذاتيّ. فتصحيحُ فردٍ يصلح فهمَه هو فورًا،
+   *   ولا يُعلّم التطبيقَ كلَّه — وإلّا علّمت غلطةُ واحدٍ الناسَ جميعًا.
+   *
+   *   و«كلشي غالط» لا يكتب شيئًا في الذاكرة: من ردّ الفهمَ كلَّه لم يقل
+   *   ماذا يريد، والكتابةُ عنه تخمينٌ فوق خطأ. نعتذر ونستمع من جديد.
+   */
+  const fixNow = () => {
+    if (!wrong) return;
+    const u = understand(text);
+    const m = buildMisread(text, u, wrong.field);
+    if (m) reportMisread(m);
+    if (wrong.field !== 'all') applyCorrection(text, fixText);
+    setThanks(thankFor(wrong.field));
+    setCorrecting(false);
+    setWrong(null);
+    setFixText('');
+    // «كلشي غالط» ⇒ نُخلي الطريقَ لجملةٍ جديدة، وما دونه يبقى على جملته.
+    if (wrong.field === 'all') { setResult(null); setText(''); }
+  };
 
   // ── أمثلةٌ حيّة متغيّرة (تعليمٌ بلا دليل) — تتبدّل في placeholder ما دامت الخانة فارغة ──
   // تحترم «تقليل الحركة»؛ تتوقّف بمجرّد أن يكتب المستخدم أو تظهر نتيجة.
@@ -175,7 +206,7 @@ export default function LivingHome() {
     setText(q); setResult(r); setStepIdx(0); setPending(null); setConfirmed(false);
     setTurns([{ who: 'user', text: q }, ...(r.open ? [{ who: 'sys' as const, text: r.open }] : [])]);
   };
-  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); };
+  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); };
 
   const pickOption = (opt: NeedOption) => {
     receptionTurn(opt.label, 'button');                      // قياس: دورٌ بالأزرار
@@ -295,7 +326,9 @@ export default function LivingHome() {
       <form onSubmit={e => { e.preventDefault(); submit(text); }} style={{ maxWidth: 620, width: '100%', margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '14px 16px', borderRadius: 16, background: 'var(--panel,rgba(255,255,255,.03))', border: '1.5px solid var(--border2,rgba(255,255,255,.14))' }}>
           <Search size={19} style={{ color: 'var(--ink3)', flexShrink: 0 }} />
-          <input value={text} onChange={e => setText(e.target.value)}
+          {/* شكرُ التصحيح يُمحى بمجرّد أن يكتب من جديد — رسالةٌ باقيةٌ على
+              جملةٍ أخرى تصير كذبًا صغيرًا. */}
+          <input value={text} onChange={e => { setText(e.target.value); if (thanks) setThanks(''); }}
             placeholder={`كتب بالدارجة… مثلاً: ${NEED_EXAMPLES[phIdx] || 'الماء كيقطر ضروري'}`}
             autoComplete="off"
             style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--ink1)', fontSize: 15.5, fontWeight: 600, fontFamily: 'inherit', direction: 'rtl' }} />
@@ -324,7 +357,47 @@ export default function LivingHome() {
           المستخدم ليتأكّد أنّ ما فُهم عنه صحيح قبل أن يمضي. ── */}
       <UnderstandingCard query={text} onAct={() => submit(text)}
         mirror={!!result}
-        onCorrect={() => { recordConfirm(false, result?.confidence ?? 0); reset(); }} />
+        onCorrect={() => { recordConfirm(false, result?.confidence ?? 0); setWrong(null); setFixText(''); setThanks(''); setCorrecting(true); }} />
+
+      {/* ── التصحيحُ الفوريّ: «لا، ماشي هادشي» ────────────────────
+          كان الزرُّ يمحو جملةَ الإنسان ويعيده لخانةٍ فارغة، ويسجّل أنّ شيئًا
+          كان خطأً بلا أن يسجّل ما هو. فيدفع ثمنَ خطئنا مرّتين: يكتب من
+          جديد، ولا يتحسّن شيءٌ حين يكتب. هنا **تبقى الجملة**، ونسأل عمّا
+          ادّعيناه نحن لا سؤالًا عامًّا. ── */}
+      {correcting && !thanks && (
+        <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', padding: '13px 15px', borderRadius: 13, border: '1px solid var(--border,rgba(255,255,255,.1))', background: 'var(--panel,rgba(255,255,255,.02))', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {!wrong ? (
+            <>
+              <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--ink1)' }}>سمح ليا — شنو اللي غالط؟</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                {correctionOptions(understand(text)).map(o => (
+                  <button key={o.field} type="button" onClick={() => setWrong(o)}
+                    style={{ padding: '7px 13px', borderRadius: 99, border: '1px solid var(--border,rgba(255,255,255,.12))', background: 'transparent', color: 'var(--ink1)', fontSize: 12.5, fontWeight: 750, fontFamily: 'inherit', cursor: 'pointer' }}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--ink1)' }}>{wrong.ask}</div>
+              <form onSubmit={e => { e.preventDefault(); fixNow(); }} style={{ display: 'flex', gap: 7 }}>
+                <input value={fixText} onChange={e => setFixText(e.target.value)} autoFocus
+                  style={{ flex: 1, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border,rgba(255,255,255,.12))', background: 'transparent', color: 'var(--ink1)', fontSize: 13.5, fontWeight: 650, fontFamily: 'inherit', direction: 'rtl', outline: 'none' }} />
+                <button type="submit" disabled={!fixText.trim()}
+                  style={{ padding: '9px 15px', borderRadius: 10, border: 'none', background: 'var(--amz-gold,#D4A017)', color: '#1a1300', fontSize: 13, fontWeight: 900, fontFamily: 'inherit', cursor: fixText.trim() ? 'pointer' : 'default', opacity: fixText.trim() ? 1 : .45 }}>
+                  صحّح
+                </button>
+              </form>
+            </>
+          )}
+        </div>
+      )}
+      {thanks && (
+        <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', padding: '11px 15px', borderRadius: 13, border: '1px solid rgba(10,143,111,.3)', background: 'rgba(10,143,111,.07)', fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>
+          {thanks}
+        </div>
+      )}
 
       {/* ── انتقالٌ لإنسان (ADR-0006) ──────────────────────────────
           بعد استيضاحين بلا ارتفاعٍ في الفهم، السؤالُ الثالث إهانةٌ لا مساعدة.

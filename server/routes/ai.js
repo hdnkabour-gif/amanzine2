@@ -877,6 +877,34 @@ router.post('/report-unknown', async (req, res) => {
     return res.json({ ok: true });
   } catch { return res.json({ ok: false }); }
 });
+/**
+ * «ماشي هادشي» — فهمٌ واثقٌ ردّه صاحبُه.
+ *
+ *   عامٌّ كـ`report-unknown`: مَن يكتشف الخطأ هو الزائرُ الذي وقع عليه،
+ *   وطلبُ تسجيلِ الدخول منه ليُبلّغ ضمانُ ألّا يُبلّغ أحد. والاعتمادُ محميّ.
+ */
+router.post('/report-misread', async (req, res) => {
+  try {
+    const ok = await db.bumpMisread({
+      text: req.body?.text, field: req.body?.field,
+      said: req.body?.said, confidence: req.body?.confidence,
+    });
+    return res.json({ ok });
+  } catch { return res.json({ ok: false }); }
+});
+router.get('/misread-report', auth, async (req, res) => {
+  try {
+    const rows = await db.topMisreads(Number(req.query.limit) || 100, String(req.query.status || ''));
+    return res.json({ misreads: rows });
+  } catch { return res.status(500).json({ error: 'report failed' }); }
+});
+router.post('/judge-misread', auth, async (req, res) => {
+  try {
+    const ok = await db.judgeMisread(req.body?.text, req.body?.field, req.body?.status);
+    return res.json({ ok });
+  } catch { return res.json({ ok: false }); }
+});
+
 router.get('/unknown-report', auth, async (req, res) => {
   try {
     const rows = await db.topUnknownTexts(Number(req.query.limit) || 100, String(req.query.status || ''));
