@@ -673,6 +673,22 @@ export const memoryAPI = {
   forget: (key: string) => request<{ ok: boolean; removed: number }>('DELETE', `/memory/${key}`),
 };
 
+// ── التحقّقُ الموحَّد — قناةٌ محايدة، والفعلُ هو ما يطلب الرمز ────
+//   القناةُ تُختار على الخادم من نوع الهويّة وممّا هو مُهيّأٌ فعلًا. الواجهةُ
+//   تسأل «أيَّ قناةٍ تعمل؟» لتعرض ما يُرسل، ولا تعرض زرَّ قناةٍ لا تُرسل.
+export interface VerifyStart {
+  sent: boolean; channel: string; masked: string; channels: string[];
+}
+export const verifyAPI = {
+  channels: (identifier: string) =>
+    request<{ all: { id: string; name: string; kind: string }[]; usable: string[]; kind: string | null }>(
+      'GET', `/verify/channels?identifier=${encodeURIComponent(identifier)}`),
+  start: (identifier: string, purpose: string, channel?: string) =>
+    request<VerifyStart>('POST', '/verify/start', { identifier, purpose, channel }),
+  check: (identifier: string, purpose: string, code: string) =>
+    request<{ verified: boolean }>('POST', '/verify/check', { identifier, purpose, code }),
+};
+
 export const needsAPI = {
   create: (n: { raw: string; city?: string; concept?: string; contact?: string }) =>
     request<{ id: string; ok: boolean; reachable: boolean }>('POST', '/needs', n),

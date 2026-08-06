@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import VerifyCode from '../components/VerifyCode';
 import { getToken as getAuthToken } from '../services/api';
 import { useStore } from '../store';
 import {
@@ -162,8 +163,15 @@ export default function SettingsPage() {
   } = useStore();
 
   const [tab, setTab]   = useState<Tab>('general');
+  // مسوّدةُ النمرة: تُكتَب هنا ولا تُحفَظ حتّى يتأكّد صاحبُها منها.
+  const [phoneDraft, setPhoneDraft] = useState('');
+  const [phoneVerifying, setPhoneVerifying] = useState(false);
+  const [phoneErr, setPhoneErr] = useState('');
   const importRef       = useRef<HTMLInputElement>(null);
   const s               = settings;
+  // المسوّدةُ تُهيَّأ من المحفوظ: بلا هذا تبدأ فارغةً فيبدو أنّ التاجرَ يغيّر
+  // نمرتَه في كلّ مرّةٍ يفتح فيها الإعدادات.
+  useEffect(() => { setPhoneDraft(s.brand?.phone || ''); }, [s.brand?.phone]);
 
   // ── Quick-reply input ref ────────────────────────────────────────────────────
   const qrInputRef = useRef<HTMLInputElement>(null);
@@ -273,7 +281,47 @@ export default function SettingsPage() {
                 <input className="input" value={s.brand.name} onChange={e => updateSettings('brand', { ...s.brand, name: e.target.value })} />
               </Field>
               <Field label="رقم الهاتف">
-                <input className="input" value={s.brand.phone} dir="ltr" onChange={e => updateSettings('brand', { ...s.brand, phone: e.target.value })} />
+                {/* ── النمرةُ تُبدَّل بتحقّقٍ لا بكتابة ────────────────────
+                    هي **قناةُ الزبون الوحيدة** إليك: تظهر في المتجر وعلى
+                    الفاتورة وفي رسالة واتساب. وخطأٌ في رقمٍ يقطع كلَّ اتّصالٍ
+                    بلا أن يشتكي أحد — لا رسالةَ خطأٍ ولا سجلّ، فقط زبناءُ
+                    يتّصلون بمن لا يعرفونه. والتحقّقُ يمنع هذا بثلاثين ثانية. */}
+                <input className="input" value={phoneDraft} dir="ltr"
+                  onChange={e => { setPhoneDraft(e.target.value); setPhoneErr(''); }} />
+                {phoneDraft.trim() !== (s.brand.phone || '').trim() && (
+                  phoneVerifying ? (
+                    <div style={{ marginTop: 8 }}>
+                      <VerifyCode
+                        identifier={phoneDraft.trim()}
+                        purpose="phone_change"
+                        why="النمرة هي الطريق الوحيد اللي كيوصلو بيه الزبناء ليك — خاصنا نتأكّدو منها."
+                        onCancel={() => setPhoneVerifying(false)}
+                        onVerified={() => {
+                          updateSettings('brand', { ...s.brand, phone: phoneDraft.trim() });
+                          setPhoneVerifying(false);
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <button onClick={() => {
+                          // نمرةٌ ناقصةٌ لا تُرسَل إلى قناةٍ لتردَّ بخطأ — يُقال هنا.
+                          if (phoneDraft.replace(/\D/g, '').length < 9) { setPhoneErr('النمرة ناقصة'); return; }
+                          setPhoneVerifying(true);
+                        }}
+                        style={{ padding: '8px 15px', borderRadius: 10, border: 'none', background: 'var(--ember,#FF6A00)',
+                          color: '#fff', fontSize: 12.5, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>
+                        أكّد النمرة الجديدة
+                      </button>
+                      <button onClick={() => { setPhoneDraft(s.brand.phone || ''); setPhoneErr(''); }}
+                        style={{ background: 'none', border: 'none', color: 'var(--ink3)', fontSize: 12,
+                          fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
+                        رجّع القديمة
+                      </button>
+                      {phoneErr && <span style={{ color: 'var(--red,#F5484A)', fontSize: 12, fontWeight: 700 }}>{phoneErr}</span>}
+                    </div>
+                  )
+                )}
               </Field>
               <Field label="البريد الإلكتروني">
                 <input className="input" type="email" value={s.brand.email} dir="ltr" onChange={e => updateSettings('brand', { ...s.brand, email: e.target.value })} />
