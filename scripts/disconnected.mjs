@@ -88,6 +88,9 @@ function reachableFrom(entries) {
 const DYNAMIC = [
   ...walk(join(ROOT, 'server/services/delivery/providers')),
   ...walk(join(ROOT, 'server/services/delivery/adapters')),
+  // قنواتُ التحقّق تُحمَّل بمسح المجلّد في `lib/verify/index.js` — نفسُ العقد.
+  // ثاني مجلّدٍ من هذا الصنف، ولن يكون الأخير.
+  ...walk(join(ROOT, 'server/lib/verify/channels')),
 ];
 const ENTRIES = [join(ROOT, 'src/main.tsx'), join(ROOT, 'server/index.js'), ...DYNAMIC];
 

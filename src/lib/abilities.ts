@@ -205,6 +205,11 @@ export const ABILITIES: Ability[] = [
     risk: 'high', needs: ['amount', 'method'], auth: true, page: 'wallet', api: '/api/payment' },
 
   // ⑥ نفسُه ──────────────────────────────────────────────────
+  // التحقّقُ الموحَّد: قناةٌ محايدة (بريد · واتساب · SMS)، والفعلُ هو ما يطلب
+  // الرمز. `page: null` عمدًا — لا صفحةَ له: يظهر **داخل** الفعل الذي طلبه
+  // (تأكيدُ طلبٍ · تبديلُ نمرة)، وصفحةٌ مستقلّةٌ للتحقّق لا معنى لها.
+  { id: 'VERIFY_IDENTITY', verb: 'view', entity: 'account', say: 'تأكّد نمرتك ولا بريدك',
+    risk: 'low', needs: [], auth: false, page: null, api: '/api/verify' },
   { id: 'SIGN_IN', verb: 'create', entity: 'account', say: 'تدخل ولا تصايب حساب',
     risk: 'medium', needs: ['phone'], auth: false, page: 'profile', api: '/api/auth' },
   { id: 'CHANGE_PHONE', verb: 'update', entity: 'phone', say: 'تبدّل النمرة ديالك',

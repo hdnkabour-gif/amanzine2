@@ -158,7 +158,10 @@ test('القدراتُ بلا بابٍ معروفةٌ ومعدودة', () => {
   // لا نُخفيها ولا ندّعي أنّها لا توجد. نثبّت العددَ كي ينكشف كلُّ ازديادٍ
   // فورًا — سقفٌ ينزل ولا يصعد، كما في `knowledge-health`.
   const noPage = ABILITIES.filter(a => a.page === null).map(a => a.id).sort();
-  const KNOWN = ['BROADCAST_MESSAGE', 'MANAGE_LOYALTY', 'SYNC_MEMORY', 'TRACK_ORDER'].sort();
+  //   `VERIFY_IDENTITY` بلا صفحةٍ **عمدًا** لا نقصًا: التحقّقُ يظهر داخل
+  //   الفعل الذي طلبه (تأكيدُ طلبٍ · تبديلُ نمرة)، وصفحةٌ مستقلّةٌ له تعني
+  //   بابًا يدخله الإنسانُ ليتحقّق من لا شيء.
+  const KNOWN = ['BROADCAST_MESSAGE', 'MANAGE_LOYALTY', 'SYNC_MEMORY', 'TRACK_ORDER', 'VERIFY_IDENTITY'].sort();
   assert.deepEqual(noPage, KNOWN,
     `تغيّرت القدراتُ بلا باب. أضِف صفحةً أو حدّث القائمةَ بوعي:\n  ${noPage.join(', ')}`);
 });

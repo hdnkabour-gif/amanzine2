@@ -389,6 +389,26 @@ async function migrate() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_otp_email ON otp_tokens(email)`);
+    // ── التحقّقُ محايدُ القناة ─────────────────────────────────
+    //
+    //   كان الجدولُ مبنيًّا على البريد وحدَه (`email NOT NULL`)، فأيُّ تحقّقٍ
+    //   برقمِ هاتفٍ كان يحتاج جدولًا موازيًا — وذاك يعني حقيقتَين تتباعدان
+    //   وحدَّين للصلاحيّة وسياستَي إبطال (القاعدة ⑱).
+    //
+    //   `identifier` هو ما يُثبَت ملكُه (بريدٌ أو رقم)، و`channel` كيف سافر
+    //   الرمز، و`purpose` **الفعلُ الذي طلبه**: رمزٌ طُلب لتأكيد طلبٍ لا
+    //   يصلح لتبديل رقمِ الهاتف. بلا `purpose` يصير الرمزُ مفتاحًا عامًّا.
+    await client.query(`ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS identifier TEXT`).catch(() => {});
+    await client.query(`ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS channel TEXT DEFAULT 'email'`).catch(() => {});
+    await client.query(`ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS purpose TEXT DEFAULT 'login'`).catch(() => {});
+    await client.query(`ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS user_id TEXT`).catch(() => {});
+    await client.query(`ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS attempts INTEGER DEFAULT 0`).catch(() => {});
+    // الصفوفُ القديمةُ بريدٌ كلُّها — تُملأ كي لا يبقى نصفُ الجدول بلا هويّة.
+    await client.query(`UPDATE otp_tokens SET identifier = email WHERE identifier IS NULL`).catch(() => {});
+    // `email` كانت NOT NULL: التحقّقُ برقمٍ يحتاج تركَها فارغة.
+    await client.query(`ALTER TABLE otp_tokens ALTER COLUMN email DROP NOT NULL`).catch(() => {});
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_otp_identifier
+      ON otp_tokens(identifier, purpose) WHERE used = FALSE`).catch(() => {});
 
     // Refresh tokens table (Fix #12)
     await client.query(`CREATE TABLE IF NOT EXISTS refresh_tokens (

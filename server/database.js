@@ -1086,6 +1086,57 @@ db.getValidOTP = async (email, code) => {
   );
   return r.rows[0] || null;
 };
+// ── التحقّقُ محايدُ القناة ──────────────────────────────────────
+//
+//   نفسُ الجدول (`otp_tokens`) لا جدولٌ موازٍ: الرمزُ رمزٌ سواءٌ سافر بريدًا
+//   أو واتسابًا أو رسالةً قصيرة، وجدولان يعنيان حدَّي صلاحيّةٍ وسياستَي
+//   إبطال تتباعدان بصمت (القاعدة ⑱).
+db.createVerification = async ({ identifier, purpose, userId, channel, code, expiresAt }) => {
+  await pool.query(
+    `INSERT INTO otp_tokens (email, identifier, purpose, user_id, channel, code, expires_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    // `email` يُملأ حين تكون الهويّةُ بريدًا — كي تبقى القراءاتُ القديمة تعمل.
+    [identifier.includes('@') ? identifier : null, identifier, purpose, userId, channel, code, expiresAt]
+  );
+};
+
+/** آخرُ رمزٍ حيٍّ لهذه الهويّة **ولهذا الغرض**. */
+db.getPendingVerification = async (identifier, purpose) => {
+  const r = await pool.query(
+    `SELECT * FROM otp_tokens
+     WHERE identifier = $1 AND purpose = $2 AND used = FALSE
+     ORDER BY created_at DESC LIMIT 1`,
+    [identifier, purpose]
+  );
+  return r.rows[0] || null;
+};
+
+/** يُبطل ما سبق **لهذا الغرض وحدَه** — لا يمسّ تحقّقًا جاريًا لغرضٍ آخر. */
+db.invalidateVerifications = async (identifier, purpose) => {
+  await pool.query(
+    `UPDATE otp_tokens SET used = TRUE WHERE identifier = $1 AND purpose = $2 AND used = FALSE`,
+    [identifier, purpose]
+  );
+};
+
+/** عدّادُ المحاولات — بلا عدٍّ يُخمَّن رمزٌ من ستّ خاناتٍ بالقوّة الغاشمة. */
+db.bumpVerificationAttempts = async (id) => {
+  const r = await pool.query(
+    `UPDATE otp_tokens SET attempts = COALESCE(attempts, 0) + 1 WHERE id = $1 RETURNING attempts`,
+    [id]
+  );
+  return r.rows[0]?.attempts || 0;
+};
+
+/** أثرُ تحقّقٍ تمّ بلا رمز (Google) — كي يبقى للتحقّق سجلٌّ واحدٌ مهما اختلف طريقُه. */
+db.recordVerified = async ({ identifier, purpose, userId, channel }) => {
+  await pool.query(
+    `INSERT INTO otp_tokens (email, identifier, purpose, user_id, channel, code, expires_at, used)
+     VALUES ($1, $2, $3, $4, $5, '', NOW(), TRUE)`,
+    [identifier.includes('@') ? identifier : null, identifier, purpose, userId, channel]
+  );
+};
+
 db.invalidateOTPs = async (email) => {
   await pool.query(`UPDATE otp_tokens SET used=TRUE WHERE email=$1`, [email.toLowerCase()]);
 };

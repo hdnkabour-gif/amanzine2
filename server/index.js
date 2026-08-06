@@ -271,6 +271,7 @@ app.use('/api/business',      require('./routes/business'));    // Universal Bus
 app.use('/api/knowledge',     require('./routes/knowledge'));   // Knowledge layer (أدمن): search misses (DR-0002)
 app.use('/api/needs',         require('./routes/needs'));       // Demand Capture: «ما لقيناش» تصير طلبًا مؤكّدًا
 app.use('/api/memory',        require('./routes/memory'));      // ذاكرةُ المستخدم: ما يعرفه التطبيقُ عن شخصٍ بعينه
+app.use('/api/verify',        require('./routes/verify'));      // التحقّقُ الموحَّد: بريد · واتساب · SMS — والفعلُ يطلب الرمز
 
 
 // ── Serve uploaded media ─────────────────────────────────────

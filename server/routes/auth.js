@@ -9,6 +9,7 @@ const { db }  = require('../database');
 
 const { JWT_SECRET: _secret, JWT_EXPIRES: EXPIRES, REFRESH_EXPIRES: REXP, REFRESH_EXPIRES_MS: REXP_MS } = require('../lib/config');
 const { sendOTP, verifyOTP, sendWelcome } = require('../lib/otp');
+const verify = require('../lib/verify');
 
 function sign(user) {
   return jwt.sign({ id: user.id, email: user.email, role: user.role }, _secret, { expiresIn: EXPIRES });
@@ -169,10 +170,17 @@ router.post('/social', sanitizeBody, async (req, res) => {
       await db.addLog({ userId: user.id, user: user.name, action: `Login via ${provider}`, details: '', type: 'auth', severity: 'info' });
     }
 
+    // ── Google/Facebook **يُثبتان** التحقّقَ ولا يرسلان رمزًا ──────
+    //   مزوّدُ الهويّة أثبت ملكَ البريد بنفسه، فإرسالُ رمزٍ بعده طقسٌ فارغٌ
+    //   يُبطئ الإنسانَ ولا يزيد يقينًا. وتُسجَّل الواقعةُ في نفس سجلّ التحقّق
+    //   كي يبقى له **أثرٌ واحد** مهما اختلف طريقُه — لا مسارٌ ثالثٌ صامت.
+    verify.satisfy({ identifier: user.email, purpose: 'login', userId: user.id, via: provider })
+      .catch(e => console.warn('[auth/social] تعذّر تسجيلُ أثر التحقّق:', e.message));
+
     const token        = sign(user);
     const refreshToken = await issueRefreshToken(user.id);
     _setAuthCookies(res, token, refreshToken);
-    res.json({ token, refreshToken, user: safe(user), isNew });
+    res.json({ token, refreshToken, user: safe(user), isNew, verified: true, verifiedVia: provider });
   } catch (e) { console.error('[Auth social]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
