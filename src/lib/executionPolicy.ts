@@ -90,8 +90,16 @@ const DESTRUCTIVE = new Set(['delete']);
  * @param match القدرةُ المطابِقة إن عُرفت. وجودُها يُبدّل **العتبة**: العرضُ
  *              والبحثُ ينفّذان بثقةٍ أقلّ، والحذفُ لا ينفّذ مهما بلغت.
  *              وغيابُها لا يمنع شيئًا — يُحكَم بالعتبة العامّة ويُسأل.
+ * @param ctx   ما يملكه المُنادي ولا تملكه اللغة: أيُّ منتوجٍ تشير إليه
+ *              «هاد» و«آخر». اختياريٌّ عمدًا — بلا سياقٍ يبقى الحكمُ كما كان،
+ *              فلا ينكسر مُنادٍ لم يُحدَّث بعد.
  */
-export function decideExecution(u: Understanding, match?: Ability, impossible = false): Decision {
+export function decideExecution(
+  u: Understanding,
+  match?: Ability,
+  impossible = false,
+  ctx?: { lastProduct?: { id: string; name: string } },
+): Decision {
   const trace: string[] = [];
   // **الفعلُ الإداريُّ له بابٌ واحدٌ لا غير.** يُحسَب مرّةً ويُرفَق بكلّ حكم،
   // فلا يُساق صاحبُ الحساب إلى السوق مهما قالت النيّةُ المخلوطة.
@@ -154,10 +162,21 @@ export function decideExecution(u: Understanding, match?: Ability, impossible = 
   //
   //    كانت `needs` تُقرأ كما هي، فيُسأل الخضّارُ «شنو نوع النشاط؟» بعد أن
   //    قال «عندي محل ديال الخضرة». وهو «موتُ السحر»: يعرف ثمّ يسأل.
+  // **الإشارةُ تُحَلّ هنا — حيث يوجد الكتالوج، لا في المعجم.**
+  //
+  //   «مسح **هاد** المنتوج» و«بدّل ليا ثمن **آخر** منتوج» كلامٌ يعيّن
+  //   المقصودَ بغير اسمِه، وكان يُقابَل بـ«أيّ منتوج؟» — سؤالٌ عمّا قيل
+  //   للتوّ، وهو أسوأُ من السؤال عمّا لم يُقَل: يُشعر الإنسانَ أنّه لم يُسمَع.
+  //
+  //   وحدُّه صريح: **لا يُحَلّ إلّا إذا كان عند المُنادي جواب**. بلا سياقٍ
+  //   يبقى السؤالُ قائمًا — والسؤالُ الصادقُ خيرٌ من تخمينِ منتوجٍ يُحذَف.
+  const pointed = u.action?.ref && ctx?.lastProduct ? ctx.lastProduct : undefined;
+  if (pointed) trace.push(`الإشارة «${u.action!.ref}» ⇒ «${pointed.name}»`);
+
   if (match) {
     const missing = unmetNeeds(match, {
       trade: u.service || u.profession?.id,
-      product: u.service, subject: u.service || u.problem?.id,
+      product: u.service || pointed?.id, subject: u.service || u.problem?.id,
     });
     if (missing.length) {
       trace.push(`ينقص: ${missing[0]}`);
@@ -171,8 +190,31 @@ export function decideExecution(u: Understanding, match?: Ability, impossible = 
       if (u.goal && missing[0] === 'subject') trace.push(`سؤالُ الغاية: ${u.goal.id}`);
       return { verdict: 'ask', say, trace, dest };
     }
+    // **ونقصُ الفعل يُقرأ أيضًا — كان يُهمَل كلَّما طابقت قدرة.**
+    //
+    //   قائمتان للنقص: واحدةٌ في القدرة (`UPDATE_PRODUCT.needs = ['product']`)
+    //   وواحدةٌ في الفعل المقروء (`price` ⇒ «بشحال؟»). وكانت الثانيةُ تُقرأ
+    //   في `else` وحدَه — أي حين **لا** تُطابَق قدرة. فمتى طابقت سقطت.
+    //   وظهر الأثرُ حين حُلَّت الإشارةُ: «بدّل ليا ثمن آخر منتوج» ⇒ **نفِّذ**
+    //   تبديلَ ثمنٍ بلا ثمن. القائمتان تُقرآن معًا أو تكذب إحداهما.
+    //
+    //   ── **ولا تُقرأ من قراءةٍ ضعيفة** ──
+    //   قِيس فسقطت جملةٌ صحيحة: «كنصايب الحلويات» يُقرأ فيها «صايب» فعلَ
+    //   إنشاءٍ بلا هدف، فتسقط على `settings` بثقة **٠٫٣٥** وتُعلن «شنو بغيتي
+    //   تزيد؟». والقدرةُ مطابِقةٌ تمامًا (يعرف حرفتَه: حلويات) — فيُسأل مَن
+    //   قال حرفتَه سؤالًا وُلد من سوء قراءة. ونفسُ الحدّ (٠٫٥) الذي يمنع
+    //   القراءةَ الضعيفة أن تُنتج «ما نقدرش» يمنعها أن تُنتج سؤالًا.
+    const READ_ENOUGH = 0.5;
+    const heard = (u.action?.confidence ?? 0) >= READ_ENOUGH ? (u.action?.needs || []) : [];
+    const extra = heard.find(n => !/^تأكيد/.test(n) && !(pointed && /منتج|منتوج/.test(n)));
+    if (extra) {
+      trace.push(`ينقص من الفعل: ${extra}`);
+      return { verdict: 'ask', say: extra, trace, dest };
+    }
   } else if (u.action?.needs?.length) {
-    const need = u.action.needs.find(n => !/^تأكيد/.test(n));
+    // ونقصُ الفعل يُطرَح منه ما حلّته الإشارةُ كذلك: «صايب تصويرة لهاد
+    // المنتوج» تُعلن `أيّ منتج؟` وقد أشار إليه في الجملة نفسِها.
+    const need = u.action.needs.find(n => !/^تأكيد/.test(n) && !(pointed && /منتج|منتوج/.test(n)));
     if (need) {
       trace.push(`ينقص: ${need}`);
       return { verdict: 'ask', say: need, trace, dest };
@@ -183,7 +225,14 @@ export function decideExecution(u: Understanding, match?: Ability, impossible = 
   //    التأكيدَ على فعلٍ لم نفهمه بعد.
   if ((u.action && DESTRUCTIVE.has(u.action.verb)) || match?.risk === 'high') {
     trace.push(match ? `فعلٌ خطِر: ${match.id}` : 'فعلٌ لا يُسترجَع');
-    return { verdict: 'confirm', say: match ? `واش متأكّد باغي ${match.say}؟` : 'واش متأكّد؟ هادشي ما كيرجعش.', trace, dest };
+    // **والتأكيدُ يسمّي ما سيُحذَف.** «واش متأكّد باغي تحيّد منتوج؟» تأكيدٌ
+    // على المجهول: يوافق الإنسانُ وهو لا يعرف أيَّ واحدٍ سيذهب. وحين تُحَلّ
+    // الإشارةُ يُذكَر الاسمُ — وهو **كلُّ ما يحتاجه ليقرّر**، فلا تُفتَح له
+    // صفحةُ المنتجات ليبحث عمّا عيّنه بنفسه.
+    const say = pointed && match
+      ? `واش متأكّد باغي ${match.say.split(' (')[0]} «${pointed.name}»؟`
+      : match ? `واش متأكّد باغي ${match.say}؟` : 'واش متأكّد؟ هادشي ما كيرجعش.';
+    return { verdict: 'confirm', say, trace, dest };
   }
 
   // ⑦ الثقة — آخرَ ما يُنظَر فيه.

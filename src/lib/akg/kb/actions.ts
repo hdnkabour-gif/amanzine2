@@ -28,7 +28,8 @@
 // ============================================================
 
 import { deArabizi } from './arabizi';
-import { normLoose } from '../../normalize';
+import { normLoose, hitsWord } from '../../normalize';
+import { readAmount } from '../../money';
 
 /** ما يريد فعلَه. */
 export type ActionVerb = 'view' | 'create' | 'update' | 'delete' | 'share' | 'send';
@@ -49,6 +50,18 @@ export interface ActionRead {
   scope: ActionScope;
   /** ما ينقص ليُنفَّذ — تُطرَح سؤالًا واحدًا، لا استمارة. */
   needs: string[];
+  /**
+   * **الإشارةُ: قال أيَّ واحدٍ يقصد، بغير اسمِه.**
+   *
+   *   «مسح **هاد** المنتوج» · «بدّل ليا ثمن **آخر** منتوج» — كلامٌ صريحٌ
+   *   يعيّن المقصود، وكان يُقابَل بـ«أيّ منتوج؟». والسؤالُ عمّا قيل للتوّ
+   *   أسوأُ من السؤال عمّا لم يُقَل: الأوّلُ يُشعر الإنسانَ أنّه لم يُسمَع.
+   *
+   *   وتُقرأ هنا **مؤشِّرًا لا اسمًا**: هذه الطبقةُ تقرأ اللغةَ ولا تعرف
+   *   كتالوجَ أحد. مَن يملك الكتالوج هو من يحلّها — ولو حلَلناها هنا
+   *   لصار المعجمُ يقرأ قاعدةَ البيانات.
+   */
+  ref?: 'this' | 'last';
   confidence: number;
   /** لماذا قُرئت هكذا — «كلُّ شيءٍ قابل للشرح». */
   reason: string;
@@ -95,7 +108,11 @@ const OBJECTS: { object: ActionObject; scope: ActionScope; terms: string[]; need
   { object: 'delivery',   scope: 'workspace', terms: ['التوصيل', 'شركه التوصيل', 'ثمن التوصيل', 'livraison'] },
 
   // الكتالوج — الثمنُ والمخزونُ يحتاجان **نسخة**، فيُعلَن نقصُها صراحةً.
-  { object: 'price',   scope: 'workspace', terms: ['الثمن', 'التمن', 'السوم', 'الاثمنه', 'prix'], needs: ['أيّ منتج؟'] },
+  // المجرّدُ بلا «ال» كان غائبًا هنا أيضًا: «بدّل ليا **ثمن** آخر منتوج»
+  // كانت تُقرأ هدفَها `product` — فيُقال «بدّل منتوجًا» لمن قال «بدّل ثمنًا»،
+  // ويسقط معها سؤالُ «بشحال؟». و«ثمن التوصيل» محفوظةٌ لأنّ `delivery` أسبقُ
+  // في هذه القائمة، والترتيبُ من الأخصّ إلى الأعمّ جزءٌ من المعنى.
+  { object: 'price',   scope: 'workspace', terms: ['الثمن', 'التمن', 'ثمن', 'تمن', 'السوم', 'سوم', 'السعر', 'سعر', 'الاثمنه', 'prix'], needs: ['أيّ منتج؟'] },
   { object: 'stock',   scope: 'workspace', terms: ['المخزون', 'الستوك', 'الكميه', 'stock'], needs: ['أيّ منتج؟'] },
   // المجرّدُ بلا «ال» كان غائبًا: «صايب **تصويرة** لهاد المنتوج» تُقرأ
   // `create/product` ⇒ «أيّ منتوج؟» — وهو يريد صورةً لمنتوجٍ **أشار إليه**.
@@ -151,7 +168,7 @@ export function readAction(raw: string): ActionRead | null {
     if (!g) return null;
     return {
       verb: 'create', object: g.object, scope: g.scope,
-      needs: [...(g.needs || [])], confidence: 0.6,
+      needs: [...(g.needs || [])], ref: readRef(t), confidence: 0.6,
       reason: `«${hits(t, g.terms)}» — شيءٌ يصنعه التطبيق، فطلبُه طلبُ صنعِه`,
     };
   }
@@ -183,11 +200,36 @@ export function readAction(raw: string): ActionRead | null {
   const needs = [...(o.needs || [])];
   if (v.verb === 'delete') needs.push('تأكيد: هذا لا يُسترجَع');
 
+  // **ومن يبدّل ثمنًا لم يقل الثمنَ الجديد ينقصه ثمن.**
+  //   كان نقصُ الثمن مستورًا بنقصِ المنتوج: يُسأل «أيّ منتوج؟» فلا يبلغ
+  //   التنفيذَ أصلًا. فلمّا صارت الإشارةُ تُحَلّ («ثمن **آخر** منتوج») ظهر
+  //   الأوّلُ عاريًا: تبديلُ ثمنٍ **بلا ثمن**. وسترُ عطبٍ بعطبٍ ليس إصلاحًا.
+  if (o.object === 'price' && readAmount(raw) === undefined) needs.push('بشحال؟');
+
+  const ref = readRef(t);
   return {
-    verb: v.verb, object: o.object, scope: o.scope, needs,
+    verb: v.verb, object: o.object, scope: o.scope, needs, ref,
     confidence: needs.length ? 0.7 : 0.85,
-    reason: `«${vTerm}» + «${oTerm}»`,
+    reason: `«${vTerm}» + «${oTerm}»${ref ? ` + إشارة «${ref === 'this' ? 'هاد' : 'آخر'}»` : ''}`,
   };
+}
+
+/**
+ * أيُّ واحدٍ يقصد — «هاد» ما بين يدَيه، و«آخر» آخرُ ما أضاف.
+ *
+ *   و«آخر» تسبق «هاد» في الفحص: «مسح هاد آخر منتوج» نادرة، وحين تقع
+ *   فالمقصودُ آخرُ واحدٍ لا ما هو معروضٌ الآن — الأخصُّ يفوز.
+ */
+//   و«الجديد» **مُخرَجةٌ عمدًا**: «منتوج جديد» طلبُ إنشاءٍ لا إشارةٌ إلى
+//   آخرِ ما أُضيف، والصيغتان لا تُفرَّقان بيقين. ومؤشِّرٌ يخطئ هنا يحذف
+//   منتوجًا لم يُقصَد — فالغموضُ يُترَك سؤالًا لا يُحسَم تخمينًا.
+const REF_LAST = ['اخر', 'الاخر', 'الاخير', 'اللخر', 'لخر', 'dernier', 'derniere'];
+const REF_THIS = ['هاد', 'هادا', 'هادي', 'هدا', 'هده', 'هذا', 'هذه', 'داكشي', 'ce', 'cette'];
+
+function readRef(t: string): 'this' | 'last' | undefined {
+  if (REF_LAST.some(w => hitsWord(w, t))) return 'last';
+  if (REF_THIS.some(w => hitsWord(w, t))) return 'this';
+  return undefined;
 }
 
 /** نصٌّ دارجيٌّ لما سيحدث — تعرضه الواجهةُ قبل التنفيذ ليؤكّد الإنسان. */

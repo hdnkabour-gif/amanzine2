@@ -255,7 +255,11 @@ export default function LivingHome() {
     const READ_ENOUGH = 0.5;
     const impossible = !!(av && ae && (u.action?.confidence ?? 0) >= READ_ENOUGH
       && !entityAccepts(av, ae));
-    const verdict = decideExecution(u, match || undefined, impossible);
+    // والسياقُ يُمرَّر: «مسح **هاد** المنتوج» تعيّن المقصودَ بغير اسمِه،
+    // ولا يعرف المعجمُ كتالوجَ أحد. بلا هذا يبقى المؤشِّرُ مقروءًا ولا يشير
+    // إلى شيء — طبقةٌ تعمل ولا أحدَ يعرف أنّها تعمل.
+    const verdict = decideExecution(u, match || undefined, impossible,
+      { lastProduct: uctx.state.lastProduct });
     const dec = decideInterface({ ...r, hasInput: true }, verdict.verdict);
     // `explain` و`refuse` يُقالان ولا يُفعَلان. وما عداهما له شكلٌ في الواجهة،
     // فلا يُطبَع نصُّه فوقها — نصٌّ ورسمٌ يقولان الشيءَ نفسَه ازدواجٌ لا تأكيد.

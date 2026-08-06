@@ -45,7 +45,7 @@ export type AbilityEntity =
   | 'product' | 'service' | 'listing' | 'workspace' | 'order' | 'shipment'
   | 'customer' | 'booking' | 'coupon' | 'wallet' | 'payment' | 'message'
   | 'account' | 'phone' | 'address' | 'language' | 'settings' | 'delivery_provider'
-  | 'media' | 'knowledge' | 'report' | 'need' | 'provider';
+  | 'media' | 'content' | 'knowledge' | 'report' | 'need' | 'provider';
 
 /**
  * الخطورة — **بديلُ العتبة الواحدة**.
@@ -169,6 +169,10 @@ export const ABILITIES: Ability[] = [
   // كان يُساق إلى محرّرٍ فارغٍ ينتظر صورةً لم يرفعها بعد.
   { id: 'MANAGE_MEDIA', verb: 'create', entity: 'media', say: 'تزيد تصاور للمنتوج',
     risk: 'low', needs: [], auth: true, page: 'products', api: '/api/media' },
+  // نصُّ المنتوج يُولَّد بزرٍّ قائمٍ في `ProductsPage`. ويحتاج **منتوجًا**
+  // وحدَه: وصفٌ بلا ما يوصَف لا معنى له — ولا يحتاج ثمنًا.
+  { id: 'GENERATE_CONTENT', verb: 'create', entity: 'content', say: 'تصايب وصف ولا هاشتاگ للمنتوج',
+    risk: 'low', needs: ['product'], auth: true, page: 'products', api: '/api/ai' },
   { id: 'EDIT_MEDIA', verb: 'update', entity: 'media', say: 'تعدّل تصويرة (نصّ، شعار، خلفيّة)',
     risk: 'low', needs: [], auth: true, page: 'editor', api: null },
   { id: 'DESIGN_BANNER', verb: 'create', entity: 'media', say: 'تصايب بانير ولا إعلان',
@@ -490,6 +494,10 @@ export const ENTITY_VERBS: Record<AbilityEntity, AbilityVerb[]> = {
   language: ['update', 'view'],
   settings: ['update', 'view'],
   delivery_provider: ['create', 'update', 'delete', 'view'],
+  // نصُّ المنتوج: **يُولَّد** فقط. تحريرُه بعد ذلك تعديلُ المنتوج نفسِه
+  //   (`UPDATE_PRODUCT`)، فلا يُعلَن له `update` ولا `view` بلا قدرةٍ خلفهما:
+  //   فعلٌ مُعلَنٌ بلا بابٍ يَعِد بما لا يُوفى.
+  content:  ['create'],
   media:    ['create', 'update', 'delete', 'view'],
   knowledge: ['create', 'update', 'view'],
   report:   ['view'],
@@ -548,9 +556,17 @@ export const OBJECT_MAP: Record<string, AbilityEntity> = {
   workspace: 'workspace', shop_name: 'workspace', shop_hours: 'workspace',
   delivery: 'delivery_provider', settings: 'settings',
   product: 'product', price: 'product', stock: 'product', photo: 'media',
-  // وصفُ المنتوج وهاشتاگه تعديلٌ **للمنتوج** لا كيانٌ ثالث: النصُّ يعيش في
-  // استمارته، وزرُّ التوليد بجانبه في `ProductsPage`.
-  content: 'product',
+  // **ووصفُ المنتوج وهاشتاگه كيانٌ قائمٌ بذاته — لا «منتوج».**
+  //
+  //   كان `content: 'product'`، فيُقرأ «باغي هاشتاگ لهاد المنتوج» فعلًا
+  //   `create` على كيان `product` ⇒ **`CREATE_PRODUCT`** — ويرث حاجتَه
+  //   إلى **ثمن**. فيُسأل «بشحال؟» مَن طلب هاشتاگًا، ويُقرأ طلبُ نصٍّ
+  //   لمنتوجٍ **قائم** طلبَ إنشاءِ منتوجٍ جديد.
+  //
+  //   والمساران قائمان يعملان — `/api/ai/generate-hashtags` و
+  //   `/generate-description` يُناديان من `ProductsPage` — ولم يكن في
+  //   الكتالوج قدرةٌ تبلغهما. طبقةٌ تعمل ولا أحدَ يعرف أنّها تعمل.
+  content: 'content',
   orders: 'order', customers: 'customer', coupon: 'coupon', wallet: 'wallet',
 };
 

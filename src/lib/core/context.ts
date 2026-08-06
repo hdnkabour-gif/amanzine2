@@ -10,7 +10,17 @@ export interface UserContext {
   identity: { authed: boolean; isSeller: boolean; capabilities: Capabilities };
   place: { city?: string };
   time: { hour: number; lateNight: boolean; likelyClosed: boolean };
-  state: { openOrders: number; unread: number; hasBusiness: boolean };
+  state: {
+    openOrders: number; unread: number; hasBusiness: boolean;
+    /**
+     * آخرُ منتوجٍ أضافه — **ما تشير إليه «آخر منتوج» و«هاد المنتوج»**.
+     *
+     *   بلا هذا يبقى المؤشِّرُ مؤشِّرًا لا يشير إلى شيء، فيُسأل صاحبُه
+     *   «أيّ منتوج؟» بعد أن عيّنه. والمعرفةُ كانت حاضرةً في `DomainInput`
+     *   طوالَ الوقت — لم يكن ينقص إلّا أن تُقرأ.
+     */
+    lastProduct?: { id: string; name: string };
+  };
 }
 
 export function buildContext(input: DomainInput, opts?: { authed?: boolean }): UserContext {
@@ -22,6 +32,28 @@ export function buildContext(input: DomainInput, opts?: { authed?: boolean }): U
     identity: { authed: !!opts?.authed, isSeller: caps.sell, capabilities: caps },
     place: { city: (input.settings as any)?.brand?.city },
     time: { hour, lateNight: hour >= 22 || hour < 6, likelyClosed: hour >= 22 || hour < 7 },
-    state: { openOrders, unread, hasBusiness: caps.store || caps.services },
+    state: { openOrders, unread, hasBusiness: caps.store || caps.services, lastProduct: lastProductOf(input) },
   };
+}
+
+/**
+ * آخرُ منتوجٍ أضافه — بالتاريخ لا بترتيب المصفوفة.
+ *
+ *   ترتيبُ المصفوفة يأتي من الخادم وقد ينقلب بتغيير استعلامٍ لا علاقةَ له
+ *   بنا، فيصير «آخر منتوج» أوّلَه بلا أن يتغيّر سطرٌ هنا. والتاريخُ مكتوبٌ
+ *   في المنتوج نفسِه (`createdAt`) — فيُقرأ منه.
+ *
+ *   ومَن لا تاريخَ له لا يُقصى: نُبقيه بأضعف رتبةٍ حتّى لا يختفي كتالوجٌ
+ *   قديمٌ كُتب قبل أن يوجد الحقل.
+ */
+function lastProductOf(input: DomainInput): { id: string; name: string } | undefined {
+  const list = Array.isArray(input.products) ? input.products : [];
+  let best: any;
+  let bestAt = -1;
+  for (const p of list) {
+    if (!p?.id) continue;
+    const at = Date.parse(p.createdAt || '') || 0;
+    if (best === undefined || at > bestAt) { best = p; bestAt = at; }
+  }
+  return best ? { id: String(best.id), name: String(best.name || '').trim() } : undefined;
 }
