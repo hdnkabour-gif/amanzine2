@@ -50,3 +50,5 @@ import './personFacts.test';
 import './vocabulary.test';
 // «الما» داخل «الماكلة»: أربعةُ أحرفٍ جعلت بائعَ الطواجن سبّاكًا.
 import './symptomBoundary.test';
+// الثقةُ تتبع الفعلَ المقروء: «يعرف ثمّ يسأل» في موضعٍ لم يُفحَص.
+import './actionConfidence.test';

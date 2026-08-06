@@ -65,7 +65,11 @@ const VERBS: { verb: ActionVerb; terms: string[] }[] = [
   { verb: 'create', terms: ['زيد', 'نزيد', 'ضيف', 'نضيف', 'اضف', 'صايب', 'نصايب', 'دير ليا', 'ندير واحد', 'جديد', 'ajouter', 'creer'] },
   { verb: 'share',  terms: ['شارك', 'نشارك', 'صيفط الرابط', 'رابط المحل', 'partager'] },
   { verb: 'send',   terms: ['صيفط', 'نصيفط', 'ارسل', 'نرسل', 'envoyer'] },
-  { verb: 'view',   terms: ['وريني', 'ورينا', 'شوف', 'نشوف', 'بين ليا', 'عرض', 'اعرض', 'فين كاين', 'افتح', 'نفتح', 'voir', 'afficher'] },
+  // «شحال من» و«شحال عندي» سؤالُ عددٍ — وهو **عرضٌ** لا سؤالٌ عن قدرة.
+  //   «وريني الطلبات» كانت تُقرأ و«شحال من طلب عندي» لا، وهما طلبٌ واحد:
+  //   أرِني ما عندي. والمغربيُّ يسأل بالعدد أكثرَ ممّا يأمر بالعرض.
+  { verb: 'view',   terms: ['وريني', 'ورينا', 'شوف', 'نشوف', 'بين ليا', 'عرض', 'اعرض', 'فين كاين', 'افتح', 'نفتح',
+                            'شحال من', 'شحال عندي', 'شحال عندنا', 'كم من', 'combien', 'voir', 'afficher'] },
 ];
 
 // ── الأهداف ───────────────────────────────────────────────────
@@ -91,8 +95,10 @@ const OBJECTS: { object: ActionObject; scope: ActionScope; terms: string[]; need
   { object: 'product', scope: 'workspace', terms: ['منتوج', 'المنتوج', 'المنتج', 'سلعه', 'produit'] },
 
   // العمل
-  { object: 'orders',    scope: 'workspace', terms: ['الطلبات', 'الطلبيات', 'كوموند', 'commandes'] },
-  { object: 'customers', scope: 'workspace', terms: ['الزبناء', 'الزباين', 'العملاء', 'clients'] },
+  // المفردُ يلزم مع سؤال العدد: «شحال من **طلب** عندي» — والمغربيُّ يُفرد
+  // بعد «شحال من» دائمًا. وكان الجمعُ وحدَه مُعلَنًا، فسقط نصفُ الصيغة.
+  { object: 'orders',    scope: 'workspace', terms: ['الطلبات', 'الطلبيات', 'كوموند', 'طلب', 'طلبية', 'commandes', 'commande'] },
+  { object: 'customers', scope: 'workspace', terms: ['الزبناء', 'الزباين', 'العملاء', 'زبون', 'كليان', 'clients', 'client'] },
   { object: 'coupon',    scope: 'workspace', terms: ['كوبون', 'الكوبونات', 'تخفيض', 'خصم', 'promo'] },
   { object: 'wallet',    scope: 'workspace', terms: ['المحفظه', 'الرصيد', 'الفلوس ديالي', 'portefeuille'] },
 
