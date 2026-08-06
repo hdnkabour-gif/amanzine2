@@ -32,7 +32,7 @@ export * from './knowledgeGraph';
 import { conceptsIn, normalize, type VocabEntry } from './vocabulary';
 import { deArabizi } from './arabizi';
 import { normLoose } from '../../normalize';
-import { resolveConcept, resolveCity } from './knowledge';
+import { resolveConcept, resolveConcepts, resolveCity } from './knowledge';
 import { detectAmbiguity, type Ambiguity } from './ambiguity';
 import { detectFacts, FACT_LABEL, type FactTopic } from './facts';
 import { readAction, type ActionRead } from './actions';
@@ -53,6 +53,23 @@ export interface Understanding {
   district?: string;               // الحيّ (من قاعدة المدن) إن وُجد
   category?: string;               // فئة المفهوم (automotive/home…) من القاموس المتعدّد اللغات
   service?: string;                // مُعرّف المفهوم القانونيّ (mechanic/plumber…)
+  /**
+   * **كلُّ ما يقدّمه، لا أوّلَ ما طابق.**
+   *
+   *   قِيس على جملة صاحب المحلّ: «عندي محل ديال **لافاج** وكندير **ستيكاج**
+   *   و**البرييون** ومعايا **طولي**» ⇒ `car_painting` وحدَها. أربعُ خدماتٍ
+   *   يعيش منها الرجلُ تُختصَر في واحدةٍ ليست حتّى أولاها — فيُسجَّل محلُّه
+   *   بخدمةٍ واحدة، وتضيع ثلاثةُ أبوابِ رزق.
+   *
+   *   و`resolveConcepts` مبنيّةٌ منذ زمنٍ ولا يستدعيها `understand`. لكنّها
+   *   **أضعفُ من المفرد**: لا تعرف الوعاءَ ولا جدولَ البضائع، فـ«عندي محل
+   *   ديال الخضرة» تُرجع صفرًا. فالمفردُ يبقى **الأوّل** بلا تغيير (لا
+   *   ارتدادَ في التوجيه)، وهذه تُضيف ما زاد.
+   *
+   *   والترتيبُ **بموضع الكلمة في الجملة** لا بطول المصطلح: من قال «لافاج»
+   *   أوّلًا يرى «لافاج» أوّلًا فيما زاد.
+   */
+  services?: string[];
   language?: string;               // لغة الكتابة المكتشَفة (darija/ar/fr/en/mixed)
   context: { urgent: boolean; night: boolean; weekend: boolean };
   confidence: number;              // 0..1
@@ -453,6 +470,19 @@ export function understand(input: string): Understanding {
     reasoning.push(`🩺 الخدمةُ من حلّ المشكلة «${problemService}» — لا كلمةَ في الجملة تدلّ عليها`);
   }
 
+  // ── كلُّ الخدمات، مرتّبةً بموضع الكلمة ───────────────────────
+  let services: string[] | undefined;
+  if (service) {
+    const hay = normLoose(text);
+    const extra = resolveConcepts(input)
+      .filter(c => c.id !== service)
+      .map(c => ({ id: c.id, at: hay.indexOf(normLoose(c.matched?.term || '')) }))
+      .sort((a, b) => (a.at < 0 ? 1e9 : a.at) - (b.at < 0 ? 1e9 : b.at))
+      .map(c => c.id);
+    services = extra.length ? [service, ...extra] : undefined;
+    if (services) reasoning.push(`🧰 خدماتٌ متعدّدة: ${services.length}`);
+  }
+
   // 3) الموقع — قاعدة المدن أوّلًا (أعمق: أسماء بديلة + أحياء)، ثمّ المطابقة القديمة.
   let city = cityInText(text);
   let district: string | undefined;
@@ -543,7 +573,7 @@ export function understand(input: string): Understanding {
   if (!mood.executable) reasoning.push(`🗣️ صيغة: ${mood.mood} (${mood.reason}) — لا نُنفّذ`);
   const action = readAction(input) || undefined;
   if (action) reasoning.push(`⚙️ فعل: ${action.verb}/${action.object} (${action.reason})`);
-  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts, action, negated, mood, goal };
+  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts, action, negated, mood, goal, services };
 }
 
 export function resolveTerm(term: string) { return normalize(term); }

@@ -137,7 +137,17 @@ export function readPersonFacts(raw: string): PersonFact[] {
     const c = byId || resolveConcept(raw)?.concept;
     const agrees = u.profession?.id === u.service;
     const label = (agrees && u.profession?.label) || c?.darija || c?.ar || u.service;
-    out.push({ kind: 'trade', value: u.service, say: `كتخدم ف ${label}`, from: raw });
+    // **ويُذكر ما زاد.** من قال أربعَ خدماتٍ يُسجَّل بأربع، لا بواحدة.
+    //   والقيمةُ تبقى المفهومَ الأوّلَ (هو ما يُوجَّه به)، والاسمُ المعروضُ
+    //   يذكرها كلَّها كي يراجعها صاحبُها — «كتخدم ف صباغة طوموبيل، ومعاها
+    //   مغسلة سيّارات · ستيكاج · سمكرة».
+    const more = (u.services || []).filter(id => id !== u.service)
+      .map(id => {
+        const cc = CONCEPTS.find(x => x.id === id)?.concept as Record<string, string> | undefined;
+        return cc?.darija || cc?.ar || '';
+      }).filter(Boolean);
+    const trade = more.length ? `${label}، ومعاها ${more.join(' · ')}` : label;
+    out.push({ kind: 'trade', value: u.service, say: `كتخدم ف ${trade}`, from: raw });
     if (sellsHabitually) out.push({ kind: 'sells', value: u.service, say: `كتبيع ${label}`, from: raw });
   }
 
