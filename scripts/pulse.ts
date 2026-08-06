@@ -126,7 +126,10 @@ export function measure(): Pulse {
     const able = match ? canDo(match.verb, match.entity) : true;
     const d = decideExecution(u, able, match ?? undefined);
 
-    if (u.service && EXPECT_CONCEPT.includes(s)) understood++;
+    // **المهنةُ فهمٌ كالمفهوم.** كان يُعَدّ `service` وحدَه، فـ«عندي مشكل
+    // ديال الضو» ⇒ «كهربائي» تُحسَب إخفاقًا وهي إصابةٌ تامّة. رابعُ عيبٍ
+    // يُكشَف في المقياس، وكلُّها من صنفٍ واحد: قياسُ ما نملكه لا ما يُنتظَر.
+    if ((u.service || u.profession || u.problem) && EXPECT_CONCEPT.includes(s)) understood++;
     if (EXPECT_ADMIN.includes(s) && (u.action || readAction(s))) adminRead++;
     if (u.stance && u.stance !== 'unknown') stanceKnown++;
     if (readPersonFacts(s).length) personFacts++;

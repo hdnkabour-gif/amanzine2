@@ -45,3 +45,4 @@ import './merchandise.test';
 import './correction.test';
 import './normalize.test';
 import './personFacts.test';
+import './vocabulary.test';

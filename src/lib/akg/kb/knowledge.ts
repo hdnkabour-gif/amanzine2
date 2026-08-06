@@ -20,7 +20,16 @@ import { isContainerWithContents, resolveMerchandise } from './merchandise';
 
 
 // ── إثراءُ متغيّرات (لتغطية صياغاتٍ شائعة لم يوفّرها الملف حرفيًّا) ──
+// كلماتٌ يقولها المغاربةُ ولا يحملها الملفُّ المولَّد. تُضاف هنا لا في
+// `knowledgeData.ts` — ذاك مولَّدٌ، وتعديلُه يُمحى عند إعادة التوليد.
 const AUGMENT: Record<string, Partial<Record<string, string[]>>> = {
+  // «صالون» وحدَها: صالونُ حلاقةٍ أو تجميل. وهي أشيعُ من «محل حلاقة».
+  women_s_hair_salon: { darija: ['صالون', 'صالون حلاقه', 'صالون ديال الحلاقه'] },
+  // «حرايفي» جمعُ «حرفيّ» بالدارجة. كتبتُها أوّلًا تحت `handyman` — وهو
+  // مُعرِّفٌ **لا وجود له**، فأسقطها `AUGMENT` بصمتٍ تامّ. ولذلك حارسٌ في
+  // `knowledge-health` يمنع الآن مفتاحًا لا يقابله مفهوم.
+  artisanat_et_m_tiers_manuels: { darija: ['حرايفي', 'الحرايفيه', 'صنايعي', 'حرفي'] },
+  real_estate_agency: { darija: ['دار للكرا', 'دار للكراء', 'نكري دار', 'نكريها', 'دار ديال الكراء'] },
   barber:      { fr: ['coiffeur'], en: ['hairdresser', 'haircut'] },
   plumber:     { darija: ['سباك'], en: ['plumber'] },
   mechanic:    { fr: ['mecanicien', 'mecano'], darija: ['ميكانيكي'] },

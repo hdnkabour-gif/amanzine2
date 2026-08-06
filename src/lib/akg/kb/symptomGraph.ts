@@ -53,6 +53,14 @@ export const SYMPTOM_GRAPH: SymptomNode[] = [
   { pattern: 'الفريكو ما بقاتش كتبرد', context: 'منزل', problemId: 'fridge_not_cooling', confidence: 0.95 },
   { pattern: 'الفريكو سخون', context: 'منزل', problemId: 'fridge_not_cooling', confidence: 0.9 },
   { pattern: 'الفريكو خربان', context: 'منزل', problemId: 'fridge_not_cooling', confidence: 0.85 },
+  // «الفريكو» وحدَها كانت معروفة، و«الفريجيدير» و«الثلاجة» أشيعُ منها.
+  // والاسمُ هو ما يُسمّي الحرفة — فبغيابه يُقرأ العطبُ وحدَه، ويقع في أوّل
+  // مصرفٍ يجده. هكذا صار صاحبُ الثلّاجة يُرسَل إلى تقنيّ حواسيب.
+  { pattern: 'الفريجيدير', context: 'منزل', problemId: 'fridge_not_cooling', confidence: 0.8 },
+  { pattern: 'فريجيدير', context: 'منزل', problemId: 'fridge_not_cooling', confidence: 0.8 },
+  { pattern: 'الثلاجة', context: 'منزل', problemId: 'fridge_not_cooling', confidence: 0.8 },
+  { pattern: 'ثلاجة', context: 'منزل', problemId: 'fridge_not_cooling', confidence: 0.8 },
+  { pattern: 'الفريكو', context: 'منزل', problemId: 'fridge_not_cooling', confidence: 0.8 },
   { pattern: 'الكليما ما كتبردش', context: 'منزل', problemId: 'ac_broken', confidence: 0.9 },
   // نجارة
   { pattern: 'الباب ما كيتحلش', context: 'منزل', problemId: 'door_broken', confidence: 0.9 },
@@ -82,6 +90,10 @@ export const SYMPTOM_GRAPH: SymptomNode[] = [
   { pattern: 'الكمبيوتر بطّيء', context: 'إلكترونيات', problemId: 'computer_broken', confidence: 0.8 },
   { pattern: 'عندي مشكل فالحاسوب', context: 'إلكترونيات', problemId: 'computer_broken', confidence: 0.85 },
   { pattern: 'pc ما خدامش', context: 'إلكترونيات', problemId: 'computer_broken', confidence: 0.85 },
+  // `deArabizi` يحوّل «pc» ⇒ «بك» قبل أن يصل النصُّ هنا، فالنمطُ اللاتينيُّ
+  // أعلاه لا يُطابق من `understand` أبدًا. وكان يعمل **بالمصادفة** عبر
+  // مطابقةٍ جزئيّةٍ على «خدامش» — أي عبر المصرف الذي سُدّ للتوّ.
+  { pattern: 'بك ما خدامش', context: 'إلكترونيات', problemId: 'computer_broken', confidence: 0.85 },
   { pattern: 'بغيت نفورماتي', context: 'إلكترونيات', problemId: 'computer_broken', confidence: 0.8 },
   { pattern: 'خاصني تقني', context: 'إلكترونيات', problemId: 'computer_broken', confidence: 0.7 },
   { pattern: 'بغيت تقني', context: 'إلكترونيات', problemId: 'computer_broken', confidence: 0.7 },
@@ -137,6 +149,19 @@ const GENERIC = new Set([
   // «عندي مشكل» بلا سياقٍ كان يطابق «عندي مشكل فالحاسوب» جزئيًّا فيقترح تقنيّ
   // معلوميّات بلا أيّ دليل. الشكوى المجرّدة يجب أن تبقى مجهولةً فيُسأل عنها.
   'مشكل', 'مشكلة', 'مشاكل', 'مشكيل', 'شي', 'حاجة', 'واش', 'شنو',
+  // ── كلماتُ العطب ──
+  //
+  //   **العطبُ لا يُسمّي الحرفة — الشيءُ يُسمّيها.** «ما كيخدمش» يقولها
+  //   المغربيُّ عن الثلّاجة والحاسوب والسيّارة والباب. وكانت المطابقةُ
+  //   الجزئيّةُ تلتقطها من النمط «الحاسوب ما كيخدمش»، فتُقرأ
+  //   «الفريجيدير ديالي ما كيخدمش» **عطلَ حاسوب** بثقة ٠٫٥٩ — ويُرسَل صاحبُ
+  //   الثلّاجة إلى تقنيّ حواسيب، واثقًا.
+  //
+  //   وهو نفسُ مصرف الكلمة العامّة الذي هُدم في متغيّرات المفاهيم: تكفي
+  //   كلمةٌ واحدةٌ في نمطٍ واحدٍ لتبتلع بابًا كاملًا من الشكاوى.
+  'كيخدمش', 'خدامش', 'خدام', 'خدامة', 'خدامه', 'يخدم', 'تخدم',
+  'خربان', 'خربانة', 'خرباتش', 'عطلان', 'واقف', 'واقفة', 'بلوكا', 'بطيء', 'بطيئة',
+  'كيخدم', 'بقاتش', 'بقاش', 'ماشية', 'مشات',
 ]);
 
 // نصّ → (مشكلة + ثقة). دقيق أوّلًا، ثمّ جزئيّ (كلمة مفتاحيّة حقيقيّة) بثقة أقلّ.

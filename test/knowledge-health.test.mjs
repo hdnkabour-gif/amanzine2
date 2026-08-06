@@ -87,3 +87,20 @@ test('فهرسُ المرادفات المدمجة مواكبٌ للمصدر', (
   assert.deepEqual(before, after,
     'فهرسُ المرادفات المدمجة متقادم — شغّل `npm run gen:variants` والتزِم بالملفّ');
 });
+
+test('كلُّ مفتاحٍ في AUGMENT يقابله مفهومٌ موجود', () => {
+  // كتبتُ `handyman` إثراءً لـ«حرايفي» — وهو مُعرِّفٌ لا وجود له، فأسقطه
+  // `AUGMENT` **بصمتٍ تامّ**: لا خطأَ ولا تحذير، والكلمةُ لا تعمل أبدًا.
+  // والصمتُ هنا أسوأُ من الخطأ، لأنّه يُوهم أنّ المعرفة أُضيفت.
+  const src = readFileSync(join(ROOT, 'src/lib/akg/kb/knowledge.ts'), 'utf8');
+  const block = src.match(/const AUGMENT[^=]*=\s*\{([\s\S]*?)\n\};/);
+  assert.ok(block, 'تعذّر قراءةُ AUGMENT — الحارسُ صار أعمى');
+  const keys = [...block[1].matchAll(/^\s{2}([a-z0-9_]+)\s*:/gm)].map(m => m[1]);
+  assert.ok(keys.length >= 5, `قُرئ ${keys.length} مفتاحًا فقط`);
+  const data = readFileSync(join(ROOT, 'src/lib/akg/kb/knowledgeData.ts'), 'utf8');
+  const ids = new Set([...data.matchAll(/\{"id": "([a-z0-9_]+)"/g)].map(m => m[1]));
+  const extra = readFileSync(join(ROOT, 'src/lib/akg/kb/knowledgeExtra.ts'), 'utf8');
+  for (const m of extra.matchAll(/id:\s*'([a-z0-9_]+)'/g)) ids.add(m[1]);
+  const orphan = keys.filter(k => !ids.has(k));
+  assert.deepEqual(orphan, [], `مفتاحُ إثراءٍ بلا مفهوم — يُسقَط بصمت:\n  ${orphan.join('\n  ')}`);
+});
