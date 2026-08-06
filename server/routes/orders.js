@@ -7,6 +7,7 @@ const { db } = require('../database');
 const sync   = require('../sync');
 const fetch  = require('node-fetch');
 const { resolveDeliveryFee } = require('../lib/deliveryPricing');
+const { runShipment } = require('../lib/shipmentAttempt');
 const { attachCosts } = require('../lib/orderCosting');
 
 let pushNotify;
@@ -154,49 +155,42 @@ router.put('/:id/approve', auth, async (req, res) => {
     const providers = (await db.getDeliveryProviders(req.user.id)).filter(p => p.enabled);
     console.log(`[Orders] Auto-delivery check: autoSendOnApproval=${settings.delivery?.autoSendOnApproval}, providers count=${providers.length}`);
 
+    // ── الإرسالُ التلقائيُّ عند الموافقة ──────────────────────────
+    //
+    //   كان هذا الفرعُ **ينادي الخادمَ نفسَه عبر HTTP**:
+    //       fetch(`${req.protocol}://${req.get('host')}/api/delivery/create/…`)
+    //   وهي أهشُّ طريقةٍ ممكنة لاستدعاء دالّةٍ في نفس العمليّة:
+    //     · `req.protocol` خلف وسيطٍ يُعطي `http` بينما المنصّةُ تفرض HTTPS،
+    //       فيُعاد التوجيهُ أو يُرفَض الطلبُ — والتاجرُ لا يرى إلّا صمتًا.
+    //     · تُعاد المصادقةُ ويُعاد تحليلُ الطلب من الصفر بلا داعٍ.
+    //     · وهو **مسارُ شحنٍ ثانٍ** — والمشروعُ وحّد المسارَ في
+    //       `lib/shipmentAttempt` بعد أن كلّفته نسختان تتباعدان.
+    //
+    //   النداءُ الآن مباشرٌ إلى نفس الدالّة التي يسلكها الزرُّ والمُعيدُ
+    //   الدوريّ. ثلاثةُ أبوابٍ، ومسارُ شحنٍ واحد.
     if (settings.delivery?.autoSendOnApproval && providers.length > 0) {
       try {
-        const baseUrl = `${req.protocol}://${req.get('host')}`;
-        const url = `${baseUrl}/api/delivery/create/${order.id}`;
-        console.log(`[Orders] Calling delivery API: ${url}`);
-        const deliveryRes = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Authorization': req.headers.authorization || '',
-            'Content-Type': 'application/json'
-          }
+        const prov = providers.find(p => p.name === settings.delivery?.defaultProvider) || providers[0];
+        const out = await runShipment({
+          userId: req.user.id, order, prov, settings,
+          attempts: Number(order.deliveryAttempts || 0),
         });
-        const deliveryResult = await deliveryRes.json();
-        console.log(`[Orders] Delivery result:`, deliveryResult);
-        if (deliveryResult.success) {
-          await db.addLog({
-            userId: req.user.id,
-            user: 'System',
-            action: `Auto-delivery triggered for order ${order.id}`,
-            details: deliveryResult.real ? 'شحنة حقيقية' : 'محاكاة (راجع السجل)',
-            type: 'delivery',
-            severity: 'info'
-          });
-        } else {
-          console.warn('Auto-delivery failed:', deliveryResult.error);
-          await db.addLog({
-            userId: req.user.id,
-            user: 'System',
-            action: `Auto-delivery failed for order ${order.id}`,
-            details: deliveryResult.error || 'Unknown error',
-            type: 'delivery',
-            severity: 'warning'
-          });
-        }
-      } catch (e) {
-        console.error('Auto-delivery internal error:', e.message);
         await db.addLog({
-          userId: req.user.id,
-          user: 'System',
+          userId: req.user.id, user: 'System',
+          action: out.real
+            ? `🚚 شحنٌ تلقائيٌّ عند الموافقة: ${order.id}`
+            : `⚠️ الشحنُ التلقائيُّ لم ينجح: ${order.id}`,
+          details: out.real
+            ? `${prov.name} · تتبّع ${out.tracking}`
+            : (out.retryAt ? `سيُعاد على ${out.retryAt}` : (out.apiError || 'بلا سبب')),
+          type: 'delivery', severity: out.real ? 'success' : 'warning',
+        });
+      } catch (e) {
+        console.error('[Orders] auto-delivery:', e.message);
+        await db.addLog({
+          userId: req.user.id, user: 'System',
           action: `Auto-delivery exception for order ${order.id}`,
-          details: e.message,
-          type: 'delivery',
-          severity: 'error'
+          details: e.message, type: 'delivery', severity: 'error',
         });
       }
     } else {
