@@ -194,6 +194,16 @@ test('لا تُقلَّص الأصنافُ التي تُحاسَب', () => {
     `قُلِّل مقامُ الحقائق: ${p.factExpected} وكان ${BASE.minFactExpected}`);
   assert.ok(p.goalExpected >= BASE.minGoalExpected,
     `قُلِّل مقامُ الغاية: ${p.goalExpected} وكان ${BASE.minGoalExpected}`);
+  assert.ok(p.destExpected >= BASE.minDestExpected,
+    `قُلِّل مقامُ الوجهة: ${p.destExpected} وكان ${BASE.minDestExpected}`);
+});
+
+test('الفعلُ الإداريُّ يُساق إلى باب قدرته — لا إلى السوق', () => {
+  // لاحظه المالك، وأثبته القياس: `parseNeed.intent` تخلط اتّجاهَ السوق بفعل
+  // التطبيق، **وهي التي كانت تقرّر الصفحة**. فصاحبُ الحساب يُدير متجرَه
+  // فيُساق إلى `publish` لينشر خدمة. والكتالوجُ يعرف `profile` ولم يُسأل.
+  assert.ok(p.destRight >= BASE.minDestRight,
+    `سِيقت ${p.destRight} جملةً إلى بابها وكانت ${BASE.minDestRight}`);
 });
 
 test('الغايةُ تُقرأ **وتصل** — لا حقلٌ مملوءٌ لا يغيّر شيئًا', () => {

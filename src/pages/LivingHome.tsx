@@ -47,6 +47,14 @@ interface Beat { id: string; icon: any; color: string; title: string; sub?: stri
 interface Dest { page?: Page; url?: string }
 
 const destToStr = (d: Dest) => d.page ? `page:${d.page}` : d.url ? `url:${d.url}` : '';
+
+/**
+ * الوجهةُ الفعّالة: **بابُ القدرة يغلب صفحةَ المحرّك حين يكون الفعلُ إداريًّا**.
+ * وما عداه يبقى كما هو — الباحثُ يُساق إلى السوق باستعلامه، وهي وجهةٌ أنفعُ
+ * من `home` المكتوبة في الكتالوج (ذاك الحقلُ يقول «أين تعيش القدرة»).
+ */
+const liveDest = (actionPage: Page | null, r: { page?: Page; url?: string }): Dest =>
+  actionPage ? { page: actionPage } : { page: r.page, url: r.url };
 const strToDest = (s: string): Dest => s.startsWith('page:') ? { page: s.slice(5) as Page } : s.startsWith('url:') ? { url: s.slice(4) } : {};
 
 export default function LivingHome() {
@@ -74,6 +82,18 @@ export default function LivingHome() {
   // قرارُ الواجهة — يُحسَب مرّةً في `submit` ويُقرأ في العرض. كان يُعاد
   // حسابُه في كلّ رسمٍ من `decideInterface(result)`، فحَكَمان على مشهدٍ واحد.
   const [decision, setDecision] = useState<InterfaceDecision | null>(null);
+  /**
+   * **بابُ الفعل الإداريّ** — من `decideExecution` لا من `parseNeed`.
+   *
+   *   `parseNeed.intent` تخلط محورَين: اتّجاهَ السوق (يبيع/يشري/يقلّب)
+   *   وفعلَ التطبيق (يزيد منتوجًا/يبدّل نمرته). وهي التي كانت تقرّر الصفحة،
+   *   فقِيس هذا حرفيًّا:
+   *       «بغيت نبدل رقم الهاتف ديالي» ⇒ publish  ← يريد نمرتَه فيُساق لينشر
+   *       «بغيت نشوف الزبناء ديالي»    ⇒ conversations
+   *       «بغيت نبدل ثمن القميص»       ⇒ صفحةُ السوق
+   *   والكتالوجُ يعرف البابَ الصحيح ولم يكن أحدٌ يسأله.
+   */
+  const [actionDest, setActionDest] = useState<Page | null>(null);
   // ما تعلّمناه عن الشخص من جملته — يُعرَض ليراجعه، لا ليُخفى.
   const [learned, setLearned] = useState('');
 
@@ -220,6 +240,7 @@ export default function LivingHome() {
     // `explain` وحدَه يُقال ولا يُفعَل. وما عداه له شكلٌ في الواجهة، فلا
     // يُطبَع نصُّه فوقها — نصٌّ ورسمٌ يقولان الشيءَ نفسَه ازدواجٌ لا تأكيد.
     setSaid(verdict.verdict === 'explain' ? verdict.say : '');
+    setActionDest(verdict.dest?.page ?? null);
     setDecision(dec);
     // ── حقائقُ الشخص ────────────────────────────────────────────
     //   «أنا خضار» تصريحٌ يُحفَظ، و«بغيت نبيع طوموبيل» نيّةٌ لا تُحفَظ —
@@ -553,7 +574,7 @@ export default function LivingHome() {
             <div style={{ marginTop: 2, border: '1.5px solid var(--warn,#F59E0B)', borderRadius: 15, padding: 15, background: 'color-mix(in srgb, var(--warn,#F59E0B) 8%, transparent)', display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink1)', lineHeight: 1.6 }}>{confirmPrompt(confirmText)}</div>
               <div style={{ display: 'flex', gap: 9 }}>
-                <button onClick={() => { recordConfirm(true, result.confidence ?? 0); setSnap(sn => sn && withDestination(confirmSnapshot(sn, true), { page: result.page, url: result.url })); setConfirmed(true); go({ page: result.page, url: result.url }, result.tags[0] || result.label, result.intent, 'type'); }}
+                <button onClick={() => { recordConfirm(true, result.confidence ?? 0); setSnap(sn => sn && withDestination(confirmSnapshot(sn, true), liveDest(actionDest, result))); setConfirmed(true); go(liveDest(actionDest, result), result.tags[0] || result.label, result.intent, 'type'); }}
                   style={{ flex: 1, padding: '11px 16px', borderRadius: 12, border: 'none', background: 'var(--mint,#12A150)', color: '#fff', fontSize: 14, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>✅ إيه، صحيح</button>
                 <button onClick={() => { recordConfirm(false, result.confidence ?? 0); setSnap(sn => sn && confirmSnapshot(sn, false)); reset(); }}
                   style={{ padding: '11px 16px', borderRadius: 12, border: '1px solid var(--border2,rgba(255,255,255,.16))', background: 'transparent', color: 'var(--ink2)', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>❌ لا، نبدّل</button>
@@ -575,10 +596,10 @@ export default function LivingHome() {
           )}
           {(pending || !result.steps) && !(!pending && !confirmed && decision?.mode === 'confirm') && !(snap && stageOf(snap) === 'escalate') && (
             <DestinationCard next={pending?.next || result.next}
-              dest={pending ? { page: pending.page, url: pending.url } : { page: result.page, url: result.url }}
+              dest={pending ? { page: pending.page, url: pending.url } : liveDest(actionDest, result)}
               intent={result.intent}
               onGo={() => {
-                const dest: Dest = pending ? { page: pending.page, url: pending.url } : { page: result.page, url: result.url };
+                const dest: Dest = pending ? { page: pending.page, url: pending.url } : liveDest(actionDest, result);
                 go(dest, pending?.label || result.tags[0] || result.label, result.intent, pending ? 'guided' : 'type');
               }} />
           )}

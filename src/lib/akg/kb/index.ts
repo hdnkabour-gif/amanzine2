@@ -406,10 +406,19 @@ export function understand(input: string): Understanding {
   //   بل بأنّ **الدليل** يُسأل: إن كان المصطلحُ الذي طابق كلمةَ عطب، فليس
   //   دعوى مهنة. ولذلك بُني `matched.term` أصلًا — كي لا يبقى الفهمُ صندوقًا
   //   أسود لا يُسأل عن سببه.
-  const kc = (kcRaw?.matched && BREAKDOWN_WORDS.has(normLoose(kcRaw.matched.term)))
-    ? undefined : kcRaw;
+  //   ونفسُ السؤال يُطرَح على وجهٍ ثانٍ: **حقلٌ في الحساب لا حرفةٌ في السوق**.
+  //   قِيس حرفيًّا: «بغيت نبدل **رقم الهاتف** ديالي» ⇒ `mobile_phone_repair`.
+  //   من يريد تبديلَ نمرته فُهم أنّه يطلب مُصلِّحَ هواتف. و«الهاتف» متغيّرٌ
+  //   صحيحٌ للمفهوم — لكنّ ما قبله يقلب معناه: **«رقم» تجعل ما بعدها
+  //   مُعرِّفًا لا خدمة**، كما «ديال» تجعل ما بعدها بضاعةً لا وعاء.
+  const idOf = (term: string) => new RegExp(`(رقم|نمره|نمرة)\\s+(ال)?${term}`).test(t);
+  const asBreakdown = !!(kcRaw?.matched && BREAKDOWN_WORDS.has(normLoose(kcRaw.matched.term)));
+  const asIdentifier = !!(kcRaw?.matched && !asBreakdown && idOf(normLoose(kcRaw.matched.term)));
+  const kc = (asBreakdown || asIdentifier) ? undefined : kcRaw;
   if (kcRaw && !kc) {
-    reasoning.push(`🚫 «${kcRaw.matched!.term}» كلمةُ عطبٍ لا مهنة — أُهملت قراءتُها مفهومًا`);
+    reasoning.push(asBreakdown
+      ? `🚫 «${kcRaw.matched!.term}» كلمةُ عطبٍ لا مهنة — أُهملت قراءتُها مفهومًا`
+      : `🚫 «رقم ${kcRaw.matched!.term}» حقلٌ في الحساب لا حرفةٌ في السوق`);
   }
   if (kc) {
     category = kc.category || undefined;

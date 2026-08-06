@@ -272,10 +272,29 @@ function knowledgeOf(id: string): Pick<ConceptResolution, 'services' | 'fields' 
  *   الكلمات بلا معنًى — فيُشترط له حدٌّ: بدايةُ كلمةٍ أو بعد «ال».
  */
 const SHORT = 3;
+
+/**
+ * **السوابقُ تلتصق، والوسطُ لا يُطابَق.**
+ *
+ *   كان المصطلحُ الطويل يُطابَق بالاحتواء المجرّد، فوقع هذا حرفيًّا:
+ *       «الز**بناء**»  ⇒ **بنّاء**   — «وريني الزبناء ديالي» تطلب معلّمَ بناء
+ *   وهو نفسُ صنف «مكتب ⇒ كتب» الذي هُدم في جدول البضائع، لكنّه هنا في
+ *   **فهرس المفاهيم** — وأخطر، لأنّ الفهرسَ يحكم كلَّ جملة.
+ *
+ *   ولا يصلح اشتراطُ الكلمة الكاملة: العربيّةُ تلصق سوابقَها («الحلاق» ·
+ *   «للحلاق» · «وبالحلاق») ولواحقَها («حلاقين» · «حلاقة»). فالشرطُ على
+ *   **البداية وحدَها**: أن يبدأ المصطلحُ عند حدِّ كلمةٍ بعد سوابقَ معروفة.
+ */
+const PREFIX = '[وفبكل]{0,2}(ال)?';
+const esc = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function hitsArabic(term: string, text: string): boolean {
   if (!text) return false;
-  if (term.length > SHORT) return text.includes(term);
-  return new RegExp(`(^|\\s)(ال)?${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`).test(text);
+  const start = `(^|\\s)${PREFIX}${esc(term)}`;
+  // المصطلحُ القصيرُ يُشترَط له طرفاه معًا: من ثلاثة أحرفٍ يقع داخل عشرات
+  // الكلمات بلا معنًى («دي» في «كنـدير» و«ديال»).
+  return term.length > SHORT
+    ? new RegExp(start).test(text)
+    : new RegExp(`${start}(\\s|$)`).test(text);
 }
 
 /**
@@ -286,7 +305,7 @@ function hitsArabic(term: string, text: string): boolean {
  */
 function hitsArabizi(term: string, text: string): boolean {
   if (!text) return false;
-  return new RegExp(`(^|\\s)(ال)?${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`).test(text);
+  return new RegExp(`(^|\\s)${PREFIX}${esc(term)}(\\s|$)`).test(text);
 }
 
 export function resolveConcept(text: string): ConceptResolution | null {

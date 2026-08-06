@@ -26,7 +26,7 @@ import { readAction } from '../src/lib/akg/kb/actions';
 import { resolveConcept } from '../src/lib/akg/kb/knowledge';
 import { normLoose } from '../src/lib/normalize';
 import { ALL, EXPECT_NEVER_EXECUTE, EXPECT_ASK, EXPECT_CONFIRM, EXPECT_NOT_ASK,
-  EXPECT_CONCEPT, EXPECT_ADMIN, EXPECT_PERSON_FACTS, LIFE_GOALS, CLASSIFIED } from '../test/corpus.mjs';
+  EXPECT_CONCEPT, EXPECT_ADMIN, EXPECT_PERSON_FACTS, LIFE_GOALS, ACCOUNT_ADMIN, CLASSIFIED } from '../test/corpus.mjs';
 
 export interface Pulse {
   /** حجمُ المدوّنة — يُذكَر كي لا تُقارَن نسبتان من مدوّنتَين. */
@@ -53,6 +53,16 @@ export interface Pulse {
    */
   goalRead: number;
   goalExpected: number;
+  /**
+   * **الوجهةُ صحيحة** — أيُساق الإنسانُ إلى البابِ الذي تعيش فيه قدرتُه؟
+   *
+   *   الوجهةُ كانت تُقرَّر من `parseNeed.intent` وحدَها، وهي تخلط اتّجاهَ
+   *   السوق بفعل التطبيق. فكان صاحبُ الحساب يُدير متجرَه فيُساق إلى السوق:
+   *   «بغيت نبدل رقم الهاتف ديالي» ⇒ `publish`. والكتالوجُ يعرف `profile`
+   *   ولم يكن أحدٌ يسأله. حلقةٌ لم تُقَس قطّ — ولا شيءَ كان يمنع عودتَها.
+   */
+  destRight: number;
+  destExpected: number;
   /** أفعالٌ إداريّةٌ قُرئت (`update:phone`…) من الجمل التي تنتظرها. */
   adminRead: number;
   adminExpected: number;
@@ -127,7 +137,7 @@ export function measure(): Pulse {
   let understood = 0, stanceKnown = 0, personFacts = 0, abilityMatched = 0;
   let lostKnowledge = 0, contradiction = 0, wrongExecutions = 0, silent = 0, variantDrift = 0;
   let recklessExecutions = 0, unconfirmedDestructive = 0, needlessAsks = 0, abstraction = 0;
-  let correct = 0, judged = 0, adminRead = 0, goalRead = 0;
+  let correct = 0, judged = 0, adminRead = 0, goalRead = 0, destRight = 0;
 
   // تحويلاتٌ من الشارع: لوحاتُ مفاتيحَ مختلفة، ومدُّ الحروف، وتشكيلٌ.
   const VARIANTS: ((x: string) => string)[] = [
@@ -157,6 +167,8 @@ export function measure(): Pulse {
     // مملوءًا وهو لا يغيّر شيئًا — وذاك بالضبط ما كان: الطبقةُ مبنيّةٌ
     // ونصفُ موصولة. فالشرطُ ثلاثيّ: قُرئت · صحّحت الاتّجاه · بلغ سؤالُها
     // الإنسانَ بدل «شنو محتاج بالضبط؟» الباردة.
+    // **الوجهة**: للفعل الإداريّ بابٌ واحدٌ لا غير، ويقوله الكتالوج.
+    if (ACCOUNT_ADMIN.includes(s) && match && d.dest?.page === match.page) destRight++;
     if (LIFE_GOALS.includes(s) && u.goal && u.stance === 'seek' && d.say === u.goal.ask) goalRead++;
     if (u.stance && u.stance !== 'unknown') stanceKnown++;
     if (readPersonFacts(s).length) personFacts++;
@@ -240,6 +252,7 @@ export function measure(): Pulse {
     { name: 'الاتّجاه',  ok: stanceKnown,    of: ALL.length },
     { name: 'الحقائق',  ok: factExpected.filter(x => readPersonFacts(x).length).length, of: factExpected.length },
     { name: 'الغاية',   ok: goalRead,       of: goalExpected.length },
+    { name: 'الوجهة',   ok: destRight,      of: ACCOUNT_ADMIN.length },
     { name: 'القدرة',   ok: abilityMatched, of: ALL.length },
     { name: 'القرار',   ok: correct,        of: judged },
   ];
@@ -249,6 +262,7 @@ export function measure(): Pulse {
   return { sentences: ALL.length, understood, stanceKnown, personFacts, stages,
     conceptExpected: EXPECT_CONCEPT.length, factExpected: factExpected.length,
     goalRead, goalExpected: goalExpected.length,
+    destRight, destExpected: ACCOUNT_ADMIN.length,
     adminRead, adminExpected: EXPECT_ADMIN.length, unclassified,
     abilityMatched, verdicts, lostKnowledge, contradiction, abstraction, silent, variantDrift,
     wrongExecutions, recklessExecutions, unconfirmedDestructive, needlessAsks, correct, judged };
@@ -263,6 +277,7 @@ export function render(p: Pulse): string {
     `المدوّنة        : ${p.sentences} جملة`,
     `فُهم المفهوم    : ${p.understood}/${p.conceptExpected} (${Math.round(p.understood / p.conceptExpected * 100)}٪)  ← ممّا يُنتظَر منه مفهوم`,
     `الغاية          : ${p.goalRead}/${p.goalExpected} (${Math.round(p.goalRead / p.goalExpected * 100)}٪)  ← لماذا يتكلّم، قبل ماذا يطلب`,
+    `الوجهة          : ${p.destRight}/${p.destExpected} (${Math.round(p.destRight / p.destExpected * 100)}٪)  ← بابُ القدرة لا صفحةُ النيّة`,
     `فعلٌ إداريّ      : ${p.adminRead}/${p.adminExpected} (${Math.round(p.adminRead / p.adminExpected * 100)}٪)`,
     `غيرُ مصنَّفة     : ${p.unclassified}   ← يجب أن يبقى صفرًا`,
     `عُرف الاتّجاه    : ${pct(p.stanceKnown)}`,

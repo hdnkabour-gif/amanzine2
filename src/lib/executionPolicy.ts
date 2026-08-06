@@ -21,6 +21,7 @@
 import { CONFIDENCE } from './clarify';
 import { RISK_THRESHOLD, unmetNeeds, NEED_ASK, type Ability } from './abilities';
 import type { Understanding } from './akg/kb';
+import type { Page } from '../types';
 
 // ── لماذا لا يوجد حكمُ «رفض» ──────────────────────────────────
 //
@@ -50,6 +51,26 @@ export interface Decision {
   say: string;
   /** أثرُ القرار — أيُّ طبقةٍ حسمت ولماذا. يُعرَض عند الشكوى ويُصحَّح به. */
   trace: string[];
+  /**
+   * **أين يُساق** — حين يكون للقدرة بابٌ معلومٌ ولا يجوز غيرُه.
+   *
+   *   الوجهةُ كانت تُقرَّر في `parseNeed` وحدَها، من `intent` التي **تخلط
+   *   محورَين**: `sell`/`buy`/`find_pro` اتّجاهُ سوق، و`create_store`/
+   *   `manage` فعلٌ في التطبيق. فقِيس هذا حرفيًّا:
+   *
+   *     «بغيت نبدل رقم الهاتف ديالي» ⇒ intent=create_service ⇒ **publish**
+   *     «بغيت نشوف الزبناء ديالي»    ⇒ intent=create_service ⇒ **publish**
+   *     «بغيت نبدل الثمن ديال القميص» ⇒ intent=buy           ⇒ صفحةُ السوق
+   *
+   *   أي أنّ صاحبَ الحساب يُدير متجرَه فيُساق إلى السوق ليتصفّح أو ينشر.
+   *   والكتالوجُ يعرف البابَ الصحيح (`profile` · `customers` · `products`)
+   *   ولم يكن أحدٌ يسأله.
+   *
+   *   وحدُّها معلَن: تُملأ **للفعل الإداريّ وحدَه**. أمّا الباحثُ فوجهتُه
+   *   صفحةُ السوق بالاستعلام، وهي أنفعُ من `home` المكتوبة في الكتالوج — لأنّ الحقلَ
+   *   هناك يقول «أين تعيش القدرة» لا «أين يُساق الآن».
+   */
+  dest?: { page: Page };
 }
 
 /** أفعالٌ لا تُسترجَع — تُؤكَّد دائمًا مهما بلغت الثقة. */
@@ -65,24 +86,27 @@ const DESTRUCTIVE = new Set(['delete']);
  */
 export function decideExecution(u: Understanding, match?: Ability): Decision {
   const trace: string[] = [];
+  // **الفعلُ الإداريُّ له بابٌ واحدٌ لا غير.** يُحسَب مرّةً ويُرفَق بكلّ حكم،
+  // فلا يُساق صاحبُ الحساب إلى السوق مهما قالت النيّةُ المخلوطة.
+  const dest = u.action && match?.page ? { page: match.page } : undefined;
 
   // ① صيغةُ الكلام تسبق كلَّ شيء: من يحكي عن غيره لا يُنفَّذ له فعلٌ ولو
   //    كانت جملتُه واضحة. **الوضوحُ ليس إذنًا.**
   if (u.mood && !u.mood.executable) {
     trace.push(`صيغة: ${u.mood.mood} (${u.mood.reason})`);
-    return { verdict: 'explain', say: u.mood.say, trace };
+    return { verdict: 'explain', say: u.mood.say, trace, dest };
   }
 
   // ② النفي: أبطل الاتّجاه، فلا نُخمّن ما يريده.
   if (u.negated) {
     trace.push('نفيٌ صريح');
-    return { verdict: 'ask', say: 'فهمتُ أنّك ما بغيتيش هادشي — قول ليا شنو بغيتي.', trace };
+    return { verdict: 'ask', say: 'فهمتُ أنّك ما بغيتيش هادشي — قول ليا شنو بغيتي.', trace, dest };
   }
 
   // ③ غموضٌ معجميّ: كلمةٌ لمعنيَين بلا قرينة.
   if (u.ambiguity) {
     trace.push(`غموض: «${u.ambiguity.term}»`);
-    return { verdict: 'ask', say: u.ambiguity.ask, trace };
+    return { verdict: 'ask', say: u.ambiguity.ask, trace, dest };
   }
 
   // ④ نقصٌ معلوم — **بعد طرح ما عرفناه**.
@@ -104,13 +128,13 @@ export function decideExecution(u: Understanding, match?: Ability): Decision {
       //   نمرةً ولا طلبًا — فلا تُقحَم في سؤالٍ لا تملك جوابَه.
       const say = missing[0] === 'subject' && u.goal ? u.goal.ask : NEED_ASK[missing[0]];
       if (u.goal && missing[0] === 'subject') trace.push(`سؤالُ الغاية: ${u.goal.id}`);
-      return { verdict: 'ask', say, trace };
+      return { verdict: 'ask', say, trace, dest };
     }
   } else if (u.action?.needs?.length) {
     const need = u.action.needs.find(n => !/^تأكيد/.test(n));
     if (need) {
       trace.push(`ينقص: ${need}`);
-      return { verdict: 'ask', say: need, trace };
+      return { verdict: 'ask', say: need, trace, dest };
     }
   }
 
@@ -118,7 +142,7 @@ export function decideExecution(u: Understanding, match?: Ability): Decision {
   //    التأكيدَ على فعلٍ لم نفهمه بعد.
   if ((u.action && DESTRUCTIVE.has(u.action.verb)) || match?.risk === 'high') {
     trace.push(match ? `فعلٌ خطِر: ${match.id}` : 'فعلٌ لا يُسترجَع');
-    return { verdict: 'confirm', say: match ? `واش متأكّد باغي ${match.say}؟` : 'واش متأكّد؟ هادشي ما كيرجعش.', trace };
+    return { verdict: 'confirm', say: match ? `واش متأكّد باغي ${match.say}؟` : 'واش متأكّد؟ هادشي ما كيرجعش.', trace, dest };
   }
 
   // ⑥ الثقة — آخرَ ما يُنظَر فيه.
@@ -134,14 +158,14 @@ export function decideExecution(u: Understanding, match?: Ability): Decision {
   const why = match ? ` (${match.risk})` : '';
   if (c >= act) {
     trace.push(`يقين ${Math.round(c * 100)}٪ ≥ ${Math.round(act * 100)}٪${why}`);
-    return { verdict: 'execute', say: '', trace };
+    return { verdict: 'execute', say: '', trace, dest };
   }
   if (c >= CONFIDENCE.CONFIRM) {
     trace.push(`يقين ${Math.round(c * 100)}٪ — دون حدّ التنفيذ${why}`);
-    return { verdict: 'confirm', say: 'فهمت. واش هادشي هو اللي بغيتي؟', trace };
+    return { verdict: 'confirm', say: 'فهمت. واش هادشي هو اللي بغيتي؟', trace, dest };
   }
   trace.push(`يقين ${Math.round(c * 100)}٪ — ضعيف`);
-  return { verdict: 'ask', say: 'ما فهمتش مزيان — تقدر توضّح ليا بجملة أخرى؟', trace };
+  return { verdict: 'ask', say: 'ما فهمتش مزيان — تقدر توضّح ليا بجملة أخرى؟', trace, dest };
 }
 
 /** سطرٌ واحدٌ يشرح القرار — يُعرَض حين يشتكي الإنسانُ من الفهم. */
