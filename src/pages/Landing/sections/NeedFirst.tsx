@@ -78,8 +78,11 @@ export function readFacts(text: string): Fact[] {
 // ثقةُ المحرّك ثابتةٌ لكلّ نيّة (سبّاك = ٦٠٪ سواءٌ ذكر المدينة أم لا)، فحلقةٌ
 // مبنيّةٌ عليها لا تتحرّك — ورقمٌ لا يتحرّك مع وضوح الجملة رقمٌ كاذب.
 // هنا: أربعة أبعاد (الحاجة · الاتّجاه · المكان · الوقت/الميزانية) بأوزانها.
-export function understandingScore(text: string): number {
-  const f = readFacts(text);
+export function understandingScore(text: string, precomputed?: Fact[]): number {
+  // `precomputed` تُمرَّر من المشهد الذي حسب الحقائقَ للتوّ — فلا تُحلَّل
+  // الجملةُ مرّتين في كلّ ضغطةِ مفتاح. والوسيطُ اختياريٌّ كي يبقى الاستدعاءُ
+  // البسيط (وهو ما يستعمله الاختبار) صحيحًا كما هو.
+  const f = precomputed ?? readFacts(text);
   if (!f.length) return 0;
   const has = (l: string) => f.some(x => x.label === l);
   let s = 20;                                  // كتب شيئًا مفهومًا أصلًا
@@ -123,7 +126,15 @@ export default function NeedFirst() {
   const result: any = useMemo(() => (text.trim().length >= 2 ? parseNeed(text, {}) : null), [text]);
   // حلقةُ الثقة: تُعلّم المستخدم كيف يكلّم النظام. ترتفع كلّما وضّح أكثر،
   // فيتعلّم وحده أنّ ذكر المدينة والاستعجال يُحسّن النتيجة.
-  const conf = useMemo(() => understandingScore(text), [text]);
+  const conf = useMemo(() => understandingScore(text, facts), [text, facts]);
+  // أثرُ الفهم — **ما ينتجه العقلُ فعلًا** لهذه الجملة، لا سردٌ مكتوبٌ بيد.
+  // يُحسَب مع المرآة نفسِها فلا تحليلَ ثانٍ للجملة الواحدة (القاعدة ㉒).
+  const [showWhy, setShowWhy] = useState(false);
+  const trace: string[] = useMemo(
+    () => (text.trim().length >= 2 ? ((understand(text) as any).reasoning || []) : []), [text]);
+  // يُطوى تلقائيًّا مع كلّ جملةٍ جديدة: أثرُ جملةٍ سابقةٍ معروضٌ تحت جملةٍ
+  // حاليّةٍ كذبٌ بصريّ.
+  useEffect(() => { setShowWhy(false); }, [text]);
 
   // «يفكّر»: العقل يقرأ لحظيًّا، لكن ظهورَ الحقائق بلا مقدّمةٍ يبدو مفاجئًا.
   // ومضةٌ قصيرة عند كلّ تغييرٍ تجعل الصفحة تبدو مُصغيةً لا قافزة.
@@ -343,6 +354,33 @@ export default function NeedFirst() {
             {conf < 45 && (
               <div style={{ marginTop: 10, fontSize: 12, color: C.ink3, lineHeight: 1.7 }}>
                 زيد شويّة تفاصيل (المدينة… واش مستعجل) باش نفهمك مزيان.
+              </div>
+            )}
+
+            {/* ── «كيفاش فهمتِ؟» — أثرُ الفهم الحقيقيّ ─────────────────
+                لا محاكاةَ ولا رسمًا متحرّكًا يوهم بالتفكير: هذه هي
+                `understand().reasoning` كما ينتجها العقلُ لهذه الجملة بعينها،
+                سطرًا سطرًا. لو تبدّل العقلُ غدًا تبدّل ما يُعرَض هنا معه —
+                وهذا هو الفرق بين **إثباتٍ** و**إعلان**.
+
+                ومطويٌّ افتراضيًّا: مَن جاء بحاجةٍ يكتبها ولا يقرأ، ومَن شكّ
+                يفتح فيرى. والشفافيّةُ التي تُفرَض إزعاج. */}
+            <button
+              onClick={() => setShowWhy(v => !v)}
+              aria-expanded={showWhy}
+              style={{ marginTop: 11, background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                color: C.ink3, fontSize: 12, fontWeight: 800, fontFamily: 'inherit' }}>
+              {showWhy ? '▾ كيفاش فهمت' : '▸ كيفاش فهمت؟'}
+            </button>
+            {showWhy && (
+              <div className="nfFact" style={{ marginTop: 9, padding: '11px 13px', borderRadius: 12,
+                background: C.alt, border: `1px solid ${C.border}`, display: 'flex',
+                flexDirection: 'column', gap: 6 }}>
+                {trace.length ? trace.map((line, i) => (
+                  <div key={i} style={{ fontSize: 12.5, color: C.ink3, lineHeight: 1.6, direction: 'rtl' }}>{line}</div>
+                )) : (
+                  <div style={{ fontSize: 12.5, color: C.ink3 }}>ما عندي حتّى خطوة نوريها — الجملة قصيرة بزّاف.</div>
+                )}
               </div>
             )}
           </div>

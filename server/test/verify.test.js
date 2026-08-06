@@ -190,3 +190,48 @@ test('Google يُثبت بلا رمز — ويترك أثرًا في نفس ال
   assert.equal(row.rows[0]?.used, true, 'أثرُ التحقّق قابلٌ لإعادة الاستعمال');
   assert.notEqual(before, undefined || null);
 });
+
+// ============================================================
+// **ناقلُ البريد في الإنتاج** — قِيس على متغيّرات المنصّة لا على الافتراض.
+//
+//   `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` غيرُ مضبوطةٍ على المنصّة إطلاقًا،
+//   و`BREVO_API_KEY` مضبوط. فكان `available()` يسأل SMTP وحدَه ويُرجع `false`
+//   ⇒ **لا بريدَ يخرج في الإنتاج**: لا رمزَ تحقّقٍ ولا ترحيبَ ولا إشعار،
+//   والتحقّقُ الموحَّد يقول «ما كايناش شي قناة» لكلّ إنسان.
+//
+//   والعطبُ صامتٌ تمامًا: كلُّ شيءٍ يُرجع `{sent:false, reason:'not-configured'}`
+//   ولا أحدَ يقرأ السبب.
+// ============================================================
+const mailer = require('../lib/mailer');
+
+rawTest('البريدُ يعمل بـBrevo وحدَها — لا SMTP في الإنتاج', () => {
+  const keep = { ...process.env };
+  try {
+    delete process.env.SMTP_HOST; delete process.env.SMTP_USER; delete process.env.SMTP_PASS;
+    process.env.BREVO_API_KEY = 'test-key';
+    assert.equal(mailer.available(), true, 'Brevo مضبوطةٌ والبريدُ يُعلَن معطّلًا');
+    assert.equal(mailer.transportKind(), 'brevo');
+    // والقناةُ تتبعه: لو سألت SMTP وحدَه لبقي التحقّقُ بلا قناةٍ في الإنتاج.
+    const ch = require('../lib/verify/channels/email.channel');
+    assert.equal(ch.available(), true, 'قناةُ البريد تسأل ناقلًا بعينه لا `mailer.available()`');
+  } finally { process.env = keep; }
+});
+
+rawTest('ولا ناقلَ إطلاقًا ⇒ يُعلَن العجزُ صراحةً', () => {
+  const keep = { ...process.env };
+  try {
+    delete process.env.SMTP_HOST; delete process.env.SMTP_USER; delete process.env.SMTP_PASS;
+    delete process.env.BREVO_API_KEY;
+    assert.equal(mailer.available(), false);
+    assert.equal(mailer.transportKind(), 'none', 'العجزُ لا يُسمّى — لا يُشخَّص في نقطة الصحّة');
+  } finally { process.env = keep; }
+});
+
+rawTest('SMTP يسبق Brevo حين يكون مضبوطًا — نقلٌ مباشرٌ بلا طرفٍ ثالث', () => {
+  const keep = { ...process.env };
+  try {
+    process.env.SMTP_HOST = 'smtp.x'; process.env.SMTP_USER = 'u'; process.env.SMTP_PASS = 'p';
+    process.env.BREVO_API_KEY = 'k';
+    assert.equal(mailer.transportKind(), 'smtp');
+  } finally { process.env = keep; }
+});
