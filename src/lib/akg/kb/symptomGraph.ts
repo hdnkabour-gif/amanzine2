@@ -5,6 +5,8 @@
 //   بيانات فقط — إضافة عرَض = سطر.
 // ============================================================
 
+import { normLoose } from '../../normalize';
+
 export interface SymptomNode {
   pattern: string;       // النمط في كلام المستخدم
   context: string;       // السياق (ماء/كهرباء/سيّارة/منزل)
@@ -138,11 +140,30 @@ export const SYMPTOM_GRAPH: SymptomNode[] = [
   { pattern: 'الشوفاج ما خدامش', context: 'منزل', problemId: 'water_heater_broken', confidence: 0.85 },
 ];
 
-const norm = (s: string) => s.toLowerCase().trim();
+// ── مطبِّعٌ واحدٌ للجميع ─────────────────────────────────────
+//
+//   كان هنا `s.toLowerCase().trim()` — مطبِّعٌ محلّيٌّ لا يجرّد شدّةً ولا
+//   يوحّد تاءً مربوطة. فبقيت طبقةُ الأعراض تقرأ «الثلاجة» ولا تقرأ «الثلاجه»،
+//   و«خدامة» ولا «خّدّامّة». والناسُ يكتبون بالصيغتَين.
+//
+//   وقياسُ **انحراف الصيغة** في النبض أمسك هذا بستّ حالات: تُفهَم الجملةُ
+//   ويضيع فهمُها كلَّه بفارقٍ لا تراه عينُ إنسان. وهو آخرُ مطبِّعٍ محلّيٍّ بقي
+//   بعد توحيد البقيّة في `normalize.ts`.
+const norm = normLoose;
 
 // كلماتٌ عامّة (نيّة/رغبة/ضمائر) ليست أعراضًا — لا يجوز أن تُطلق مطابقةً جزئيّة
 // وحدها، وإلّا «بغيت طبيب» يلتقط «بغيت» من «بغيت نصبغ» فيُرجع «صبّاغ» خطأً.
-const GENERIC = new Set([
+/**
+ * كلماتُ **حالِ العطب** — «ما كيخدمش» · «خربان» · «واقف».
+ *
+ *   تصف حالَ شيءٍ لا مهنةَ إنسان. وكانت مُصدَّرةً ضمنيًّا لطبقة الأعراض
+ *   وحدَها، فقرأتها طبقةُ المفاهيم على غير وجهها: «الثلاجة ما بقاتش **خدامة**»
+ *   ⇒ `house_cleaner`، لأنّ «خدامة» متغيّرٌ صحيحٌ لعاملة التنظيف.
+ *
+ *   طبقتان تقرآن **الرمزَ نفسَه** قراءتَين متضادّتَين في الجملة الواحدة —
+ *   وهذا هو الانقسامُ في أدقّ صوره. التصديرُ يجعل القراءةَ واحدة.
+ */
+export const BREAKDOWN_WORDS = new Set([
   'بغيت', 'باغي', 'بغا', 'بغينا', 'نبغي', 'كنبغي', 'خاصني', 'خاص', 'نحتاج', 'محتاج',
   'عندي', 'عندنا', 'ديال', 'هادشي', 'واحد', 'شوية', 'بزاف', 'دابا', 'نقلب', 'كنقلب',
   'الدار', 'دار', 'ولكن', 'صغير', 'كبير',
@@ -178,7 +199,7 @@ export function findProblemBySymptom(text: string): { problemId: string; confide
   for (const n of SYMPTOM_GRAPH) {
     for (const part of n.pattern.split(' ')) {
       const w = norm(part);
-      if (w.length > 3 && !GENERIC.has(w) && t.includes(w)) return { problemId: n.problemId, confidence: +(n.confidence * 0.65).toFixed(2) };
+      if (w.length > 3 && !BREAKDOWN_WORDS.has(w) && t.includes(w)) return { problemId: n.problemId, confidence: +(n.confidence * 0.65).toFixed(2) };
     }
   }
   return null;

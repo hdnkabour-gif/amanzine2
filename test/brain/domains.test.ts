@@ -129,3 +129,68 @@ test('جملةٌ عن مجالٍ لا تُسحَب إلى مجالٍ آخر', ()
     else assert.equal(got, expected, `«${q}» → ${got}`);
   }
 });
+
+// ============================================================
+// **سجلّان بمُعرِّفَين — والجسرُ بينهما مُعلَنٌ لا مُخمَّن.**
+//
+//   `professions.ts` فيه ٢١ مهنةً بمُعرِّفاتٍ قصيرة (`ac_tech`)، و`concepts`
+//   فيه مئاتٌ بمُعرِّفاتٍ طويلة (`air_conditioning_and_refrigeration_technician`).
+//   أحدَ عشرَ من الـ٢١ لا وجودَ لها في الآخر — سجلّان لا يعرف أحدُهما الآخر.
+//
+//   وثمنُ ذلك مقيسٌ لا متخيَّل: `problems.ts` تُحيل على مُعرِّف **مهنة**،
+//   فإن كُتب في `service` خرج إلى البحث والسوق مُعرِّفٌ لا تعرفه قاعدةُ
+//   المفاهيم؛ وإن حُوِّلت الإحالةُ إلى مفهومٍ انكسر `getProfession` فضاعت
+//   القدراتُ والقطاع — جُرِّب الطريقان وقِيسا، وسقط ١١ من ١٤ في الثاني.
+// ============================================================
+import { allProfessions, getProfession } from '../../src/lib/akg/kb/professions';
+import { CONCEPTS } from '../../src/lib/akg/kb/concepts';
+import { PROBLEMS } from '../../src/lib/akg/kb/problems';
+
+test('كلُّ مهنةٍ تُعرَف بمفهومٍ موجود — لا جسرَ إلى العدم', () => {
+  const known = new Set(CONCEPTS.map(c => c.id));
+  const broken: string[] = [];
+  for (const p of allProfessions()) {
+    const cid = p.concept || p.id;   // بلا `concept` يكون المُعرِّفُ نفسُه هو المفهوم
+    if (!known.has(cid)) broken.push(`${p.id} («${p.label}») ⇒ ${cid}`);
+  }
+  assert.deepEqual(broken, [],
+    `مهنٌ لا يقابلها مفهوم — ما يخرج منها إلى البحث والسوق لا يعرفه أحد:\n  ${broken.join('\n  ')}`);
+});
+
+test('كلُّ مشكلةٍ يحلُّها مَن هو مُعلَنٌ في سجلّ المهن', () => {
+  const orphans: string[] = [];
+  for (const [pid, p] of Object.entries(PROBLEMS)) {
+    for (const s of p.solutions || []) {
+      if (!getProfession(s.profession)) orphans.push(`${pid} → ${s.profession}`);
+    }
+  }
+  assert.deepEqual(orphans, [],
+    `مشاكلُ تُحيل على مهنٍ لا وجودَ لها — فلا قدراتٍ ولا قطاعَ ولا خدمة:\n  ${orphans.join('\n  ')}`);
+});
+
+// ── الفخُّ الذي وقع فعلًا ─────────────────────────────────────
+//
+//   «الثلاجة ما بقاتش **خدامة**»: قرأت طبقةُ الأعراض «خدامة» حالَ عطب،
+//   وقرأتها طبقةُ المفاهيم مهنةً (`house_cleaner`) — فصار عطبُ ثلّاجةٍ طلبَ
+//   عاملةِ تنظيف. رمزٌ واحدٌ قُرئ قراءتَين متضادّتَين في الجملة الواحدة.
+test('كلمةُ العطب ليست مهنة — «ما بقاتش خدامة» ثلّاجةٌ لا خادمة', async () => {
+  const { understand } = await import('../../src/lib/akg/kb');
+  const u: any = understand('الثلاجة ما بقاتش خدامة');
+  assert.equal(u.problem?.id, 'fridge_not_cooling', 'ضاعت المشكلةُ نفسُها');
+  assert.notEqual(u.service, 'house_cleaner', '«خدامة» ما زالت تُقرأ مهنةً في سياق عطب');
+  assert.equal(u.service, 'home_appliance_repair', 'الخدمةُ ليست حلَّ المشكلة');
+});
+
+test('من لا كلمةَ في جملته تدلّ على حرفة يأخذها من مشكلته', async () => {
+  const { understand } = await import('../../src/lib/akg/kb');
+  const u: any = understand('الفريجيدير ديالي ما كيخدمش من البارح انا ف طنجة');
+  assert.equal(u.service, 'home_appliance_repair', 'عرف عقلٌ الحرفةَ وبقي `service` فارغًا');
+  assert.equal(u.city, 'طنجة', 'ضاعت المدينة');
+});
+
+test('وحدُّه: المشكلةُ تملأ الفراغَ ولا تكتب فوق مطابقةٍ صريحة', async () => {
+  const { understand } = await import('../../src/lib/akg/kb');
+  // جُرِّب أن تفوز المشكلةُ دائمًا فصارت هذه `auto_body_paint` — من يريد
+  // غسلَ سيّارته يُساق إلى صبّاغ. الحدُّ ليس تجميلًا.
+  assert.equal((understand('بغيت نغسل الطوموبيل') as any).service, 'car_wash');
+});
