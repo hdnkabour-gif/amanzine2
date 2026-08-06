@@ -296,11 +296,14 @@ import { entityAccepts, VERB_MAP, OBJECT_MAP } from '../../src/lib/abilities';
 import { understand as understandKb } from '../../src/lib/akg/kb';
 
 /** نفسُ الحساب الذي تُجريه `LivingHome` — كي يُختبَر ما يعمل لا ما يُشبهه. */
+const READ_ENOUGH = 0.5;
 function judge(q: string) {
   const u: any = understandKb(q);
   const av = u.action ? VERB_MAP[u.action.verb] : undefined;
   const ae = u.action ? OBJECT_MAP[u.action.object] : undefined;
-  const impossible = !!(av && ae && !entityAccepts(av, ae));
+  // نفسُ حساب `LivingHome` — بما فيه حدُّ الثقة، وإلّا اختُبر ما لا يعمل.
+  const impossible = !!(av && ae && (u.action?.confidence ?? 0) >= READ_ENOUGH
+    && !entityAccepts(av, ae));
   return decideExecution(u, undefined, impossible).verdict;
 }
 
@@ -328,4 +331,32 @@ test('العجزُ يسبق النقصَ — لا يُستوضَح تفصيلُ 
     action: { verb: 'delete', object: 'language', scope: 'user', needs: ['أيّ لغة؟'], confidence: 1, reason: '' } };
   assert.equal(decideExecution(u, undefined, true).verdict, 'refuse',
     'سُئل عن تفصيلِ فعلٍ مستحيل');
+});
+
+
+// ============================================================
+// **العجزُ حكمٌ قاطعٌ فلا يُبنى على قراءةٍ ضعيفة.**
+//
+//   قِيس بعد إكمال الكتالوج: «زيد زبون جديد» تُقرأ `create:settings` بثقة
+//   ٠٫٣٥ — قارئُ الأفعال يسقط على `settings` حين لا يعرف الهدف. والمجالُ لا
+//   يقبل إنشاءَ إعدادات، فصار الجوابُ **«هادشي ما كايتديرش أصلًا»** لطلبٍ
+//   مشروعٍ تمامًا. سوءُ قراءةٍ تحوّل رفضًا قاطعًا.
+//
+//   والفصلُ واضحٌ في الأرقام: الصحيحُ ٠٫٧٠–٠٫٨٥ والمُساء ٠٫٣٥.
+// ============================================================
+test('سوءُ قراءةٍ يُسأل عنه ولا يُرفَض — «زيد زبون جديد» طلبٌ مشروع', () => {
+  assert.notEqual(judge('زيد زبون جديد'), 'refuse',
+    '**رُفض طلبٌ مشروعٌ لأنّ قارئَ الأفعال أخطأ هدفَه**');
+});
+
+test('والرفضُ يبقى على القراءة الواثقة — «حيّد اللغة» تُقرأ بثقة ٠٫٧', () => {
+  assert.equal(judge('حيّد اللغة'), 'refuse',
+    'حدُّ الثقة ابتلع الحكمَ كلَّه — عاد ميّتًا كما كان');
+});
+
+test('والقدرةُ المكتملةُ تُبدّل الحكمَ فعلًا — «حيّد الكوبون» يُؤكَّد', () => {
+  // قبل إعلان `DELETE_COUPON` كان الحكمُ يسقط على العتبة العامّة. وحذفُ
+  // كوبونٍ لا يُسترجَع، فالتأكيدُ شرطٌ لا تجميل.
+  assert.equal(judge('حيّد الكوبون'), 'confirm',
+    'حذفٌ لا يُسترجَع مرّ بلا تأكيد — القدرةُ غيرُ مُعلَنةٍ أو خطورتُها خاطئة');
 });

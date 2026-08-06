@@ -235,3 +235,38 @@ rawTest('SMTP يسبق Brevo حين يكون مضبوطًا — نقلٌ مبا�
     assert.equal(mailer.transportKind(), 'smtp');
   } finally { process.env = keep; }
 });
+
+rawTest('مُرسِلٌ واحدٌ للبريد — لا نسخةَ ثانيةٍ من نداء Brevo', () => {
+  // نفسُ درسِ مُرسِل واتساب الذي كُتب أربع مرّات: أيُّ إصلاحٍ يجب أن يُطبَّق
+  // مرّتين، وأوّلُ من يُنسى هو الثاني.
+  const fs = require('node:fs'), path = require('node:path');
+  const dir = path.join(__dirname, '..');
+  const offenders = [];
+  const walk = (d) => {
+    for (const e of fs.readdirSync(d)) {
+      const f = path.join(d, e);
+      if (fs.statSync(f).isDirectory()) { if (!/node_modules|test/.test(e)) walk(f); continue; }
+      if (!e.endsWith('.js')) continue;
+      if (f.endsWith(path.join('lib', 'mailer.js'))) continue;   // المُرسِلُ نفسُه
+      // **الكودُ وحدَه، ومسارُ الإرسال وحدَه.** شرحٌ يذكر النداءَ ليس نداءً
+      // (سقط الحارسُ على تعليقي أنا)، و`/v3/account` فحصُ اتّصالٍ لا إرسال.
+      const code = fs.readFileSync(f, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
+      if (/v3\/smtp\/email/.test(code)) offenders.push(f.replace(dir, ''));
+    }
+  };
+  walk(dir);
+  assert.deepEqual(offenders, [],
+    `نداءُ Brevo مكتوبٌ خارج \`lib/mailer\`:\n  ${offenders.join('\n  ')}`);
+});
+
+rawTest('ومفتاحُ التاجر يسبق مفتاحَ المنصّة — رسالتُه تخرج باسمه', () => {
+  const src = mailerSrc();
+  assert.match(src, /if \(apiKey\) return _sendViaBrevo/,
+    'مفتاحُ التاجر يُتجاهَل — ستخرج رسالةُ طلباته من حساب المنصّة');
+});
+function mailerSrc() {
+  return require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'lib', 'mailer.js'), 'utf8');
+}

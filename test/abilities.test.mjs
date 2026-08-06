@@ -251,37 +251,26 @@ test('إعلانُ المجال يُقرأ أصلًا', () => {
  * القائمةُ سقّاطة: تنقص ولا تزيد، وكلُّ سطرٍ فيها دَينٌ مُعلَن.
  */
 const KNOWN_GAPS = new Set([
-  'view:product',            // GET /api/products + ProductsPage
-  'view:coupon',             // GET /api/coupons + CouponsPage
-  'view:delivery_provider',  // GET /api/delivery + DeliveryPage
-  'view:settings',           // GET /api/settings + SettingsPage
-  'view:account',            // ProfilePage
-  'view:media',              // GET /api/media/files/:filename
-  'view:phone', 'view:address', 'view:language',  // تُقرأ داخل الإعدادات
-  'view:workspace',          // Storefront + SettingsPage
-  'view:service', 'view:listing', 'view:booking', 'view:payment',
-  'create:knowledge',        // AddConceptPanel — تُعلَّم المنصّةُ مجالًا جديدًا
-  'view:message', 'view:need', 'view:knowledge',
-  'create:customer',         // POST /api/customers
-  'create:order',            // POST /api/orders (QuickOrderModal)
-  'create:message', 'create:need', 'create:service',
-  'create:listing', 'create:booking',
-  'update:coupon',           // PUT /api/coupons/:id
-  'update:delivery_provider',// POST /api/delivery (upsert)
-  'update:customer', 'update:service', 'update:listing', 'update:booking',
-  'update:knowledge', 'update:media',
-  'delete:coupon',           // DELETE /api/coupons/:id
-  'delete:customer',         // DELETE /api/customers/:id
-  'delete:delivery_provider',// DELETE /api/delivery/:id
-  'delete:service', 'delete:listing', 'delete:booking', 'delete:media',
-  'send:workspace',          // ShareShop — واتساب ونسخُ الرابط
-  'send:product',            // مشاركةُ رابط المنتج
-  'send:order',              // تأكيدُ الطلب عبر واتساب
-  'send:coupon', 'send:customer', 'send:message',
-  'view:shipment', 'view:provider',
-  'seek:need', 'seek:service', 'seek:listing', 'seek:provider',
-  'offer:service', 'offer:listing', 'offer:provider',
-  'book:booking',
+  // ── فارغةٌ الآن ────────────────────────────────────────────────
+  //
+  //   كانت ٥٦ سطرًا، فيها **١٦ دَينًا كاذبًا**: أزواجٌ مُعلَنةٌ في الكتالوج
+  //   ومذكورةٌ ثغرةً في آن. والحارسُ لم يمسكها لأنّه كان يفحص اتّجاهًا واحدًا
+  //   (فعلٌ بلا قدرةٍ ولا ثغرة) ولا يفحص عكسَه — ودَينٌ كاذبٌ يُخفي العملَ
+  //   الحقيقيَّ خلف ضجيج.
+  //
+  //   والأربعون الباقيةُ أُعلنت قدراتٍ: لكلٍّ مسارٌ بالطريقة الصحيحة وصفحةٌ
+  //   يبلغها `MainLayout` — يحرسهما اختباران في هذا الملفّ.
+  //
+  //   وتبقى القائمةُ سقّاطة: تُملأ حين يُكتشَف بابٌ جديدٌ قبل أن يُعلَن،
+  //   وتُفرَّغ حين يُعلَن. وما يبقى فيها دَينٌ **مُبرَّرٌ بسطرٍ مكتوب**.
+  //
+  //   وهذه الثلاثةُ دَينٌ حقيقيّ: **لا مسارَ حذفٍ لها في الخادم**. أعلنتُها
+  //   قدراتٍ فأسقطني الحارسُ («يَعِد بـdelete ولا delete فيه») — وهو محقّ.
+  //   المجالُ يقبلها (`ENTITY_VERBS`) والتطبيقُ لم يبنِها بعد، والفرقُ بين
+  //   الاثنين هو ما تقيسه هذه القائمة.
+  'delete:listing',   // لا DELETE في routes/listings.js
+  'delete:booking',   // لا DELETE في routes/bookings.js
+  'delete:media',     // لا DELETE في routes/media.js
 ]);
 
 test('كلُّ فعلٍ مُعلَنٍ لكيانٍ إمّا له قدرةٌ أو ثغرةٌ مُعلَنة', () => {
@@ -304,6 +293,17 @@ test('ولا قدرةَ قائمةٌ يرفضها إعلانُ المجال — 
   }
   assert.deepEqual(wrong, [],
     `قدراتٌ تعمل ويقول عنها الإعلانُ «مستحيلة» — ستُقابَل بـ«ما نقدرش»:\n  ${wrong.join('\n  ')}`);
+});
+
+test('ولا ثغرةَ **مُعلَنةٌ أصلًا** — دَينٌ كاذبٌ يُخفي العملَ الحقيقيّ', () => {
+  // كان الحارسُ يفحص اتّجاهًا واحدًا: فعلٌ في `ENTITY_VERBS` بلا قدرةٍ ولا
+  // ثغرة. ولا يفحص عكسَه — فبقيت **١٦** ثغرةً مذكورةً وهي مُعلَنةٌ في
+  // الكتالوج، أي ٢٩٪ من قائمة الدَّين كانت وهمًا. وقائمةُ دَينٍ منتفخةٌ أسوأُ
+  // من غيابها: يُقرأ فيها ما لا عملَ فيه، فيُؤجَّل ما فيه عملٌ حقيقيّ.
+  const declared = new Set(ABILITIES.map(a => `${a.verb}:${a.entity}`));
+  const fake = [...KNOWN_GAPS].filter(k => declared.has(k));
+  assert.deepEqual(fake, [],
+    `ثغراتٌ مُعلَنةٌ في الكتالوج أصلًا — احذفها من القائمة:\n  ${fake.join('\n  ')}`);
 });
 
 test('والثغرةُ المُعلَنة ليست عجزًا — لا تُقابَل بـ«ما نقدرش» أبدًا', () => {

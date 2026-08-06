@@ -90,8 +90,11 @@ function transportKind() {
  * يُرسل بريدًا. لا يرمي — الإشعارُ الفاشل لا يُسقط عمليّةَ عمل.
  * @returns {Promise<{sent:boolean, reason?:string}>}
  */
-async function send({ to, subject, html, text, from, toName } = {}) {
+async function send({ to, subject, html, text, from, toName, apiKey } = {}) {
   if (!to) return { sent: false, reason: 'no-recipient' };
+  // `apiKey` مفتاحُ **تاجرٍ بعينه** من إعداداته: رسائلُ طلباته تخرج باسمه.
+  // وحين يُمرَّر يسبق كلَّ شيء — وإلّا خرجت رسالةُ تاجرٍ من حساب المنصّة.
+  if (apiKey) return _sendViaBrevo({ apiKey, to, toName, subject, html, text });
   const transport = getTransport();
   // SMTP أوّلًا حين يكون مضبوطًا (نقلٌ مباشرٌ بلا طرفٍ ثالث)، وإلّا Brevo.
   if (!transport) {

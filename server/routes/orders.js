@@ -4,6 +4,7 @@ const router = require('express').Router();
 const auth   = require('../middleware/auth');
 const crypto = require('crypto');
 const { db } = require('../database');
+const mailer = require('../lib/mailer');
 const verify = require('../lib/verify');
 const orderVerification = require('../lib/orderVerification');
 const sync   = require('../sync');
@@ -65,22 +66,14 @@ router.put('/:id', auth, async (req, res) => {
   } catch (e) { console.error('[orders]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
-function _sendBrevoEmail(apiKey, toEmail, toName, subject, html) {
-  return new Promise(resolve => {
-    if (!apiKey || !toEmail) return resolve(false);
-    const httpsB = require('https');
-    const body = JSON.stringify({
-      sender: { name: 'AMANZINE', email: 'noreply@amanzine.shop' },
-      to: [{ email: toEmail, name: toName || toEmail }],
-      subject, htmlContent: html,
-    });
-    const r = httpsB.request({ hostname: 'api.brevo.com', path: '/v3/smtp/email', method: 'POST',
-      headers: { 'api-key': apiKey, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
-      rs => { rs.resume(); resolve(rs.statusCode < 300); });
-    r.on('error', () => resolve(false)); r.setTimeout(8000, () => { r.destroy(); resolve(false); });
-    r.write(body); r.end();
-  });
-}
+// -- مُرسِلٌ واحدٌ للبريد --
+//   كانت هنا نسخةٌ ثانيةٌ من نداء Brevo بمهلتها ومعالجةِ أخطائها. نفسُ درسِ
+//   مُرسِل واتساب الذي كُتب أربع مرّات: أيُّ إصلاحٍ يجب أن يُطبَّق مرّتين،
+//   وأوّلُ من يُنسى هو الثاني. و`lib/mailer` يقبل الآن مفتاحَ تاجرٍ فتخرج
+//   رسالتُه باسمه هو لا باسم المنصّة.
+const _sendBrevoEmail = (apiKey, toEmail, toName, subject, html) =>
+  mailer.send({ apiKey, to: toEmail, toName, subject, html }).then(r => r.sent);
+
 
 function _verifyHCaptcha(secret, token) {
   return new Promise(resolve => {
