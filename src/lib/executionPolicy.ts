@@ -19,7 +19,7 @@
 // ============================================================
 
 import { CONFIDENCE } from './clarify';
-import { RISK_THRESHOLD, type Ability } from './abilities';
+import { RISK_THRESHOLD, unmetNeeds, NEED_ASK, type Ability } from './abilities';
 import type { Understanding } from './akg/kb';
 
 export type Verdict =
@@ -79,8 +79,20 @@ export function decideExecution(u: Understanding, canDo = true, match?: Ability)
     return { verdict: 'ask', say: u.ambiguity.ask, trace };
   }
 
-  // ⑤ نقصٌ معلوم: «بدّل الثمن» بلا منتج.
-  if (u.action?.needs?.length) {
+  // ⑤ نقصٌ معلوم — **بعد طرح ما عرفناه**.
+  //
+  //    كانت `needs` تُقرأ كما هي، فيُسأل الخضّارُ «شنو نوع النشاط؟» بعد أن
+  //    قال «عندي محل ديال الخضرة». وهو «موتُ السحر»: يعرف ثمّ يسأل.
+  if (match) {
+    const missing = unmetNeeds(match, {
+      trade: u.service || u.profession?.id,
+      product: u.service, subject: u.service || u.problem?.id,
+    });
+    if (missing.length) {
+      trace.push(`ينقص: ${missing[0]}`);
+      return { verdict: 'ask', say: NEED_ASK[missing[0]], trace };
+    }
+  } else if (u.action?.needs?.length) {
     const need = u.action.needs.find(n => !/^تأكيد/.test(n));
     if (need) {
       trace.push(`ينقص: ${need}`);

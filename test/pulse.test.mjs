@@ -34,6 +34,9 @@ import { join } from 'node:path';
 //   ولا يُغني أحدُهما عن الآخر. وادّعاءُ أنّ رقمًا واحدًا يكفي وهمٌ مريح.
 // ============================================================
 
+import { ALL, EXPECT_NEVER_EXECUTE, EXPECT_ASK, EXPECT_CONFIRM, EXPECT_NOT_ASK,
+  EXPECT_CONCEPT, EXPECT_ADMIN, EXPECT_PERSON_FACTS } from './corpus.mjs';
+
 const ROOT = new URL('..', import.meta.url).pathname;
 const BASE = JSON.parse(readFileSync(join(ROOT, 'test/pulse.baseline.json'), 'utf8'));
 
@@ -151,6 +154,22 @@ test('لا تضعف حلقةٌ من حلقات الفهم', () => {
 //   كودٍ واحد). وهو بابٌ مفتوحٌ لخداع النفس: يكفي نقلُ كلّ جملةٍ صعبةٍ إلى
 //   «لا تُحاسَب» ليصير كلُّ شيءٍ مئةً. فهذه الثلاثةُ تُغلقه.
 
+test('كلُّ جملةٍ موسومةٍ **تُقاس** — لا حكمَ على غائب', () => {
+  // العطبُ الذي وُلد منه هذا الحارس: ثلاثُ جملٍ موسومةٍ لم تكن في `ALL`،
+  // والحلقةُ تمرّ على `ALL` وحدَها. فكان المقامُ يعدُّها والبسطُ لا يراها،
+  // فبدت الحلقةُ الإداريّةُ ٨٣٪ **وهي لم تُخفق في شيء**. وأخبثُ ما فيه أنّه
+  // لا يبالغ في الإخفاق ولا في النجاح — بل **يقيس فراغًا** ويسمّيه نسبة.
+  const inAll = new Set(ALL);
+  const strays = [
+    ['EXPECT_NEVER_EXECUTE', EXPECT_NEVER_EXECUTE], ['EXPECT_ASK', EXPECT_ASK],
+    ['EXPECT_CONFIRM', EXPECT_CONFIRM], ['EXPECT_NOT_ASK', EXPECT_NOT_ASK],
+    ['EXPECT_CONCEPT', EXPECT_CONCEPT], ['EXPECT_ADMIN', EXPECT_ADMIN],
+    ['EXPECT_PERSON_FACTS', EXPECT_PERSON_FACTS],
+  ].flatMap(([name, list]) => list.filter(s => !inAll.has(s)).map(s => `${name}: «${s}»`));
+  assert.deepEqual(strays, [],
+    `جملٌ موسومةٌ خارجَ المدوّنة — تُحسَب في المقام ولا تُقاس أبدًا:\n  ${strays.join('\n  ')}`);
+});
+
 test('كلُّ جملةٍ مصنَّفة — لا تُهرَّب صعبةٌ خارجَ الحساب', () => {
   assert.equal(p.unclassified, 0,
     `${p.unclassified} جملةً بلا صنف — تُقاس ولا يُحاسَب عليها أحد`);
@@ -163,6 +182,11 @@ test('لا تُقلَّص الأصنافُ التي تُحاسَب', () => {
     `قُلِّلت الجملُ التي يُنتظَر منها مفهوم: ${p.conceptExpected} وكانت ${BASE.minConceptExpected}`);
   assert.ok(p.adminExpected >= BASE.minAdminExpected,
     `قُلِّلت الجملُ الإداريّة: ${p.adminExpected} وكانت ${BASE.minAdminExpected}`);
+  // أُضيف بعد أن قُيست الحقائقُ على مقام جارتها (`EXPECT_NOT_ASK`): تصحيحُ
+  // وسمِ جملتين خفض المقامَ من ١٠ إلى ٨ بلا أن يتغيّر سطرٌ في التطبيق. ولها
+  // الآن مقامُها، وهذا يمنع تقليصَه.
+  assert.ok(p.factExpected >= BASE.minFactExpected,
+    `قُلِّل مقامُ الحقائق: ${p.factExpected} وكان ${BASE.minFactExpected}`);
 });
 
 test('الفعلُ الإداريُّ يُقرأ ولا يرتدّ', () => {

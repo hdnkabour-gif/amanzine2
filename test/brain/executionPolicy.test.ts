@@ -101,7 +101,10 @@ import { ability, RISK_THRESHOLD } from '../../src/lib/abilities';
 import { abilityFor } from '../../src/lib/abilities';
 
 test('العرضُ يُنفَّذ بثقةٍ لا تكفي للتعديل', () => {
-  const u: any = { confidence: 0.5, reasoning: [] };
+  // الفهمُ **تامٌّ** عمدًا: الحاجةُ معروفة (`service`)، كي يكون المقيسُ هنا
+  // هو العتبةَ وحدَها لا بوّابةَ النقص. ولو تُرك الفهمُ فارغًا لخرج `ask`
+  // من الطبقة ⑤ فبدا أنّ العتبةَ فشلت وهي لم تُبلَغ أصلًا.
+  const u: any = { confidence: 0.5, reasoning: [], service: 'clothing' };
   // بلا قدرةٍ: العتبةُ العامّة ٠٫٩٠ ⇒ سؤال. وهذا هو العطبُ المقيس.
   assert.equal(decideExecution(u).verdict, 'ask');
   // بقدرةٍ منخفضة الخطر: يُنفَّذ.
@@ -111,18 +114,26 @@ test('العرضُ يُنفَّذ بثقةٍ لا تكفي للتعديل', () =
 });
 
 test('الخطِرُ لا يُنفَّذ ولو بلغ اليقينُ مئةً', () => {
+  // الحارسُ الحقيقيُّ أن الخطِرَ **لا يبلغ `execute` أبدًا** — لا أن يخرج
+  // `confirm` بعينه. فمن نقص فهمُه يُسأل أوّلًا (الطبقة ⑤ قبل ⑥)، وهذا
+  // أسلمُ لا أضعف: من يؤكّد دفعًا بلا مبلغٍ يؤكّد شيئًا لا يعرفه.
   const u: any = { confidence: 1, reasoning: [] };
   for (const id of ['DELETE_PRODUCT', 'CHANGE_PHONE', 'MAKE_PAYMENT', 'CREATE_SHIPMENT']) {
-    const a = ability(id)!;
-    const d = decideExecution(u, true, a);
-    assert.equal(d.verdict, 'confirm', `${id}: نُفِّذ بلا تأكيد`);
-    // والتأكيدُ **يسمّي الفعل**. «واش هادشي هو اللي بغيتي؟» تصلح للفهم، ولا
-    // تصلح لما لا يُسترجَع: من يؤكّد حذفًا يجب أن يقرأ كلمة «تحيّد» قبل أن
-    // يضغط. ولذلك لا يكفي أن تُخرِج العتبةُ `confirm` — يلزم حارسٌ صريح.
-    assert.ok(d.say.includes(a.say), `${id}: تأكيدٌ لا يسمّي الفعل — «${d.say}»`);
-    assert.ok(d.trace.some(t => t.includes(id)), `${id}: أثرٌ لا يذكر القدرة`);
+    const d = decideExecution(u, true, ability(id)!);
+    assert.notEqual(d.verdict, 'execute', `${id}: نُفِّذ بلا تأكيد`);
   }
   assert.ok(RISK_THRESHOLD.high > 1, 'عتبةُ الخطِر قابلةٌ للبلوغ');
+});
+
+test('وحين يكتمل الفهمُ يُؤكَّد التأكيدُ **باسم الفعل**', () => {
+  // «واش هادشي هو اللي بغيتي؟» تصلح للفهم، ولا تصلح لما لا يُسترجَع: من
+  // يؤكّد حذفًا يجب أن يقرأ كلمة «تحيّد» قبل أن يضغط. ولذلك لا يكفي أن
+  // تُخرِج العتبةُ `confirm` — يلزم حارسٌ صريح.
+  const a = ability('DELETE_PRODUCT')!;
+  const d = decideExecution({ confidence: 1, reasoning: [], service: 'clothing' } as any, true, a);
+  assert.equal(d.verdict, 'confirm', 'الحذفُ نُفِّذ بلا تأكيد');
+  assert.ok(d.say.includes(a.say), `تأكيدٌ لا يسمّي الفعل — «${d.say}»`);
+  assert.ok(d.trace.some(t => t.includes(a.id)), 'أثرٌ لا يذكر القدرة');
 });
 
 test('حدُّ القدرة يسبق كلَّ شيء — «ما نقدرش» لا صمتٌ ولا فعلٌ ناقص', () => {
@@ -151,4 +162,83 @@ test('الجسر لا يخمّن — ما لا يطابق يُرجع null', () =
 test('النيّةُ تُستعمَل حين لا فعلَ — ولا تُهمَل', () => {
   assert.equal(abilityFor({ action: null, intent: 'find_pro' })?.id, 'FIND_PROVIDER');
   assert.equal(abilityFor({ intent: 'create_store' })?.id, 'CREATE_WORKSPACE');
+});
+
+// ============================================================
+// «موتُ السحر» — أن يعرف التطبيقُ ثمّ يسأل عمّا يعرفه.
+//
+//   قِيس بالنبض: ٧ من ٢٥ جملةً واضحةً تُقابَل بسؤالٍ بلا داعٍ. وأصرحُها:
+//       «عندي محل ديال الخضرة» ⇒ «شنو نوع النشاط؟»
+//       «أنا خضار»             ⇒ «شنو الخدمة اللي كتقدّم؟»
+//   والسببُ بنيويٌّ لا لغويّ: `needs` كانت **نصوصًا تُطبَع**، فلا سبيلَ إلى
+//   سؤالها «هل عُرف هذا؟». صارت مفاتيحَ تُفحَص.
+// ============================================================
+import { unmetNeeds, nextQuestion, NEED_ASK, ABILITIES } from '../../src/lib/abilities';
+
+test('ما عُرف يُطرَح من المطلوب — لا يُسأل عمّا قيل للتوّ', () => {
+  const sell = ability('SELL_PRODUCT')!;
+  assert.deepEqual(unmetNeeds(sell), ['product', 'price'], 'بلا فهمٍ: كلُّه ناقص');
+  // من سمّى بضاعتَه سمّى منتَجَه — «بغيت نبيع طوموبيل».
+  assert.deepEqual(unmetNeeds(sell, { trade: 'automobile' }), ['price']);
+  assert.deepEqual(unmetNeeds(sell, { trade: 'automobile', price: 30000 }), []);
+  // والخضّارُ لا يُسأل عن نشاطه بعد أن سمّاه.
+  assert.deepEqual(unmetNeeds(ability('OFFER_SERVICE')!, { trade: 'greengrocer' }), []);
+});
+
+test('الثمنُ صفرٌ ثمنٌ مذكور — والفراغُ ليس رقمًا', () => {
+  // `!!0 === false`. ولو قيست الحاجةُ بالصدق لسُئل مَن قال «بلاش» عن ثمنه.
+  const sell = ability('SELL_PRODUCT')!;
+  assert.ok(!unmetNeeds(sell, { trade: 'x', price: 0 }).includes('price'), 'الصفرُ عُدّ نقصًا');
+  assert.ok(unmetNeeds(sell, { trade: 'x', price: '' }).includes('price'));
+  assert.ok(unmetNeeds(sell, { trade: 'x' }).includes('price'));
+});
+
+test('سؤالٌ واحدٌ لا استمارة — وبصياغةٍ من مكانٍ واحد', () => {
+  const sell = ability('SELL_PRODUCT')!;
+  assert.equal(nextQuestion(sell), NEED_ASK.product, 'سُئل عن غير الأوّل');
+  assert.equal(nextQuestion(sell, { trade: 'automobile' }), NEED_ASK.price);
+  assert.equal(nextQuestion(sell, { trade: 'automobile', price: 30000 }), '', 'سأل وما نقص شيء');
+});
+
+test('كلُّ مفتاحِ حاجةٍ له سؤالٌ دارجيّ — لا مفتاحَ يخرج بلا كلام', () => {
+  // لو أُضيف مفتاحٌ إلى قدرةٍ ونُسي في `NEED_ASK` لخرج `undefined` إلى وجه
+  // الإنسان. حارسٌ رخيصٌ يمسك السهو عند الإضافة لا عند الشكوى.
+  for (const a of ABILITIES) {
+    for (const k of a.needs) {
+      assert.ok(NEED_ASK[k] && NEED_ASK[k].trim().length > 2,
+        `${a.id}: حاجةٌ بلا سؤال — «${k}»`);
+    }
+  }
+});
+
+test('البوّابةُ موصولةٌ بالقرار — لا تعيش في ملفّها وحدَها', () => {
+  // الحارسُ أعلاه يقيس الدالّة. وهذا يقيس أنّ `decideExecution` **يستعملها**:
+  // نفسُ الثقة، ونفسُ القدرة، والفرقُ الوحيدُ هو ما عُرف.
+  const offer = ability('OFFER_SERVICE')!;
+  const blind: any = { confidence: 0.95, reasoning: [] };
+  const knowing: any = { confidence: 0.95, reasoning: [], service: 'greengrocer' };
+  assert.equal(decideExecution(blind, true, offer).verdict, 'ask');
+  assert.equal(decideExecution(blind, true, offer).say, NEED_ASK.trade);
+  assert.equal(decideExecution(knowing, true, offer).verdict, 'execute',
+    'عرف ثمّ سأل — «موتُ السحر»');
+});
+
+test('«بشحال؟» سؤالٌ في محلّه — والحدُّ معلَنٌ لا مخفيّ', () => {
+  // وسمتُ «بغيت نبيع طوموبيل» في المدوّنة سؤالًا **بلا داعٍ**، وكان وسمي
+  // خاطئًا: من يبيع بلا ثمنٍ لا إعلانَ له. والسببُ البنيويّ أنّ
+  // `Understanding` **لا تحمل ثمنًا أصلًا** — الميزانيّةُ تُقرأ في
+  // `parseNeed` ولا تصل إلى هنا. فالسؤالُ صحيحٌ اليوم، ويبقى صحيحًا حتّى
+  // يُوصَل الثمن. وهذا الحارسُ يجعل ذلك اليومَ مرئيًّا لا صامتًا.
+  const d = decideExecution({ confidence: 0.95, reasoning: [], service: 'automobile' } as any,
+    true, ability('SELL_PRODUCT')!);
+  assert.equal(d.verdict, 'ask');
+  assert.equal(d.say, NEED_ASK.price, 'سُئل عن غير الثمن — والبضاعةُ مذكورة');
+});
+
+test('النقصُ يسبق الثقةَ والتأكيد — الترتيبُ جزءٌ من المعنى', () => {
+  // يقينٌ تامٌّ وفهمٌ ناقص ⇒ سؤالٌ لا تنفيذ. الوضوحُ في **الصياغة** ليس
+  // اكتمالًا في **المضمون**.
+  const d = decideExecution({ confidence: 1, reasoning: [] } as any, true, ability('SELL_PRODUCT')!);
+  assert.equal(d.verdict, 'ask');
+  assert.match(d.trace.join(' · '), /ينقص/);
 });

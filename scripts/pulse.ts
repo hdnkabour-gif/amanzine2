@@ -26,7 +26,7 @@ import { readAction } from '../src/lib/akg/kb/actions';
 import { resolveConcept } from '../src/lib/akg/kb/knowledge';
 import { normLoose } from '../src/lib/normalize';
 import { ALL, EXPECT_NEVER_EXECUTE, EXPECT_ASK, EXPECT_CONFIRM, EXPECT_NOT_ASK,
-  EXPECT_CONCEPT, EXPECT_ADMIN, CLASSIFIED } from '../test/corpus.mjs';
+  EXPECT_CONCEPT, EXPECT_ADMIN, EXPECT_PERSON_FACTS, CLASSIFIED } from '../test/corpus.mjs';
 
 export interface Pulse {
   /** حجمُ المدوّنة — يُذكَر كي لا تُقارَن نسبتان من مدوّنتَين. */
@@ -41,6 +41,8 @@ export interface Pulse {
   understood: number;
   /** كم جملةً يُنتظَر منها مفهومٌ أصلًا — المقامُ الصادق. */
   conceptExpected: number;
+  /** مقامُ حلقة الحقائق — يُحرَس كما يُحرَس مقامُ المفهوم، فلا يُقلَّص. */
+  factExpected: number;
   /** أفعالٌ إداريّةٌ قُرئت (`update:phone`…) من الجمل التي تنتظرها. */
   adminRead: number;
   adminExpected: number;
@@ -168,7 +170,15 @@ export function measure(): Pulse {
     if (EXPECT_CONFIRM.includes(s)) {
       judged++;
       if (d.verdict === 'execute') unconfirmedDestructive++;
-      if (d.verdict === 'confirm') correct++;
+      // **العقدُ هو «لا يمرّ بلا تأكيد»، لا «يقول `confirm` حرفيًّا».**
+      //   «بغيت نحيد هاد المحل» يسأل «أيّ محلّ؟» — ومن عنده محلّان لا يجوز
+      //   أن نؤكّد له حذفَ واحدٍ لا نعرفه. فالسؤالُ هنا أشدُّ حرصًا لا أقلّ،
+      //   وعدُّه إخفاقًا يعاقب التطبيقَ على أنّه احتاط.
+      //   وحدُّه صريحٌ كي لا يصير بابًا: يُقبَل السؤالُ **فقط** إن كان عن
+      //   نقصٍ حقيقيّ (`ينقص` في الأثر). أمّا «ما فهمتش مزيان» على فعلٍ
+      //   خطِرٍ فإخفاقٌ يبقى إخفاقًا.
+      const askedForGap = d.verdict === 'ask' && d.trace.some(t => t.startsWith('ينقص'));
+      if (d.verdict === 'confirm' || askedForGap) correct++;
     }
     if (EXPECT_NOT_ASK.includes(s)) {
       judged++;
@@ -181,7 +191,10 @@ export function measure(): Pulse {
 
   // كلُّ حلقةٍ تُقاس على ما **يخصّها**: التطبيعُ على كلّ الجمل، والحقائقُ
   // على ما يُنتظَر منه حقائقُ فقط — وإلّا حُوسبت حلقةٌ على عملِ غيرها.
-  const factExpected = ALL.filter(x => EXPECT_NOT_ASK.includes(x));
+  // **لكلّ حلقةٍ مقامُها.** كانت الحقائقُ تُقاس على `EXPECT_NOT_ASK` — وهي
+  // قائمةُ حكمٍ لا قائمةُ حقائق. فتصحيحُ وسمِ جملتين خفض المقامَ من ١٠ إلى ٨
+  // بلا أن يتغيّر سطرٌ في التطبيق. حلقةٌ تستعير مقامَ جارتها تهتزّ بحركته.
+  const factExpected = ALL.filter(x => EXPECT_PERSON_FACTS.includes(x));
   const stages = [
     { name: 'التطبيع',  ok: ALL.length * 5 - variantDrift, of: ALL.length * 5 },
     { name: 'المفهوم',  ok: understood,     of: EXPECT_CONCEPT.length },
@@ -195,7 +208,7 @@ export function measure(): Pulse {
   const unclassified = ALL.filter(x => !CLASSIFIED.includes(x)).length;
 
   return { sentences: ALL.length, understood, stanceKnown, personFacts, stages,
-    conceptExpected: EXPECT_CONCEPT.length, adminRead, adminExpected: EXPECT_ADMIN.length, unclassified,
+    conceptExpected: EXPECT_CONCEPT.length, factExpected: factExpected.length, adminRead, adminExpected: EXPECT_ADMIN.length, unclassified,
     abilityMatched, verdicts, lostKnowledge, contradiction, silent, variantDrift,
     wrongExecutions, recklessExecutions, unconfirmedDestructive, needlessAsks, correct, judged };
 }

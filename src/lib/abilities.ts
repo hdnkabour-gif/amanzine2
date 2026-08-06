@@ -60,6 +60,42 @@ export type AbilityEntity =
  */
 export type AbilityRisk = 'low' | 'medium' | 'high';
 
+/**
+ * ما قد ينقص قبل التنفيذ — **مفتاحٌ يُفحَص**، لا جملةٌ تُطبَع.
+ *
+ *   كانت `needs` نصوصًا ثابتة، فكان التطبيقُ يسأل عمّا قاله الإنسانُ للتوّ:
+ *       «عندي محل ديال الخضرة» ⇒ ينقص «شنو نوع النشاط؟»
+ *       «بغيت نبيع طوموبيل»    ⇒ ينقص «شنو باغي تبيع؟»
+ *   وهو «موتُ السحر» بعينه — يعرف ثمّ يسأل. والسببُ أنّ النصَّ لا يُفحَص:
+ *   لا أحدَ يستطيع أن يسأل قائمةً «هل عُرف هذا؟».
+ */
+export type NeedKey =
+  | 'trade'      // نوعُ النشاط أو الخدمة
+  | 'product'    // أيُّ منتَج
+  | 'price'      // بشحال
+  | 'order'      // أيُّ طلب
+  | 'workspace'  // أيُّ محلّ
+  | 'provider'   // أيُّ شركة
+  | 'phone'      // النمرة
+  | 'address'    // العنوان
+  | 'person'     // مع من
+  | 'time'       // إمتا
+  | 'amount'     // شحال
+  | 'method'     // بأشنو
+  | 'text'       // نصُّ الرسالة أو السؤال
+  | 'audience'   // لمن
+  | 'token'      // مفتاحُ الشركة
+  | 'subject';   // شنو محتاج / شنو المشكل
+
+/** السؤالُ الدارجيُّ لكلّ مفتاح — **مكانٌ واحد**، فلا تختلف صياغتان. */
+export const NEED_ASK: Record<NeedKey, string> = {
+  trade: 'شنو نوع النشاط ولا الخدمة؟', product: 'أيّ منتوج؟', price: 'بشحال؟',
+  order: 'أيّ طلب؟', workspace: 'أيّ محلّ؟', provider: 'أيّ شركة؟',
+  phone: 'شنو النمرة؟', address: 'شنو العنوان؟', person: 'مع من؟', time: 'إمتا؟',
+  amount: 'شحال؟', method: 'بأشنو؟', text: 'شنو تبغي تقول؟', audience: 'لمن؟',
+  token: 'التوكن ديال الشركة؟', subject: 'شنو محتاج بالضبط؟',
+};
+
 export interface Ability {
   /** مُعرِّفٌ ثابت — يُذكَر في الأثر والاختبارات، فلا يُغيَّر بعد استعماله. */
   id: string;
@@ -68,8 +104,8 @@ export interface Ability {
   /** ما يُقال للإنسان بالدارجة — لا مصطلحاتٍ تقنيّة (القانون ١٠). */
   say: string;
   risk: AbilityRisk;
-  /** ما يجب معرفتُه قبل التنفيذ. فارغةٌ = تُنفَّذ فورًا. */
-  needs: string[];
+  /** ما قد يُحتاج قبل التنفيذ. يُصفَّى بما عُرف — انظر `unmetNeeds`. */
+  needs: NeedKey[];
   /** هل تحتاج حسابًا؟ الزائرُ يتصفّح ويطلب، ولا ينشر ولا يعدّل. */
   auth: boolean;
   /** الصفحةُ التي تعيش فيها. `null` = قدرةٌ بلا باب (عيبٌ يُسدّ). */
@@ -84,25 +120,25 @@ export interface Ability {
 export const ABILITIES: Ability[] = [
   // ① يَعرض ───────────────────────────────────────────────────
   { id: 'SELL_PRODUCT', verb: 'offer', entity: 'product', say: 'تبيع منتوج',
-    risk: 'medium', needs: ['شنو باغي تبيع؟', 'بشحال؟'], auth: true, page: 'publish', api: '/api/products' },
+    risk: 'medium', needs: ['product', 'price'], auth: true, page: 'publish', api: '/api/products' },
   { id: 'OFFER_SERVICE', verb: 'offer', entity: 'service', say: 'تقدّم خدمة',
-    risk: 'medium', needs: ['شنو الخدمة اللي كتقدّم؟'], auth: true, page: 'publish', api: '/api/providers' },
+    risk: 'medium', needs: ['trade'], auth: true, page: 'publish', api: '/api/providers' },
   { id: 'PUBLISH_LISTING', verb: 'offer', entity: 'listing', say: 'تنشر إعلان',
-    risk: 'medium', needs: ['شنو باغي تنشر؟'], auth: true, page: 'publish', api: '/api/listings' },
+    risk: 'medium', needs: ['subject'], auth: true, page: 'publish', api: '/api/listings' },
 
   // ② يطلب ────────────────────────────────────────────────────
   { id: 'BUY_PRODUCT', verb: 'seek', entity: 'product', say: 'تشري شي حاجة',
-    risk: 'low', needs: ['شنو باغي تشري؟'], auth: false, page: 'home', api: '/api/search' },
+    risk: 'low', needs: ['subject'], auth: false, page: 'home', api: '/api/search' },
   { id: 'FIND_PROVIDER', verb: 'seek', entity: 'provider', say: 'تقلّب على حرفي ولا مختصّ',
-    risk: 'low', needs: ['شنو المشكل ولا الخدمة؟'], auth: false, page: 'home', api: '/api/business' },
+    risk: 'low', needs: ['subject'], auth: false, page: 'home', api: '/api/business' },
   { id: 'POST_NEED', verb: 'seek', entity: 'need', say: 'تكتب اللي محتاج ونقلّبو ليك',
-    risk: 'low', needs: ['شنو محتاج؟'], auth: false, page: 'home', api: '/api/needs' },
+    risk: 'low', needs: ['subject'], auth: false, page: 'home', api: '/api/needs' },
   { id: 'BOOK_APPOINTMENT', verb: 'book', entity: 'booking', say: 'تاخد موعد',
-    risk: 'medium', needs: ['مع من؟', 'إمتا؟'], auth: true, page: 'bookings', api: '/api/bookings' },
+    risk: 'medium', needs: ['person', 'time'], auth: true, page: 'bookings', api: '/api/bookings' },
 
   // ③ نشاطُه ──────────────────────────────────────────────────
   { id: 'CREATE_WORKSPACE', verb: 'create', entity: 'workspace', say: 'تصايب المحلّ ديالك',
-    risk: 'medium', needs: ['شنو نوع النشاط؟'], auth: true, page: 'settings', api: '/api/settings' },
+    risk: 'medium', needs: ['trade'], auth: true, page: 'settings', api: '/api/settings' },
   { id: 'UPDATE_WORKSPACE', verb: 'update', entity: 'workspace', say: 'تبدّل معلومات المحلّ',
     risk: 'medium', needs: [], auth: true, page: 'settings', api: '/api/settings' },
   { id: 'DELETE_WORKSPACE', verb: 'delete', entity: 'workspace', say: 'تحيّد المحلّ ديالك',
@@ -110,20 +146,20 @@ export const ABILITIES: Ability[] = [
     // `FIND_PROVIDER` — قدرةً **منخفضةَ الخطر** — لأنّ الكتالوج لا يحوي
     // حذفَ محلٍّ أصلًا، بينما `DELETE /api/providers/:id` يعمل على الخادم.
     // ونجت من التنفيذ بحارسٍ آخر لا بخطورتها، وهو نجاةٌ بالصدفة.
-    risk: 'high', needs: ['أيّ محلّ؟'], auth: true, page: 'settings', api: '/api/providers' },
+    risk: 'high', needs: ['workspace'], auth: true, page: 'settings', api: '/api/providers' },
   { id: 'CREATE_PRODUCT', verb: 'create', entity: 'product', say: 'تزيد منتوج',
-    risk: 'medium', needs: ['شنو المنتوج؟', 'بشحال؟'], auth: true, page: 'products', api: '/api/products' },
+    risk: 'medium', needs: ['product', 'price'], auth: true, page: 'products', api: '/api/products' },
   { id: 'UPDATE_PRODUCT', verb: 'update', entity: 'product', say: 'تبدّل منتوج (الثمن، الستوك، التصويرة)',
-    risk: 'medium', needs: ['أيّ منتوج؟'], auth: true, page: 'products', api: '/api/products' },
+    risk: 'medium', needs: ['product'], auth: true, page: 'products', api: '/api/products' },
   { id: 'DELETE_PRODUCT', verb: 'delete', entity: 'product', say: 'تحيّد منتوج',
-    risk: 'high', needs: ['أيّ منتوج؟'], auth: true, page: 'products', api: '/api/products' },
+    risk: 'high', needs: ['product'], auth: true, page: 'products', api: '/api/products' },
   { id: 'MANAGE_COUPON', verb: 'create', entity: 'coupon', say: 'تصايب تخفيض ولا كوبون',
     risk: 'medium', needs: [], auth: true, page: 'coupons', api: '/api/coupons' },
   { id: 'MANAGE_LOYALTY', verb: 'update', entity: 'customer', say: 'تسيّر نقط الوفاء ديال الزبناء',
     risk: 'medium', needs: [], auth: true, page: null, api: '/api/loyalty' },
   { id: 'BROADCAST_MESSAGE', verb: 'send', entity: 'message', say: 'تصيفط رسالة لكل الزبناء',
     // تخرج للناس ولا تُسترجَع — وإن كانت الرسالةُ نصًّا، فالإرسالُ حدثٌ نهائيّ.
-    risk: 'high', needs: ['شنو الرسالة؟', 'لمن؟'], auth: true, page: null, api: '/api/broadcast' },
+    risk: 'high', needs: ['text', 'audience'], auth: true, page: null, api: '/api/broadcast' },
   { id: 'MANAGE_MEDIA', verb: 'create', entity: 'media', say: 'تزيد تصاور',
     risk: 'low', needs: [], auth: true, page: 'editor', api: '/api/media' },
   { id: 'DESIGN_BANNER', verb: 'create', entity: 'media', say: 'تصايب بانير ولا إعلان',
@@ -135,37 +171,37 @@ export const ABILITIES: Ability[] = [
   { id: 'VIEW_ORDERS', verb: 'view', entity: 'order', say: 'تشوف الطلبات',
     risk: 'low', needs: [], auth: true, page: 'orders', api: '/api/orders' },
   { id: 'UPDATE_ORDER', verb: 'update', entity: 'order', say: 'تبدّل حالة ولا عنوان الطلب',
-    risk: 'medium', needs: ['أيّ طلب؟'], auth: true, page: 'orders', api: '/api/orders' },
+    risk: 'medium', needs: ['order'], auth: true, page: 'orders', api: '/api/orders' },
   { id: 'TRACK_ORDER', verb: 'view', entity: 'shipment', say: 'تشوف فين وصل الطلب',
-    risk: 'low', needs: ['أيّ طلب؟'], auth: false, page: null, api: '/api/track' },
+    risk: 'low', needs: ['order'], auth: false, page: null, api: '/api/track' },
   { id: 'CREATE_SHIPMENT', verb: 'send', entity: 'shipment', say: 'تصيفط الطلب مع شركة التوصيل',
     // شحنةٌ تُنشأ عند طرفٍ خارجيّ ويُطلَب مالٌ من الزبون — لا تُسترجَع.
-    risk: 'high', needs: ['أيّ طلب؟', 'أيّ شركة؟'], auth: true, page: 'delivery', api: '/api/delivery' },
+    risk: 'high', needs: ['order', 'provider'], auth: true, page: 'delivery', api: '/api/delivery' },
   { id: 'CREATE_SHIPMENT_AUTO', verb: 'send', entity: 'shipment', say: 'تصيفط الطلب لشركة ما عندهاش API',
     // نفسُ خطورة الشحن، بآليّةٍ أهشّ: أتمتةُ متصفّحٍ على موقع الشركة. يكفي
     // أن يتغيّر زرٌّ عندهم ليصير الفعلُ صامتًا — فالتأكيدُ هنا آكد.
-    risk: 'high', needs: ['أيّ طلب؟'], auth: true, page: 'delivery', api: '/api/delivery-auto' },
+    risk: 'high', needs: ['order'], auth: true, page: 'delivery', api: '/api/delivery-auto' },
   { id: 'CONNECT_DELIVERY', verb: 'create', entity: 'delivery_provider', say: 'تربط شركة التوصيل ديالك',
-    risk: 'high', needs: ['أيّ شركة؟', 'التوكن ديالها'], auth: true, page: 'connections', api: '/api/delivery' },
+    risk: 'high', needs: ['provider', 'token'], auth: true, page: 'connections', api: '/api/delivery' },
   { id: 'VIEW_CUSTOMERS', verb: 'view', entity: 'customer', say: 'تشوف الزبناء ديالك',
     risk: 'low', needs: [], auth: true, page: 'customers', api: '/api/customers' },
   { id: 'CHAT_CUSTOMER', verb: 'send', entity: 'message', say: 'تهضر مع زبون',
-    risk: 'medium', needs: ['مع من؟'], auth: true, page: 'conversations', api: '/api/conversations' },
+    risk: 'medium', needs: ['person'], auth: true, page: 'conversations', api: '/api/conversations' },
 
   // ⑤ مالُه ──────────────────────────────────────────────────
   { id: 'VIEW_WALLET', verb: 'view', entity: 'wallet', say: 'تشوف الرصيد ديالك',
     risk: 'low', needs: [], auth: true, page: 'wallet', api: '/api/wallet' },
   { id: 'MAKE_PAYMENT', verb: 'send', entity: 'payment', say: 'تخلّص',
-    risk: 'high', needs: ['شحال؟', 'بأشنو؟'], auth: true, page: 'wallet', api: '/api/payment' },
+    risk: 'high', needs: ['amount', 'method'], auth: true, page: 'wallet', api: '/api/payment' },
 
   // ⑥ نفسُه ──────────────────────────────────────────────────
   { id: 'SIGN_IN', verb: 'create', entity: 'account', say: 'تدخل ولا تصايب حساب',
-    risk: 'medium', needs: ['النمرة ديالك'], auth: false, page: 'profile', api: '/api/auth' },
+    risk: 'medium', needs: ['phone'], auth: false, page: 'profile', api: '/api/auth' },
   { id: 'CHANGE_PHONE', verb: 'update', entity: 'phone', say: 'تبدّل النمرة ديالك',
     // النمرةُ هي الهويّةُ والدخول — خطؤها يقفل الحسابَ على صاحبه.
-    risk: 'high', needs: ['النمرة الجديدة'], auth: true, page: 'profile', api: '/api/auth' },
+    risk: 'high', needs: ['phone'], auth: true, page: 'profile', api: '/api/auth' },
   { id: 'CHANGE_ADDRESS', verb: 'update', entity: 'address', say: 'تبدّل العنوان',
-    risk: 'medium', needs: ['العنوان الجديد'], auth: true, page: 'profile', api: '/api/settings' },
+    risk: 'medium', needs: ['address'], auth: true, page: 'profile', api: '/api/settings' },
   { id: 'CHANGE_LANGUAGE', verb: 'update', entity: 'language', say: 'تبدّل اللغة',
     risk: 'low', needs: [], auth: false, page: 'settings', api: null },
   { id: 'UPDATE_SETTINGS', verb: 'update', entity: 'settings', say: 'تبدّل الإعدادات',
@@ -183,7 +219,7 @@ export const ABILITIES: Ability[] = [
   { id: 'GET_RECOMMENDATION', verb: 'view', entity: 'listing', say: 'نقترح عليك اللي يناسبك',
     risk: 'low', needs: [], auth: false, page: 'home', api: '/api/recommend' },
   { id: 'ASK_ASSISTANT', verb: 'view', entity: 'knowledge', say: 'تسوّل ونجاوبك',
-    risk: 'low', needs: ['شنو السؤال؟'], auth: false, page: 'assistant', api: '/api/ai' },
+    risk: 'low', needs: ['text'], auth: false, page: 'assistant', api: '/api/ai' },
   { id: 'VIEW_ANALYTICS', verb: 'view', entity: 'report', say: 'تشوف شحال بعتي وشنو كيمشي',
     risk: 'low', needs: [], auth: true, page: 'analytics', api: '/api/analytics' },
   { id: 'VIEW_INSIGHTS', verb: 'view', entity: 'report', say: 'تشوف النصائح ديال النشاط ديالك',
@@ -217,6 +253,40 @@ export function abilitiesFor(entity: AbilityEntity): Ability[] {
 /** كلُّ ما يمكن فعلُه بهذا الفعل — أساسُ الاقتراحات الحيّة بعد «بغيت…». */
 export function abilitiesByVerb(verb: AbilityVerb): Ability[] {
   return ABILITIES.filter(a => a.verb === verb);
+}
+
+/**
+ * **ما ينقص فعلًا** — بعد طرح ما عرفناه من الجملة.
+ *
+ *   القاعدةُ المكتوبةُ في `knownContext` منذ البداية: «لا يسأل التطبيقُ
+ *   سؤالًا يعرف جوابَه». وكانت `needs` قائمةً ثابتةً لا تعرفها، فكان يسأل
+ *   الخضّارَ عن نوع نشاطه بعد أن قال «عندي محل ديال الخضرة».
+ *
+ *   وهو «موتُ السحر» المكتوبُ في `needEngine`: أن يعرف أنّه حلّاقٌ ثمّ
+ *   يسأله إن كان حرفيًّا أم مهنيًّا. قِيس: ستُّ جملٍ واضحةٍ من أصل ٢٥
+ *   تُقابَل بسؤالٍ بلا داعٍ.
+ *
+ * @param known ما فُهم من الجملة (مفهومٌ · مدينة · ثمن · منتَج…)
+ */
+export function unmetNeeds(a: Ability, known: {
+  trade?: string; product?: string; price?: number | string;
+  order?: string; phone?: string; address?: string; subject?: string;
+} = {}): NeedKey[] {
+  const have: Partial<Record<NeedKey, boolean>> = {
+    trade: !!known.trade,
+    // من سمّى بضاعتَه سمّى منتَجَه: «بغيت نبيع طوموبيل» تقول ماذا يبيع.
+    product: !!(known.product || known.trade),
+    subject: !!(known.subject || known.trade),
+    price: known.price !== undefined && known.price !== '',
+    order: !!known.order, phone: !!known.phone, address: !!known.address,
+  };
+  return a.needs.filter(k => !have[k]);
+}
+
+/** ما يُسأل عنه بالدارجة — سؤالٌ **واحد**، لا استمارة. */
+export function nextQuestion(a: Ability, known?: Parameters<typeof unmetNeeds>[1]): string {
+  const missing = unmetNeeds(a, known);
+  return missing.length ? NEED_ASK[missing[0]] : '';
 }
 
 /**
