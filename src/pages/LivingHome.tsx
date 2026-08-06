@@ -15,7 +15,7 @@ import { playGate } from '../lib/gateTransition';
 import { useNavigate } from 'react-router-dom';
 import { personaGreeting, personaWelcome } from '../lib/persona';
 import { knownAbout, enrichSignals, explainFilled } from '../lib/knownContext';
-import { decideInterface, confirmPrompt } from '../lib/interfaceDecision';
+import { decideInterface, confirmPrompt, type InterfaceDecision } from '../lib/interfaceDecision';
 import { receptionStart, receptionTurn, receptionUnderstood, receptionStep, receptionEnd, recordDecision, recordConfirm, recordClarificationAsked, recordClarificationAnswered, recordSnapshot } from '../lib/journey';
 import {
   openSnapshot, askClarification, answerClarification, confirmSnapshot, withDestination,
@@ -69,8 +69,11 @@ export default function LivingHome() {
   const [wrong, setWrong] = useState<CorrectionOption | null>(null);
   const [fixText, setFixText] = useState('');
   const [thanks, setThanks] = useState('');
-  // ما يقوله التطبيقُ حين لا يملك فعلًا — «ما نقدرش» بدل صمتٍ أو فعلٍ ناقص.
+  // ما يقوله التطبيقُ حين لا يكون الكلامُ طلبًا أصلًا — يُقال ولا يُفعَل.
   const [said, setSaid] = useState('');
+  // قرارُ الواجهة — يُحسَب مرّةً في `submit` ويُقرأ في العرض. كان يُعاد
+  // حسابُه في كلّ رسمٍ من `decideInterface(result)`، فحَكَمان على مشهدٍ واحد.
+  const [decision, setDecision] = useState<InterfaceDecision | null>(null);
   // ما تعلّمناه عن الشخص من جملته — يُعرَض ليراجعه، لا ليُخفى.
   const [learned, setLearned] = useState('');
 
@@ -199,15 +202,25 @@ export default function LivingHome() {
     receptionTurn(q, 'text');                                // قياس: دورٌ كتابيّ
     const { result: r, journey: j } = orchestrate(q, uctx); // Context → Orchestrator → Journey (+ تعلّم الخادم)
     if (r.intent !== 'unknown') receptionUnderstood();       // قياس: زمن أوّل فهم
-    const dec = decideInterface(r);
-    // ── حدُّ القدرة (القانون: الفهمُ يُقاس بما نستطيع فعلَه) ──────
-    //   كانت `canDo` تُمرَّر `true` دائمًا لأنّ لا قائمةَ قدراتٍ تُسأل، فلم
-    //   يقل التطبيقُ «ما نقدرش» قطّ — وهو أصدقُ ما يقوله حين لا يملك فعلًا.
-    //   ولا تُخمَّن قدرةٌ قريبة: `abilityFor` تُرجع `null` حين لا تطابق،
-    //   فيبقى الحكمُ على العتبة العامّة بدل تنفيذِ فعلٍ لم يطلبه أحد.
-    const match = abilityFor({ action: understand(q).action, intent: r.intent });
-    const verdict = decideExecution(understand(q), true, match || undefined);
-    setSaid(verdict.verdict === 'refuse' || verdict.verdict === 'explain' ? verdict.say : '');
+    // ── تحليلٌ واحدٌ للجملة ───────────────────────────────────────
+    //   كانت `understand(q)` تُستدعى مرّتين هنا بعد أن حلّلها `orchestrate`،
+    //   فثلاثةُ تحليلاتٍ لجملةٍ واحدة. والخطرُ ليس الكلفةَ بل **التباعد**:
+    //   الذاكرةُ والتصحيحُ يكتبان بين النداءَين، فيُبنى القرارُ على فهمٍ
+    //   والعرضُ على فهمٍ آخرَ بلا أن يظهر ذلك في أيّ سطر.
+    const u = understand(q);
+    // ── الحَكَمُ الواحد ───────────────────────────────────────────
+    //   `decideExecution` يقول «نفّذ أم أكّد أم اسأل أم اشرح»، و
+    //   `decideInterface` يترجم حكمَه إلى شكلِ واجهة. كانت الثانيةُ تحكم
+    //   بنفسها من `confidence` فتخالف الأولى على نفس الجملة.
+    //   و`abilityFor` تُرجع `null` حين لا تطابق ولا تخمّن قدرةً قريبة —
+    //   فيُحكَم بالعتبة العامّة، ولا يُنفَّذ فعلٌ لم يطلبه أحد.
+    const match = abilityFor({ action: u.action, intent: r.intent });
+    const verdict = decideExecution(u, match || undefined);
+    const dec = decideInterface({ ...r, hasInput: true }, verdict.verdict);
+    // `explain` وحدَه يُقال ولا يُفعَل. وما عداه له شكلٌ في الواجهة، فلا
+    // يُطبَع نصُّه فوقها — نصٌّ ورسمٌ يقولان الشيءَ نفسَه ازدواجٌ لا تأكيد.
+    setSaid(verdict.verdict === 'explain' ? verdict.say : '');
+    setDecision(dec);
     // ── حقائقُ الشخص ────────────────────────────────────────────
     //   «أنا خضار» تصريحٌ يُحفَظ، و«بغيت نبيع طوموبيل» نيّةٌ لا تُحفَظ —
     //   فمن باع سيّارتَه مرّةً ليس بائعَ سيّارات. وما يُحفَظ يُعرَض فورًا
@@ -232,7 +245,7 @@ export default function LivingHome() {
     setText(q); setResult(r); setStepIdx(0); setPending(null); setConfirmed(false);
     setTurns([{ who: 'user', text: q }, ...(r.open ? [{ who: 'sys' as const, text: r.open }] : [])]);
   };
-  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); setSaid(''); setLearned(''); };
+  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); setSaid(''); setLearned(''); setDecision(null); };
 
   const pickOption = (opt: NeedOption) => {
     receptionTurn(opt.label, 'button');                      // قياس: دورٌ بالأزرار
@@ -301,9 +314,9 @@ export default function LivingHome() {
   const memJourney = !memExact && result ? lastByJourney(String(journey), xpLog) : undefined;
   const mem = memExact || memJourney;
 
-  // Decision Layer — «التطبيق يقرّر أفضل واجهة». وضع confirm يُظهر تأكيدًا خفيفًا
-  // عند اليقين المتوسّط قبل التوجيه («فهمت أنّك باغي… صح؟»).
-  const decision = result ? decideInterface(result) : null;
+  // قرارُ الواجهة يُقرأ من الحالة (حُسِب في `submit` عن حكمِ التنفيذ نفسِه).
+  // كان هنا `decideInterface(result)` يُعاد في كلّ رسم — حسابٌ ثانٍ لا يعرف
+  // حكمَ التنفيذ، فيُظهر «أكّد» بينما الحَكَمُ قال «نفّذ».
   const CONFIRM_PHRASE: Record<string, string> = {
     sell: 'تبيع شي حاجة', buy: 'تشري شي حاجة', rent: 'تكري', book: 'تحجز موعد',
     find_pro: 'تلقى مختصّ', urgent: 'تلقى مختصّ دابا', create_service: 'تنشر خدمتك', create_store: 'دير متجرك',
@@ -419,11 +432,13 @@ export default function LivingHome() {
           )}
         </div>
       )}
-      {/* ── حدُّ القدرة: «ما نقدرش» ────────────────────────────────
-          قولُ «لا أستطيع» بصراحةٍ خيرٌ من فعلٍ ناقصٍ يُوهم أنّه تمّ، وخيرٌ
-          من صمتٍ يجعل الإنسانَ يظنّ أنّه أخطأ الكتابة. هذا أوّلُ موضعٍ
-          يقول فيه التطبيقُ ذلك — كانت `canDo` تُمرَّر `true` دائمًا. ── */}
-      {said && !correcting && (
+      {/* ── ما ليس طلبًا: يُقال ولا يُفعَل ──────────────────────────
+          «قال ليا الزبون بغيت نرجّع السلعة» جملةٌ واضحةٌ تمامًا ولا تُنفَّذ:
+          صاحبُها ينقل كلامَ غيره. **الوضوحُ ليس إذنًا.** ويُعرَض شرحُ الحَكَم
+          نفسِه (`explain`) بدل صمتٍ يجعل الإنسانَ يظنّ أنّه أخطأ الكتابة.
+          والشرطُ `mode === 'explain'` يربط ما يُعرَض بحكمِ الواجهة، فلا
+          يبقى نصًّا يظهر بحسابٍ مستقلٍّ عن القرار. ── */}
+      {said && decision?.mode === 'explain' && !correcting && (
         <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', padding: '11px 15px', borderRadius: 13, border: '1px solid rgba(245,158,11,.28)', background: 'rgba(245,158,11,.07)', fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>
           {said}
         </div>

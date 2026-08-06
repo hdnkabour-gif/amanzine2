@@ -20,7 +20,7 @@ import { understand, stanceOf } from '../src/lib/akg/kb';
 import { parseNeed } from '../src/lib/needEngine';
 import { readHuman } from '../src/lib/humanIntent';
 import { decideExecution } from '../src/lib/executionPolicy';
-import { abilityFor, canDo } from '../src/lib/abilities';
+import { abilityFor } from '../src/lib/abilities';
 import { readPersonFacts } from '../src/lib/personFacts';
 import { readAction } from '../src/lib/akg/kb/actions';
 import { resolveConcept } from '../src/lib/akg/kb/knowledge';
@@ -123,8 +123,9 @@ export function measure(): Pulse {
     const u = understand(s);
     const r = parseNeed(s, {}) as { intent: string };
     const match = abilityFor({ action: u.action ?? null, intent: r.intent });
-    const able = match ? canDo(match.verb, match.entity) : true;
-    const d = decideExecution(u, able, match ?? undefined);
+    // كان هنا `canDo(match.verb, match.entity)` — سؤالٌ عن قدرةٍ أُخِذت من
+    // القائمة نفسِها، فجوابُه `true` بحكم البناء. حُذف مع حكمِ «الرفض».
+    const d = decideExecution(u, match ?? undefined);
 
     // **المهنةُ فهمٌ كالمفهوم.** كان يُعَدّ `service` وحدَه، فـ«عندي مشكل
     // ديال الضو» ⇒ «كهربائي» تُحسَب إخفاقًا وهي إصابةٌ تامّة. رابعُ عيبٍ

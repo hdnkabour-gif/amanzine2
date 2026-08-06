@@ -28,12 +28,6 @@ test('النفيُ يسأل ولا يُنفّذ ولا يُخمّن عكسًا',
   assert.match(d.say, /شنو بغيتي/);
 });
 
-test('ما لا نقدر عليه يُرفَض بصراحة — لا فعلَ ناقصٌ يُوهم', () => {
-  const d = decideExecution(U({}), false);
-  assert.equal(d.verdict, 'refuse');
-  assert.match(d.say, /ما نقدرش/);
-});
-
 test('الغموضُ يسأل بسؤال المفهوم نفسِه', () => {
   const d = decideExecution(U({ ambiguity: { term: 'موطور', ask: 'موطور ديال الطوموبيل، ولا درّاجة؟', options: [] } }));
   assert.equal(d.verdict, 'ask');
@@ -68,11 +62,6 @@ test('الصيغةُ تسبق النفيَ والغموضَ والثقة', () =>
   assert.equal(d.verdict, 'explain', 'حسمت طبقةٌ أدنى قبل الصيغة');
 });
 
-test('حدُّ القدرة يسبق الغموض — لا نسأل عمّا لا نستطيع فعلَه', () => {
-  const d = decideExecution(U({ ambiguity: { term: 'x', ask: 'y', options: [] } }), false);
-  assert.equal(d.verdict, 'refuse');
-});
-
 test('التأكيدُ يأتي بعد اكتمال الفهم لا قبله', () => {
   // حذفٌ + نقصٌ حقيقيّ ⇒ نسأل عن النقص أوّلًا. سؤالُ التأكيد على فعلٍ لم
   // نفهمه بعد يجعل الإنسانَ يؤكّد شيئًا لا يعرفه.
@@ -105,16 +94,16 @@ test('العرضُ يُنفَّذ بثقةٍ لا تكفي للتعديل', () =
   // بلا قدرةٍ: العتبةُ العامّة ٠٫٩٠ ⇒ سؤال. وهذا هو العطبُ المقيس.
   assert.equal(decideExecution(u).verdict, 'ask');
   // بقدرةٍ منخفضة الخطر: يُنفَّذ.
-  assert.equal(decideExecution(u, true, ability('BUY_PRODUCT')).verdict, 'execute');
+  assert.equal(decideExecution(u, ability('BUY_PRODUCT')).verdict, 'execute');
   // وبقدرةٍ متوسّطة: لا يُنفَّذ بنفس الثقة.
-  assert.notEqual(decideExecution(u, true, ability('UPDATE_PRODUCT')).verdict, 'execute');
+  assert.notEqual(decideExecution(u, ability('UPDATE_PRODUCT')).verdict, 'execute');
 });
 
 test('الخطِرُ لا يُنفَّذ ولو بلغ اليقينُ مئةً', () => {
   const u: any = { confidence: 1, reasoning: [] };
   for (const id of ['DELETE_PRODUCT', 'CHANGE_PHONE', 'MAKE_PAYMENT', 'CREATE_SHIPMENT']) {
     const a = ability(id)!;
-    const d = decideExecution(u, true, a);
+    const d = decideExecution(u, a);
     assert.equal(d.verdict, 'confirm', `${id}: نُفِّذ بلا تأكيد`);
     // والتأكيدُ **يسمّي الفعل**. «واش هادشي هو اللي بغيتي؟» تصلح للفهم، ولا
     // تصلح لما لا يُسترجَع: من يؤكّد حذفًا يجب أن يقرأ كلمة «تحيّد» قبل أن
@@ -123,13 +112,6 @@ test('الخطِرُ لا يُنفَّذ ولو بلغ اليقينُ مئةً',
     assert.ok(d.trace.some(t => t.includes(id)), `${id}: أثرٌ لا يذكر القدرة`);
   }
   assert.ok(RISK_THRESHOLD.high > 1, 'عتبةُ الخطِر قابلةٌ للبلوغ');
-});
-
-test('حدُّ القدرة يسبق كلَّ شيء — «ما نقدرش» لا صمتٌ ولا فعلٌ ناقص', () => {
-  const u: any = { confidence: 1, reasoning: [] };
-  const d = decideExecution(u, false, ability('BUY_PRODUCT'));
-  assert.equal(d.verdict, 'refuse');
-  assert.ok(/ما نقدرش/.test(d.say));
 });
 
 test('الجسر: الفعلُ أدقُّ من النيّة', () => {

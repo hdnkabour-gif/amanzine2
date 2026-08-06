@@ -692,3 +692,52 @@ test('لا مصفوفةَ نصوصٍ تُحاكي فئاتِ الكتالوج', 
   assert.deepEqual(offenders, [],
     `قائمةُ فئاتٍ ثانيةٌ — تتخلّف عن الكتالوج عند أوّل تعديل:\n  ${offenders.join('\n  ')}`);
 });
+
+// ============================================================
+// ㉒ **حَكَمٌ واحدٌ يقول: نفّذ أم اسأل.**
+//
+//   كان الحكمُ في مكانَين يقرآن نفسَ الرقم بعتبتَين مختلفتَين:
+//   `executionPolicy` بعتبةٍ تتبع خطورةَ القدرة، و`interfaceDecision`
+//   بعتبةٍ عامّةٍ لا تعرف الخطورة. فعلى الجملة الواحدة قال الأوّل «نفّذ»
+//   وقال الثاني «أكّد» — ولا أحدَ يرى الخلافَ لأنّ كلًّا منهما يُختبَر وحدَه.
+//
+//   وأسوأُ من الخلاف أنّ أحدَهما كان يُهمَل: من أحكام `decideExecution`
+//   الخمسة استهلكت الواجهةُ **حكمَين** ورَمَت ثلاثة، وبَنَت ما تعرضه من
+//   حسابها الخاصّ. حسابٌ صحيحٌ بلا مستهلك — القاعدة ④.
+// ============================================================
+test('㉒ لا حَكَمَ ثانيًا: طبقةُ الواجهة لا تقيس الثقةَ بنفسها', () => {
+  const src = readFileSync(join(ROOT, 'src/lib/interfaceDecision.ts'), 'utf8');
+  const code = src.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.ok(!/CONFIDENCE\s*\./.test(code),
+    'عادت عتبةُ الثقة إلى طبقة الواجهة — عتبةٌ في مكانَين تتباعد بصمت');
+  assert.ok(!/\bconfidence\b/.test(code),
+    'طبقةُ الواجهة تقرأ `confidence` — الحكمُ من `executionPolicy` وحدَه');
+  assert.match(code, /verdict: Verdict/,
+    'الحكمُ ليس مُدخلًا مُلزِمًا — سيعمل مسارٌ احتياطيٌّ بصمتٍ في كلّ نداءٍ نسيه');
+});
+
+test('㉒ كلُّ حكمٍ يُخرجه الحَكَمُ له شكلٌ في الواجهة — لا حكمَ يُرمى', () => {
+  const policy = readFileSync(join(ROOT, 'src/lib/executionPolicy.ts'), 'utf8');
+  const iface = readFileSync(join(ROOT, 'src/lib/interfaceDecision.ts'), 'utf8');
+  // اتّحادُ الأحكام يُقرأ من تعريف النوع نفسِه، فيتّسع تلقائيًّا مع كلّ حكمٍ يُضاف.
+  const union = (policy.match(/export type Verdict =([\s\S]*?);/) || [])[1] || '';
+  const verdicts = [...union.matchAll(/'(\w+)'/g)].map(m => m[1]);
+  assert.ok(verdicts.length >= 4, `قُرئت ${verdicts.length} أحكامٍ فقط — تغيّرت الصيغةُ والحارسُ صار أعمى`);
+  const unhandled = verdicts.filter(v => !new RegExp(`verdict === '${v}'`).test(iface));
+  assert.deepEqual(unhandled, [],
+    `أحكامٌ تُحسَب ولا شكلَ لها: ${unhandled.join(' · ')} — أعطِها شكلًا أو احذفها من الاتّحاد`);
+});
+
+test('㉒ لا يُستدعى الحَكَمان في مشهدٍ واحد أكثرَ من مرّة', () => {
+  const home = readFileSync(join(ROOT, 'src/pages/LivingHome.tsx'), 'utf8');
+  const code = home.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  const calls = (n) => (code.match(new RegExp(`\\b${n}\\(`, 'g')) || []).length;
+  assert.equal(calls('decideInterface'), 1,
+    `\`decideInterface\` تُستدعى ${calls('decideInterface')} مرّات — الحسابُ الثاني لا يعرف الحكمَ فيخالفه`);
+  assert.equal(calls('decideExecution'), 1, 'حَكَمان في مشهدٍ واحد');
+  // `understand(q)` كانت تُستدعى مرّتين هنا بعد أن حلّلها `orchestrate`.
+  // والخطرُ ليس الكلفةَ بل تباعُدَ الفهم بين نداءٍ وآخرَ في نفس الدالّة.
+  const submit = (code.match(/const submit = \(raw: string\) => \{[\s\S]*?\n  \};/) || [''])[0];
+  const parses = (submit.match(/\bunderstand\(/g) || []).length;
+  assert.ok(parses <= 1, `\`submit\` يحلّل الجملةَ ${parses} مرّات — تحليلٌ واحدٌ يكفي`);
+});

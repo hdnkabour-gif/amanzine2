@@ -219,16 +219,11 @@ export function abilitiesByVerb(verb: AbilityVerb): Ability[] {
   return ABILITIES.filter(a => a.verb === verb);
 }
 
-/**
- * **حدُّ القدرة**: هل يملك التطبيقُ فعلًا لهذه النيّة؟
- *
- *   هذه هي الدالّةُ التي كانت ناقصةً فبقيت `canDo` تُمرَّر `true` دائمًا،
- *   فلم يقل التطبيقُ «ما نقدرش» قطّ — وهو أصدقُ ما يمكن أن يقوله حين لا
- *   يملك فعلًا. قولُ «لا أستطيع» خيرٌ من فعلٍ ناقصٍ يُوهم أنّه تمّ.
- */
-export function canDo(verb: AbilityVerb, entity: AbilityEntity): boolean {
-  return ABILITIES.some(a => a.verb === verb && a.entity === entity);
-}
+//   حُذفت من هنا `canDo(verb, entity)`. كانت تُقدَّم على أنّها «حدُّ القدرة»
+//   وهي في الواقع **حشوٌ منطقيّ**: مستهلكوها جميعًا كانوا يمرّرون لها
+//   `match.verb` و`match.entity` من قدرةٍ أُخِذت من `ABILITIES` نفسِها، فكان
+//   جوابُها `true` بحكم البناء لا بحكم القياس. وشرحُ الحذف كاملًا في
+//   `executionPolicy.ts` حيث كان مستهلكُها الوحيد ذا الأثر.
 
 /** القدراتُ المتاحةُ لهذا الشخص الآن — الزائرُ يتصفّح ويطلب، ولا ينشر. */
 export function availableTo(isAuthed: boolean): Ability[] {
