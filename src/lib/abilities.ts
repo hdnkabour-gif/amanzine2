@@ -45,7 +45,7 @@ export type AbilityEntity =
   | 'product' | 'service' | 'listing' | 'workspace' | 'order' | 'shipment'
   | 'customer' | 'booking' | 'coupon' | 'wallet' | 'payment' | 'message'
   | 'account' | 'phone' | 'address' | 'language' | 'settings' | 'delivery_provider'
-  | 'media' | 'content' | 'knowledge' | 'report' | 'need' | 'provider';
+  | 'media' | 'content' | 'channel' | 'knowledge' | 'report' | 'need' | 'provider';
 
 /**
  * الخطورة — **بديلُ العتبة الواحدة**.
@@ -169,6 +169,13 @@ export const ABILITIES: Ability[] = [
   // كان يُساق إلى محرّرٍ فارغٍ ينتظر صورةً لم يرفعها بعد.
   { id: 'MANAGE_MEDIA', verb: 'create', entity: 'media', say: 'تزيد تصاور للمنتوج',
     risk: 'low', needs: [], auth: true, page: 'products', api: '/api/media' },
+  // ربطُ قنوات التواصل — `ConnectionsPage` قائمةٌ تعمل، ولم تكن في اللغة
+  // كلمةٌ تبلغها: «بغيت نربط الواتساب» كانت تُقرأ عرضَ خدمةٍ وتُساق للنشر.
+  { id: 'CONNECT_CHANNEL', verb: 'create', entity: 'channel', say: 'تربط الواتساب ولا قناة أخرى بالحساب',
+    // والمسارُ **مقروءٌ من الصفحة نفسِها** لا مُخترَع: `ConnectionsPage`
+    // تنادي `/api/settings/test-whatsapp` و`/verify-connection`. كتبتُ أوّلًا
+    // `/api/connections` فأمسكه حارسُ «لا قدرةَ تشير إلى مسارٍ غير موجود».
+    risk: 'medium', needs: [], auth: true, page: 'connections', api: '/api/settings' },
   // نصُّ المنتوج يُولَّد بزرٍّ قائمٍ في `ProductsPage`. ويحتاج **منتوجًا**
   // وحدَه: وصفٌ بلا ما يوصَف لا معنى له — ولا يحتاج ثمنًا.
   { id: 'GENERATE_CONTENT', verb: 'create', entity: 'content', say: 'تصايب وصف ولا هاشتاگ للمنتوج',
@@ -498,6 +505,9 @@ export const ENTITY_VERBS: Record<AbilityEntity, AbilityVerb[]> = {
   //   (`UPDATE_PRODUCT`)، فلا يُعلَن له `update` ولا `view` بلا قدرةٍ خلفهما:
   //   فعلٌ مُعلَنٌ بلا بابٍ يَعِد بما لا يُوفى.
   content:  ['create'],
+  // القناةُ المربوطة: **تُربَط** فقط. عرضُها وفكُّها غيرُ مبنيَّين بعدُ فلا
+  //   يُعلَنان: فعلٌ مُعلَنٌ بلا بابٍ يَعِد بما لا يُوفى.
+  channel:  ['create'],
   media:    ['create', 'update', 'delete', 'view'],
   knowledge: ['create', 'update', 'view'],
   report:   ['view'],
@@ -566,7 +576,7 @@ export const OBJECT_MAP: Record<string, AbilityEntity> = {
   //   والمساران قائمان يعملان — `/api/ai/generate-hashtags` و
   //   `/generate-description` يُناديان من `ProductsPage` — ولم يكن في
   //   الكتالوج قدرةٌ تبلغهما. طبقةٌ تعمل ولا أحدَ يعرف أنّها تعمل.
-  content: 'content',
+  content: 'content', channel: 'channel',
   orders: 'order', customers: 'customer', coupon: 'coupon', wallet: 'wallet',
 };
 
