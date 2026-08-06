@@ -57,11 +57,40 @@ const WORD: Record<string, string> = {
   daba: 'دابا', bzerba: 'بزربة', '3ajel': 'عاجل', mosta3jel: 'مستعجل',
   wach: 'واش', wa7ed: 'واحد', kayn: 'كاين', kayen: 'كاين', makaynch: 'ماكاينش',
   n3ref: 'نعرف', kan3ref: 'كنعرف', ndir: 'ندير', kandir: 'كندير', ndiro: 'نديرو',
+
+  // ── ما لا تحسمه قاعدة ──────────────────────────────────────
+  //
+  //   ثلاثةُ فروقٍ لا يعرفها الحرفُ اللاتينيّ، فتبقى الخريطةُ وحدَها:
+  //     ① `t` تصلح تاءً وطاءً  — «sbat» سباط لا سبات
+  //     ② `h` تصلح هاءً وحاءً  — «hallaq» حلّاق لا هالاق
+  //     ③ الحركاتُ القصيرةُ لا تُكتَب عربيًّا — «qamija» قميجة لا قاميجة
+  //   ولا تُخمَّن بقاعدةٍ: التخمينُ هنا يُنتج كلمةً أخرى، لا كلمةً ناقصة.
+
+  // — لباس —
+  sbat: 'سباط', sbbat: 'سباط', sbbaT: 'سباط', sabat: 'سباط',
+  qamija: 'قميجة', qamja: 'قميجة', kamija: 'قميجة',
+  jellaba: 'جلابة', jelaba: 'جلابة', djellaba: 'جلابة',
+  // — مهن —
+  hallaq: 'حلاق', hallak: 'حلاق', '7allaq': 'حلاق', '7allak': 'حلاق', '7lak': 'حلاق',
+  khayat: 'خياط', khyat: 'خياط', khayyat: 'خياط', '5ayat': 'خياط',
+  // — ماكلة —
+  nakol: 'ناكل', nakl: 'ناكل', naakol: 'ناكل', makla: 'ماكلة', maakla: 'ماكلة',
+  // — طلبات وتوصيل: «فين وصلات الكوموند ديالي» تعمل بالعربيّة —
+  wsel: 'وصل', wselat: 'وصلات', wesselat: 'وصلات', weslat: 'وصلات', woslat: 'وصلات',
+  comonde: 'الكوموند', lcomonde: 'الكوموند', commande: 'الكوموند', lcommande: 'الكوموند',
+  kolis: 'كولي', colis: 'كولي', collie: 'كولي',
+  livraison: 'ليفريزون', lifrizon: 'ليفريزون', tawsil: 'التوصيل',
+  // — مركبات —
+  bikala: 'بيكالا', bicala: 'بيكالا', bechklita: 'بشكليطة',
 };
 
 // ثنائيّاتٌ صوتيّة تُعالَج قبل الحرف-بحرف (لتفادي أخطاء مثل ch→ش لا c+h).
 const DIGRAPHS: [RegExp, string][] = [
-  [/ch/g, 'ش'], [/kh/g, 'خ'], [/gh/g, 'غ'], [/ou/g, 'و'], [/aa/g, 'ا'], [/ee/g, 'ي'], [/th/g, 'ث'],
+  [/ch/g, 'ش'], [/kh/g, 'خ'], [/gh/g, 'غ'], [/ph/g, 'ف'],
+  [/ou/g, 'و'], [/aa/g, 'ا'], [/ee/g, 'ي'], [/th/g, 'ث'],
+  // ‹-ge› الفرنسيّةُ في آخر الكلمة جيمٌ لا گاف: «lavage» ⇒ لافاج لا لافاگ.
+  // ومهنُ السيّارات في المغرب فرنسيّةُ الأصل كلُّها (لافاج · ڤيدانج · گاراج).
+  [/ge$/g, 'ج'],
 ];
 
 // خريطة الحرف الواحد (احتياطيّ لِما لم تغطّه خريطة الكلمات).
@@ -72,13 +101,34 @@ const CHAR: Record<string, string> = {
   u: 'و', v: 'ف', w: 'و', x: 'كس', y: 'ي', z: 'ز',
 };
 
+/**
+ * **الحرفُ المضاعَفُ لاتينيًّا ليس شدّةً — وهذا أصلُ أعطابٍ كثيرة.**
+ *
+ *   التضعيفُ في «sbbat» و«lbessa» و«collie» و«pizza» عادةُ كتابةٍ
+ *   فرنسيّةٌ/لاتينيّة، لا تضعيفًا عربيًّا. وكان يمرّ حرفًا حرفًا فيُنتج:
+ *
+ *       sbbat    ⇒ سببات        ·  lbessa  ⇒ لبسسا
+ *       pizza    ⇒ بيززا        ·  collie  ⇒ كوللي
+ *       wesselat ⇒ **وسسلات**   ← ومن جوفها خُرِّجت المدينةُ «سلا»
+ *
+ *   ولا يُمسك بـ`collapseRepeats` في المطبِّع: ذاك يبدأ من **ثلاثة**
+ *   («حلااااق»)، والمضاعَفُ اثنان. فيمرّ سالمًا إلى الفهرس.
+ *
+ *   ويقع الطيُّ **بعد** الثنائيّات لا قبلها: «aa» و«ee» و«ou» أصواتٌ
+ *   لها قواعدُها، ولو طُويت أوّلًا لضاعت.
+ */
+const foldDoubles = (s: string) => s.replace(/([a-z])\1+/g, '$1');
+
 // تحويل حرف-بحرف لِرمزٍ لاتينيّ واحد (احتياطيّ فقط).
 function translitChars(low: string): string {
   let s = low;
   for (const [re, rep] of DIGRAPHS) s = s.replace(re, rep);
+  s = foldDoubles(s);
+  const fem = /a$/.test(s);
+  if (fem) s = s.slice(0, -1);
   let out = '';
   for (const ch of s) out += ch in CHAR ? CHAR[ch] : AR.test(ch) ? ch : '';
-  return out;
+  return fem ? out + 'ة' : out;
 }
 
 /**
@@ -98,6 +148,10 @@ export function deArabizi(text: string): string {
       if (!core) return tok;                // علامات ترقيم فقط
       const low = core.toLowerCase();
       if (WORD[low]) return lead + WORD[low] + trail;         // كلمةٌ معروفة
+      // والمضاعَفُ يُجرَّب مطويًّا في الخريطة قبل النزول للاحتياطيّ:
+      // «sbbak» و«sbak» كلمةٌ واحدةٌ يكتبها اثنان بطريقتَين.
+      const folded = foldDoubles(low);
+      if (folded !== low && WORD[folded]) return lead + WORD[folded] + trail;
       if (/^[0-9]+$/.test(low)) return tok;                    // رقمٌ خالص (سعر/كمّيّة)
       if (!/[a-z0-9]/.test(low)) return tok;                   // ليس لاتينيًّا
       return lead + translitChars(low) + trail;                // احتياطيّ حرف-بحرف
