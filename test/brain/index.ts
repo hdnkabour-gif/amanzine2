@@ -48,3 +48,5 @@ import './correction.test';
 import './normalize.test';
 import './personFacts.test';
 import './vocabulary.test';
+// «الما» داخل «الماكلة»: أربعةُ أحرفٍ جعلت بائعَ الطواجن سبّاكًا.
+import './symptomBoundary.test';

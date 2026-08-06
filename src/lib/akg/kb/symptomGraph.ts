@@ -5,7 +5,7 @@
 //   بيانات فقط — إضافة عرَض = سطر.
 // ============================================================
 
-import { normLoose } from '../../normalize';
+import { normLoose, hitsWord } from '../../normalize';
 
 export interface SymptomNode {
   pattern: string;       // النمط في كلام المستخدم
@@ -195,11 +195,29 @@ export function findProblemBySymptom(text: string): { problemId: string; confide
     if (t.includes(p) && p.length > bestLen) { best = { problemId: n.problemId, confidence: n.confidence }; bestLen = p.length; }
   }
   if (best) return best;
-  // جزئيّ — كلمة مفتاحيّة (>3 أحرف، وليست كلمةً عامّة) بثقة مخفّضة
+  // ── جزئيّ: كلمةٌ مفتاحيّةٌ واحدة، **بحدِّ الكلمة لا بالاحتواء** ──────
+  //
+  //   كان `t.includes(w)` — فيقع ما وقع: كلمةُ «الما» من نمط «الما كيهرب»
+  //   تُطابَق داخل «ال**ما**كلة» و«ال**ما**كن». والقياس:
+  //     «عندي محل ديال الماكلة كندير طواجن» ⇒ `water_leak` @ ٠٫٦٢ ⇒ **سبّاك**
+  //     «الماكن ديال الخياطة خربات»          ⇒ `water_leak` @ ٠٫٦٢ ⇒ **سبّاك**
+  //   بائعُ الطواجن ومُصلِّحُ ماكينات الخياطة كلاهما سبّاك، بأربعة أحرف.
+  //
+  //   وهذا **أسوأُ من الصمت**: `personFacts` تكتبها حقيقةً تدوم، والملفُّ
+  //   نفسُه يقول «حقيقةٌ خاطئةٌ تدوم أسوأُ من صفرِ حقائق».
+  //
+  //   وهو نفسُ مصرف الكلمة العامّة الذي هُدم في `merchandise.ts` بحدِّ
+  //   الكلمة — وبقي هذا البابُ مفتوحًا لأنّ المطابِقَ كان يعيش هناك وحدَه.
+  //   صار في `normalize.ts` مصدرًا واحدًا، ويُستعمل هنا.
+  //
+  //   والطولُ > ٣ يبقى: شرطٌ ثانٍ لا بديل. «الما» أربعةُ أحرفٍ فتجاوزته،
+  //   وحدُّ الكلمة هو ما يوقفها — لا الطول.
   for (const n of SYMPTOM_GRAPH) {
     for (const part of n.pattern.split(' ')) {
       const w = norm(part);
-      if (w.length > 3 && !BREAKDOWN_WORDS.has(w) && t.includes(w)) return { problemId: n.problemId, confidence: +(n.confidence * 0.65).toFixed(2) };
+      if (w.length > 3 && !BREAKDOWN_WORDS.has(w) && hitsWord(w, t)) {
+        return { problemId: n.problemId, confidence: +(n.confidence * 0.65).toFixed(2) };
+      }
     }
   }
   return null;
