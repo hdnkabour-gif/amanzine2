@@ -173,7 +173,12 @@ export const ABILITIES: Ability[] = [
   { id: 'UPDATE_ORDER', verb: 'update', entity: 'order', say: 'تبدّل حالة ولا عنوان الطلب',
     risk: 'medium', needs: ['order'], auth: true, page: 'orders', api: '/api/orders' },
   { id: 'TRACK_ORDER', verb: 'view', entity: 'shipment', say: 'تشوف فين وصل الطلب',
-    risk: 'low', needs: ['order'], auth: false, page: null, api: '/api/track' },
+    // كان يشير إلى `/api/track` — وهو **مسارُ أحداث المشاهدة والنقر**
+    // (تحليلات، `POST` وحدَه)، لا تتبّعُ الشحنات. ومرّ الحارسُ لأنّه يتحقّق
+    // أنّ مسارًا **بهذا الاسم** موجود، وهو موجودٌ فعلًا ويفعل شيئًا آخر.
+    // تتبّعُ الزبون: `GET /api/orders/track-code/:code` و`/track/:phone`،
+    // وكلاهما عامٌّ بلا مصادقة — مطابقٌ لـ`auth: false` هنا.
+    risk: 'low', needs: ['order'], auth: false, page: null, api: '/api/orders' },
   { id: 'CREATE_SHIPMENT', verb: 'send', entity: 'shipment', say: 'تصيفط الطلب مع شركة التوصيل',
     // شحنةٌ تُنشأ عند طرفٍ خارجيّ ويُطلَب مالٌ من الزبون — لا تُسترجَع.
     risk: 'high', needs: ['order', 'provider'], auth: true, page: 'delivery', api: '/api/delivery' },

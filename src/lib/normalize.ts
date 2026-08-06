@@ -51,12 +51,34 @@ export function collapseRepeats(s: string): string {
 const squash = (s: string) => s.replace(/\s+/g, ' ').trim();
 
 /**
+ * **علاماتُ الترقيم فاصلٌ لا حرف.**
+ *
+ *   قِيس: من ١٥١٦ مصطلحًا في الفهرس **١١٠٥** لا تُطابَق في «عندي مشكل،سباك»
+ *   وتُطابَق كلُّها في «الطوموبيل خربانة.ميكانيك». والفرقُ ليس في المطابِق:
+ *
+ *     `normArabic` تُفرّغ كلَّ ما هو **خارج** نطاق العربيّة إلى مسافة. و«،»
+ *     و«؟» و«؛» **داخل** نطاق العربيّة في يونيكود (U+060C · U+061F · U+061B)
+ *     — فتنجو وتلتصق بالكلمة كأنّها حرفٌ منها. والنقطةُ لاتينيّةٌ فتُفرَّغ.
+ *
+ *   والمغاربةُ يكتبون «بغيت سباك،كهربائي» بلا مسافة. فكلمةٌ بعد فاصلةٍ
+ *   عربيّةٍ كانت لا تُقرأ أبدًا، وبعد نقطةٍ لاتينيّةٍ تُقرأ — سلوكان لرمزَين
+ *   يفعلان الشيءَ نفسَه.
+ *
+ *   وموضعُ الإصلاح **هنا** لا في `hitsArabic`: المطابِقُ واحدٌ من خمسةِ
+ *   مستهلكين (الفهرس · الـArabizi · المطابقةُ بالكلمات · المدن · `normLoose`
+ *   الذي يقرؤه `needEngine` والاتّجاهُ والحقائق). إصلاحُه وحدَه يُبقي الأربعةَ
+ *   الأخرى تقرأ «مشكل،سباك» كلمةً واحدة.
+ */
+const AR_PUNCT = /[،؍؛؞؟٪٫٬٭۔]/g;
+const spacePunct = (s: string) => (s || '').replace(AR_PUNCT, ' ');
+
+/**
  * **التطبيعُ الكامل مع حذف غير العربيّ.** لفهرس المفاهيم: يريد عربيّةً
  * صافيةً فلا تُصادَف مصطلحاتٌ داخل رموزٍ أو لاتينيّة.
  */
 export function normArabic(input: string): string {
   let s = collapseRepeats(unifyLetters(stripDiacritics((input || '').toLowerCase())));
-  s = s.replace(/[^؀-ۿ0-9\s]/g, ' ');
+  s = spacePunct(s).replace(/[^؀-ۿ0-9\s]/g, ' ');
   return squash(s);
 }
 
@@ -66,7 +88,7 @@ export function normArabic(input: string): string {
  * اللاتينيّة يعميهما. وهذا هو الفرقُ **الوحيدُ المشروع** بين المطبِّعَين.
  */
 export function normLoose(input: string): string {
-  return squash(collapseRepeats(unifyLetters(stripDiacritics((input || '').toLowerCase()))));
+  return squash(spacePunct(collapseRepeats(unifyLetters(stripDiacritics((input || '').toLowerCase())))));
 }
 
 /** اللاتينيّة: حروفٌ صغيرة · إزالةُ النبرات (é⇒e) · طيُّ التكرار · رموز. */

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 // ============================================================
@@ -52,6 +52,10 @@ test('لا مسارَ خادمٍ خارجَ الكتالوج', () => {
   // مساراتٌ لا يستدعيها إنسانٌ من التطبيق — تُستثنى بسببٍ مكتوب، لا بصمت.
   const EXTERNAL = new Set([
     '/api/webhooks',   // تستدعيها شركاتُ التوصيل ومِتا، لا المستخدم
+    // مصرفُ قياسٍ داخليّ: أحداثُ مشاهدةٍ ونقرٍ تبعثها الواجهةُ من نفسها
+    // (`journey.ts`). ليست قدرةً يطلبها إنسان، ولا يجوز أن تُعلَن كذلك —
+    // فقد أشارت إليها `TRACK_ORDER` خطأً ومرّ الحارسُ لأنّ الاسمَ موجود.
+    '/api/track',
   ]);
   const declared = new Set(ABILITIES.map(a => a.api).filter(Boolean));
   const missing = [...mounted].filter(p => !EXTERNAL.has(p) && !declared.has(p));
@@ -164,4 +168,51 @@ test('كلُّ قدرةٍ خطِرةٍ تحتاج حسابًا', () => {
   for (const a of ABILITIES.filter(x => x.risk === 'high')) {
     assert.ok(a.auth, `${a.id}: خطِرٌ ومتاحٌ للزائر`);
   }
+});
+
+// ============================================================
+// **الحارسُ يفحص المعنى لا الاسم.**
+//
+//   `TRACK_ORDER` كان يشير إلى `/api/track` — مسارِ أحداث المشاهدة والنقر
+//   (`POST` وحدَه) لا تتبّعِ الشحنات. ومرّ الحارسُ أعلاه لأنّه يسأل سؤالًا
+//   واحدًا: «أيوجد مسارٌ بهذا الاسم؟» — ويوجد، ويفعل شيئًا آخر تمامًا.
+//
+//   وتقويةُ الحارس لا تحتاج فهمًا للمعنى، بل شيئَين **مكانيكيَّين** يُقرآن
+//   من الكود: أنّ الفعلَ يقتضي طريقةَ HTTP تناسبه، وأنّ `auth` يطابق الواقع.
+// ============================================================
+
+/** فعلُ الكتالوج ⇒ طريقةُ HTTP التي لا بدّ من وجودها في ملفّ المسار. */
+const VERB_METHOD = { view: 'get', create: 'post', delete: 'delete' };
+
+test('الفعلُ يقتضي طريقتَه — قدرةُ عرضٍ تلزمها `router.get`', () => {
+  const wrong = [];
+  for (const a of ABILITIES.filter(x => x.api)) {
+    const method = VERB_METHOD[a.verb];
+    if (!method) continue;                       // update/send/offer… تتعدّد طرقُها
+    const seg = a.api.replace('/api/', '');
+    const file = join(ROOT, 'server/routes', `${seg}.js`);
+    if (!existsSync(file)) continue;             // مسارٌ مركَّبٌ من مكانٍ آخر
+    const body = readFileSync(file, 'utf8');
+    if (!new RegExp(`router\\.${method}\\(`).test(body)) {
+      wrong.push(`${a.id}: يَعِد بـ${a.verb} على «${a.api}» ولا ${method} فيه`);
+    }
+  }
+  assert.deepEqual(wrong, [], `قدراتٌ تشير إلى مسارٍ لا يفعل ما تدّعيه:\n  ${wrong.join('\n  ')}`);
+});
+
+test('و`auth` يطابق الواقع — ما أُعلن عامًّا يجب أن يكون له بابٌ بلا مصادقة', () => {
+  // قدرةٌ تقول `auth: false` وكلُّ مساراتها محميّةٌ وعدٌ للزائر لا يُوفى:
+  // يُعرَض له «تشوف فين وصل الطلب» ثمّ يُقابَل بـ401.
+  const wrong = [];
+  for (const a of ABILITIES.filter(x => x.api && x.auth === false)) {
+    const seg = a.api.replace('/api/', '');
+    const file = join(ROOT, 'server/routes', `${seg}.js`);
+    if (!existsSync(file)) continue;
+    const body = readFileSync(file, 'utf8');
+    const routes = [...body.matchAll(/router\.\w+\(\s*'[^']*'\s*,\s*([^)]*)/g)].map(m => m[1]);
+    if (routes.length && !routes.some(r => !/\bauth\b/.test(r))) {
+      wrong.push(`${a.id}: مُعلَنةٌ للزائر و«${a.api}» كلُّه محميّ`);
+    }
+  }
+  assert.deepEqual(wrong, [], wrong.join('\n  '));
 });
