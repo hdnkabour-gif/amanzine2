@@ -4,6 +4,8 @@ import { findProblemBySymptom } from '../../src/lib/akg/kb/symptomGraph';
 import { understand } from '../../src/lib/akg/kb';
 import { readPersonFacts } from '../../src/lib/personFacts';
 import { hitsWord } from '../../src/lib/normalize';
+import { CONCEPTS } from '../../src/lib/akg/kb/concepts';
+import { ALL } from '../corpus.mjs';
 
 // ============================================================
 // **أربعةُ أحرفٍ تبتلع بابَين.**
@@ -63,6 +65,43 @@ test('**والحقيقةُ الدائمةُ لا تُكتَب كاذبة** — �
   assert.equal(trade!.value, 'restaurant');
   assert.ok(!/سبّاك|سباك/.test(trade!.say),
     `يُعرَض عليه «${trade!.say}» وهو صاحبُ مطعم — سيصحّح ما هو صحيحٌ أصلًا`);
+});
+
+// ============================================================
+// **حقيقةٌ واحدةٌ بمصدرَين — وأضعفُهما كان يفوز بما يُعرَض.**
+//
+//   `value` من `u.service`، و`say` كان من `u.profession?.label` أوّلًا.
+//   فحين اختلفا ظهر المحفوظُ صحيحًا والمعروضُ كاذبًا:
+//     value = restaurant  ✅        say = «كتخدم ف سبّاك»  ❌
+//   والإنسانُ يصحّح ما يرى — أي يصحّح ما هو صحيحٌ أصلًا في القاعدة.
+//
+//   و`profession` يُشتقّ من رسم الأعراض، وهو أهشُّ ما يُبنى عليه اسمُ حرفة.
+//   فالعقدُ الآن: **الاسمُ يصف القيمةَ المحفوظة، لا شيئًا آخر.**
+// ============================================================
+test('اسمُ الحرفة يصف القيمةَ المحفوظة — على المدوّنة كلِّها', () => {
+  const wrong: string[] = [];
+  for (const s of ALL) {
+    for (const f of readPersonFacts(s)) {
+      if (f.kind !== 'trade' && f.kind !== 'sells') continue;
+      const c = CONCEPTS.find(x => x.id === f.value)?.concept as Record<string, string> | undefined;
+      const label = c?.darija || c?.ar;
+      if (!label) continue;                  // مفهومٌ بلا اسمٍ عربيّ — بابٌ آخر
+      if (!f.say.includes(label)) {
+        wrong.push(`«${s}» ⇒ ${f.kind}=${f.value} يُعرَض «${f.say}» ولا يذكر «${label}»`);
+      }
+    }
+  }
+  assert.deepEqual(wrong, [],
+    `يُعرَض للإنسان اسمٌ لا يصف ما حُفظ عنه:\n  ${wrong.join('\n  ')}`);
+});
+
+test('ولا يُعرَض مُعرِّفٌ تقنيٌّ إطلاقًا — القانون ١٠', () => {
+  for (const s of ALL) {
+    for (const f of readPersonFacts(s)) {
+      assert.ok(!/[a-z]{3,}/.test(f.say),
+        `«${s}» ⇒ يُعرَض «${f.say}» وفيه مُعرِّفٌ تقنيّ — المستخدمُ لا يرى المحرّكات`);
+    }
+  }
 });
 
 test('حدُّ الكلمة يسمح بالسوابق المتراكبة — ومنعُها هو الخطأُ المعاكس', () => {

@@ -30,6 +30,7 @@
 
 import { understand } from './akg/kb';
 import { resolveConcept } from './akg/kb/knowledge';
+import { CONCEPTS } from './akg/kb/concepts';
 import { normLoose } from './normalize';
 
 export type PersonFactKind = 'trade' | 'city' | 'hasWorkspace' | 'sells';
@@ -117,8 +118,25 @@ export function readPersonFacts(raw: string): PersonFact[] {
     // **اسمٌ عربيٌّ لا مُعرِّفٌ تقنيّ.** كشفه تشغيلُ التطبيق: كان الشريطُ
     // يعرض «كتخدم ف greengrocer». والقانون ١٠ صريح — المستخدمُ لا يرى
     // المحرّكات. ولم يكشفه اختبارٌ لأنّ لا أحدَ سأل: بأيّ لغةٍ يُعرَض؟
-    const c = resolveConcept(raw)?.concept;
-    const label = u.profession?.label || c?.darija || c?.ar || u.service;
+    //
+    // ── **والاسمُ يصف القيمةَ المحفوظة، لا شيئًا آخر** ──────────────
+    //
+    //   كان `u.profession?.label` يسبق كلَّ شيء. و`value` يُؤخَذ من
+    //   `u.service`. فحقيقةٌ واحدةٌ بمصدرَين، وأضعفُهما يفوز بما يُعرَض:
+    //
+    //     «عندي محل ديال الماكلة كندير طواجن»
+    //        value = restaurant  ✅        say = «كتخدم ف سبّاك»  ❌
+    //
+    //   المحفوظُ صحيحٌ والمعروضُ كاذب — فيصحّح الإنسانُ ما هو صحيحٌ أصلًا.
+    //   و`profession` يُشتقّ من رسم الأعراض، وهو أهشُّ ما يُبنى عليه اسمُ
+    //   حرفة: يكفي عَرَضٌ واحدٌ مُساءُ القراءة ليُبدَّل اسمُ مهنةِ الرجل.
+    //
+    //   فالاسمُ من المفهوم نفسِه (`u.service`)، ولا يُقبَل `profession`
+    //   إلّا حين **يتّفق** الاثنان — فلا نسختان لحقيقةٍ واحدة.
+    const byId = CONCEPTS.find(x => x.id === u.service)?.concept as Record<string, string> | undefined;
+    const c = byId || resolveConcept(raw)?.concept;
+    const agrees = u.profession?.id === u.service;
+    const label = (agrees && u.profession?.label) || c?.darija || c?.ar || u.service;
     out.push({ kind: 'trade', value: u.service, say: `كتخدم ف ${label}`, from: raw });
     if (sellsHabitually) out.push({ kind: 'sells', value: u.service, say: `كتبيع ${label}`, from: raw });
   }
