@@ -22,13 +22,28 @@ import { readHuman } from '../src/lib/humanIntent';
 import { decideExecution } from '../src/lib/executionPolicy';
 import { abilityFor, canDo } from '../src/lib/abilities';
 import { readPersonFacts } from '../src/lib/personFacts';
-import { ALL, EXPECT_NEVER_EXECUTE, EXPECT_ASK, EXPECT_CONFIRM, EXPECT_NOT_ASK } from '../test/corpus.mjs';
+import { readAction } from '../src/lib/akg/kb/actions';
+import { ALL, EXPECT_NEVER_EXECUTE, EXPECT_ASK, EXPECT_CONFIRM, EXPECT_NOT_ASK,
+  EXPECT_CONCEPT, EXPECT_ADMIN, CLASSIFIED } from '../test/corpus.mjs';
 
 export interface Pulse {
   /** حجمُ المدوّنة — يُذكَر كي لا تُقارَن نسبتان من مدوّنتَين. */
   sentences: number;
-  /** فُهم المفهومُ (حرفة/خدمة/سلعة). */
+  /**
+   * فُهم المفهومُ — **من الجمل التي يُنتظَر منها مفهوم**.
+   *
+   *   كان يُقاس على المدوّنة كلِّها فأعطى ٥٩٪. وقياسٌ على الفاشلات كشف أنّ
+   *   ١٤ من ٢٤ ليست إخفاقًا: سبعٌ أفعالٌ إداريّةٌ فُهمت تمامًا، وسبعٌ ناقصةٌ
+   *   يُسأل عنها بحقّ. فكان المقياسُ يحاسب طبقةَ المعرفة على عملِ غيرها.
+   */
   understood: number;
+  /** كم جملةً يُنتظَر منها مفهومٌ أصلًا — المقامُ الصادق. */
+  conceptExpected: number;
+  /** أفعالٌ إداريّةٌ قُرئت (`update:phone`…) من الجمل التي تنتظرها. */
+  adminRead: number;
+  adminExpected: number;
+  /** كلُّ جملةٍ مصنَّفة؟ حارسُ ألّا تُهرَّب جملةٌ صعبةٌ خارجَ الحساب. */
+  unclassified: number;
   /** عُرف الاتّجاه: يَعرض أم يطلب؟ */
   stanceKnown: number;
   /** حقائقُ الشخص المستخرَجة — كان صفرًا قبل `personFacts`. */
@@ -82,7 +97,7 @@ export function measure(): Pulse {
   let understood = 0, stanceKnown = 0, personFacts = 0, abilityMatched = 0;
   let brainSplit = 0, wrongExecutions = 0, silent = 0, variantDrift = 0;
   let recklessExecutions = 0, unconfirmedDestructive = 0, needlessAsks = 0;
-  let correct = 0, judged = 0;
+  let correct = 0, judged = 0, adminRead = 0;
 
   // تحويلاتٌ من الشارع: لوحاتُ مفاتيحَ مختلفة، ومدُّ الحروف، وتشكيلٌ.
   const VARIANTS: ((x: string) => string)[] = [
@@ -102,7 +117,8 @@ export function measure(): Pulse {
     const able = match ? canDo(match.verb, match.entity) : true;
     const d = decideExecution(u, able, match ?? undefined);
 
-    if (u.service) understood++;
+    if (u.service && EXPECT_CONCEPT.includes(s)) understood++;
+    if (EXPECT_ADMIN.includes(s) && (u.action || readAction(s))) adminRead++;
     if (u.stance && u.stance !== 'unknown') stanceKnown++;
     if (readPersonFacts(s).length) personFacts++;
     if (match) abilityMatched++;
@@ -143,14 +159,18 @@ export function measure(): Pulse {
   const factExpected = ALL.filter(x => EXPECT_NOT_ASK.includes(x));
   const stages = [
     { name: 'التطبيع',  ok: ALL.length * 5 - variantDrift, of: ALL.length * 5 },
-    { name: 'المفهوم',  ok: understood,     of: ALL.length },
+    { name: 'المفهوم',  ok: understood,     of: EXPECT_CONCEPT.length },
+    { name: 'الإداريّ', ok: adminRead,       of: EXPECT_ADMIN.length },
     { name: 'الاتّجاه',  ok: stanceKnown,    of: ALL.length },
     { name: 'الحقائق',  ok: factExpected.filter(x => readPersonFacts(x).length).length, of: factExpected.length },
     { name: 'القدرة',   ok: abilityMatched, of: ALL.length },
     { name: 'القرار',   ok: correct,        of: judged },
   ];
 
+  const unclassified = ALL.filter(x => !CLASSIFIED.includes(x)).length;
+
   return { sentences: ALL.length, understood, stanceKnown, personFacts, stages,
+    conceptExpected: EXPECT_CONCEPT.length, adminRead, adminExpected: EXPECT_ADMIN.length, unclassified,
     abilityMatched, verdicts, brainSplit, silent, variantDrift,
     wrongExecutions, recklessExecutions, unconfirmedDestructive, needlessAsks, correct, judged };
 }
@@ -162,7 +182,9 @@ export function render(p: Pulse): string {
     .map(([k, n]) => `${k} ${n}`).join(' · ');
   return [
     `المدوّنة        : ${p.sentences} جملة`,
-    `فُهم المفهوم    : ${pct(p.understood)}`,
+    `فُهم المفهوم    : ${p.understood}/${p.conceptExpected} (${Math.round(p.understood / p.conceptExpected * 100)}٪)  ← ممّا يُنتظَر منه مفهوم`,
+    `فعلٌ إداريّ      : ${p.adminRead}/${p.adminExpected} (${Math.round(p.adminRead / p.adminExpected * 100)}٪)`,
+    `غيرُ مصنَّفة     : ${p.unclassified}   ← يجب أن يبقى صفرًا`,
     `عُرف الاتّجاه    : ${pct(p.stanceKnown)}`,
     `حقائقُ الشخص    : ${pct(p.personFacts)}`,
     `طابقت قدرةً     : ${pct(p.abilityMatched)}`,
