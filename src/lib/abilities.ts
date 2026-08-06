@@ -548,6 +548,9 @@ export const OBJECT_MAP: Record<string, AbilityEntity> = {
   workspace: 'workspace', shop_name: 'workspace', shop_hours: 'workspace',
   delivery: 'delivery_provider', settings: 'settings',
   product: 'product', price: 'product', stock: 'product', photo: 'media',
+  // وصفُ المنتوج وهاشتاگه تعديلٌ **للمنتوج** لا كيانٌ ثالث: النصُّ يعيش في
+  // استمارته، وزرُّ التوليد بجانبه في `ProductsPage`.
+  content: 'product',
   orders: 'order', customers: 'customer', coupon: 'coupon', wallet: 'wallet',
 };
 

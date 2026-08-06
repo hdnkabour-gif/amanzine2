@@ -52,3 +52,5 @@ import './vocabulary.test';
 import './symptomBoundary.test';
 // الثقةُ تتبع الفعلَ المقروء: «يعرف ثمّ يسأل» في موضعٍ لم يُفحَص.
 import './actionConfidence.test';
+// ثلاثَ عشرةَ جملةً كتبها صاحبُ المشروع — مختلطةً عمدًا كما يتكلّم الناس.
+import './ownerSentences.test';

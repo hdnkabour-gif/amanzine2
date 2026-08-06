@@ -37,7 +37,7 @@ export type ActionVerb = 'view' | 'create' | 'update' | 'delete' | 'share' | 'se
 export type ActionObject =
   | 'phone' | 'language' | 'password' | 'account'      // إعداداتُ الشخص
   | 'workspace' | 'shop_name' | 'shop_hours' | 'delivery' | 'settings'  // إعداداتُ النشاط
-  | 'product' | 'price' | 'stock' | 'photo'            // الكتالوج
+  | 'product' | 'price' | 'stock' | 'photo' | 'content' // الكتالوج
   | 'orders' | 'customers' | 'coupon' | 'wallet';      // العمل
 
 /** لمن يعود الهدف: الشخصُ أم نشاطُه؟ */
@@ -60,7 +60,9 @@ const norm = normLoose;   // كان نسخةً محلّيّةً أضعف
 // «بغيت» وحدَها ليست فعلًا إداريًّا: «بغيت نبيع» تجارةٌ لا إعداد. فلا تدخل
 // هنا — يلتقطها `humanIntent` بعدَنا. الفعلُ هنا **صريحٌ في التصرّف**.
 const VERBS: { verb: ActionVerb; terms: string[] }[] = [
-  { verb: 'delete', terms: ['حيد', 'حيّد', 'نحيد', 'حذف', 'نحذف', 'امسح', 'نمسح', 'الغي', 'نلغي', 'سد', 'نسد', 'supprimer'] },
+  // «مسح» مجرّدةً كانت غائبةً و«امسح»/«نمسح» حاضرتَين — والمغربيُّ يقول
+  // «مسح المنتوج» أمرًا مختصرًا بلا همزةٍ ولا نون.
+  { verb: 'delete', terms: ['حيد', 'حيّد', 'نحيد', 'حذف', 'نحذف', 'مسح', 'امسح', 'نمسح', 'الغي', 'نلغي', 'سد', 'نسد', 'supprimer'] },
   { verb: 'update', terms: ['بدل', 'بدّل', 'نبدل', 'غير', 'غيّر', 'نغير', 'صحح', 'نصحح', 'عدل', 'نعدل', 'حدث', 'نحدث', 'modifier', 'changer'] },
   { verb: 'create', terms: ['زيد', 'نزيد', 'ضيف', 'نضيف', 'اضف', 'صايب', 'نصايب', 'دير ليا', 'ندير واحد', 'جديد', 'ajouter', 'creer'] },
   { verb: 'share',  terms: ['شارك', 'نشارك', 'صيفط الرابط', 'رابط المحل', 'partager'] },
@@ -68,7 +70,11 @@ const VERBS: { verb: ActionVerb; terms: string[] }[] = [
   // «شحال من» و«شحال عندي» سؤالُ عددٍ — وهو **عرضٌ** لا سؤالٌ عن قدرة.
   //   «وريني الطلبات» كانت تُقرأ و«شحال من طلب عندي» لا، وهما طلبٌ واحد:
   //   أرِني ما عندي. والمغربيُّ يسأل بالعدد أكثرَ ممّا يأمر بالعرض.
+  //   و«فين وصلات» سؤالُ تتبّعٍ — وهو عرضٌ أيضًا. وكانت جملةُ الزبون
+  //   «فين وصلات الكوموند ديالي» تُقرأ **«شنو نوع النشاط ولا الخدمة؟»**:
+  //   مَن يسأل عن طرده يُسأل عن حرفته. أسوأُ جوابٍ في الثلاثَ عشرةَ كلِّها.
   { verb: 'view',   terms: ['وريني', 'ورينا', 'شوف', 'نشوف', 'بين ليا', 'عرض', 'اعرض', 'فين كاين', 'افتح', 'نفتح',
+                            'فين وصلات', 'فين وصل', 'فين كاينه', 'واش وصل',
                             'شحال من', 'شحال عندي', 'شحال عندنا', 'كم من', 'combien', 'voir', 'afficher'] },
 ];
 
@@ -91,7 +97,15 @@ const OBJECTS: { object: ActionObject; scope: ActionScope; terms: string[]; need
   // الكتالوج — الثمنُ والمخزونُ يحتاجان **نسخة**، فيُعلَن نقصُها صراحةً.
   { object: 'price',   scope: 'workspace', terms: ['الثمن', 'التمن', 'السوم', 'الاثمنه', 'prix'], needs: ['أيّ منتج؟'] },
   { object: 'stock',   scope: 'workspace', terms: ['المخزون', 'الستوك', 'الكميه', 'stock'], needs: ['أيّ منتج؟'] },
-  { object: 'photo',   scope: 'workspace', terms: ['الصوره', 'التصويره', 'الصور', 'photo', 'image'], needs: ['أيّ منتج؟'] },
+  // المجرّدُ بلا «ال» كان غائبًا: «صايب **تصويرة** لهاد المنتوج» تُقرأ
+  // `create/product` ⇒ «أيّ منتوج؟» — وهو يريد صورةً لمنتوجٍ **أشار إليه**.
+  // و`POST /api/ai/design-product-image` يعمل ويُنادى من `ProductsPage`.
+  { object: 'photo',   scope: 'workspace', terms: ['الصوره', 'التصويره', 'الصور', 'تصويره', 'صوره', 'تصاور', 'photo', 'image'], needs: ['أيّ منتج؟'] },
+  // نصُّ المنتوج: وصفٌ وهاشتاگ. `POST /api/ai/generate-description` و
+  // `/generate-hashtags` يعملان ويُناديان من `ProductsPage` — ولم يكن في
+  // اللغة كلِّها كلمةٌ تبلغهما. «باغي هاشتاگ ولا وصف زوين» ⇒ «شنو محتاج
+  // بالضبط؟» وكأنّه يقلّب على حرفيّ.
+  { object: 'content', scope: 'workspace', terms: ['هاشتاگ', 'هاشتاق', 'هاشتاك', 'الوصف', 'وصف', 'كليمات مفتاح', 'hashtag', 'description'], needs: ['أيّ منتج؟'] },
   { object: 'product', scope: 'workspace', terms: ['منتوج', 'المنتوج', 'المنتج', 'سلعه', 'produit'] },
 
   // العمل
@@ -119,7 +133,28 @@ export function readAction(raw: string): ActionRead | null {
   if (!t) return null;
 
   const v = VERBS.find(x => hits(t, x.terms));
-  if (!v) return null;
+
+  // ── **هدفٌ يُولَّد بلا فعلٍ منطوق** ─────────────────────────────
+  //
+  //   «باغي هاشتاگ ولا وصف زوين لهاد المنتوج» — لا فعلَ فيها إطلاقًا:
+  //   «باغي» مستثناةٌ عمدًا (وهي نيّةٌ تجاريّةٌ في أغلب الجمل). فكانت تُقرأ
+  //   `find_pro` ⇒ «شنو محتاج بالضبط؟» — وكأنّه يقلّب على حرفيّ، وهو يطلب
+  //   نصًّا يصنعه التطبيقُ له بزرٍّ قائمٍ في `ProductsPage`.
+  //
+  //   والقاعدةُ ضيّقةٌ عمدًا: **طلبُ شيءٍ يصنعه التطبيقُ هو طلبُ صنعِه**، ولا
+  //   تسري إلّا على هدفَين يُولَّدان (`content` · `photo`). ولا تسري على
+  //   «المنتوج» ولا «الطلبات» ولا شيءٍ يُعرَض أو يُملَك — فمن ذكر منتوجًا لم
+  //   يطلب إنشاءَه. وثقتُها دون المنطوق (٠٫٦٠) لأنّ الفعلَ مُستنتَجٌ لا مقول.
+  const GENERATED: ActionObject[] = ['content', 'photo'];
+  if (!v) {
+    const g = OBJECTS.find(x => GENERATED.includes(x.object) && hits(t, x.terms));
+    if (!g) return null;
+    return {
+      verb: 'create', object: g.object, scope: g.scope,
+      needs: [...(g.needs || [])], confidence: 0.6,
+      reason: `«${hits(t, g.terms)}» — شيءٌ يصنعه التطبيق، فطلبُه طلبُ صنعِه`,
+    };
+  }
   const vTerm = hits(t, v.terms)!;
 
   const o = OBJECTS.find(x => hits(t, x.terms));
@@ -166,6 +201,7 @@ export function describeAction(a: ActionRead): string {
     workspace: 'المحلّ', shop_name: 'اسم المحلّ', shop_hours: 'وقت الخدمة',
     delivery: 'التوصيل', settings: 'الإعدادات',
     product: 'المنتوج', price: 'الثمن', stock: 'المخزون', photo: 'الصورة',
+    content: 'الوصف والهاشتاگ',
     orders: 'الطلبات', customers: 'الزبناء', coupon: 'الكوبون', wallet: 'المحفظة',
   };
   return `${V[a.verb]} ${O[a.object]}`;
