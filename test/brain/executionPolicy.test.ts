@@ -28,12 +28,6 @@ test('النفيُ يسأل ولا يُنفّذ ولا يُخمّن عكسًا',
   assert.match(d.say, /شنو بغيتي/);
 });
 
-test('ما لا نقدر عليه يُرفَض بصراحة — لا فعلَ ناقصٌ يُوهم', () => {
-  const d = decideExecution(U({}), false);
-  assert.equal(d.verdict, 'refuse');
-  assert.match(d.say, /ما نقدرش/);
-});
-
 test('الغموضُ يسأل بسؤال المفهوم نفسِه', () => {
   const d = decideExecution(U({ ambiguity: { term: 'موطور', ask: 'موطور ديال الطوموبيل، ولا درّاجة؟', options: [] } }));
   assert.equal(d.verdict, 'ask');
@@ -66,11 +60,6 @@ test('الصيغةُ تسبق النفيَ والغموضَ والثقة', () =>
   const u = understand('قال ليا الزبون بغيت نرجع السلعة');
   const d = decideExecution({ ...u, negated: true, ambiguity: { term: 'x', ask: 'y', options: [] }, confidence: 1 } as any);
   assert.equal(d.verdict, 'explain', 'حسمت طبقةٌ أدنى قبل الصيغة');
-});
-
-test('حدُّ القدرة يسبق الغموض — لا نسأل عمّا لا نستطيع فعلَه', () => {
-  const d = decideExecution(U({ ambiguity: { term: 'x', ask: 'y', options: [] } }), false);
-  assert.equal(d.verdict, 'refuse');
 });
 
 test('التأكيدُ يأتي بعد اكتمال الفهم لا قبله', () => {
@@ -108,9 +97,9 @@ test('العرضُ يُنفَّذ بثقةٍ لا تكفي للتعديل', () =
   // بلا قدرةٍ: العتبةُ العامّة ٠٫٩٠ ⇒ سؤال. وهذا هو العطبُ المقيس.
   assert.equal(decideExecution(u).verdict, 'ask');
   // بقدرةٍ منخفضة الخطر: يُنفَّذ.
-  assert.equal(decideExecution(u, true, ability('BUY_PRODUCT')).verdict, 'execute');
+  assert.equal(decideExecution(u, ability('BUY_PRODUCT')).verdict, 'execute');
   // وبقدرةٍ متوسّطة: لا يُنفَّذ بنفس الثقة.
-  assert.notEqual(decideExecution(u, true, ability('UPDATE_PRODUCT')).verdict, 'execute');
+  assert.notEqual(decideExecution(u, ability('UPDATE_PRODUCT')).verdict, 'execute');
 });
 
 test('الخطِرُ لا يُنفَّذ ولو بلغ اليقينُ مئةً', () => {
@@ -119,7 +108,7 @@ test('الخطِرُ لا يُنفَّذ ولو بلغ اليقينُ مئةً',
   // أسلمُ لا أضعف: من يؤكّد دفعًا بلا مبلغٍ يؤكّد شيئًا لا يعرفه.
   const u: any = { confidence: 1, reasoning: [] };
   for (const id of ['DELETE_PRODUCT', 'CHANGE_PHONE', 'MAKE_PAYMENT', 'CREATE_SHIPMENT']) {
-    const d = decideExecution(u, true, ability(id)!);
+    const d = decideExecution(u, ability(id)!);
     assert.notEqual(d.verdict, 'execute', `${id}: نُفِّذ بلا تأكيد`);
   }
   assert.ok(RISK_THRESHOLD.high > 1, 'عتبةُ الخطِر قابلةٌ للبلوغ');
@@ -129,19 +118,17 @@ test('وحين يكتمل الفهمُ يُؤكَّد التأكيدُ **باس�
   // «واش هادشي هو اللي بغيتي؟» تصلح للفهم، ولا تصلح لما لا يُسترجَع: من
   // يؤكّد حذفًا يجب أن يقرأ كلمة «تحيّد» قبل أن يضغط. ولذلك لا يكفي أن
   // تُخرِج العتبةُ `confirm` — يلزم حارسٌ صريح.
+  //
+  //   وهذا الحارسُ كان مدمَجًا في الذي فوقه، فسقط حين صار النقصُ يُطرَح:
+  //   الدفعُ والشحنُ يُسألان عن مبلغٍ وطلبٍ لا تحملهما `Understanding`.
+  //   ففُصل ووُضع على الحذف — الخطِرُ الوحيدُ الذي تُملأ حاجتُه من الجملة.
   const a = ability('DELETE_PRODUCT')!;
-  const d = decideExecution({ confidence: 1, reasoning: [], service: 'clothing' } as any, true, a);
+  const d = decideExecution({ confidence: 1, reasoning: [], service: 'clothing' } as any, a);
   assert.equal(d.verdict, 'confirm', 'الحذفُ نُفِّذ بلا تأكيد');
   assert.ok(d.say.includes(a.say), `تأكيدٌ لا يسمّي الفعل — «${d.say}»`);
   assert.ok(d.trace.some(t => t.includes(a.id)), 'أثرٌ لا يذكر القدرة');
 });
 
-test('حدُّ القدرة يسبق كلَّ شيء — «ما نقدرش» لا صمتٌ ولا فعلٌ ناقص', () => {
-  const u: any = { confidence: 1, reasoning: [] };
-  const d = decideExecution(u, false, ability('BUY_PRODUCT'));
-  assert.equal(d.verdict, 'refuse');
-  assert.ok(/ما نقدرش/.test(d.say));
-});
 
 test('الجسر: الفعلُ أدقُّ من النيّة', () => {
   // قِيس حرفيًّا: «بغيت نبدل الثمن ديال القميص الأحمر ل ١٢٠ درهم» تُقرأ في
@@ -217,9 +204,9 @@ test('البوّابةُ موصولةٌ بالقرار — لا تعيش في م
   const offer = ability('OFFER_SERVICE')!;
   const blind: any = { confidence: 0.95, reasoning: [] };
   const knowing: any = { confidence: 0.95, reasoning: [], service: 'greengrocer' };
-  assert.equal(decideExecution(blind, true, offer).verdict, 'ask');
-  assert.equal(decideExecution(blind, true, offer).say, NEED_ASK.trade);
-  assert.equal(decideExecution(knowing, true, offer).verdict, 'execute',
+  assert.equal(decideExecution(blind, offer).verdict, 'ask');
+  assert.equal(decideExecution(blind, offer).say, NEED_ASK.trade);
+  assert.equal(decideExecution(knowing, offer).verdict, 'execute',
     'عرف ثمّ سأل — «موتُ السحر»');
 });
 
@@ -230,7 +217,7 @@ test('«بشحال؟» سؤالٌ في محلّه — والحدُّ معلَن�
   // `parseNeed` ولا تصل إلى هنا. فالسؤالُ صحيحٌ اليوم، ويبقى صحيحًا حتّى
   // يُوصَل الثمن. وهذا الحارسُ يجعل ذلك اليومَ مرئيًّا لا صامتًا.
   const d = decideExecution({ confidence: 0.95, reasoning: [], service: 'automobile' } as any,
-    true, ability('SELL_PRODUCT')!);
+    ability('SELL_PRODUCT')!);
   assert.equal(d.verdict, 'ask');
   assert.equal(d.say, NEED_ASK.price, 'سُئل عن غير الثمن — والبضاعةُ مذكورة');
 });
@@ -238,7 +225,7 @@ test('«بشحال؟» سؤالٌ في محلّه — والحدُّ معلَن�
 test('النقصُ يسبق الثقةَ والتأكيد — الترتيبُ جزءٌ من المعنى', () => {
   // يقينٌ تامٌّ وفهمٌ ناقص ⇒ سؤالٌ لا تنفيذ. الوضوحُ في **الصياغة** ليس
   // اكتمالًا في **المضمون**.
-  const d = decideExecution({ confidence: 1, reasoning: [] } as any, true, ability('SELL_PRODUCT')!);
+  const d = decideExecution({ confidence: 1, reasoning: [] } as any, ability('SELL_PRODUCT')!);
   assert.equal(d.verdict, 'ask');
   assert.match(d.trace.join(' · '), /ينقص/);
 });

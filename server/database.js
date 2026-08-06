@@ -102,6 +102,8 @@ function _mapOrder(o) {
     providerShipmentId: o.provider_shipment_id || o.livo_order_id || '',
     deliveryStatus:   o.delivery_status  || '',
     deliverySyncedAt: o.delivery_synced_at ? new Date(o.delivery_synced_at).toISOString() : null,
+    deliveryRetryAt:  o.delivery_retry_at ? new Date(o.delivery_retry_at).toISOString() : null,
+    deliveryAttempts: +o.delivery_attempts || 0,
     deliveryFee:      +o.delivery_fee     || 0,
     codFee:           +o.cod_fee          || 0,
     providerId:       o.provider_id       || '',
@@ -450,6 +452,7 @@ const db = {
       deliveryFee:      'delivery_fee',     codFee:          'cod_fee',
       providerId:       'provider_id',      providerCityId:  'provider_city_id',
       deliveryMode:     'delivery_mode',
+      deliveryRetryAt:  'delivery_retry_at', deliveryAttempts: 'delivery_attempts',
     };
     const parts = []; const vals = [id]; let idx = 2;
     for (const [jsKey, pgCol] of Object.entries(map)) {
@@ -598,6 +601,27 @@ const db = {
   // ── Abandoned-cart reminders (H-4) ───────────────────────────
   // بديل موثوق لمؤقّتات setTimeout في الذاكرة: استعلام مجدول يجد
   // المحادثات المهجورة (>24س، نشطة، بلا طلب لاحق، ولم تُذكَّر بعد).
+  /**
+   * طلباتٌ حان موعدُ إعادةِ محاولةِ شحنِها.
+   *
+   *   يقرؤها المُعيدُ الدوريّ وحدَه. والشرطُ الأخير حارسٌ لا تجميل: طلبٌ نجح
+   *   شحنُه من مسارٍ آخرَ (أو أدخل التاجرُ رقمَه يدويًّا) يجب ألّا يُعاد —
+   *   وإلّا أُنشئت شحنتان لزبونٍ واحد.
+   */
+  async getOrdersDueForDeliveryRetry(limit = 50) {
+    const { rows } = await pool.query(
+      `SELECT * FROM orders
+       WHERE delivery_status = 'retry_scheduled'
+         AND delivery_retry_at IS NOT NULL
+         AND delivery_retry_at <= NOW()
+         AND COALESCE(tracking_number, '') = ''
+       ORDER BY delivery_retry_at ASC
+       LIMIT $1`,
+      [limit]
+    ).catch(() => ({ rows: [] }));
+    return rows.map(_mapOrder);
+  },
+
   async getAbandonedConversations(limit = 200) {
     const { rows } = await pool.query(
       `SELECT c.* FROM conversations c

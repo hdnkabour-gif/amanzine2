@@ -13,6 +13,23 @@ export interface Profession {
   capabilities: string[];        // ['bookable','locatable','urgent','quotable']
   related?: string[];            // مهن مرتبطة (ids)
   tools?: string[];              // أدوات (ids من Tool Registry)
+  /**
+   * **الجسرُ إلى قاعدة المفاهيم** — مُعرِّفُ المفهوم المقابل لهذه المهنة.
+   *
+   *   سجلّان يعيشان جنبًا إلى جنبٍ بمُعرِّفاتٍ مختلفة: هذا فيه ٢١ مهنةً
+   *   بمُعرِّفاتٍ قصيرة (`ac_tech`)، و`concepts` فيه مئاتٌ بمُعرِّفاتٍ طويلة
+   *   (`air_conditioning_and_refrigeration_technician`). أحدَ عشرَ من الـ٢١
+   *   لا وجودَ لها في الآخر.
+   *
+   *   وثمنُ الانفصال مقيس: `problems.ts` تُحيل على مُعرِّف **مهنة**، فإن
+   *   كُتب في `service` خرج مُعرِّفٌ لا تعرفه قاعدةُ المفاهيم — فلا بحثَ
+   *   ولا سوقَ ولا مطابقةَ مع تاجرٍ مسجَّل. وإن حُوِّلت الإحالةُ إلى مفهومٍ
+   *   انكسر `getProfession` وضاعت القدراتُ والقطاع (قِيس: ١١ مشكلةً من ١٤).
+   *
+   *   فالجسرُ يُعلَن هنا مرّةً واحدة: المهنةُ تحتفظ بمُعرِّفها وقدراتها،
+   *   وتقول **بأيّ مفهومٍ تُعرَف** في السوق. ويحرسه `domains.test.ts`.
+   */
+  concept?: string;
 }
 
 const registry = new Map<string, Profession>();
@@ -36,21 +53,21 @@ const SEED: Profession[] = [
   { id: 'carpenter', label: 'نجّار', sector: 'home', specializations: ['مطابخ', 'أبواب', 'خزائن', 'أثاث'], skills: ['قياس', 'تجميع', 'تشطيب'], capabilities: ['bookable', 'locatable', 'quotable'], related: ['painter', 'blacksmith'], tools: ['saw'] },
   { id: 'mason', label: 'بنّاي', sector: 'construction', specializations: ['بناء', 'تبليط', 'جبس'], skills: ['قراءة التصاميم', 'الخرسانة'], capabilities: ['bookable', 'locatable', 'quotable'], related: ['plumber', 'electrician', 'blacksmith'] },
   { id: 'blacksmith', label: 'حدّاد', sector: 'construction', specializations: ['أبواب حديد', 'شبابيك', 'درابزين'], skills: ['لحام', 'قصّ المعادن'], capabilities: ['bookable', 'locatable', 'quotable'], related: ['mason', 'carpenter'] },
-  { id: 'ac_tech', label: 'تقني تبريد', sector: 'home', specializations: ['مكيّفات', 'ثلّاجات', 'تجميد'], skills: ['شحن الغاز', 'كشف التسرب'], capabilities: ['bookable', 'locatable', 'urgent'], related: ['electrician'] },
+  { id: 'ac_tech', concept: 'air_conditioning_and_refrigeration_technician', label: 'تقني تبريد', sector: 'home', specializations: ['مكيّفات', 'ثلّاجات', 'تجميد'], skills: ['شحن الغاز', 'كشف التسرب'], capabilities: ['bookable', 'locatable', 'urgent'], related: ['electrician'] },
   { id: 'mechanic', label: 'ميكانيكي', sector: 'automotive', specializations: ['محرّك', 'علبة السرعات', 'فرامل', 'تعليق'], skills: ['تشخيص', 'إصلاح'], capabilities: ['bookable', 'locatable', 'urgent', 'quotable'], related: ['diagnostic', 'tire_tech'], tools: ['diag_device'] },
-  { id: 'diagnostic', label: 'تقني تشخيص', sector: 'automotive', specializations: ['فحص إلكترونيّ', 'أكواد الأعطال'], skills: ['قراءة الأكواد'], capabilities: ['bookable', 'locatable'], related: ['mechanic'], tools: ['diag_device'] },
-  { id: 'tire_tech', label: 'تقني عجلات', sector: 'automotive', specializations: ['تبديل الإطارات', 'توازن', 'جيومتري'], skills: ['موازنة'], capabilities: ['bookable', 'locatable'], related: ['mechanic'] },
-  { id: 'tire_technician', label: 'فنّي إطارات', sector: 'automotive', specializations: ['تصليح الإطارات', 'توازن', 'جيومتري'], skills: ['رقعة', 'موازنة'], capabilities: ['bookable', 'locatable', 'urgent'], related: ['mechanic', 'auto_electrician'] },
+  { id: 'diagnostic', concept: 'car_diagnostics', label: 'تقني تشخيص', sector: 'automotive', specializations: ['فحص إلكترونيّ', 'أكواد الأعطال'], skills: ['قراءة الأكواد'], capabilities: ['bookable', 'locatable'], related: ['mechanic'], tools: ['diag_device'] },
+  { id: 'tire_tech', concept: 'tire_shop', label: 'تقني عجلات', sector: 'automotive', specializations: ['تبديل الإطارات', 'توازن', 'جيومتري'], skills: ['موازنة'], capabilities: ['bookable', 'locatable'], related: ['mechanic'] },
+  { id: 'tire_technician', concept: 'tire_shop', label: 'فنّي إطارات', sector: 'automotive', specializations: ['تصليح الإطارات', 'توازن', 'جيومتري'], skills: ['رقعة', 'موازنة'], capabilities: ['bookable', 'locatable', 'urgent'], related: ['mechanic', 'auto_electrician'] },
   { id: 'auto_electrician', label: 'كهربائيّ سيّارات', sector: 'automotive', specializations: ['بطاريات', 'دينمو', 'أسلاك', 'مصابيح'], skills: ['قياس الجهد', 'تشخيص كهربائيّ'], capabilities: ['bookable', 'locatable', 'urgent'], related: ['mechanic'] },
-  { id: 'appliance_repair', label: 'فنّي أجهزة منزليّة', sector: 'home', specializations: ['ثلّاجات', 'غسّالات', 'تبريد', 'سخّانات'], skills: ['شحن الغاز', 'فحص الضاغط'], capabilities: ['bookable', 'locatable', 'urgent'], related: ['electrician', 'ac_tech'] },
-  { id: 'auto_painter', label: 'صبّاغ سيّارات', sector: 'automotive', specializations: ['صباغة', 'بوليساج', 'إزالة الخدوش'], skills: ['رشّ الصباغة'], capabilities: ['bookable', 'locatable', 'quotable'], related: ['mechanic'] },
+  { id: 'appliance_repair', concept: 'home_appliance_repair', label: 'فنّي أجهزة منزليّة', sector: 'home', specializations: ['ثلّاجات', 'غسّالات', 'تبريد', 'سخّانات'], skills: ['شحن الغاز', 'فحص الضاغط'], capabilities: ['bookable', 'locatable', 'urgent'], related: ['electrician', 'ac_tech'] },
+  { id: 'auto_painter', concept: 'auto_body_paint', label: 'صبّاغ سيّارات', sector: 'automotive', specializations: ['صباغة', 'بوليساج', 'إزالة الخدوش'], skills: ['رشّ الصباغة'], capabilities: ['bookable', 'locatable', 'quotable'], related: ['mechanic'] },
   { id: 'barber', label: 'حلّاق / كوّافير', sector: 'beauty', specializations: ['حلاقة', 'تصفيف', 'حلاقة ذقن'], skills: ['قصّ'], capabilities: ['bookable', 'locatable'] },
-  { id: 'it_tech', label: 'تقني معلوماتيّة', sector: 'it', specializations: ['شبكات', 'إصلاح حواسيب', 'كاميرات مراقبة'], skills: ['تركيب', 'صيانة'], capabilities: ['bookable', 'locatable', 'quotable'], related: ['electrician'] },
-  { id: 'phone_tech', label: 'تقني هواتف', sector: 'it', specializations: ['إصلاح شاشات', 'برمجة', 'بطاريات'], skills: ['لحام دقيق'], capabilities: ['bookable', 'locatable'] },
+  { id: 'it_tech', concept: 'computer_repair_technician_it_technician', label: 'تقني معلوماتيّة', sector: 'it', specializations: ['شبكات', 'إصلاح حواسيب', 'كاميرات مراقبة'], skills: ['تركيب', 'صيانة'], capabilities: ['bookable', 'locatable', 'quotable'], related: ['electrician'] },
+  { id: 'phone_tech', concept: 'mobile_phone_repair_technician', label: 'تقني هواتف', sector: 'it', specializations: ['إصلاح شاشات', 'برمجة', 'بطاريات'], skills: ['لحام دقيق'], capabilities: ['bookable', 'locatable'] },
   { id: 'gardener', label: 'بستانيّ', sector: 'home', specializations: ['تشذيب', 'عشب', 'ريّ'], skills: ['تقليم'], capabilities: ['bookable', 'locatable'] },
-  { id: 'cleaner', label: 'عامل تنظيف', sector: 'home', specializations: ['تنظيف منازل', 'ما بعد الأشغال', 'واجهات'], skills: [], capabilities: ['bookable', 'locatable'] },
-  { id: 'mover', label: 'نقل الأثاث', sector: 'transport', specializations: ['نقل', 'تغليف', 'فكّ وتركيب'], skills: [], capabilities: ['bookable', 'locatable', 'quotable'] },
-  { id: 'tutor', label: 'أستاذ دعم', sector: 'education', specializations: ['رياضيات', 'فيزياء', 'لغات'], skills: ['شرح'], capabilities: ['bookable', 'locatable'] },
+  { id: 'cleaner', concept: 'house_cleaner', label: 'عامل تنظيف', sector: 'home', specializations: ['تنظيف منازل', 'ما بعد الأشغال', 'واجهات'], skills: [], capabilities: ['bookable', 'locatable'] },
+  { id: 'mover', concept: 'moving_company', label: 'نقل الأثاث', sector: 'transport', specializations: ['نقل', 'تغليف', 'فكّ وتركيب'], skills: [], capabilities: ['bookable', 'locatable', 'quotable'] },
+  { id: 'tutor', concept: 'private_tutor', label: 'أستاذ دعم', sector: 'education', specializations: ['رياضيات', 'فيزياء', 'لغات'], skills: ['شرح'], capabilities: ['bookable', 'locatable'] },
 ];
 
 SEED.forEach(registerProfession);

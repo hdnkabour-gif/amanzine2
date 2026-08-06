@@ -25,6 +25,7 @@
   "minFactExpected": 13,
   "minAdminRead": 6,
   "minAdminExpected": 6,
-  "maxLostKnowledge": 1,
-  "maxContradiction": 5
+  "maxLostKnowledge": 0,
+  "maxContradiction": 0,
+  "maxAbstraction": 0
 }

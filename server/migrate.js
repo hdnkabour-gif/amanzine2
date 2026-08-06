@@ -119,6 +119,13 @@ async function migrate() {
     // مُعرِّفُ الشحنة عند الشركة — كان اسمُه livo_order_id رغم أنّه عامّ لكلّ
     // مزوّد. العمودُ القديم يبقى للتوافق ويُملأ معه، والقراءةُ تُفضّل الجديد.
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_shipment_id TEXT DEFAULT ''`).catch(() => {});
+    // إعادةُ المحاولة بعد عطبٍ عابرٍ لدى شركة التوصيل. الحالةُ في الطلب لا
+    // في جدولٍ موازٍ: الشحنةُ صفةٌ للطلب، وجدولٌ ثانٍ يعني حقيقتَين تتباعدان.
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_retry_at TIMESTAMPTZ`).catch(() => {});
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_attempts INTEGER DEFAULT 0`).catch(() => {});
+    // فهرسٌ جزئيّ: المُعيدُ يسأل كلَّ خمس دقائق عن صفوفٍ قليلةٍ جدًّا.
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_orders_delivery_retry
+      ON orders(delivery_retry_at) WHERE delivery_retry_at IS NOT NULL`).catch(() => {});
     await client.query(
       `UPDATE orders SET provider_shipment_id = livo_order_id
        WHERE COALESCE(provider_shipment_id,'') = '' AND COALESCE(livo_order_id,'') <> ''`
@@ -863,3 +870,20 @@ async function migrate() {
 }
 
 module.exports = migrate;
+
+// ── تشغيلٌ مباشر ──────────────────────────────────────────────
+//
+//   بلا هذا كان `node migrate.js` **يُحمِّل الدالّةَ ويخرج بلا عمل**، ولا
+//   شيءَ يقول إنّه لم يحدث شيء: صفرُ خرجٍ وصفرُ خطأ. فتُنشَأ قاعدةُ تطويرٍ
+//   نظيفةٌ ويُظنّ أنّها مُرحَّلة، ثمّ تسقط الاختباراتُ بـ«relation does not
+//   exist» فيُظنّ العطبُ في الاختبار لا في الترحيل.
+//
+//   الإنتاجُ لم يُصَب: `server/index.js` ينتظر `migrate()` عند الإقلاع.
+//   العطبُ كان في الطريق اليدويّ وحدَه — وهو الطريقُ الذي يسلكه كلُّ من
+//   يهيّئ بيئتَه لأوّل مرّة.
+if (require.main === module) {
+  migrate()
+    .then(() => pool.end())
+    .then(() => process.exit(0))
+    .catch((err) => { console.error(err); process.exit(1); });
+}

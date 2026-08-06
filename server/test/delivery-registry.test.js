@@ -258,9 +258,40 @@ test('لا مسارَ يفبرك رقمَ تتبّعٍ ويكتبه في حقل 
 test('حين لا تُرسَل الشحنةُ تُعلَن الحالةُ ولا يُخترَع رقم', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const src = fs.readFileSync(path.join(__dirname, '..', 'routes', 'delivery.js'), 'utf8');
-  assert.ok(/deliveryStatus:\s*'manual_required'/.test(src),
+  // المحاولةُ انتقلت من المسار إلى `lib/shipmentAttempt.js` ليشترك فيها
+  // الزرُّ والمُعيدُ الدوريّ. الحارسُ يتبع الكودَ إلى حيث صار.
+  const attempt = fs.readFileSync(path.join(__dirname, '..', 'lib', 'shipmentAttempt.js'), 'utf8');
+  const route = fs.readFileSync(path.join(__dirname, '..', 'routes', 'delivery.js'), 'utf8');
+
+  assert.ok(/deliveryStatus:\s*'manual_required'/.test(attempt),
     'مسارُ العجز يجب أن يُعلن manual_required — لا أن يصمت');
-  assert.ok(!/router\.post\('\/simulate/.test(src),
+  // والعجزُ الدائمُ وحدَه يوجب الإدخالَ اليدويّ. العابرُ يُجدوَل، وإلّا عاد
+  // انقطاعُ دقيقتَين عملًا يدويًّا على التاجر.
+  assert.ok(/deliveryStatus:\s*'retry_scheduled'/.test(attempt),
+    'لا حالةَ «مجدوَلة» — كلُّ فشلٍ يُسلَّم للإنسان ولو كان عابرًا');
+  assert.ok(!/router\.post\('\/simulate/.test(route),
     'المسارُ القديم `/simulate` بابٌ خلفيٌّ يُعيد الفبركة');
+  // ولا يُنشئ المسارُ شحنةً بنفسه بعد الاستخراج: نسختان تتباعدان.
+  assert.ok(!/createShipment\(/.test(route),
+    'مسارُ HTTP يُنشئ الشحنةَ بنفسه — عادت النسخةُ الثانية التي يجب ألّا تعود');
+});
+
+// ── الكذبةُ التي بقيت في المتصفّح بعد أن أُزيلت من الخادم ──────
+//
+//   الخادمُ توقّف عن فبركة `TRK-XXXXXX`، وبقي `store.tsx` يولّده **قبل** أن
+//   يسأل الخادمَ ويكتبه في نفس الحقل ويَسِم الطلبَ `shipped`. فيرى التاجرُ
+//   «مشحون» برقمٍ أخضرَ ولا شحنةَ عند الشركة.
+//
+//   وهي تُبطل إعادةَ المحاولة تمامًا: الطابورُ يشترط رقمَ تتبّعٍ فارغًا (كي لا
+//   تُنشأ شحنتان)، ورقمٌ مخترَعٌ يعني ألّا يُعاد الطلبُ أبدًا.
+test('العميلُ لا يخترع رقمَ تتبّعٍ ولا يَسِم «مشحون» بلا شحنة', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const store = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'store.tsx'), 'utf8');
+  const ship = (store.match(/const shipOrder = async[\s\S]*?\n  \};/) || [''])[0];
+  assert.ok(ship.length > 200, 'تعذّر قراءةُ `shipOrder` — الحارسُ صار أعمى');
+  assert.ok(!/'TRK-'\s*\+/.test(ship),
+    'العميلُ يولّد رقمَ تتبّعٍ — الحقلُ لِما جاء من الشركة وحدَه');
+  assert.ok(/if \(result\.real\)/.test(ship),
+    '«مشحون» تُكتَب بلا شرطِ نجاحٍ حقيقيّ — يرى التاجرُ شحنةً لا وجودَ لها');
 });

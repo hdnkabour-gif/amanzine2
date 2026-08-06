@@ -500,7 +500,7 @@ test('كلُّ مسارٍ عامٍّ مُسجَّلٍ له بابٌ في الو�
     `مسارٌ يعمل ولا يصله أحد: ${doorless.join(' · ')} — ضَع له رابطًا أو احذفه`);
 });
 
-test('لا مكوّنَ مبنيٌّ بصفر استيراد — يُركَّب أو يُحذَف', () => {
+test('⑤ لا ملفَّ واجهةٍ لا يبلغه التطبيق — يُركَّب أو يُحذَف', () => {
   // العطبُ الذي وُلد منه هذا: ستّةُ مكوّناتٍ مكتوبةٍ لا يستوردها أحد
   // (BROKEN_CHAINS#⑩⑪) — منها `CapabilityBar` الذي يعرض قدراتِ الصفحة،
   // و`CommandCenter` الذي هو تنفيذُ قرارٍ معتمَد (DR-0005). كودٌ ميّتٌ يبدو
@@ -518,17 +518,50 @@ test('لا مكوّنَ مبنيٌّ بصفر استيراد — يُركَّب 
   })(join(ROOT_DIR, 'src'));
   const all = files.map(f => readFileSync(f, 'utf8')).join('\n');
 
-  const orphans = [];
-  for (const e of readdirSync(COMPONENTS)) {
-    if (!e.endsWith('.tsx')) continue;
-    const name = e.replace(/\.tsx$/, '');
-    // الاستيرادُ المباشرُ أو الكسولُ — كلاهما تركيب. `MapView` يُستورَد
-    // بـ`lazy(() => import(...))` وحدَه، فحصرُ البحث في `from '…'` يقتله ظلمًا.
-    const rx = new RegExp(`(?:from|import\\()\\s*['"\`][^'"\`]*/${name}['"\`]`);
-    if (!rx.test(all)) orphans.push(name);
+  // ── مسحُ الوصول من نقطة الدخول ────────────────────────────
+  //
+  //   كان هذا الحارسُ يمسح `src/components/` **وحدَه**. فمرّت ٤٥٠ سطرًا ميّتةً
+  //   في `src/pages/`: ستّةُ أقسامٍ في صفحة الهبوط لا يستوردها شيء، وأداةٌ
+  //   في `src/utils/`. القاعدةُ ⑤ لم تكن خاطئة — الحارسُ كان أعمى عن نصف البيت.
+  //
+  //   والمسحُ الآن **بالوصول** لا بالاسم: نمشي من `main.tsx` على الاستيرادات
+  //   كلِّها (ساكنٍ وكسولٍ وجانبيّ)، وما لا نبلغه يتيم. وهذا وحدَه يحلّ
+  //   استيرادَ المجلّد (`from './Landing'` ⇒ `Landing/index.tsx`) الذي أسقط
+  //   صفحةَ الهبوط الحيّةَ كلَّها في تقريرٍ سابقٍ للمفصول.
+  const EXT = ['', '.ts', '.tsx', '/index.ts', '/index.tsx'];
+  const resolveSpec = (from, spec) => {
+    if (!spec.startsWith('.')) return null;
+    const base = join(from, '..', spec);
+    for (const e of EXT) {
+      const c = base + e;
+      if (existsSync(c) && statSync(c).isFile()) return c;
+    }
+    return null;
+  };
+  const IMPORT_RX = [
+    /from\s+['"`]([^'"`]+)['"`]/g,
+    /import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g,
+    /^\s*import\s+['"`]([^'"`]+)['"`]/gm,
+  ];
+  const reached = new Set();
+  const queue = [join(ROOT_DIR, 'src/main.tsx')];
+  while (queue.length) {
+    const f = queue.pop();
+    if (reached.has(f)) continue;
+    reached.add(f);
+    const src = readFileSync(f, 'utf8');
+    for (const rx of IMPORT_RX) {
+      for (const m of src.matchAll(rx)) {
+        const r = resolveSpec(f, m[1]);
+        if (r && !reached.has(r)) queue.push(r);
+      }
+    }
   }
-  assert.deepEqual(orphans, [],
-    `مكوّنٌ بلا مستورِد: ${orphans.join(' · ')} — رَكِّبه حيث يخدم، أو احذفه`);
+
+  const orphans = files.filter(f => !reached.has(f)).map(f => f.replace(ROOT_DIR, ''));
+  assert.deepEqual(orphans.sort(), [],
+    `ملفّاتٌ لا يبلغها التطبيقُ من \`main.tsx\`:\n  ${orphans.join('\n  ')}\n`
+    + '  رَكِّبها حيث تخدم، أو احذفها. الميّتُ الصامتُ يُقرأ كأنّه حيّ.');
 });
 
 test('قياسٌ يُكتب يجب أن يُقرأ — لا دالّةَ إحصاءٍ بلا شاشة', () => {
@@ -691,4 +724,87 @@ test('لا مصفوفةَ نصوصٍ تُحاكي فئاتِ الكتالوج', 
   }
   assert.deepEqual(offenders, [],
     `قائمةُ فئاتٍ ثانيةٌ — تتخلّف عن الكتالوج عند أوّل تعديل:\n  ${offenders.join('\n  ')}`);
+});
+
+// ============================================================
+// ㉒ **حَكَمٌ واحدٌ يقول: نفّذ أم اسأل.**
+//
+//   كان الحكمُ في مكانَين يقرآن نفسَ الرقم بعتبتَين مختلفتَين:
+//   `executionPolicy` بعتبةٍ تتبع خطورةَ القدرة، و`interfaceDecision`
+//   بعتبةٍ عامّةٍ لا تعرف الخطورة. فعلى الجملة الواحدة قال الأوّل «نفّذ»
+//   وقال الثاني «أكّد» — ولا أحدَ يرى الخلافَ لأنّ كلًّا منهما يُختبَر وحدَه.
+//
+//   وأسوأُ من الخلاف أنّ أحدَهما كان يُهمَل: من أحكام `decideExecution`
+//   الخمسة استهلكت الواجهةُ **حكمَين** ورَمَت ثلاثة، وبَنَت ما تعرضه من
+//   حسابها الخاصّ. حسابٌ صحيحٌ بلا مستهلك — القاعدة ④.
+// ============================================================
+test('㉒ لا حَكَمَ ثانيًا: طبقةُ الواجهة لا تقيس الثقةَ بنفسها', () => {
+  const src = readFileSync(join(ROOT, 'src/lib/interfaceDecision.ts'), 'utf8');
+  const code = src.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.ok(!/CONFIDENCE\s*\./.test(code),
+    'عادت عتبةُ الثقة إلى طبقة الواجهة — عتبةٌ في مكانَين تتباعد بصمت');
+  assert.ok(!/\bconfidence\b/.test(code),
+    'طبقةُ الواجهة تقرأ `confidence` — الحكمُ من `executionPolicy` وحدَه');
+  assert.match(code, /verdict: Verdict/,
+    'الحكمُ ليس مُدخلًا مُلزِمًا — سيعمل مسارٌ احتياطيٌّ بصمتٍ في كلّ نداءٍ نسيه');
+});
+
+test('㉒ كلُّ حكمٍ يُخرجه الحَكَمُ له شكلٌ في الواجهة — لا حكمَ يُرمى', () => {
+  const policy = readFileSync(join(ROOT, 'src/lib/executionPolicy.ts'), 'utf8');
+  const iface = readFileSync(join(ROOT, 'src/lib/interfaceDecision.ts'), 'utf8');
+  // اتّحادُ الأحكام يُقرأ من تعريف النوع نفسِه، فيتّسع تلقائيًّا مع كلّ حكمٍ يُضاف.
+  const union = (policy.match(/export type Verdict =([\s\S]*?);/) || [])[1] || '';
+  const verdicts = [...union.matchAll(/'(\w+)'/g)].map(m => m[1]);
+  assert.ok(verdicts.length >= 4, `قُرئت ${verdicts.length} أحكامٍ فقط — تغيّرت الصيغةُ والحارسُ صار أعمى`);
+  const unhandled = verdicts.filter(v => !new RegExp(`verdict === '${v}'`).test(iface));
+  assert.deepEqual(unhandled, [],
+    `أحكامٌ تُحسَب ولا شكلَ لها: ${unhandled.join(' · ')} — أعطِها شكلًا أو احذفها من الاتّحاد`);
+});
+
+test('㉒ لا يُستدعى الحَكَمان في مشهدٍ واحد أكثرَ من مرّة', () => {
+  const home = readFileSync(join(ROOT, 'src/pages/LivingHome.tsx'), 'utf8');
+  const code = home.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  const calls = (n) => (code.match(new RegExp(`\\b${n}\\(`, 'g')) || []).length;
+  assert.equal(calls('decideInterface'), 1,
+    `\`decideInterface\` تُستدعى ${calls('decideInterface')} مرّات — الحسابُ الثاني لا يعرف الحكمَ فيخالفه`);
+  assert.equal(calls('decideExecution'), 1, 'حَكَمان في مشهدٍ واحد');
+  // `understand(q)` كانت تُستدعى مرّتين هنا بعد أن حلّلها `orchestrate`.
+  // والخطرُ ليس الكلفةَ بل تباعُدَ الفهم بين نداءٍ وآخرَ في نفس الدالّة.
+  const submit = (code.match(/const submit = \(raw: string\) => \{[\s\S]*?\n  \};/) || [''])[0];
+  const parses = (submit.match(/\bunderstand\(/g) || []).length;
+  assert.ok(parses <= 1, `\`submit\` يحلّل الجملةَ ${parses} مرّات — تحليلٌ واحدٌ يكفي`);
+});
+
+// ============================================================
+// ㉓ **قائمةُ مفاتيح الذاكرة واحدة** — ولو كُتبت بلغتَين.
+//
+//   المفاتيحُ مُعلَنةٌ مرّتين: `SYNCED_KEYS` في العميل (ما يُرفَع) و
+//   `MEMORY_KEYS` في الخادم (ما يُقبَل، وباستراتيجيّة دمجٍ لكلّ مفتاح).
+//   ولا يمكن دمجُهما في ملفٍّ واحد: العميلُ يحتاج القائمةَ **قبل** أوّل
+//   ردٍّ من الخادم ليرفع ما عنده، والخادمُ يحتاجها ليرفض ما لا يعرف.
+//
+//   وضررُ التباعد صامتٌ وكامل: `validateBatch` يردّ **الدفعةَ كلَّها** بـ400
+//   على مفتاحٍ واحدٍ غيرِ معروف، والعميلُ يبتلع الفشلَ ويُكمل من ذاكرته
+//   المحلّيّة. فمَن أضاف مفتاحًا في جهةٍ واحدةٍ أوقف مزامنةَ **كلّ** ما
+//   يتعلّمه التطبيقُ عن كلّ إنسان — بلا رسالةٍ ولا سجلّ.
+// ============================================================
+test('㉓ مفاتيحُ الذاكرة متطابقةٌ بين العميل والخادم', () => {
+  const client = readFileSync(join(ROOT, 'src/lib/userMemory.ts'), 'utf8');
+  const server = readFileSync(join(ROOT, 'server/lib/userMemory.js'), 'utf8');
+
+  const clientList = (client.match(/const SYNCED_KEYS = \[([\s\S]*?)\]/) || [])[1] || '';
+  const clientKeys = [...clientList.matchAll(/'([\w]+)'/g)].map(m => m[1]).sort();
+
+  const serverList = (server.match(/const MEMORY_KEYS = \{([\s\S]*?)\n\};/) || [])[1] || '';
+  const serverKeys = [...serverList.matchAll(/^\s{2}(\w+):\s*\{/gm)].map(m => m[1]).sort();
+
+  assert.ok(clientKeys.length >= 8, `قُرئت ${clientKeys.length} مفاتيحَ من العميل — تغيّرت الصيغةُ والحارسُ صار أعمى`);
+  assert.ok(serverKeys.length >= 8, `قُرئت ${serverKeys.length} مفاتيحَ من الخادم — تغيّرت الصيغةُ والحارسُ صار أعمى`);
+
+  const onlyClient = clientKeys.filter(k => !serverKeys.includes(k));
+  const onlyServer = serverKeys.filter(k => !clientKeys.includes(k));
+  assert.deepEqual(onlyClient, [],
+    `مفاتيحُ يرفعها العميلُ ويرفضها الخادمُ — تتوقّف المزامنةُ كلُّها بلا رسالة: ${onlyClient.join(' · ')}`);
+  assert.deepEqual(onlyServer, [],
+    `مفاتيحُ يقبلها الخادمُ ولا يرفعها أحد — ذاكرةٌ لا تُملأ أبدًا: ${onlyServer.join(' · ')}`);
 });

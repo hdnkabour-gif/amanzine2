@@ -41,6 +41,10 @@ export interface ShipResult {
   openUrl?: string;
   steps?: { label: string; ok: boolean; detail?: string; error?: string }[];
   manualCopy?: string;
+  /** إعادةُ محاولةٍ مجدوَلة بعد عطبٍ عابرٍ لدى الشركة — لا عملَ على التاجر. */
+  retryAt?: string | null;
+  /** هل يلزم إدخالٌ يدويّ؟ فشلٌ دائمٌ وحدَه يوجبه. */
+  needsManual?: boolean;
 }
 
 interface StoreValue {
@@ -621,7 +625,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const shipOrder = async (id: string, provider?: string, tracking?: string): Promise<ShipResult | void> => {
-    let trk = tracking || 'TRK-' + Math.random().toString(36).slice(2,8).toUpperCase();
+    // ── لا رقمَ تتبّعٍ مُخترَع ──────────────────────────────────────
+    //   كان يُولَّد `TRK-XXXXXX` هنا **قبل** سؤال الخادم، ويُكتَب في نفس حقل
+    //   الرقم الحقيقيّ، ويُوسَم الطلبُ `shipped` ولو قال الخادمُ إنّه لم يُرسل.
+    //   الخادمُ كان قد تخلّص من هذه الكذبة، وبقيت في المتصفّح — فبقيت.
+    //
+    //   وهي تُبطل إعادةَ المحاولة تمامًا: الطابورُ يشترط رقمَ تتبّعٍ فارغًا
+    //   (وإلّا أُنشئت شحنتان لزبون)، ورقمٌ مخترَعٌ يعني ألّا يُعاد الطلبُ أبدًا.
+    let trk = tracking || '';
     // لا اسمَ شركةٍ افتراضيًّا: «Amana» هنا كانت تنسب الشحنةَ لشركةٍ قد لا
     // يتعامل معها التاجر. الخادمُ يُعيد الاسمَ الحقيقيَّ بعد الإنشاء.
     let prov = provider || state.settings.delivery?.defaultProvider || '';
@@ -645,11 +656,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (d?.provider) prov = d.provider;
           result = { real: !!d?.real, tracking: trk, provider: prov, via: d?.via,
             apiError: d?.apiError, openUrl: d?.openUrl || d?.manual?.openUrl,
-            steps: d?.steps, manualCopy: d?.manual?.copyText };
+            steps: d?.steps, manualCopy: d?.manual?.copyText,
+            retryAt: d?.retryAt || null, needsManual: !!d?.needsManual };
           if (d?.real) {
             shipMsg = { type: 'success', text: `🚚 شُحن الطلب — ✅ شحنة حقيقية لدى ${prov} (تتبع: ${trk})` };
+          } else if (d?.retryAt) {
+            const at = new Date(d.retryAt).toLocaleTimeString('ar-MA', { hour: '2-digit', minute: '2-digit' });
+            shipMsg = { type: 'info', text: `🔁 ${prov} ما جاوباتش دابا — غانعاودو بوحدنا على ${at}. ما تدير والو.` };
           } else {
-            shipMsg = { type: 'warning', text: `🚚 شُحن الطلب لكن ⚠️ بوضع المحاكاة — لم يُرسل فعلياً لـ${prov}. أدخله يدوياً في موقع الشركة. تتبع داخلي: ${trk}${d?.apiError ? ` · السبب: ${d.apiError}` : ''}` };
+            shipMsg = { type: 'warning', text: `⚠️ لم يُرسَل الطلبُ لـ${prov} — سجّله في موقع الشركة وألصق رقمَ التتبّع هنا${d?.apiError ? ` · السبب: ${d.apiError}` : ''}` };
           }
         } catch (e: any) {
           // لا شركة مهيأة أو فشل المسار — نكمل الشحن برقم داخلي مع توضيح
@@ -660,12 +675,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           shipMsg = { type: 'info', text: `🚚 شُحن الطلب برقم تتبع داخلي ${trk} — ${noProv ? 'لا توجد شركة توصيل مفعّلة (أضف واحدة من صفحة التوصيل)' : `تعذر إنشاء الشحنة لدى الشركة: ${e?.message || ''}`}` };
         }
       }
-      // الخطوة 2: تسجيل الطلب كمشحون بالتتبع النهائي
-      setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'shipped' as OrderStatus, trackingNumber: trk, deliveryProvider: prov } : o) }));
-      try {
-        const updated = await api.ordersAPI.ship(id, { trackingNumber: trk, provider: prov });
-        setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? updated : o) }));
-      } catch (e: any) { notify('error', `⚠️ الشحن لم يُسجل على الخادم: ${e?.message || 'تحقق من الاتصال'}`); return; }
+      // ── الخطوة ٢: «مشحون» تُقال حين يُشحَن ─────────────────────
+      //   كان الطلبُ يُوسَم `shipped` في كلّ الحالات — حتّى حين يقول الخادمُ
+      //   صراحةً إنّه لم يُرسِل. فيرى التاجرُ «مشحون» ولا شحنةَ عند الشركة.
+      //   الآن: نجاحٌ حقيقيٌّ ⇒ مشحون. وما عداه يبقى على ما كتبه الخادمُ
+      //   (`processing` + سببٌ ظاهر)، وحالتُه تُقرأ منه لا تُخمَّن هنا.
+      if (result.real) {
+        setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'shipped' as OrderStatus, trackingNumber: trk, deliveryProvider: prov } : o) }));
+        try {
+          const updated = await api.ordersAPI.ship(id, { trackingNumber: trk, provider: prov });
+          setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? updated : o) }));
+        } catch (e: any) { notify('error', `⚠️ الشحن لم يُسجل على الخادم: ${e?.message || 'تحقق من الاتصال'}`); return; }
+      } else {
+        // نقرأ الطلبَ كما كتبه الخادمُ: `retry_scheduled` أو `manual_required`.
+        try {
+          const all = await api.ordersAPI.list();
+          const fresh = Array.isArray(all) ? all.find((o: any) => o.id === id) : null;
+          if (fresh) setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? fresh : o) }));
+        } catch { /* العرضُ يبقى على ما هو، والرسالةُ قالت الحقيقة */ }
+      }
     } else {
       setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'shipped' as OrderStatus, trackingNumber: trk, deliveryProvider: prov } : o) }));
       shipMsg = { type: 'info', text: `🚚 شُحن محلياً (بدون اتصال) — تتبع: ${trk}` };

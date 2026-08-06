@@ -20,7 +20,7 @@ import { understand, stanceOf } from '../src/lib/akg/kb';
 import { parseNeed } from '../src/lib/needEngine';
 import { readHuman } from '../src/lib/humanIntent';
 import { decideExecution } from '../src/lib/executionPolicy';
-import { abilityFor, canDo } from '../src/lib/abilities';
+import { abilityFor } from '../src/lib/abilities';
 import { readPersonFacts } from '../src/lib/personFacts';
 import { readAction } from '../src/lib/akg/kb/actions';
 import { resolveConcept } from '../src/lib/akg/kb/knowledge';
@@ -68,6 +68,15 @@ export interface Pulse {
   lostKnowledge: number;
   /** كلاهما يعرف ويُسمّيان **حرفتَين مختلفتَين** — تناقضٌ لا تفاوتُ دقّة. */
   contradiction: number;
+  /**
+   * **اختلافُ مستوى التجريد** — لا خلافَ في المعنى.
+   *
+   *   قاعدةٌ تقول «متجر/مطعم» ومعرفةٌ تقول `greengrocer`: الثانيةُ أدقُّ
+   *   والأولى ليست خاطئة. فُصل عن `contradiction` بعد أن كشف القياسُ أنّ
+   *   ثلاثةً من أربعةِ «تناقضاتٍ» كانت من هذا الصنف — فيُصرَف الجهدُ إلى
+   *   رفع الدقّة لا إلى إصلاح خلافٍ لا وجودَ له.
+   */
+  abstraction: number;
   /** جملٌ لم يفهمها أحدٌ إطلاقًا. */
   silent: number;
   /**
@@ -107,7 +116,7 @@ export function measure(): Pulse {
   const verdicts: Record<string, number> = {};
   let understood = 0, stanceKnown = 0, personFacts = 0, abilityMatched = 0;
   let lostKnowledge = 0, contradiction = 0, wrongExecutions = 0, silent = 0, variantDrift = 0;
-  let recklessExecutions = 0, unconfirmedDestructive = 0, needlessAsks = 0;
+  let recklessExecutions = 0, unconfirmedDestructive = 0, needlessAsks = 0, abstraction = 0;
   let correct = 0, judged = 0, adminRead = 0;
 
   // تحويلاتٌ من الشارع: لوحاتُ مفاتيحَ مختلفة، ومدُّ الحروف، وتشكيلٌ.
@@ -125,8 +134,9 @@ export function measure(): Pulse {
     const u = understand(s);
     const r = parseNeed(s, {}) as { intent: string };
     const match = abilityFor({ action: u.action ?? null, intent: r.intent });
-    const able = match ? canDo(match.verb, match.entity) : true;
-    const d = decideExecution(u, able, match ?? undefined);
+    // كان هنا `canDo(match.verb, match.entity)` — سؤالٌ عن قدرةٍ أُخِذت من
+    // القائمة نفسِها، فجوابُه `true` بحكم البناء. حُذف مع حكمِ «الرفض».
+    const d = decideExecution(u, match ?? undefined);
 
     // **المهنةُ فهمٌ كالمفهوم.** كان يُعَدّ `service` وحدَه، فـ«عندي مشكل
     // ديال الضو» ⇒ «كهربائي» تُحسَب إخفاقًا وهي إصابةٌ تامّة. رابعُ عيبٍ
@@ -150,10 +160,22 @@ export function measure(): Pulse {
       const names = Object.values(resolveConcept(s)?.concept || {}).map(normLoose)
         .concat(normLoose(u.service || ''), normLoose(u.profession?.label || ''))
         .filter(Boolean);
-      // «متجر/مطعم» أعمُّ من `greengrocer` ولا يناقضه — فالعمومُ لا يُعَدّ خلافًا.
-      const GENERIC = ['متجر مطعم', 'متجر', 'مطعم'];
-      const same = tags.some(t => GENERIC.includes(t) || names.some(n => t.includes(n) || n.includes(t)));
-      if (!same) contradiction++;
+      const same = tags.some(t => names.some(n => t.includes(n) || n.includes(t)));
+      // ── **الفصلُ الرابع الذي يُكشَف في مقياس** ─────────────────
+      //
+      //   «متجر/مطعم» مقابل `greengrocer` **ليس تناقضًا**: خضّارٌ نوعٌ من
+      //   متجر. الأوّلُ أقلُّ دقّةً لا أكثرُ خطأً — واختلافُ **مستوى التجريد**
+      //   مشكلةٌ أخرى تُصلَح بغير ما يُصلَح به التناقض.
+      //
+      //   وكانت القائمةُ اليدويّة `GENERIC` تحاول التمييزَ فتُخطئ: الوسمُ
+      //   يُكتَب «متجر/مطعم» بشرطةٍ مائلة، والقائمةُ فيها «متجر مطعم» بمسافة،
+      //   فلا يتطابقان. ثلاثُ جملٍ عُدَّت تناقضًا وهي ليست كذلك.
+      //
+      //   والتمييزُ الآن **من بنية الوسم لا من قائمة**: الوسمُ الذي يعرض
+      //   بديلَين (`/` · «أو» · «،») تصريحُ عدمِ حسمٍ لا دعوى مضادّة. من قال
+      //   «واحدٌ من هذين» لم يناقض من قال «هذا بعينه».
+      const undecided = tags.some(t => /[/،]|\bأو\b/.test(t));
+      if (!same) { if (undecided) abstraction++; else contradiction++; }
     }
 
     if (!aKnows && !bKnows && readHuman(s).intent === 'NONE' && stanceOf(s) === 'unknown') silent++;
@@ -208,8 +230,9 @@ export function measure(): Pulse {
   const unclassified = ALL.filter(x => !CLASSIFIED.includes(x)).length;
 
   return { sentences: ALL.length, understood, stanceKnown, personFacts, stages,
-    conceptExpected: EXPECT_CONCEPT.length, factExpected: factExpected.length, adminRead, adminExpected: EXPECT_ADMIN.length, unclassified,
-    abilityMatched, verdicts, lostKnowledge, contradiction, silent, variantDrift,
+    conceptExpected: EXPECT_CONCEPT.length, factExpected: factExpected.length,
+    adminRead, adminExpected: EXPECT_ADMIN.length, unclassified,
+    abilityMatched, verdicts, lostKnowledge, contradiction, abstraction, silent, variantDrift,
     wrongExecutions, recklessExecutions, unconfirmedDestructive, needlessAsks, correct, judged };
 }
 
@@ -229,6 +252,7 @@ export function render(p: Pulse): string {
     `الأحكام         : ${v}`,
     `معرفةٌ ضائعة    : ${p.lostKnowledge}   ← يعرفها عقلٌ ويجهلها الآخر`,
     `تناقضٌ صريح     : ${p.contradiction}   ← حرفتان مختلفتان لجملةٍ واحدة`,
+    `تفاوتُ الدقّة   : ${p.abstraction}   ← «متجر/مطعم» مقابل «خضّار» — أقلُّ دقّةً لا خطأ`,
     `صمتٌ تامّ        : ${pct(p.silent)}`,
     `انحرافُ الصيغة  : ${p.variantDrift}   ← كلّما قلّ كان أفضل`,
     '',

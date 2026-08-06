@@ -547,6 +547,47 @@ function startAbandonedCartCron() {
 }
 startAbandonedCartCron();
 
+// ── مُعيدُ محاولةِ الشحن ──────────────────────────────────────────
+//
+//   `lib/retryQueue.js` كان مبنيًّا ومُختبَرًا **ولا يستدعيه أحد**: كلُّ فشلٍ
+//   لدى شركة التوصيل — ولو كان مهلةً عابرةً لدقيقتَين — يُقابَل بـ«سجّل الطلبَ
+//   في موقع الشركة يدويًّا». أي أنّ انقطاعًا لا يدَ للتاجر فيه يتحوّل عملًا
+//   عليه، والشحنةُ قد لا تُرسَل أصلًا إن انشغل.
+//
+//   يمرّ كلَّ خمس دقائق على الطلبات التي حان موعدُها ويسلك **نفسَ** مسار
+//   الشحن الذي يسلكه الزرّ (`lib/shipmentAttempt`)، فلا نسختان تتباعدان.
+//   والقرارُ — أيُعاد أم يُطلَب الإنسان — يبقى في `retryQueue` وحدَه.
+function startShipmentRetryCron() {
+  const { db } = require('./database');
+  const { runShipment } = require('./lib/shipmentAttempt');
+  async function run() {
+    try {
+      const due = await db.getOrdersDueForDeliveryRetry();
+      for (const order of due) {
+        // الشركةُ تُعاد قراءتُها في كلّ محاولة: قد يكون التاجرُ أصلح المفتاحَ
+        // أو عطّل الشركةَ بين محاولتَين، فالصفُّ المحفوظ قد يكون قديمًا.
+        const provs = (await db.getDeliveryProviders(order.userId)).filter(p => p.enabled);
+        const prov = provs.find(p => p.name === order.deliveryProvider) || provs[0];
+        if (!prov) {
+          // لا شركةَ مفعّلةً الآن ⇒ لا معنى لإعادةٍ سادسة. يُسلَّم للإنسان.
+          await db.updateOrder(order.id, { deliveryStatus: 'manual_required', deliveryRetryAt: null });
+          continue;
+        }
+        const settings = (await db.getSettings(order.userId)) || {};
+        await runShipment({
+          userId: order.userId, order, prov, settings,
+          attempts: Number(order.deliveryAttempts || 0),
+        });
+      }
+      if (due.length) console.log(`[ShipmentRetry] Retried ${due.length} shipment(s)`);
+    } catch (e) { console.error('[ShipmentRetry]', e.message); }
+  }
+  setTimeout(run, 45 * 1000);
+  setInterval(run, 5 * 60 * 1000);
+  console.log('[ShipmentRetry] Cron scheduled every 5 minutes');
+}
+startShipmentRetryCron();
+
 
 
 module.exports = app;

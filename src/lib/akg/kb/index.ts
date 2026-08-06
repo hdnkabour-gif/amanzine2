@@ -38,7 +38,7 @@ import { detectFacts, FACT_LABEL, type FactTopic } from './facts';
 import { readAction, type ActionRead } from './actions';
 import { readMood, type MoodRead } from './mood';
 import { getProblem, type Problem } from './problems';
-import { findProblemBySymptom } from './symptomGraph';
+import { findProblemBySymptom, BREAKDOWN_WORDS } from './symptomGraph';
 import { getProfession, findProfessionByLabel, type Profession } from './professions';
 import { cityInText } from './geo';
 import { matchApprovedMemory } from './memory';
@@ -358,7 +358,48 @@ export function understand(input: string): Understanding {
   let category: string | undefined;
   let service: string | undefined;
   let language: string | undefined;
-  const kc = resolveConcept(input);   // النصّ الأصليّ (لا المُعرَّب) — ليقرأ الفرنسيّة/الإنجليزيّة
+  // ── المشكلةُ تدلّ على الحرفة، ومطابقةُ الكلمة لا تنقضها ──────
+  //
+  //   «الثلاجة ما بقاتش **خدامة**»: طبقةُ الأعراض عرفت المشكلةَ («الثلّاجة لا
+  //   تبرّد») وحلَّها (`home_appliance_repair`) — ثمّ جاءت مطابقةُ الكلمة
+  //   فقرأت «خدامة» **خادمةَ منزل** وكتبتها فوق ذلك. فصار عطبُ ثلّاجةٍ طلبَ
+  //   عاملةِ تنظيف، وهي هنا صفةُ عملٍ («ما بقاتش خدامة» = ما بقات تخدم) لا مهنة.
+  //
+  //   ونفسُ الجذر أضاع الحالةَ الثانية: «الفريجيدير ما كيخدمش» عرف عقلٌ
+  //   حرفتَها وبقي `service` فارغًا لأنّ لا كلمةَ في الجملة تطابق مفهومًا.
+  //
+  //   والقاعدةُ العامّة التي تكرّرت في هذا التدقيق كلِّه: **طبقةٌ لاحقةٌ أضعفُ
+  //   لا تكتب فوق طبقةٍ سابقةٍ أقوى.** والمشكلةُ المستنتَجةُ من عرَضٍ أقوى من
+  //   كلمةٍ عابرة، لأنّها قُرئت من سياق الجملة لا من مطابقةٍ معجميّة.
+  //
+  //   ولا يُكتَب هنا مُعرِّفٌ مخترَع: `solutions[].profession` محروسٌ بأن يكون
+  //   مفهومًا معروفًا (`domains.test.ts`) — وكانت عشرةٌ منها أوهامًا.
+  //   ويُقرأ **عبر سجلّ المهن** لا مباشرةً: `problems.ts` تُحيل على مُعرِّف
+  //   مهنةٍ (`ac_tech`)، و`service` يجب أن يكون مُعرِّفَ **مفهوم** وإلّا خرج
+  //   إلى البحث والسوق مُعرِّفٌ لا تعرفه قاعدةُ المفاهيم. والجسرُ مُعلَنٌ
+  //   مرّةً واحدةً في `Profession.concept`.
+  const problemSolver = problem?.solutions?.[0]?.profession;
+  const problemService = problemSolver
+    ? (getProfession(problemSolver)?.concept || problemSolver)
+    : undefined;
+
+  const kcRaw = resolveConcept(input);   // النصّ الأصليّ (لا المُعرَّب) — ليقرأ الفرنسيّة/الإنجليزيّة
+  // ── رمزٌ واحدٌ لا يُقرأ قراءتَين في الجملة الواحدة ───────────
+  //
+  //   «الثلاجة ما بقاتش **خدامة**»: قرأت طبقةُ الأعراض «خدامة» **حالَ عطب**
+  //   (وهي في `BREAKDOWN_WORDS` عندها)، وقرأتها طبقةُ المفاهيم **مهنةً**
+  //   (وهي متغيّرٌ صحيحٌ لـ`house_cleaner`). كلتاهما محقّةٌ في قاموسها،
+  //   والحصيلةُ أنّ عطبَ ثلّاجةٍ صار طلبَ عاملةِ تنظيف.
+  //
+  //   والحسمُ ليس بترجيح طبقةٍ على أخرى — جُرِّب فأفسد «بغيت نغسل الطوموبيل».
+  //   بل بأنّ **الدليل** يُسأل: إن كان المصطلحُ الذي طابق كلمةَ عطب، فليس
+  //   دعوى مهنة. ولذلك بُني `matched.term` أصلًا — كي لا يبقى الفهمُ صندوقًا
+  //   أسود لا يُسأل عن سببه.
+  const kc = (kcRaw?.matched && BREAKDOWN_WORDS.has(normLoose(kcRaw.matched.term)))
+    ? undefined : kcRaw;
+  if (kcRaw && !kc) {
+    reasoning.push(`🚫 «${kcRaw.matched!.term}» كلمةُ عطبٍ لا مهنة — أُهملت قراءتُها مفهومًا`);
+  }
   if (kc) {
     category = kc.category || undefined;
     service = kc.id;
@@ -368,6 +409,19 @@ export function understand(input: string): Understanding {
       const p = findProfessionByLabel(kc.concept.ar || '') || findProfessionByLabel(kc.concept.darija || '');
       if (p) { profession = p; profConf = Math.max(profConf, 0.6); reasoning.push(`👤 المهنة من القاموس «${p.label}»`); }
     }
+  }
+  // ── وحدُّها: تملأ الفراغَ ولا تكتب فوق مطابقةٍ قائمة ──────────
+  //
+  //   جرّبتُ أن تفوز المشكلةُ دائمًا فقِيس الأثرُ فورًا: «بغيت نغسل الطوموبيل»
+  //   صارت `auto_body_paint` — من يريد غسلَ سيّارته يُساق إلى صبّاغ. لأنّ
+  //   مطابقةَ العرَض نفسَها تخطئ أحيانًا، فليست «أقوى» بإطلاق.
+  //
+  //   فالقاعدةُ الصادقة: **تملأ ما لم يُملأ**. «الفريجيدير ما كيخدمش» لا كلمةَ
+  //   فيها تطابق مفهومًا ⇒ تملؤها المشكلة. و«نغسل الطوموبيل» فيها مطابقةٌ
+  //   صريحةٌ للفعل والهدف ⇒ تبقى.
+  if (problemService && !service) {
+    service = problemService;
+    reasoning.push(`🩺 الخدمةُ من حلّ المشكلة «${problemService}» — لا كلمةَ في الجملة تدلّ عليها`);
   }
 
   // 3) الموقع — قاعدة المدن أوّلًا (أعمق: أسماء بديلة + أحياء)، ثمّ المطابقة القديمة.

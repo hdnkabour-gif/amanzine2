@@ -122,6 +122,11 @@ test('لا تضيع معرفةٌ بين العقلَين ولا يتّسع ال�
     `ضاعت معرفةٌ في ${p.lostKnowledge} جملةً وكانت ${BASE.maxLostKnowledge}`);
   assert.ok(p.contradiction <= BASE.maxContradiction,
     `تناقض العقلان في ${p.contradiction} جملةً وكان ${BASE.maxContradiction}`);
+  // **تفاوتُ الدقّة ليس تناقضًا** — وله سقفُه المستقلّ. لولا الفصلُ لظلّ
+  // السقفُ ٤ يُخفي تناقضًا حقيقيًّا واحدًا خلف ثلاثِ حالاتِ عمومٍ بريئة،
+  // ولأمكن أن يزيد التناقضُ إلى ٤ والسقّاطةُ خضراء.
+  assert.ok(p.abstraction <= BASE.maxAbstraction,
+    `تفاوتَ مستوى الدقّة في ${p.abstraction} جملةً وكان ${BASE.maxAbstraction}`);
 });
 
 test('لا صمتَ جديد', () => {
