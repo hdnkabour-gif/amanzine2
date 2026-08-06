@@ -37,6 +37,7 @@ import { detectAmbiguity, type Ambiguity } from './ambiguity';
 import { detectFacts, FACT_LABEL, type FactTopic } from './facts';
 import { readAction, type ActionRead } from './actions';
 import { readMood, type MoodRead } from './mood';
+import { detectLifeNeed, type LifeNeed } from './goals';
 import { getProblem, type Problem } from './problems';
 import { findProblemBySymptom, BREAKDOWN_WORDS } from './symptomGraph';
 import { getProfession, findProfessionByLabel, type Profession } from './professions';
@@ -75,6 +76,10 @@ export interface Understanding {
   // صيغةُ الكلام: التزامٌ يُنفَّذ، أم نقلٌ عن غيره أو ترّددٌ أو شرطٌ أو سؤالُ
   // «كيفاش»؟ التنفيذُ على غير الالتزام فعلٌ **لم يطلبه أحد**.
   mood?: MoodRead;
+  // **الغاية**: لماذا يتكلّم أصلًا. «بنتي داخلة للمدرسة» ليست طلبَ منتَج بل
+  // حالُ إنسانٍ يُشتَقّ منها ما يحتاج. تُقرأ قبل المفهوم لأنّها تصحّح
+  // الاتّجاهَ وتحمل سؤالَها الخاصّ — سؤالُ الغاية أنفعُ من «شنو محتاج؟».
+  goal?: LifeNeed;
 }
 
 // الاتّجاه: بدونه كان «أنا حدّاد» يُفهَم كطلبٍ لحدّاد، فيردّ التطبيق «نقلبو عليه»
@@ -300,6 +305,12 @@ function detectStance(t: string, c?: { stance?: { offer?: string[]; seek?: strin
 // اتّجاهُ نصٍّ بذاته (بلا فهمٍ كامل) — يحتاجه المساعد ليختار أيّ أسئلةٍ يعرض:
 // «أنا حدّاد» يُسأل سؤالَ العارض، و«بغيت حدّاد» يُسأل سؤالَ الطالب.
 export function stanceOf(input: string, conceptId?: string): Stance {
+  // **قاعدةُ الغاية تُعلَن هنا لا في `understand` وحدَها.**
+  //   لمّا وصلتُ الغايةَ بـ`understand` فقط قفز «الصمتُ التامّ» من ٠ إلى ٤
+  //   في النبض: `understand().stance` تقول «يطلب» و`stanceOf()` تقول «لا
+  //   أعرف» — عن الجملة نفسِها. أي أنّي أغلقتُ انقسامًا وفتحتُ آخرَ في
+  //   الساعة نفسِها، وأمسكه المقياسُ في أوّل تشغيل. القاعدةُ في موضعٍ واحد.
+  if (detectLifeNeed(input)) return 'seek';
   const t = normLoose(deArabizi(input));
   return detectStance(t, conceptId ? ALL_CONCEPTS.find(x => x.id === conceptId) : undefined);
 }
@@ -450,9 +461,29 @@ export function understand(input: string): Understanding {
   if (learned && profession) confidence = Math.max(confidence, 0.85);
   else if (learned) confidence = Math.max(confidence, 0.6);
 
+  // 5.5) **الغاية — لماذا يتكلّم، قبل ماذا يطلب.**
+  //
+  //   المغربيُّ لا يقول «بغيت محفظة ومئزر وأقلام»، يقول «بنتي داخلة
+  //   للمدرسة». وطبقةُ `goals` بُنيت لهذا منذ زمن — ووُصلت بـ`needEngine`
+  //   وحدَه. فبقيت `understand` عمياءَ عنها، وهذا هو أثرُ العمى مقيسًا على
+  //   تسع جملٍ من الجدول نفسِه:
+  //
+  //       «عندي مولود جديد»   ⇒ اتّجاه: **يَعرض**   ← أبٌ جديدٌ يُعامَل تاجرًا
+  //       «تنقلت لدار جديدة»  ⇒ اتّجاه: **يَعرض**
+  //       «كنوجد لعرس»        ⇒ اتّجاه: **يَعرض**
+  //
+  //   وهو **العطبُ المكتوبُ في `goals.ts` نفسِه** سطر ١٣ — أُصلح في عقلٍ
+  //   وبقي في الآخر. وذاك بعينه صنفُ الانقسام الذي بلغ صفرًا بالأمس، فلا
+  //   يُترَك بابٌ يعيده. القاعدةُ تُعلَن هنا مرّةً واحدةً ويقرؤها الجميع.
+  const goal = detectLifeNeed(input) || undefined;
+  if (goal) reasoning.push(`🎯 غاية: ${goal.label}`);
+
   // 6) الاتّجاه — يُحسَب على النصّ المطبَّع مع عبارات المفهوم المحلول إن وُجد.
   const stanceConcept = service ? ALL_CONCEPTS.find(x => x.id === service) : undefined;
-  const stance = detectStance(t, stanceConcept);
+  // **من أخبر عن حاله يطلب، لا يَعرض.** «عندي مولود» تبدأ بـ«عندي» — علامةِ
+  // عرضٍ — وصاحبُها لا يبيع مولودًا. الغايةُ تحسم ما تُخطئ فيه العلامة.
+  // والقاعدةُ تُقرأ من `stanceOf` لا تُكتَب هنا ثانيةً — نسختان تنحرفان.
+  const stance = goal ? 'seek' : detectStance(t, stanceConcept);
   if (stance !== 'unknown') reasoning.push(stance === 'offer' ? '🧭 اتّجاه: يَعرض' : '🧭 اتّجاه: يطلب');
 
   // الغموضُ يُفحَص أخيرًا وعلى النصّ الأصليّ: لو حُسم بقرينةٍ فلا شيءَ يُضاف،
@@ -494,7 +525,7 @@ export function understand(input: string): Understanding {
   if (!mood.executable) reasoning.push(`🗣️ صيغة: ${mood.mood} (${mood.reason}) — لا نُنفّذ`);
   const action = readAction(input) || undefined;
   if (action) reasoning.push(`⚙️ فعل: ${action.verb}/${action.object} (${action.reason})`);
-  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts, action, negated, mood };
+  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts, action, negated, mood, goal };
 }
 
 export function resolveTerm(term: string) { return normalize(term); }

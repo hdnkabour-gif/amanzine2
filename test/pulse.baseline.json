@@ -1,11 +1,11 @@
 {
   "_": "خطُّ الأساس — يُحدَّث فقط حين تتحسّن الأرقام. انظر test/pulse.test.mjs",
   "measuredAt": "2026-08-06",
-  "sentences": 66,
+  "sentences": 75,
   "minUnderstood": 43,
-  "minStanceKnown": 60,
+  "minStanceKnown": 70,
   "minPersonFacts": 16,
-  "minAbilityMatched": 66,
+  "minAbilityMatched": 75,
   "minExecute": 25,
   "maxSilent": 0,
   "maxVariantDrift": 0,
@@ -13,13 +13,14 @@
   "judged": 28,
   "maxNeedlessAsks": 0,
   "minStages": {
-    "التطبيع": 330,
+    "التطبيع": 375,
     "المفهوم": 43,
     "الإداريّ": 6,
-    "الاتّجاه": 60,
+    "الاتّجاه": 70,
     "الحقائق": 13,
-    "القدرة": 66,
-    "القرار": 28
+    "القدرة": 75,
+    "القرار": 28,
+    "الغاية": 9
   },
   "minConceptExpected": 43,
   "minFactExpected": 13,
@@ -27,5 +28,7 @@
   "minAdminExpected": 6,
   "maxLostKnowledge": 0,
   "maxContradiction": 0,
-  "maxAbstraction": 0
+  "maxAbstraction": 0,
+  "minGoalRead": 9,
+  "minGoalExpected": 9
 }

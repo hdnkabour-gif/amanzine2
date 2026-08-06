@@ -96,7 +96,15 @@ export function decideExecution(u: Understanding, match?: Ability): Decision {
     });
     if (missing.length) {
       trace.push(`ينقص: ${missing[0]}`);
-      return { verdict: 'ask', say: NEED_ASK[missing[0]], trace };
+      // **وحين تُعرَف الغايةُ فسؤالُها أنفع.** «بنتي داخلة للمدرسة» ⇒
+      // «شنو محتاج بالضبط؟» سؤالٌ صحيحٌ وبارد، وقد قال الإنسانُ حالَه للتوّ.
+      // وسؤالُ الغاية يعترف بما قال ويعرض عليه ما يليق: «مبروك 👏 شنو
+      // خاصّها دابا — حوايج، أدوات القراية، ولا نقل مدرسيّ؟».
+      //   وحدُّه: الغايةُ تجيب عن **ما المطلوب** وحدَه. لا تعرف ثمنًا ولا
+      //   نمرةً ولا طلبًا — فلا تُقحَم في سؤالٍ لا تملك جوابَه.
+      const say = missing[0] === 'subject' && u.goal ? u.goal.ask : NEED_ASK[missing[0]];
+      if (u.goal && missing[0] === 'subject') trace.push(`سؤالُ الغاية: ${u.goal.id}`);
+      return { verdict: 'ask', say, trace };
     }
   } else if (u.action?.needs?.length) {
     const need = u.action.needs.find(n => !/^تأكيد/.test(n));

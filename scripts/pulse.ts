@@ -26,7 +26,7 @@ import { readAction } from '../src/lib/akg/kb/actions';
 import { resolveConcept } from '../src/lib/akg/kb/knowledge';
 import { normLoose } from '../src/lib/normalize';
 import { ALL, EXPECT_NEVER_EXECUTE, EXPECT_ASK, EXPECT_CONFIRM, EXPECT_NOT_ASK,
-  EXPECT_CONCEPT, EXPECT_ADMIN, EXPECT_PERSON_FACTS, CLASSIFIED } from '../test/corpus.mjs';
+  EXPECT_CONCEPT, EXPECT_ADMIN, EXPECT_PERSON_FACTS, LIFE_GOALS, CLASSIFIED } from '../test/corpus.mjs';
 
 export interface Pulse {
   /** حجمُ المدوّنة — يُذكَر كي لا تُقارَن نسبتان من مدوّنتَين. */
@@ -43,6 +43,16 @@ export interface Pulse {
   conceptExpected: number;
   /** مقامُ حلقة الحقائق — يُحرَس كما يُحرَس مقامُ المفهوم، فلا يُقلَّص. */
   factExpected: number;
+  /**
+   * **الغايةُ قُرئت** — لماذا يتكلّم، قبل ماذا يطلب.
+   *
+   *   طبقةُ `goals` بُنيت ووُصلت بـ`needEngine` وحدَه، فبقيت `understand`
+   *   عمياءَ عنها: «عندي مولود جديد» تُقرأ **عرضًا** — أبٌ جديدٌ يُعامَل
+   *   تاجرًا. وهو العطبُ المكتوبُ في `goals.ts` نفسِه، أُصلح في عقلٍ وبقي
+   *   في الآخر. ولم يشتكِ أحدٌ لأنّ المدوّنةَ لم تحوِ جملةَ غايةٍ واحدة.
+   */
+  goalRead: number;
+  goalExpected: number;
   /** أفعالٌ إداريّةٌ قُرئت (`update:phone`…) من الجمل التي تنتظرها. */
   adminRead: number;
   adminExpected: number;
@@ -117,7 +127,7 @@ export function measure(): Pulse {
   let understood = 0, stanceKnown = 0, personFacts = 0, abilityMatched = 0;
   let lostKnowledge = 0, contradiction = 0, wrongExecutions = 0, silent = 0, variantDrift = 0;
   let recklessExecutions = 0, unconfirmedDestructive = 0, needlessAsks = 0, abstraction = 0;
-  let correct = 0, judged = 0, adminRead = 0;
+  let correct = 0, judged = 0, adminRead = 0, goalRead = 0;
 
   // تحويلاتٌ من الشارع: لوحاتُ مفاتيحَ مختلفة، ومدُّ الحروف، وتشكيلٌ.
   const VARIANTS: ((x: string) => string)[] = [
@@ -143,6 +153,11 @@ export function measure(): Pulse {
     // يُكشَف في المقياس، وكلُّها من صنفٍ واحد: قياسُ ما نملكه لا ما يُنتظَر.
     if ((u.service || u.profession || u.problem) && EXPECT_CONCEPT.includes(s)) understood++;
     if (EXPECT_ADMIN.includes(s) && (u.action || readAction(s))) adminRead++;
+    // **الغايةُ تُقاس بأثرها لا بوجودها.** لو عُدّ `u.goal` وحدَه لمرّ الحقلُ
+    // مملوءًا وهو لا يغيّر شيئًا — وذاك بالضبط ما كان: الطبقةُ مبنيّةٌ
+    // ونصفُ موصولة. فالشرطُ ثلاثيّ: قُرئت · صحّحت الاتّجاه · بلغ سؤالُها
+    // الإنسانَ بدل «شنو محتاج بالضبط؟» الباردة.
+    if (LIFE_GOALS.includes(s) && u.goal && u.stance === 'seek' && d.say === u.goal.ask) goalRead++;
     if (u.stance && u.stance !== 'unknown') stanceKnown++;
     if (readPersonFacts(s).length) personFacts++;
     if (match) abilityMatched++;
@@ -217,12 +232,14 @@ export function measure(): Pulse {
   // قائمةُ حكمٍ لا قائمةُ حقائق. فتصحيحُ وسمِ جملتين خفض المقامَ من ١٠ إلى ٨
   // بلا أن يتغيّر سطرٌ في التطبيق. حلقةٌ تستعير مقامَ جارتها تهتزّ بحركته.
   const factExpected = ALL.filter(x => EXPECT_PERSON_FACTS.includes(x));
+  const goalExpected = ALL.filter(x => LIFE_GOALS.includes(x));
   const stages = [
     { name: 'التطبيع',  ok: ALL.length * 5 - variantDrift, of: ALL.length * 5 },
     { name: 'المفهوم',  ok: understood,     of: EXPECT_CONCEPT.length },
     { name: 'الإداريّ', ok: adminRead,       of: EXPECT_ADMIN.length },
     { name: 'الاتّجاه',  ok: stanceKnown,    of: ALL.length },
     { name: 'الحقائق',  ok: factExpected.filter(x => readPersonFacts(x).length).length, of: factExpected.length },
+    { name: 'الغاية',   ok: goalRead,       of: goalExpected.length },
     { name: 'القدرة',   ok: abilityMatched, of: ALL.length },
     { name: 'القرار',   ok: correct,        of: judged },
   ];
@@ -231,6 +248,7 @@ export function measure(): Pulse {
 
   return { sentences: ALL.length, understood, stanceKnown, personFacts, stages,
     conceptExpected: EXPECT_CONCEPT.length, factExpected: factExpected.length,
+    goalRead, goalExpected: goalExpected.length,
     adminRead, adminExpected: EXPECT_ADMIN.length, unclassified,
     abilityMatched, verdicts, lostKnowledge, contradiction, abstraction, silent, variantDrift,
     wrongExecutions, recklessExecutions, unconfirmedDestructive, needlessAsks, correct, judged };
@@ -244,6 +262,7 @@ export function render(p: Pulse): string {
   return [
     `المدوّنة        : ${p.sentences} جملة`,
     `فُهم المفهوم    : ${p.understood}/${p.conceptExpected} (${Math.round(p.understood / p.conceptExpected * 100)}٪)  ← ممّا يُنتظَر منه مفهوم`,
+    `الغاية          : ${p.goalRead}/${p.goalExpected} (${Math.round(p.goalRead / p.goalExpected * 100)}٪)  ← لماذا يتكلّم، قبل ماذا يطلب`,
     `فعلٌ إداريّ      : ${p.adminRead}/${p.adminExpected} (${Math.round(p.adminRead / p.adminExpected * 100)}٪)`,
     `غيرُ مصنَّفة     : ${p.unclassified}   ← يجب أن يبقى صفرًا`,
     `عُرف الاتّجاه    : ${pct(p.stanceKnown)}`,
