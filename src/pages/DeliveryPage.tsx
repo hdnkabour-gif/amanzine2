@@ -137,6 +137,108 @@ const EMPTY_URL: UrlRecipeDraft = {
 };
 
 // ─── ManualAssistModal ────────────────────────────────────────────────────────
+// ============================================================
+// **رابطُ الإشعار — الطرفُ الذي لم يُعطَ لأحد.**
+//
+//   `POST /api/webhooks/delivery/:providerRowId` يعمل منذ زمن: تُخبِر شركةُ
+//   التوصيل المنصّةَ بأنّ الطردَ خرج أو وصل، فتتحرّك حالةُ الطلب وحدَها بلا
+//   ضغطةٍ يدويّة. وشركاتٌ كثيرةٌ (Promo Livraison منها) تعرض في لوحتها حقلًا
+//   اسمُه «Webhook» تنتظر أن يُلصَق فيه رابط.
+//
+//   ولم يكن في التطبيق **مكانٌ واحدٌ يُظهر ذلك الرابط**. لا صفحةَ ولا زرَّ
+//   نسخ. فالتاجرُ يملك بابًا مفتوحًا على خادمه ولا يعرف عنوانَه — ونصفُ ميزةٍ
+//   لا يعرف صاحبُها أنّها موجودة هي ميزةٌ غيرُ موجودة.
+//
+//   ── والسرُّ هو مفتاحُ الـAPI نفسُه ──
+//   المسارُ يرفض بلا سرّ (401)، ويقارن `?secret=` بـ`apiKey` الصفِّ. وشركةٌ
+//   لا تُعطي مفتاحَ API أصلًا (لوحةٌ فقط) تترك العمودَ فارغًا ⇒ كلُّ إشعارٍ
+//   يُردّ. ولذلك زرُّ «ولّد سرّ»: سرٌّ عشوائيٌّ يُحفَظ في العمود فيصير
+//   الرابطُ صالحًا — لا لأنّ الشركة أعطته، بل لأنّ الطرفَين يتّفقان عليه.
+//
+//   ── ولماذا `origin` لا متغيّرُ بيئة ──
+//   الرابطُ يُبنى من `window.location.origin`: هو **العنوانُ الذي يراه
+//   التاجرُ الآن**. متغيّرُ بيئةٍ خاطئٌ يُنتج رابطًا يبدو صحيحًا ولا يصل.
+// ============================================================
+function WebhookRow({ p, onSave, notify }: {
+  p: DeliveryProviderConfig & { id?: string; apiKey?: string };
+  onSave: (next: any) => Promise<any>;
+  notify: (t: 'success' | 'error' | 'warning' | 'info', m: string) => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [reveal, setReveal] = useState(false);
+
+  const secret = p.apiKey || '';
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const base = `${origin}/api/webhooks/delivery/${p.id || ''}`;
+  const full = secret ? `${base}?secret=${encodeURIComponent(secret)}` : '';
+
+  const copy = () => {
+    if (!full) return;
+    navigator.clipboard.writeText(full).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  // سرٌّ يُولَّد عند التاجر: `crypto.getRandomValues` لا `Math.random` — هذا
+  // سرُّ قبولٍ لمسارٍ عامّ، وعشوائيّةٌ قابلةٌ للتنبّؤ تجعله بلا معنى.
+  const generate = async () => {
+    const buf = new Uint8Array(24);
+    crypto.getRandomValues(buf);
+    const key = Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
+    setBusy(true);
+    try {
+      // الكائنُ كاملًا: الحفظُ يكتب كلَّ الأعمدة، وإرسالُ حقلٍ واحدٍ يمحو الباقي.
+      await onSave({ ...p, apiKey: key });
+      notify('success', '🔑 تولّد السرّ — نسخ الرابط دابا ولصقو عند الشركة');
+    } catch { notify('error', 'ما تسجّلش السرّ على الخادم'); }
+    setBusy(false);
+  };
+
+  return (
+    <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--clr-border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
+        <Globe size={13} color="var(--txt-3)" />
+        <p style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--txt-2)' }}>رابط الإشعار (Webhook)</p>
+        <span style={{ fontSize: 10, color: 'var(--txt-3)' }}>— لصقو ف لوحة الشركة باش الحالة تتبدّل بوحدها</span>
+      </div>
+
+      {secret ? (
+        <>
+          <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+            <code style={{ flex: 1, minWidth: 0, fontSize: 11, fontFamily: 'monospace', color: 'var(--txt-2)',
+              direction: 'ltr', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {reveal ? full : `${base}?secret=••••••••`}
+            </code>
+            <button onClick={() => setReveal(r => !r)} className="btn btn-ghost btn-sm" style={{ paddingInline: 8 }}
+              title={reveal ? 'خبّي السرّ' : 'وريني السرّ'}>
+              {reveal ? <EyeOff size={12} /> : <Eye size={12} />}
+            </button>
+            <button onClick={copy} className="btn btn-ghost btn-sm" style={{ gap: 5 }}>
+              {copied ? <CheckCircle size={12} color="#34d399" /> : <Copy size={12} />} {copied ? 'تنسخ' : 'نسخ'}
+            </button>
+          </div>
+          <p style={{ fontSize: 10.5, color: 'var(--txt-3)', marginTop: 6, lineHeight: 1.7 }}>
+            الشركة كتصيفط <code style={{ fontFamily: 'monospace' }}>POST</code> فيه رقم التتبّع والحالة.
+            إلا كانت لوحتهم كتقبل رؤوس (headers)، تقدر تصيفط السرّ ف{' '}
+            <code style={{ fontFamily: 'monospace' }}>x-webhook-secret</code> بلا ما تحطّو ف الرابط.
+          </p>
+        </>
+      ) : (
+        <div>
+          <p style={{ fontSize: 11.5, color: '#fbbf24', lineHeight: 1.7, marginBottom: 8 }}>
+            ⚠️ ما كاين حتّى سرّ لهاد الشركة، والمسار كيرفض أيّ إشعار بلا سرّ.
+            ولّد واحد دابا — ماشي خاصك تطلبو من الشركة، غير الطرفين خاصهم يتّفقو عليه.
+          </p>
+          <button onClick={generate} disabled={busy || !p.id} className="btn btn-ghost btn-sm" style={{ gap: 5 }}>
+            <Key size={12} /> {busy ? 'كيتولّد…' : 'ولّد سرّ'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface ManualAssistData {
   loginUrl?: string;
   createOrderUrl?: string;
@@ -958,6 +1060,10 @@ export default function DeliveryPage() {
                         ) : null)}
                       </div>
                     )}
+                    {/* رابطُ الإشعار لكلِّ شركةٍ مهما كان وضعُها: المسارُ لا يسأل
+                        عن `apiType` — يُطابق برقم التتبّع. فحتّى شركةٌ تُدار
+                        بلوحةٍ فقط تستطيع أن تُخبِر المنصّةَ حين يصل الطرد. */}
+                    <WebhookRow p={p as any} onSave={saveDeliveryProvider} notify={notify} />
                   </div>
                 )}
               </div>

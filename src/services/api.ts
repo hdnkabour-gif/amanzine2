@@ -342,6 +342,42 @@ export const loyaltyAPI = {
     request<{ ok: boolean; redeemed: number; points: number }>('POST', '/loyalty/redeem', data),
 };
 
+// ── Wallet & Payments ────────────────────────────────────────
+//
+//   طبقةٌ كاملةٌ كانت تعمل على الخادم بلا مُنادٍ واحدٍ في الواجهة: تُنشَأ
+//   الدفعاتُ ولا تُقرَأ، ويقول الكتالوجُ «تخلّص» و«تشوف الأداءات» وصفحةُ
+//   المحفظة تحسب أرقامَها من الطلبات وحدَها ولا تعرف أنّ المسارَ موجود.
+export interface WalletState {
+  userId: string; balance: number; currency: string;
+  transactions: { id: string; type: string; amount: number; ref: string; note: string; createdAt: string }[];
+}
+export interface PaymentRow {
+  id: string; userId: string | null; orderId: string | null; provider: string;
+  amount: number; currency: string;
+  status: 'pending' | 'paid' | 'failed' | 'refunded'; ref: string; createdAt: string;
+}
+/**
+ * حالةُ الطريقة **بثلاث حقائقَ منفصلة** كما يُصدرها المحرّك:
+ * `implemented` (أكُتب المحوّل؟) · `configured` (أضُبطت الاعتمادات؟) ·
+ * `available` (الاثنان معًا). وجمعُها في رايةٍ واحدةٍ كان يُخفي الفرقَ بين
+ * «ما تكتبش بعد» و«ينقصه مفتاح» — وهما جوابان مختلفان تمامًا للتاجر.
+ */
+export interface PaymentMethod {
+  provider: string; available: boolean; implemented: boolean; configured: boolean;
+}
+export const walletAPI = {
+  get: () => request<WalletState>('GET', '/wallet'),
+};
+export const paymentAPI = {
+  list:    () => request<PaymentRow[]>('GET', '/payment'),
+  methods: () => request<{ methods: PaymentMethod[] }>('GET', '/payment/methods'),
+  charge:  (data: { provider: string; amount: number; orderId?: string; currency?: string }) =>
+    request<{ status: string; ref?: string; paymentId?: string; error?: string; instructions?: any; note?: string }>(
+      'POST', '/payment/charge', data),
+  confirm: (id: string, status: 'paid' | 'failed' | 'refunded' = 'paid') =>
+    request<{ ok: boolean }>('POST', `/payment/${id}/confirm`, { status }),
+};
+
 // ── Services Marketplace (alloservix) ─────────────────────────
 export interface Provider {
   id: string; userId?: string; name: string; bio?: string; phone?: string; city?: string;

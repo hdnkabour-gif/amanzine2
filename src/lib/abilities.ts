@@ -211,7 +211,10 @@ export const ABILITIES: Ability[] = [
   // ⑤ مالُه ──────────────────────────────────────────────────
   { id: 'VIEW_WALLET', verb: 'view', entity: 'wallet', say: 'تشوف الرصيد ديالك',
     risk: 'low', needs: [], auth: true, page: 'wallet', api: '/api/wallet' },
-  { id: 'MAKE_PAYMENT', verb: 'send', entity: 'payment', say: 'تخلّص',
+  // «تخلّص» كانت تَعِد بما لا يقع: التاجرُ لا يدفع لأحدٍ من التطبيق. الفعلُ
+  // الحقيقيُّ في `WalletPage` هو **تسجيلُ خلاصٍ وصلَه** ثمّ تأكيدُه —
+  // و`needs: ['amount','method']` تطابق حقلَي النموذج بالضبط.
+  { id: 'MAKE_PAYMENT', verb: 'send', entity: 'payment', say: 'تسجّل خلاص ولا تأكّد أنّه وصل',
     risk: 'high', needs: ['amount', 'method'], auth: true, page: 'wallet', api: '/api/payment' },
 
   // ⑥ نفسُه ──────────────────────────────────────────────────

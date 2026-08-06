@@ -1492,6 +1492,28 @@ db.createPayment = async (p) => {
 db.updatePaymentStatus = async (id, status) => {
   await pool.query('UPDATE payments SET status = $1 WHERE id = $2', [status, id]);
 };
+// ── قراءةُ الأداءات ───────────────────────────────────────────
+//
+//   الفهرسُ `idx_payments_user (user_id, created_at DESC)` قائمٌ منذ الهجرة
+//   الأولى — بُني لاستعلامٍ لم يُكتب قطّ. تُسجَّل الدفعاتُ ولا تُقرأ، فيُعلن
+//   الكتالوجُ «تشوف الأداءات» ولا مسارَ يُرجعها.
+db.listPayments = async (userId, limit = 50) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM payments WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
+    [userId, Math.min(+limit || 50, 200)]);
+  return rows.map(_mapPayment);
+};
+// يُقرأ **بمالكه**: التأكيدُ كان يقبل أيَّ مُعرِّفٍ من أيّ تاجرٍ مصادَق.
+db.getPayment = async (id) => {
+  const { rows } = await pool.query('SELECT * FROM payments WHERE id = $1', [id]);
+  return rows[0] ? _mapPayment(rows[0]) : null;
+};
+const _mapPayment = (p) => ({
+  id: p.id, userId: p.user_id || null, orderId: p.order_id || null,
+  provider: p.provider, amount: +p.amount || 0, currency: p.currency || 'MAD',
+  status: p.status, ref: p.ref || '',
+  createdAt: p.created_at ? new Date(p.created_at).toISOString() : now(),
+});
 
 // مقدّم خدمة عام بمعرّفه (للملف الموحّد) — معتمَد فقط
 db.getProviderById = async (id) => {
