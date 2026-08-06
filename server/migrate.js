@@ -409,6 +409,13 @@ async function migrate() {
     await client.query(`ALTER TABLE otp_tokens ALTER COLUMN email DROP NOT NULL`).catch(() => {});
     await client.query(`CREATE INDEX IF NOT EXISTS idx_otp_identifier
       ON otp_tokens(identifier, purpose) WHERE used = FALSE`).catch(() => {});
+    // **متى تأكّدت هذه الهويّة؟** — لا يكفي `used = TRUE`: تُوضَع كذلك عند
+    // الانتهاء والإبطال بعد استنفاد المحاولات. فبلا وقتٍ صريحٍ للنجاح لا
+    // يستطيع الخادمُ أن يميّز «تأكّد» من «فشل ثمّ أُبطل» — ويقبل طلبًا لم
+    // يتأكّد صاحبُه.
+    await client.query(`ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ`).catch(() => {});
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_otp_verified
+      ON otp_tokens(identifier, purpose, verified_at) WHERE verified_at IS NOT NULL`).catch(() => {});
 
     // Refresh tokens table (Fix #12)
     await client.query(`CREATE TABLE IF NOT EXISTS refresh_tokens (

@@ -1128,11 +1128,47 @@ db.bumpVerificationAttempts = async (id) => {
   return r.rows[0]?.attempts || 0;
 };
 
+/** يُعلَّم صفُّ الرمز ناجحًا — الوقتُ صريحٌ كي يُميَّز النجاحُ من الإبطال. */
+db.markVerified = async (id) => {
+  await pool.query(`UPDATE otp_tokens SET used = TRUE, verified_at = NOW() WHERE id = $1`, [id]);
+};
+
+/**
+ * هل تأكّدت هذه الهويّةُ لهذا الغرض في آخر `withinMs`؟
+ *
+ *   يسأله الخادمُ **بنفسه** قبل قبول طلبٍ يشترط تحقّقًا. ولا يُصدَّق العميلُ
+ *   في قوله «تأكّدتُ»: من أراد إغراقَ تاجرٍ بطلباتٍ وهميّةٍ يرسل الحقلَ كما يشاء.
+ */
+db.wasRecentlyVerified = async (identifier, purpose, withinMs = 15 * 60 * 1000) => {
+  const r = await pool.query(
+    `SELECT 1 FROM otp_tokens
+     WHERE identifier = $1 AND purpose = $2
+       AND verified_at IS NOT NULL AND verified_at > NOW() - ($3 || ' milliseconds')::interval
+     LIMIT 1`,
+    [identifier, purpose, String(withinMs)]
+  ).catch(() => ({ rows: [] }));
+  return r.rows.length > 0;
+};
+
+/** أطلبٌ سابقٌ **وُصِّل** لهذه النمرة عند هذا التاجر؟ */
+db.hasDeliveredOrderFromPhone = async (userId, phone) => {
+  const last9 = String(phone || '').replace(/\D/g, '').slice(-9);
+  if (last9.length < 9) return false;
+  const r = await pool.query(
+    `SELECT 1 FROM orders
+     WHERE user_id = $1 AND status = 'delivered'
+       AND RIGHT(regexp_replace(COALESCE(customer_phone,''), '[^0-9]', '', 'g'), 9) = $2
+     LIMIT 1`,
+    [userId, last9]
+  ).catch(() => ({ rows: [] }));
+  return r.rows.length > 0;
+};
+
 /** أثرُ تحقّقٍ تمّ بلا رمز (Google) — كي يبقى للتحقّق سجلٌّ واحدٌ مهما اختلف طريقُه. */
 db.recordVerified = async ({ identifier, purpose, userId, channel }) => {
   await pool.query(
-    `INSERT INTO otp_tokens (email, identifier, purpose, user_id, channel, code, expires_at, used)
-     VALUES ($1, $2, $3, $4, $5, '', NOW(), TRUE)`,
+    `INSERT INTO otp_tokens (email, identifier, purpose, user_id, channel, code, expires_at, used, verified_at)
+     VALUES ($1, $2, $3, $4, $5, '', NOW(), TRUE, NOW())`,
     [identifier.includes('@') ? identifier : null, identifier, purpose, userId, channel]
   );
 };

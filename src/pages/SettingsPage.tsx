@@ -1022,6 +1022,46 @@ export default function SettingsPage() {
             </p>
           </div>
           <Section title="الأمان">
+            {/* ── تأكيدُ نمرة الزبون ────────────────────────────────
+                الدفعُ عند الاستلام يجعل الطلبَ الوهميَّ **ثمنَ توصيلٍ حقيقيًّا**
+                تدفعه أنت لطردٍ يُرفَض عند الباب. والخسارةُ كلُّها تقع في أوّل
+                طلبٍ من نمرةٍ مجهولة — أمّا زبونٌ وصلَه طردٌ من قبلُ فقد أثبت
+                نمرتَه بالتسليم نفسِه، وسؤالُه ثانيةً يُضيّع بيعًا بلا مقابل. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 4 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--ink1)' }}>تأكيد نمرة الزبون قبل الطلب</div>
+              <div style={{ fontSize: 12, color: 'var(--ink3)', lineHeight: 1.7 }}>
+                الطلب الوهمي كيخلّصو نتا — ثمن التوصيل ديال طرد كيترفض.
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {([
+                  { v: 'first',  t: 'أوّل طلب فقط',  d: 'الزبون اللي وصلو طرد من قبل ما كيتسّالش' },
+                  { v: 'always', t: 'ديما',           d: 'كل طلب، حتى من زبون قديم' },
+                  { v: 'off',    t: 'بلا تأكيد',      d: 'كتعرف زبناءك واحد واحد' },
+                ] as const).map(o => {
+                  const cur = s.security.verifyOrders ?? 'first';
+                  const on = cur === o.v;
+                  return (
+                    <button key={o.v} title={o.d}
+                      onClick={() => updateSettings('security', { ...s.security, verifyOrders: o.v })}
+                      style={{ padding: '9px 15px', borderRadius: 11, fontFamily: 'inherit', cursor: 'pointer',
+                        fontSize: 12.5, fontWeight: 800,
+                        border: `1px solid ${on ? 'var(--ember,#FF6A00)' : 'var(--border2,rgba(255,255,255,.14))'}`,
+                        background: on ? 'rgba(255,106,0,.12)' : 'transparent',
+                        color: on ? 'var(--ember,#FF6A00)' : 'var(--ink2)' }}>
+                      {o.t}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--ink3)' }}>
+                {(s.security.verifyOrders ?? 'first') === 'first'
+                  ? 'موصى بها: كتحمي من الطلبات الوهمية بلا ما تضيّع زبناءك القدام.'
+                  : (s.security.verifyOrders === 'always'
+                    ? 'كل زبون غادي يتسّال — حتى اللي شرا من قبل.'
+                    : 'أي واحد يقدر يدير طلب بأي نمرة.')}
+              </div>
+            </div>
+
             <Toggle
               on={s.security.twoFactorEnabled}
               onClick={() => updateSettings('security', { ...s.security, twoFactorEnabled: !s.security.twoFactorEnabled })}

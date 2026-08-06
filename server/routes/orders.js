@@ -4,6 +4,8 @@ const router = require('express').Router();
 const auth   = require('../middleware/auth');
 const crypto = require('crypto');
 const { db } = require('../database');
+const verify = require('../lib/verify');
+const orderVerification = require('../lib/orderVerification');
 const sync   = require('../sync');
 const fetch  = require('node-fetch');
 const { resolveDeliveryFee } = require('../lib/deliveryPricing');
@@ -340,6 +342,29 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     if (preSettings.security?.hcaptchaSecret) {
       const human = await _verifyHCaptcha(preSettings.security.hcaptchaSecret, captchaToken);
       if (!human) return res.status(400).json({ error: 'فشل التحقق الأمني — حدّث الصفحة وأعد المحاولة' });
+    }
+
+    // ── تأكيدُ النمرة: أوّلَ مرّةٍ فقط ────────────────────────────
+    //   hCaptcha يمنع الآلة، ولا يمنع إنسانًا يكتب نمرةً ليست له. والدفعُ
+    //   عند الاستلام يجعل الطلبَ الوهميَّ **ثمنَ توصيلٍ حقيقيًّا** يدفعه
+    //   التاجر لطردٍ يُرفَض عند الباب.
+    //
+    //   والبرهانُ يُقرأ من القاعدة لا من الطلب: لو صُدِّق حقلٌ يرسله العميل
+    //   («verified: true») لكان البابُ مفتوحًا لمن يريد إغراقَ تاجرٍ بالطلبات.
+    const vp = await orderVerification.needsVerification({
+      userId, phone: customerPhone, settings: preSettings,
+    });
+    if (vp.required) {
+      const ok = await verify.isVerified({ identifier: customerPhone, purpose: 'order_confirm' });
+      if (!ok) {
+        // 428: «مطلوبٌ شرطٌ مسبق» — تقرؤها الواجهةُ فتفتح شاشةَ الرمز، ولا
+        // تعرضها خطأً عامًّا يجعل الزبونَ يظنّ أنّ الطلبَ فشل.
+        return res.status(428).json({
+          error: 'خاصّنا نتأكّدو من النمرة ديالك قبل ما نسجّلو الطلب',
+          needsVerification: true, purpose: 'order_confirm',
+          identifier: customerPhone, reason: vp.reason,
+        });
+      }
     }
 
     let subtotal = 0, totalCost = 0, giftFees = 0, itemCount = 0;
