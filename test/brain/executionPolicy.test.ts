@@ -293,6 +293,7 @@ test('الوجهةُ ترافق كلَّ حكمٍ لا الحكمَ الناجح
 //   لا يجب. الأوّلُ وحدَه يُنتج مساعدًا يعتذر عمّا يقدر عليه.
 // ============================================================
 import { entityAccepts, VERB_MAP, OBJECT_MAP } from '../../src/lib/abilities';
+import { abilityFor as abilityForJudge } from '../../src/lib/abilities';
 import { understand as understandKb } from '../../src/lib/akg/kb';
 
 /** نفسُ الحساب الذي تُجريه `LivingHome` — كي يُختبَر ما يعمل لا ما يُشبهه. */
@@ -304,7 +305,10 @@ function judge(q: string) {
   // نفسُ حساب `LivingHome` — بما فيه حدُّ الثقة، وإلّا اختُبر ما لا يعمل.
   const impossible = !!(av && ae && (u.action?.confidence ?? 0) >= READ_ENOUGH
     && !entityAccepts(av, ae));
-  return decideExecution(u, undefined, impossible).verdict;
+  // **والقدرةُ تُمرَّر.** كانت `undefined` دائمًا، فكان «حيّد الكوبون ⇒ confirm»
+  // يمرّ بحكم `DESTRUCTIVE` لا بحكم خطورة القدرة — اختبارٌ يشهد لغير ما يقيس.
+  const match = abilityForJudge({ action: u.action, intent: '' });
+  return decideExecution(u, match || undefined, impossible).verdict;
 }
 
 test('«ما نقدرش» تصدر فعلًا — «حيّد اللغة» فعلٌ لا يفعله أحد', () => {
@@ -354,9 +358,27 @@ test('والرفضُ يبقى على القراءة الواثقة — «حيّ�
     'حدُّ الثقة ابتلع الحكمَ كلَّه — عاد ميّتًا كما كان');
 });
 
-test('والقدرةُ المكتملةُ تُبدّل الحكمَ فعلًا — «حيّد الكوبون» يُؤكَّد', () => {
-  // قبل إعلان `DELETE_COUPON` كان الحكمُ يسقط على العتبة العامّة. وحذفُ
-  // كوبونٍ لا يُسترجَع، فالتأكيدُ شرطٌ لا تجميل.
-  assert.equal(judge('حيّد الكوبون'), 'confirm',
-    'حذفٌ لا يُسترجَع مرّ بلا تأكيد — القدرةُ غيرُ مُعلَنةٍ أو خطورتُها خاطئة');
+// ── تصحيحُ ادّعاء ──────────────────────────────────────────────
+//
+//   ادّعيتُ أنّ إعلانَ `DELETE_COUPON` هو ما جعل «حيّد الكوبون» تُؤكَّد.
+//   وسبرٌ أسقط الادّعاء: حذفُ القدرة **لم يُغيّر الحكم**، لأنّ
+//   `DESTRUCTIVE.has('delete')` يُؤكِّد كلَّ حذفٍ بقدرةٍ أو بلا قدرة.
+//   فكان الاختبارُ يشهد لغير ما يقيس.
+//
+//   وقياسٌ على المدوّنة كلِّها: القدرةُ تُبدّل الحكمَ في **أربع** حالاتٍ
+//   فقط، وكلُّها من قدراتٍ **قديمة**. أي أنّ الأربعين المُعلَنةَ حديثًا
+//   **لا تُبدّل حكمًا اليوم** — تُغلق الكتالوجَ وتُصحّح خطورةَ ما يُعلَن،
+//   ولا تُنسَب إليها فائدةٌ غيرُ مقيسة.
+test('حذفُ الكوبون يُعلَن خطِرًا — والخطورةُ هي ما تحمله القدرة', () => {
+  const a = ability('DELETE_COUPON');
+  assert.ok(a, 'قدرةُ حذف الكوبون غيرُ مُعلَنة');
+  assert.equal(a!.risk, 'high', 'حذفٌ لا يُسترجَع مُعلَنٌ غيرَ خطِر');
+  assert.equal(RISK_THRESHOLD[a!.risk] > 1, true, 'الخطِرُ يُنفَّذ تلقائيًّا');
+});
+
+test('وكلُّ حذفٍ يُؤكَّد ولو بلا قدرةٍ مُعلَنة — حارسٌ مستقلٌّ عن الكتالوج', () => {
+  const u: any = { confidence: 1, reasoning: [],
+    action: { verb: 'delete', object: 'product', scope: 'workspace', needs: [], confidence: .9, reason: '' } };
+  assert.equal(decideExecution(u, undefined).verdict, 'confirm',
+    'حذفٌ بلا قدرةٍ مُعلَنةٍ مرّ بلا تأكيد — الحارسُ يعتمد على الكتالوج وحدَه');
 });
