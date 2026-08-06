@@ -111,11 +111,14 @@ test('صوابُ الحكم لا يرتدّ — ولا تُنقَص الجملُ
     `صوابُ الحكم ${p.correct} وكان ${BASE.minCorrect}`);
 });
 
-test('انقسامُ العقلَين لا يتّسع', () => {
-  // `understand` يرى مفهومًا و`parseNeed` يقول `unknown` — أو العكس.
-  // الرقمُ الذي يقيس الانقسامَ البنيويّ، وهدفُه النزولُ إلى صفر.
-  assert.ok(p.brainSplit <= BASE.maxBrainSplit,
-    `اختلف العقلان في ${p.brainSplit} وكان ${BASE.maxBrainSplit}`);
+test('لا تضيع معرفةٌ بين العقلَين ولا يتّسع التناقض', () => {
+  // حلّ محلَّ `brainSplit` الذي كان يعدّ ٢٤. وقياسٌ أثبت أنّه **عيبٌ في
+  // التعريف**: عدَّ `car_wash` مقابل «مغسلة سيّارات» اختلافًا وهما واحد.
+  // ثالثُ مقياسٍ يُكشَف كاذبًا — ولذلك تُسبَر المقاييسُ كما يُسبَر الكود.
+  assert.ok(p.lostKnowledge <= BASE.maxLostKnowledge,
+    `ضاعت معرفةٌ في ${p.lostKnowledge} جملةً وكانت ${BASE.maxLostKnowledge}`);
+  assert.ok(p.contradiction <= BASE.maxContradiction,
+    `تناقض العقلان في ${p.contradiction} جملةً وكان ${BASE.maxContradiction}`);
 });
 
 test('لا صمتَ جديد', () => {

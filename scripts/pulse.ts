@@ -23,6 +23,8 @@ import { decideExecution } from '../src/lib/executionPolicy';
 import { abilityFor, canDo } from '../src/lib/abilities';
 import { readPersonFacts } from '../src/lib/personFacts';
 import { readAction } from '../src/lib/akg/kb/actions';
+import { resolveConcept } from '../src/lib/akg/kb/knowledge';
+import { normLoose } from '../src/lib/normalize';
 import { ALL, EXPECT_NEVER_EXECUTE, EXPECT_ASK, EXPECT_CONFIRM, EXPECT_NOT_ASK,
   EXPECT_CONCEPT, EXPECT_ADMIN, CLASSIFIED } from '../test/corpus.mjs';
 
@@ -53,10 +55,17 @@ export interface Pulse {
   /** توزيعُ الحكم النهائيّ. */
   verdicts: Record<string, number>;
   /**
-   * **اختلافُ العقلَين**: `understand` يرى مفهومًا و`parseNeed` يقول
-   * `unknown`، أو العكس. هذا هو الرقمُ الذي يقيس الانقسامَ البنيويّ.
+   * **معرفةٌ ضائعة**: `parseNeed` يعرف حرفةً و`understand` لا يعرفها.
+   * هذا هو الانقسامُ الذي يؤذي — «الفريجيدير ما كيخدمش» يعرفه أحدُهما
+   * «تقنيَّ تبريد» ويجهله الآخر، فيعتمد الجوابُ على أيّ صفحةٍ أنت فيها.
+   *
+   *   وحلّ محلَّ `brainSplit` الذي كان يعدّ ٢٤. وقياسٌ أثبت أنّه **عيبٌ في
+   *   التعريف**: كان يعدّ `car_wash` مقابل «مغسلة سيّارات» اختلافًا، وهما
+   *   الشيءُ نفسُه بمُعرِّفٍ ولافتة. ثالثُ مقياسٍ يُكشَف كاذبًا في يومَين.
    */
-  brainSplit: number;
+  lostKnowledge: number;
+  /** كلاهما يعرف ويُسمّيان **حرفتَين مختلفتَين** — تناقضٌ لا تفاوتُ دقّة. */
+  contradiction: number;
   /** جملٌ لم يفهمها أحدٌ إطلاقًا. */
   silent: number;
   /**
@@ -95,7 +104,7 @@ export interface Pulse {
 export function measure(): Pulse {
   const verdicts: Record<string, number> = {};
   let understood = 0, stanceKnown = 0, personFacts = 0, abilityMatched = 0;
-  let brainSplit = 0, wrongExecutions = 0, silent = 0, variantDrift = 0;
+  let lostKnowledge = 0, contradiction = 0, wrongExecutions = 0, silent = 0, variantDrift = 0;
   let recklessExecutions = 0, unconfirmedDestructive = 0, needlessAsks = 0;
   let correct = 0, judged = 0, adminRead = 0;
 
@@ -124,10 +133,23 @@ export function measure(): Pulse {
     if (match) abilityMatched++;
     verdicts[d.verdict] = (verdicts[d.verdict] || 0) + 1;
 
-    // انقسامُ العقلَين: أحدُهما يعرف والآخر لا.
-    const aKnows = !!u.service;
-    const bKnows = r.intent !== 'unknown';
-    if (aKnows !== bKnows) brainSplit++;
+    // ── الانقسام، مقيسًا بالمعنى لا بالمُعرِّف ──
+    //   الوسمُ «المطلوب → مغسلة سيّارات» و`car_wash` شيءٌ واحد. فتُقارَن
+    //   **أسماءُ المفهوم بكلّ لغاته** لا مُعرِّفُه، وإلّا عُدَّ الاتّفاقُ خلافًا.
+    const tags: string[] = ((r as { tags?: string[] }).tags || [])
+      .filter(t => /^(المشكل|المطلوب|نوع|التخصّص)/.test(t))
+      .map(t => normLoose(t.split('→')[1] || t));
+    const aKnows = !!u.service, bKnows = tags.length > 0;
+    if (bKnows && !aKnows) lostKnowledge++;
+    if (aKnows && bKnows) {
+      const names = Object.values(resolveConcept(s)?.concept || {}).map(normLoose)
+        .concat(normLoose(u.service || ''), normLoose(u.profession?.label || ''))
+        .filter(Boolean);
+      // «متجر/مطعم» أعمُّ من `greengrocer` ولا يناقضه — فالعمومُ لا يُعَدّ خلافًا.
+      const GENERIC = ['متجر مطعم', 'متجر', 'مطعم'];
+      const same = tags.some(t => GENERIC.includes(t) || names.some(n => t.includes(n) || n.includes(t)));
+      if (!same) contradiction++;
+    }
 
     if (!aKnows && !bKnows && readHuman(s).intent === 'NONE' && stanceOf(s) === 'unknown') silent++;
     // ── الحكمُ على الحكم ──
@@ -171,7 +193,7 @@ export function measure(): Pulse {
 
   return { sentences: ALL.length, understood, stanceKnown, personFacts, stages,
     conceptExpected: EXPECT_CONCEPT.length, adminRead, adminExpected: EXPECT_ADMIN.length, unclassified,
-    abilityMatched, verdicts, brainSplit, silent, variantDrift,
+    abilityMatched, verdicts, lostKnowledge, contradiction, silent, variantDrift,
     wrongExecutions, recklessExecutions, unconfirmedDestructive, needlessAsks, correct, judged };
 }
 
@@ -189,7 +211,8 @@ export function render(p: Pulse): string {
     `حقائقُ الشخص    : ${pct(p.personFacts)}`,
     `طابقت قدرةً     : ${pct(p.abilityMatched)}`,
     `الأحكام         : ${v}`,
-    `انقسامُ العقلَين : ${pct(p.brainSplit)}   ← كلّما قلّ كان أفضل`,
+    `معرفةٌ ضائعة    : ${p.lostKnowledge}   ← يعرفها عقلٌ ويجهلها الآخر`,
+    `تناقضٌ صريح     : ${p.contradiction}   ← حرفتان مختلفتان لجملةٍ واحدة`,
     `صمتٌ تامّ        : ${pct(p.silent)}`,
     `انحرافُ الصيغة  : ${p.variantDrift}   ← كلّما قلّ كان أفضل`,
     '',
