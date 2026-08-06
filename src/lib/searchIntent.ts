@@ -1,5 +1,6 @@
 import { resolveConcept, resolveConcepts } from './akg/kb/knowledge';
 import { categoryForConcept } from './catalog';
+import { priceCeiling } from './money';
 
 // ============================================================
 // نيّةُ البحث — الطبقةُ التي كانت مفقودةً بين الزبون والفهرس.
@@ -35,6 +36,14 @@ export interface SearchIntent {
   category?: string;
   /** كلُّ ما يُكتب به هذا المفهومُ في المغرب — يُرسَل للفهرس. */
   terms: string[];
+  /**
+   * سقفُ الثمن إن قاله — «بأقلّ من ٢٠٠ درهم» ⇒ `200`.
+   *
+   *   كان يُستخرَج في `needEngine` نصًّا للعرض ثمّ يُهمَل، فيرى صاحبُ المئتَين
+   *   ما ثمنُه ألفان. والمرشِّحُ قائمٌ في الخادم منذ البداية — كان ينقصه
+   *   من يوصله.
+   */
+  maxPrice?: number;
   /** أيُّ مصطلحٍ طابق وبأيّ طريق — للشرح والتصحيح، لا للعرض. */
   matched?: { term: string; via: string };
 }
@@ -52,10 +61,15 @@ export function expandQuery(raw: string): SearchIntent {
   const q = clean(raw || '');
   if (!q) return { raw: '', terms: [] };
 
+  // السقفُ يُقرأ قبل المفهوم وبمعزلٍ عنه: من قال «شي حاجة بأقلّ من ١٠٠ درهم»
+  // لم يُفهَم مفهومُه، وميزانيّتُه مفهومةٌ تمامًا. وربطُ الاثنين يُسقط الثانيَ
+  // لعجز الأوّل.
+  const maxPrice = priceCeiling(q);
+
   const found = resolveConcept(q);
   if (!found) {
     // لم يُفهَم — نُرسل ما كتبه وحدَه. البحثُ لا يتعطّل لأنّ الفهمَ عجز.
-    return { raw: q, terms: [q] };
+    return { raw: q, terms: [q], maxPrice };
   }
 
   const terms = new Set<string>([q]);
@@ -77,6 +91,7 @@ export function expandQuery(raw: string): SearchIntent {
     category: categoryForConcept(found.id)?.id,
     terms: [...terms].slice(0, MAX_TERMS),
     matched: found.matched,
+    maxPrice,
   };
 }
 
@@ -97,6 +112,7 @@ export function expandAll(raw: string, max = 3): SearchIntent[] {
       ...(c.services || []).map(clean).filter(t => t.length >= 3),
     ])].slice(0, MAX_TERMS),
     matched: c.matched,
+    maxPrice: priceCeiling(q),
   }));
   return out.length ? out : [expandQuery(q)];
 }
@@ -110,5 +126,7 @@ export function toSearchParams(intent: SearchIntent, city?: string): URLSearchPa
   // يعرف أنّ «بلومبي» و«plombier» شيءٌ واحد.
   if (intent.terms.length > 1) p.set('terms', intent.terms.join('|'));
   if (intent.category) p.set('category', intent.category);
+  // الميزانيّةُ تُرسَل رقمًا لا نصًّا: الخادمُ يرشّح، ولا يقرأ الدارجة.
+  if (intent.maxPrice) p.set('priceMax', String(intent.maxPrice));
   return p;
 }

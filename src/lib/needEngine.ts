@@ -1,6 +1,7 @@
 import type { Page } from '../types';
 import { readHuman, type HumanIntent } from './humanIntent';
 import { normLoose } from './normalize';
+import { readAmount } from './money';
 import { resolveConcept } from './akg/kb/knowledge';
 import { stanceOf } from './akg/kb';
 import { categoryForConcept } from './catalog';
@@ -692,8 +693,11 @@ function enrich(r: NeedResult, t: string, ctx: NeedContext): NeedResult {
   const consumer = r.intent === 'buy' || r.intent === 'find_pro' || r.intent === 'rent' || r.intent === 'urgent';
 
   // ميزانية مذكورة: «ب1000 درهم»، «فحدود 500 درهم»
-  const bud = t.match(/(\d[\d.,]*)\s*(درهم|dh|dhs|درهما)/);
-  if (bud && consumer) r.tags = [...r.tags, `ميزانية: ${bud[1]} درهم`];
+  // القارئُ واحدٌ (`money.ts`): ما يُعرَض للإنسان هنا هو نفسُه ما يُرشَّح به
+  // في `/api/search`. وكان تعبيرَين متقاربَين لا متطابقَين — فيُعرَض رقمٌ
+  // ويُرشَّح بغيره، وهو أسوأُ من ألّا يُعرَض شيء.
+  const bud = readAmount(t);
+  if (bud && consumer) r.tags = [...r.tags, `ميزانية: ${bud} درهم`];
 
   // مكان: إن لم يذكر المستخدم مكانًا وعندنا مدينته (\b لا يعمل مع العربية، فنبحث مباشرة)
   // قائمةٌ واحدةٌ للمدن (`MOROCCAN_CITIES`) — كانت هنا نسخةٌ ثانيةٌ أقصر.
@@ -735,8 +739,8 @@ function buildNeedObject(r: NeedResult, raw: string, ctx: NeedContext): NeedObje
     else if (key.includes('صنف') || key.includes('نوع') || key.includes('مجال')) o.category = val;
     else if (key.includes('لِمَن')) o.target = val;
   }
-  const bud = t.match(/(\d[\d.,]*)\s*(درهم|dh|dhs)/);
-  if (bud) o.budget = `${bud[1]} درهم`;
+  const budget = readAmount(t);
+  if (budget) o.budget = `${budget} درهم`;
   // المدينةُ التي كتبها المستخدمُ تسبق مدينةَ حسابِه — كانت تُهمَل تمامًا:
   // «بغيت سبّاك فالرباط» لصاحب حسابٍ فالدار البيضاء كان يُبحَث له فالدار البيضاء.
   const place = r.tags.find(x => x.startsWith('قربك') || x.startsWith('المكان') || x.startsWith('مكان'));

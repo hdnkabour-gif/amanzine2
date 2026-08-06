@@ -49,6 +49,10 @@ import './normalize.test';
 import './personFacts.test';
 import './vocabulary.test';
 import './vocabGaps.test';
+// «Fin wesselat» ⇒ المدينة «سلا»: مدينةٌ مخترَعةٌ من داخل كلمة.
+import './cityBoundary.test';
+// السقفُ يُقرأ ويُعرَض ثمّ يُهمَل: «بأقلّ من ٢٠٠ درهم» ولا مرشِّحَ يصله.
+import './priceSearch.test';
 // «الما» داخل «الماكلة»: أربعةُ أحرفٍ جعلت بائعَ الطواجن سبّاكًا.
 import './symptomBoundary.test';
 // الثقةُ تتبع الفعلَ المقروء: «يعرف ثمّ يسأل» في موضعٍ لم يُفحَص.

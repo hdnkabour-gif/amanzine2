@@ -3,6 +3,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const registry = require('../services/delivery/registry');
+const { readFileSync } = require('node:fs');
+const path = require('node:path');
 
 // ============================================================
 // Olivraison و ForceLog — مزوّدان كُتبا من وثيقتَيهما لا من كلامٍ تسويقيّ.
@@ -263,4 +265,68 @@ test('المزوّدان الجديدان يُطابقان العقدَ ولا �
       assert.ok(f.label && f.help, `${p.meta.id}: حقلٌ بلا شرحٍ يُترك التاجرُ أمامه حائرًا`);
     }
   }
+});
+
+// ── Promo Livraison: مُعرِّفاتُ المدن من لوحة البائع ───────────
+//
+//   الشركةُ لا تُقدّم `/cities`، ولوحتُها تعرض لكلّ مدينةٍ مُعرِّفًا رقميًّا.
+//   والاسمُ النصّيُّ يُطابَق عندهم بحروفه: «كازا» و«الدار البيضاء» و
+//   «Casablanca» ثلاثةُ نصوصٍ لمدينةٍ واحدة — والرقمُ لا يحتمل التأويل.
+const promo = registry.get('promo_livraison');
+
+test('Promo Livraison: تُعلن مدنَها ولا تدّعي نقطةَ API', () => {
+  assert.equal(promo.capabilities.cities, 'static',
+    '`none` تعني «لا نعرف مدنَها» وهو غيرُ صحيح — وتُخفي الجدولَ عن الواجهة');
+  assert.equal(promo.capabilities.pricing, 'none', 'ادُّعي تسعيرٌ لا وجودَ له');
+});
+
+test('وجدولُ المدن يُعرَض ولا يُبدَّل به حقلُ الشحنة', async () => {
+  // **الرقمُ لا يُدَسّ في حقلٍ لم يُطلَب فيه.** كتبتُ أوّلًا
+  // `ville: _cityId(...) ?? name` فأرسلت «7371» بدل «Casablanca»، وأمسكه
+  // عقدُ الشركة المكتوبُ من وثيقتهم. ولو مرّ لكان عطبًا **صامتًا**: شحنةٌ
+  // تُقبَل ولا تصل. فالأرقامُ تُستعمل حيث تنفع — في عرض المدن المخدومة —
+  // ويبقى الحقلُ على ما تقوله الوثيقة حتّى يُقاس خادمُهم.
+  const out = await promo.getCities({ fields: { token: 't' } });
+  assert.equal(out.success, true, 'جدولُ المدن لا يصل إلى الواجهة');
+  assert.ok(out.cities.length >= 3, `${out.cities.length} مدينةً فقط`);
+  assert.ok(out.cities.every(c => c.id && c.name), 'مدينةٌ بلا مُعرِّفٍ أو بلا اسم');
+
+  const s = stubFetch({ 'api-parcels': { body: { status: 200, tracking: 'DZ-1' } } });
+  try {
+    await promo.createShipment({ ...ORDER, cityName: 'الدار البيضاء' }, { fields: { token: 't' } });
+    const sent = new URLSearchParams(s.calls[0].opts.body);
+    assert.equal(sent.get('ville'), 'الدار البيضاء',
+      'أُرسل رقمُ المدينة في حقلٍ تصفه وثيقتُهم نصًّا');
+  } finally { s.restore(); }
+});
+
+test('**ونقاطُ المدن تنادي مَن يعرف مدنَه — لا مَن يجلبها بالشبكة وحدَه**', () => {
+  // ثلاثةُ مواضعَ في `routes/delivery.js` كانت تشترط `cities === 'api'`.
+  // فشركةٌ تُعطي مدنَها في لوحتها (`static`) تُكتَب لها `getCities` ولا
+  // يناديها شيء — طبقةٌ تعمل ولا أحدَ يعرف أنّها تعمل.
+  //
+  // ويبقى موضعُ **التحقّق** على `'api'` وحدَه عن قصد: جدولٌ عندنا لا يُثبت
+  // أنّ مفتاحَ التاجر يعمل. فالحارسُ يطلب الاثنين معًا.
+  const src = readFileSync(path.join(__dirname, '..', 'routes/delivery.js'), 'utf8');
+  const code = src.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+
+  assert.match(code, /LISTS_CITIES\s*=\s*\[\s*'api'\s*,\s*'static'\s*\]/,
+    'لا قائمةَ أوضاعٍ تُعدِّد المدن');
+  assert.match(code, /_pickCapable\([^)]*'cities'\s*,\s*LISTS_CITIES\)/,
+    'نقطةُ /cities ما زالت تُقصي الجدولَ الثابت');
+  assert.match(code, /LISTS_CITIES\.includes\(plugin\.capabilities\?\.cities\)/,
+    'نقطةُ /sync-cities ما زالت تُقصي الجدولَ الثابت');
+  assert.match(code, /capabilities\?\.cities === 'api' && typeof plugin\.getCities/,
+    'التحقّقُ صار يقبل جدولًا ثابتًا دليلًا على أنّ الربطَ يعمل — وهو ليس دليلًا');
+});
+
+test('وما ليس في الجدول يُرسَل باسمه — لا يسقط الطلب', () => {
+  // الحدُّ المعلَن: الجدولُ مكتوبٌ بيدٍ من اللوحة، فهو ناقصٌ بالضرورة.
+  // وإسقاطُ كلّ مدينةٍ غيرِ مسجَّلةٍ يعني منعَ الشحن إلى أغلب المغرب.
+  const s = stubFetch({ 'api-parcels': { body: { status: 200, tracking: 'DZ-2' } } });
+  return promo.createShipment({ ...ORDER, cityName: 'تيفلت' }, { fields: { token: 't' } })
+    .then(() => {
+      const sent = new URLSearchParams(s.calls[0].opts.body);
+      assert.equal(sent.get('ville'), 'تيفلت', 'سقطت مدينةٌ لم تُسجَّل بعد');
+    }).finally(() => s.restore());
 });

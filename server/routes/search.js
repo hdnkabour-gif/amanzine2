@@ -6,21 +6,9 @@
 // ============================================================
 const router = require('express').Router();
 const searchEngine = require('../lib/engines/search');
-
-function parseFilters(qs) {
-  const f = {};
-  if (qs.category) f.category = String(qs.category).slice(0, 60);
-  if (qs.verified === 'true' || qs.verified === '1') f.verified = true;
-  if (qs.ratingMin != null && qs.ratingMin !== '') f.ratingMin = Math.max(0, Math.min(5, +qs.ratingMin || 0));
-  if (qs.delivery === 'true' || qs.delivery === '1') f.delivery = true;
-  if (qs.booking === 'true' || qs.booking === '1') f.booking = true;
-  if (qs.offers === 'true' || qs.offers === '1') f.offers = true;
-  if (qs.openNow === 'true' || qs.openNow === '1') f.openNow = true;
-  if (qs.availableToday === 'true' || qs.availableToday === '1') f.availableToday = true;
-  if (qs.priceMin != null && qs.priceMin !== '') f.priceMin = +qs.priceMin || 0;
-  if (qs.priceMax != null && qs.priceMax !== '') f.priceMax = +qs.priceMax || 0;
-  return f;
-}
+// قارئُ المرشِّحاتِ نُقل إلى `lib/searchFilters` ليقرأه هذا البابُ و«discover»
+// معًا — كان هنا وحدَه، والمحادثةُ تدخل من الباب الآخر فتفقد كلَّ مرشِّح.
+const { parseFilters } = require('../lib/searchFilters');
 
 // GET /api/search?q=&city=&type=&lat=&lng=&radiusKm=&view=&<filters...>
 router.get('/', async (req, res) => {

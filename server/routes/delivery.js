@@ -198,21 +198,35 @@ router.post('/test-connection', auth, async (req, res) => {
 
 // ── نقاطٌ تعتمد على القدرات لا على اسم الشركة ────────────────────────────────
 
-/** يختار أوّلَ مزوّدٍ مفعّلٍ يملك القدرةَ المطلوبة بالوضع المطلوب. */
+/**
+ * يختار أوّلَ مزوّدٍ مفعّلٍ يملك القدرةَ المطلوبة بأحد الأوضاع المقبولة.
+ *
+ *   `mode` نصٌّ أو قائمةُ نصوص. والقائمةُ وُلدت من حاجةٍ حقيقيّة: شركةٌ
+ *   تُعطي مدنَها في لوحتها لا عبر API (`cities: 'static'`) كانت تُقصى من
+ *   كلّ نقاط المدن، فتُكتَب لها `getCities` ولا يناديها شيء — طبقةٌ تعمل
+ *   ولا أحدَ يعرف أنّها تعمل.
+ */
 async function _pickCapable(userId, capability, mode) {
+  const modes = Array.isArray(mode) ? mode : [mode];
   const providers = (await db.getDeliveryProviders(userId)).filter(p => p.enabled);
   for (const row of providers) {
     const chosen = registry.resolve(row);
     const plugin = chosen?.handler;
-    if (plugin && plugin.capabilities?.[capability] === mode) return { row, plugin };
+    if (plugin && modes.includes(plugin.capabilities?.[capability])) return { row, plugin };
   }
   return null;
 }
 
-// GET /api/delivery/cities — من أيّ مزوّدٍ يُعلن cities:'api'
+/**
+ * مَن يستطيع أن يُعدّد مدنَه — من الشبكة أو من جدولٍ معروف.
+ * والسؤالُ عند المُنادي «هل تعرف مدنَك؟» لا «من أين تأتيك؟».
+ */
+const LISTS_CITIES = ['api', 'static'];
+
+// GET /api/delivery/cities — من أيّ مزوّدٍ يعرف مدنَه
 router.get('/cities', auth, async (req, res) => {
   try {
-    const found = await _pickCapable(req.user.id, 'cities', 'api');
+    const found = await _pickCapable(req.user.id, 'cities', LISTS_CITIES);
     if (!found) return res.status(404).json({ error: 'لا يوجد مزوّد مفعّل يدعم جلب المدن' });
     const result = await found.plugin.getCities(found.row);
     if (result.success) return res.json({ success: true, provider: found.plugin.meta.id, cities: result.cities });
@@ -383,6 +397,9 @@ router.post('/verify/:providerRowId', auth, async (req, res) => {
     //   وما يُقرَأ يُحفَظ: كان التحقّقُ يجلب مدنَ الشركة ثمّ يرميها، فيقول
     //   «✅ قرأنا 42 مدينة» ويقول بعده «لم تُزامَن بعد» — التاجرُ يرى الربطَ
     //   ناجحًا والتطبيقَ بلا معلوماتِ الشركة. الجلبُ نفسُه هو المزامنة.
+    //   ويبقى الشرطُ هنا `'api'` وحدَه — لا `static`: جدولٌ مكتوبٌ عندنا
+    //   لا يُثبت أنّ مفتاحَ التاجر يعمل. وهذا الموضعُ الوحيدُ الذي يكون
+    //   فيه مصدرُ المدن ذا معنًى، لأنّ المقصودَ **الدليل** لا القائمة.
     if (plugin.capabilities?.cities === 'api' && typeof plugin.getCities === 'function') {
       try {
         const r = await plugin.getCities(row);
@@ -456,8 +473,8 @@ router.post('/sync-cities/:providerRowId', auth, async (req, res) => {
 
     const chosen = registry.resolve(row);
     const plugin = chosen?.handler;
-    if (!plugin || typeof plugin.getCities !== 'function' || plugin.capabilities?.cities !== 'api') {
-      return res.status(400).json({ error: `${row.name} لا تُقدّم قائمةَ مدنٍ عبر API` });
+    if (!plugin || typeof plugin.getCities !== 'function' || !LISTS_CITIES.includes(plugin.capabilities?.cities)) {
+      return res.status(400).json({ error: `${row.name} لا تُقدّم قائمةَ مدن` });
     }
 
     const result = await plugin.getCities(row);

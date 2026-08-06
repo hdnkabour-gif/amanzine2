@@ -39,22 +39,64 @@ const meta = {
     },
     {
       key: 'sellerId', label: 'مُعرِّف البائع (ID)', required: false,
-      placeholder: 'اختياريّ',
-      // ليس في وثيقتهم الحاليّة، لكنّ حساباتٍ متعدّدةَ المتاجر تطلبه. مُعلَنٌ
-      // غيرَ إجباريّ: يُرسَل إن مُلئ، ولا يُعطِّل الربطَ إن تُرك فارغًا —
-      // فلا نمنع تاجرًا اليوم بحقلٍ قد تطلبه الشركةُ غدًا.
-      help: 'اتركه فارغًا إن لم تُعطِك الشركةُ مُعرِّفًا منفصلًا',
+      placeholder: 'مثال: 277',
+      // كُتب «اختياريّ» أوّلًا لأنّ الوثيقةَ لا تذكره. ثمّ أرى المالكُ لوحتَه:
+      // **«Votre ID» معروضٌ بجانب المفتاح** لكلّ بائع. فهو معطًى حقيقيٌّ
+      // يملكه التاجر — يُرسَل إن مُلئ. وأُبقيه غيرَ إجباريٍّ لأنّ الوثيقةَ
+      // لا تشترطه: منعُ الربط بحقلٍ لا تطلبه الشركةُ صراحةً منعٌ بلا سند.
+      help: 'تجده في لوحة البائع بجانب مفتاح API — «Votre ID»',
     },
   ],
 };
 
 const capabilities = {
-  cities: 'none',    // لا نقطةَ لجلب المدن — المدينةُ تُرسَل نصًّا («ville»)
-  pricing: 'none',   // لا حسابَ ثمنٍ عبر API
+  // **`static` لا `none`.** لا نقطةَ API لجلب المدن، لكنّ لوحةَ البائع
+  // تعرض لكلّ مدينةٍ **مُعرِّفًا رقميًّا** (كازا ٧٣٧١ · أگادير ٨٢١٧ ·
+  // مراكش ٩١٥٣). و`none` تعني «لا نعرف مدنَها» وهو غيرُ صحيح، وتُخفي
+  // الجدولَ عن الواجهة فيبقى التاجرُ يكتب اسمَ المدينة يدويًّا ويُخطئ.
+  cities: 'static',
+  pricing: 'none',   // لا حسابَ ثمنٍ عبر API — الأثمانُ في لوحة البائع
   tracking: 'api',
   cod: true,
   pickup: true,
 };
+
+/**
+ * **مُعرِّفاتُ المدن كما تعرضها لوحةُ البائع.**
+ *
+ *   الشركةُ لا تُقدّم `/cities`، فالجدولُ يُكتَب بيدٍ من اللوحة نفسِها.
+ *   وحدُّه معلَنٌ صراحةً: **ما ليس هنا يُرسَل باسمه نصًّا** كما كان — فلا
+ *   يسقط طلبٌ لمدينةٍ لم نُسجّلها بعد. والإضافةُ سطرٌ حين يقرأ التاجرُ
+ *   لوحتَه، لا انتظارُ نقطةٍ لن تأتي.
+ *
+ *   ولماذا يهمّ الرقمُ أصلًا: الاسمُ النصّيُّ يُطابَق عندهم بحروفه، فـ
+ *   «كازا» و«الدار البيضاء» و«Casablanca» ثلاثةُ نصوصٍ لمدينةٍ واحدة —
+ *   والرقمُ لا يحتمل التأويل.
+ */
+const CITY_IDS = {
+  'الدار البيضاء': 7371, 'كازا': 7371, 'كازابلانكا': 7371, casablanca: 7371, casa: 7371,
+  'أكادير': 8217, 'اكادير': 8217, 'أگادير': 8217, agadir: 8217,
+  'مراكش': 9153, marrakech: 9153, marrakesh: 9153,
+};
+
+/** مُعرِّفُ المدينة إن عُرف، وإلّا `null` — فيُرسَل الاسمُ نصًّا. */
+function _cityId(name) {
+  const k = String(name || '').trim().toLowerCase();
+  if (!k) return null;
+  for (const [label, id] of Object.entries(CITY_IDS)) {
+    if (label.toLowerCase() === k) return id;
+  }
+  return null;
+}
+
+/** الجدولُ للواجهة — `cities:'static'` تعني أنّ هذه تُعرَض بلا نداءِ شبكة. */
+async function getCities() {
+  const seen = new Map();
+  for (const [name, id] of Object.entries(CITY_IDS)) {
+    if (!seen.has(id)) seen.set(id, { id: String(id), name, deliverable: true });
+  }
+  return { success: true, cities: [...seen.values()] };
+}
 
 const ENDPOINT = 'https://promo-livraison.ma/seller/api-parcels';
 
@@ -138,6 +180,13 @@ async function createShipment(order, cfg) {
       phone: order?.customerPhone || '',
       marchandise: names.join(' · ') || 'Commande',
       marchandise_qty: totalQty || 1,
+      // ⚠️ **الاسمُ نصًّا — والمُعرِّفُ الرقميُّ لا يُدَسّ هنا بالظنّ.**
+      //   لوحةُ البائع تعرض لكلّ مدينةٍ رقمًا (كازا 7371)، ووثيقةُ الحقول
+      //   تسمّي هذا الحقلَ `ville` وتصفه نصًّا. وليس عندي ما يُثبت أيَّهما
+      //   ينتظره الخادم. وخطأٌ هنا **صامت**: شحنةٌ تُقبَل وتذهب إلى مدينةٍ
+      //   أخرى أو إلى لا شيء — ولا يعلم التاجرُ إلّا حين يشتكي الزبون.
+      //   فيبقى ما تقوله الوثيقةُ حتّى يُقاس الخادمُ نفسُه. والأرقامُ تُستعمل
+      //   في `getCities` حيث لا تضرّ: عرضُ المدن المخدومة.
       ville: order?.cityName || order?.city || '',
       adresse: order?.address || '',
       note: order?.notes || '',
@@ -223,4 +272,4 @@ async function testConnection(cfg) {
   }
 }
 
-module.exports = { meta, capabilities, createShipment, trackShipment, calculateQuote, testConnection };
+module.exports = { meta, capabilities, createShipment, trackShipment, getCities, calculateQuote, testConnection };

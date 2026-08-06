@@ -1,3 +1,4 @@
+import { normLoose, hitsWord } from '../../normalize';
 // ============================================================
 // Administrative Geography Registry — الجغرافيا الإداريّة المغربيّة كبيانات:
 //   جهة → مدن → أحياء + رمز بريديّ. تُفعّل widget الموقع، «قربي»، والبحث
@@ -43,9 +44,20 @@ export function districtsOf(city: string): string[] { return city.trim() === 'ا
 export function postalOf(city: string): string | undefined { return POSTAL[city.trim()]; }
 
 // أوّل مدينة مذكورة في نصّ (لاستدلال المدينة).
+/**
+ * **المدينةُ تُطابَق كلمةً كاملةً — لا مصادفةً داخل كلمة.**
+ *
+ *   قِيس حرفيًّا: «Fin wesselat lcomonde deyali» ⇒ المدينة **سلا**.
+ *   فكُّ الـArabizi يعطي «فين وسسلات…»، و«سلا» تقع داخل «وسسلات».
+ *   ومدينةٌ مخترَعةٌ أسوأُ من لا مدينة: تُصفّى بها النتائجُ فلا يجد الرجلُ
+ *   شيئًا، ولا يعرف لماذا. وهي كذلك تُكتَب **حقيقةً تدوم** في ملفّه.
+ *
+ *   وهذا ثالثُ موضعٍ يقع فيه نفسُ المصرف بعد فهرس المفاهيم ورسم الأعراض —
+ *   ولذلك يُقرأ الحدُّ من `normalize` لا يُكتَب هنا نسخةً رابعة.
+ */
 export function cityInText(text: string): string | undefined {
-  const t = text.trim();
-  return allCities().find(c => t.includes(c));
+  const t = normLoose(text);
+  return allCities().find(c => hitsWord(normLoose(c), t));
 }
 
 export function geoSize(): { regions: number; cities: number } {
