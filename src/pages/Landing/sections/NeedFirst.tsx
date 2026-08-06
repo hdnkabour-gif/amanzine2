@@ -173,6 +173,21 @@ export default function NeedFirst() {
   const routeTo = (need: string, page?: string, url?: string) => {
     try { sessionStorage.setItem('amanzine_need_seed', need); } catch { /* noop */ }
     const u: any = understand(need);
+    // ── الحاجةُ تُحمَل كاملةً إلى صفحة الدخول ────────────────────
+    //   `AuthPage` تعرض «فهمت أنّك بغيتي…» من `amanzine_need`، وكان الكاتبُ
+    //   الوحيدُ لهذا المفتاح قسمًا **ميّتًا** (`Hero.tsx` لا يستورده شيء).
+    //   فبقيت البطاقةُ لا تظهر لأحدٍ منذ أن صارت `NeedFirst` أوّلَ شاشة:
+    //   قارئٌ حيٌّ وكاتبٌ ميّت، والحارسُ يراهما زوجًا سليمًا.
+    //   والفارقُ للتاجر: نموذجُ تسجيلٍ مقطوعٌ عمّا كتبه قبل ثانية، بدل حوارٍ
+    //   يُكمل نفسَه — وهي أوّلُ خمس دقائقَ يُحكَم فيها على التطبيق كلِّه.
+    try {
+      sessionStorage.setItem('amanzine_need', JSON.stringify({
+        text: need,
+        service: u?.profession?.label || u?.problem?.name || u?.service || '',
+        city: u?.city || '',
+        at: Date.now(),   // تقرؤه `AuthPage` وتُسقط ما مضى عليه نصفُ ساعة
+      }));
+    } catch { /* noop */ }
     const city = u.city ? `&city=${encodeURIComponent(u.city)}` : '';
     if (page) {
       try { sessionStorage.setItem('amanzine_need_stance', page === 'publish' ? 'offer' : 'seek'); } catch { /* noop */ }

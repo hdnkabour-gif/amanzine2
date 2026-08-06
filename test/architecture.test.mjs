@@ -500,7 +500,7 @@ test('كلُّ مسارٍ عامٍّ مُسجَّلٍ له بابٌ في الو�
     `مسارٌ يعمل ولا يصله أحد: ${doorless.join(' · ')} — ضَع له رابطًا أو احذفه`);
 });
 
-test('لا مكوّنَ مبنيٌّ بصفر استيراد — يُركَّب أو يُحذَف', () => {
+test('⑤ لا ملفَّ واجهةٍ لا يبلغه التطبيق — يُركَّب أو يُحذَف', () => {
   // العطبُ الذي وُلد منه هذا: ستّةُ مكوّناتٍ مكتوبةٍ لا يستوردها أحد
   // (BROKEN_CHAINS#⑩⑪) — منها `CapabilityBar` الذي يعرض قدراتِ الصفحة،
   // و`CommandCenter` الذي هو تنفيذُ قرارٍ معتمَد (DR-0005). كودٌ ميّتٌ يبدو
@@ -518,17 +518,50 @@ test('لا مكوّنَ مبنيٌّ بصفر استيراد — يُركَّب 
   })(join(ROOT_DIR, 'src'));
   const all = files.map(f => readFileSync(f, 'utf8')).join('\n');
 
-  const orphans = [];
-  for (const e of readdirSync(COMPONENTS)) {
-    if (!e.endsWith('.tsx')) continue;
-    const name = e.replace(/\.tsx$/, '');
-    // الاستيرادُ المباشرُ أو الكسولُ — كلاهما تركيب. `MapView` يُستورَد
-    // بـ`lazy(() => import(...))` وحدَه، فحصرُ البحث في `from '…'` يقتله ظلمًا.
-    const rx = new RegExp(`(?:from|import\\()\\s*['"\`][^'"\`]*/${name}['"\`]`);
-    if (!rx.test(all)) orphans.push(name);
+  // ── مسحُ الوصول من نقطة الدخول ────────────────────────────
+  //
+  //   كان هذا الحارسُ يمسح `src/components/` **وحدَه**. فمرّت ٤٥٠ سطرًا ميّتةً
+  //   في `src/pages/`: ستّةُ أقسامٍ في صفحة الهبوط لا يستوردها شيء، وأداةٌ
+  //   في `src/utils/`. القاعدةُ ⑤ لم تكن خاطئة — الحارسُ كان أعمى عن نصف البيت.
+  //
+  //   والمسحُ الآن **بالوصول** لا بالاسم: نمشي من `main.tsx` على الاستيرادات
+  //   كلِّها (ساكنٍ وكسولٍ وجانبيّ)، وما لا نبلغه يتيم. وهذا وحدَه يحلّ
+  //   استيرادَ المجلّد (`from './Landing'` ⇒ `Landing/index.tsx`) الذي أسقط
+  //   صفحةَ الهبوط الحيّةَ كلَّها في تقريرٍ سابقٍ للمفصول.
+  const EXT = ['', '.ts', '.tsx', '/index.ts', '/index.tsx'];
+  const resolveSpec = (from, spec) => {
+    if (!spec.startsWith('.')) return null;
+    const base = join(from, '..', spec);
+    for (const e of EXT) {
+      const c = base + e;
+      if (existsSync(c) && statSync(c).isFile()) return c;
+    }
+    return null;
+  };
+  const IMPORT_RX = [
+    /from\s+['"`]([^'"`]+)['"`]/g,
+    /import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g,
+    /^\s*import\s+['"`]([^'"`]+)['"`]/gm,
+  ];
+  const reached = new Set();
+  const queue = [join(ROOT_DIR, 'src/main.tsx')];
+  while (queue.length) {
+    const f = queue.pop();
+    if (reached.has(f)) continue;
+    reached.add(f);
+    const src = readFileSync(f, 'utf8');
+    for (const rx of IMPORT_RX) {
+      for (const m of src.matchAll(rx)) {
+        const r = resolveSpec(f, m[1]);
+        if (r && !reached.has(r)) queue.push(r);
+      }
+    }
   }
-  assert.deepEqual(orphans, [],
-    `مكوّنٌ بلا مستورِد: ${orphans.join(' · ')} — رَكِّبه حيث يخدم، أو احذفه`);
+
+  const orphans = files.filter(f => !reached.has(f)).map(f => f.replace(ROOT_DIR, ''));
+  assert.deepEqual(orphans.sort(), [],
+    `ملفّاتٌ لا يبلغها التطبيقُ من \`main.tsx\`:\n  ${orphans.join('\n  ')}\n`
+    + '  رَكِّبها حيث تخدم، أو احذفها. الميّتُ الصامتُ يُقرأ كأنّه حيّ.');
 });
 
 test('قياسٌ يُكتب يجب أن يُقرأ — لا دالّةَ إحصاءٍ بلا شاشة', () => {
