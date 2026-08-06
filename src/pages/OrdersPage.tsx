@@ -80,7 +80,8 @@ function QuickOrderModal({ onClose, products, settings, addOrder, notify }: any)
 import { useState, useEffect } from 'react';
 import React from 'react';
 import { useStore } from '../store';
-import { Search, ChevronDown, ChevronUp, CheckCircle, XCircle, Package, AlertTriangle, Bot, Loader2 } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, CheckCircle, XCircle, Package, AlertTriangle, Bot, Loader2, ExternalLink } from 'lucide-react';
+import { deliveryAutoAPI, type AutoShipResult } from '../services/api';
 
 const STATUS_AR: Record<string, string> = { pending: 'بانتظار', pending_confirmation: 'تأكيد واتساب', approved: 'موافقة', processing: 'جارٍ', shipped: 'شُحن', delivered: 'وُصّل', cancelled: 'ملغي' };
 // تبويباتُ التصفية تشتقُّ أسماءَها من الحالات — لا قائمةَ ثانيةً تتباعد عنها.
@@ -236,7 +237,7 @@ function OrdersSkeleton() {
 }
 
 export default function OrdersPage() {
-  const { orders, approveOrder, rejectOrder, shipOrder, deliverOrder, trackOrder, settings, notify, customers, products, addOrder, isLoading } = useStore();
+  const { orders, approveOrder, rejectOrder, shipOrder, deliverOrder, trackOrder, settings, notify, customers, products, addOrder, isLoading, deliveryProviders } = useStore();
 
   const [filter, setFilter] = useState('pending');
   const [filterTouched, setFilterTouched] = useState(false);
@@ -245,6 +246,8 @@ export default function OrdersPage() {
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [autoShipState, setAutoShipState] = useState<{id: string, step: number, msg: string, steps?: {label:string; ok:boolean; detail?:string; error?:string}[], real?: boolean, /** إعادةٌ مجدوَلة: لا عملَ يدويًّا على التاجر الآن. */ retrying?: boolean} | null>(null);
   const [manualTrk, setManualTrk] = useState('');
+  // نتيجةُ أتمتة موقع الشركة — البابُ الذي لم يكن (انظر `runUrlRecipe`).
+  const [autoRecipe, setAutoRecipe] = useState<{ id: string; busy: boolean; r?: AutoShipResult } | null>(null);
   const [mainTab, setMainTab] = React.useState<'orders'|'customers'>('orders');
   const [showQuickOrder, setShowQuickOrder] = useState(false);
 
@@ -303,6 +306,47 @@ export default function OrdersPage() {
       setAutoShipState({ id: order.id, step: 4, real: false, steps: r.steps,
         msg: `⚠️ لم تُرسل فعلياً لشركة التوصيل — ${r.apiError || 'لا قناة ربط مهيأة'}. استخدم «الإدخال اليدوي» بالأسفل لإيصالها للشركة.` });
     }
+  };
+
+  // ============================================================
+  // 🤖 أتمتةُ موقع الشركة — **القناةُ التي كانت مقطوعةً من طرف الواجهة**.
+  //
+  //   `POST /api/delivery-auto/:orderId` مكتوبٌ ويعمل: يدخل إلى لوحة الشركة
+  //   بالوصفة المحفوظة، يملأ الحقول، يُرسل، ويقرأ رقمَ التتبّع. ومحوّلُ
+  //   السجلّ (`browser.adapter`) يقول صراحةً إنّ التنفيذَ الفعليَّ هناك.
+  //   ولم يكن في `src/` كلِّه سطرٌ واحدٌ ينادِيه — فشركةٌ بلا API تُشحَن
+  //   إليها يدويًّا دائمًا رغم أنّ الأتمتةَ جاهزة.
+  //
+  //   ── ولماذا زرٌّ لا سقوطٌ تلقائيّ ──
+  //   `CREATE_SHIPMENT_AUTO` مصنَّفةٌ `high`: شحنةٌ تُنشأ عند طرفٍ خارجيٍّ
+  //   بأتمتةِ متصفّحٍ هشّة — يكفي أن يتبدّل زرٌّ عندهم ليصير الفعلُ صامتًا.
+  //   وما لا يُسترجَع لا يقع بلا قصدٍ من الإنسان.
+  //
+  //   ── وحين لا يكون مُحرِّكُ المتصفّح مثبَّتًا ──
+  //   لا يكذب الخادمُ: يُرجع `needsManual` مع رابط اللوحة والحقول جاهزةً.
+  //   وهذه **مساعدةٌ لا فشل** — تختصر على التاجر النسخَ حقلًا حقلًا.
+  // ============================================================
+  const recipeProvider = deliveryProviders.find(
+    (p: any) => p.enabled && (p.apiType === 'url-recipe' || (p.fields as any)?.apiType === 'url-recipe'));
+
+  const runUrlRecipe = async (order: any) => {
+    setAutoRecipe({ id: order.id, busy: true });
+    try {
+      const r = await deliveryAutoAPI.run(order.id);
+      setAutoRecipe({ id: order.id, busy: false, r });
+      if (r.real && r.tracking) notify('success', `🤖 تسجّل الطلب عند ${r.provider} — رقم التتبّع: ${r.tracking}`);
+      else notify('info', '📋 مُحرِّك المتصفّح ماشي مثبَّت — الحقول واجدة تحت باش تلصقهم ف لوحة الشركة');
+    } catch (e: any) {
+      setAutoRecipe(null);
+      notify('error', e?.message || 'ما قدرناش نديرو الأتمتة');
+    }
+  };
+
+  const copyRecipeFields = (fields: Record<string, string>) => {
+    navigator.clipboard.writeText(
+      Object.entries(fields).map(([k, v]) => `${k}: ${v}`).join('\n')
+    ).catch(() => {});
+    notify('success', '📋 تنسخو الحقول');
   };
 
   // 📋 الإدخال اليدوي الصادق: نسخ بيانات الشحنة لإدخالها في موقع شركة بدون API
@@ -532,6 +576,43 @@ export default function OrdersPage() {
                           style={{ minWidth: 130, justifyContent: 'center', opacity: manualTrk.trim() ? 1 : 0.5 }}
                         >✅ حفظ الشحن بالرقم الحقيقي</button>
                       </div>
+
+                      {/* 🤖 الأتمتة — تُعرَض فقط إن كانت هناك وصفةٌ محفوظةٌ فعلًا.
+                          زرٌّ يَعِد بأتمتةٍ لا وصفةَ لها هو وعدٌ بلا أساس. */}
+                      {recipeProvider && (
+                        <div style={{ borderTop: '1px dashed var(--clr-border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <p style={{ fontSize: 11.5, color: 'var(--txt-3)', flex: 1, minWidth: 180, lineHeight: 1.7 }}>
+                              ولا خلّي <b>{recipeProvider.name}</b> تتعمّر بوحدها ف اللوحة ديالهم.
+                            </p>
+                            <button onClick={() => runUrlRecipe(order)}
+                              disabled={autoRecipe?.id === order.id && autoRecipe.busy}
+                              className="btn btn-ghost btn-sm" style={{ gap: 5 }}>
+                              {autoRecipe?.id === order.id && autoRecipe.busy
+                                ? <><Loader2 size={13} className="spin" /> كيتعمّر…</>
+                                : <><Bot size={13} /> جرّب الأتمتة</>}
+                            </button>
+                          </div>
+
+                          {autoRecipe?.id === order.id && autoRecipe.r && !autoRecipe.r.real && autoRecipe.r.manualData && (
+                            <div style={{ padding: 11, borderRadius: 11, background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.25)' }}>
+                              <p style={{ fontSize: 11.5, color: '#fbbf24', fontWeight: 700, marginBottom: 7, lineHeight: 1.7 }}>
+                                مُحرِّك المتصفّح ماشي مثبَّت ف هاد الخادم — واخّا، الحقول واجدة:
+                              </p>
+                              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                                <button onClick={() => copyRecipeFields(autoRecipe.r!.manualData!.fields)}
+                                  className="btn btn-ghost btn-sm" style={{ gap: 5 }}>📋 نسخ الحقول</button>
+                                {autoRecipe.r.manualData.createOrderUrl && (
+                                  <a href={autoRecipe.r.manualData.createOrderUrl} target="_blank" rel="noopener noreferrer"
+                                    className="btn btn-ghost btn-sm" style={{ gap: 5 }}>
+                                    <ExternalLink size={12} /> حلّ لوحة الشركة
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 

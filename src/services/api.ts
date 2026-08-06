@@ -342,6 +342,25 @@ export const loyaltyAPI = {
     request<{ ok: boolean; redeemed: number; points: number }>('POST', '/loyalty/redeem', data),
 };
 
+// ── أتمتةُ موقع الشركة ───────────────────────────────────────
+//
+//   `POST /api/delivery-auto/:orderId` مكتوبٌ ويعمل، ومحوّلُ السجلّ
+//   (`browser.adapter`) يقول صراحةً «التنفيذُ الفعليّ يبقى في
+//   routes/delivery-auto.js» — ولم يكن في `src/` كلِّه سطرٌ ينادِيه. فقناةُ
+//   الشحن الوحيدةُ لشركةٍ بلا API كانت مقطوعةً من طرف الواجهة.
+//
+//   وردُّه ذو حالتَين صادقتَين: `real: true` مع رقمِ تتبّعٍ حين يكون مُحرِّكُ
+//   المتصفّح مثبَّتًا، أو `needsManual` مع بيانات اللوحة والحقول حين لا يكون
+//   — وهذه الثانيةُ ليست فشلًا بل **مساعدةٌ يدويّة**: الحقولُ جاهزةٌ للّصق.
+export interface AutoShipResult {
+  success: boolean; tracking: string; provider: string; real: boolean;
+  method?: 'puppeteer' | 'manual-assist'; needsManual?: boolean;
+  manualData?: { loginUrl?: string; createOrderUrl?: string; fields: Record<string, string> };
+}
+export const deliveryAutoAPI = {
+  run: (orderId: string) => request<AutoShipResult>('POST', `/delivery-auto/${orderId}`),
+};
+
 // ── Wallet & Payments ────────────────────────────────────────
 //
 //   طبقةٌ كاملةٌ كانت تعمل على الخادم بلا مُنادٍ واحدٍ في الواجهة: تُنشَأ
