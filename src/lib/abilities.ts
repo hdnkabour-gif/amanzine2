@@ -155,11 +155,15 @@ export const ABILITIES: Ability[] = [
     risk: 'high', needs: ['product'], auth: true, page: 'products', api: '/api/products' },
   { id: 'MANAGE_COUPON', verb: 'create', entity: 'coupon', say: 'تصايب تخفيض ولا كوبون',
     risk: 'medium', needs: [], auth: true, page: 'coupons', api: '/api/coupons' },
+  // البابُ قائمٌ منذ بُنيت الشاشة: `LoyaltyPanel` مركَّبٌ داخل `CustomersPage`.
+  // وبقي الإعلانُ `page: null` — فكان مَن قال «بغيت نشوف نقط الوفاء» يُقابَل
+  // بلا وجهة، والشاشةُ تعمل على بُعد نقرةٍ واحدة.
   { id: 'MANAGE_LOYALTY', verb: 'update', entity: 'customer', say: 'تسيّر نقط الوفاء ديال الزبناء',
-    risk: 'medium', needs: [], auth: true, page: null, api: '/api/loyalty' },
+    risk: 'medium', needs: [], auth: true, page: 'customers', api: '/api/loyalty' },
+  // ونفسُ الأمر: الإرسالُ الجماعيُّ يقع في `NotificationsPage` (`broadcastAPI.send`).
   { id: 'BROADCAST_MESSAGE', verb: 'send', entity: 'message', say: 'تصيفط رسالة لكل الزبناء',
     // تخرج للناس ولا تُسترجَع — وإن كانت الرسالةُ نصًّا، فالإرسالُ حدثٌ نهائيّ.
-    risk: 'high', needs: ['text', 'audience'], auth: true, page: null, api: '/api/broadcast' },
+    risk: 'high', needs: ['text', 'audience'], auth: true, page: 'notifications', api: '/api/broadcast' },
   // «تزيد تصاور» تقع في `ProductsPage` (رفعٌ إلى `/api/media/upload`)، أمّا
   // `ImageEditorPage` فيُحمّل صورةً **ليعدّلها**. فمن قال «بغيت نزيد تصويرة»
   // كان يُساق إلى محرّرٍ فارغٍ ينتظر صورةً لم يرفعها بعد.
@@ -183,6 +187,12 @@ export const ABILITIES: Ability[] = [
     // أنّ مسارًا **بهذا الاسم** موجود، وهو موجودٌ فعلًا ويفعل شيئًا آخر.
     // تتبّعُ الزبون: `GET /api/orders/track-code/:code` و`/track/:phone`،
     // وكلاهما عامٌّ بلا مصادقة — مطابقٌ لـ`auth: false` هنا.
+    //
+    //   و`page: null` **عمدًا**: البابُ موجودٌ ويعمل (`/track/:userId` في
+    //   `App.tsx` → `TrackOrder.tsx`)، لكنّه خارج `PAGE_IDS` لأنّ `PAGE_IDS`
+    //   صفحاتُ **التاجر داخل `MainLayout`**. وهذا بابُ الزبون: بلا حساب،
+    //   بلا قائمةٍ جانبيّة، يصله رابطًا في واتساب. إدراجُه في `PAGE_IDS`
+    //   يعني وضعَ صفحةِ الزبون في قائمة التاجر — وذاك خطأٌ لا تصحيح.
     risk: 'low', needs: ['order'], auth: false, page: null, api: '/api/orders' },
   { id: 'CREATE_SHIPMENT', verb: 'send', entity: 'shipment', say: 'تصيفط الطلب مع شركة التوصيل',
     // شحنةٌ تُنشأ عند طرفٍ خارجيّ ويُطلَب مالٌ من الزبون — لا تُسترجَع.
@@ -225,6 +235,9 @@ export const ABILITIES: Ability[] = [
     risk: 'medium', needs: [], auth: true, page: 'settings', api: '/api/settings' },
   { id: 'MANAGE_NOTIFICATIONS', verb: 'update', entity: 'settings', say: 'تسيّر التنبيهات',
     risk: 'low', needs: [], auth: true, page: 'notifications', api: '/api/push' },
+  // `page: null` **عمدًا**: لا أحدَ يذهب إلى صفحةٍ ليُزامن ذاكرتَه. المزامنةُ
+  // تقع من نفسِها في `lib/userMemory.ts` عند الدخول وعند التبدّل. وصفحةٌ لها
+  // تعني عملًا يدويًّا لشيءٍ قيمتُه كلُّها في أنّه لا يُطلَب.
   { id: 'SYNC_MEMORY', verb: 'update', entity: 'settings', say: 'الذاكرة ديالك تبقى معاك ف كل جهاز',
     risk: 'low', needs: [], auth: true, page: null, api: '/api/memory' },
 
