@@ -209,6 +209,10 @@ router.put('/:id/approve', auth, async (req, res) => {
     const waToken = approveSettings.social?.whatsapp?.accessToken;
     const waPhoneId = approveSettings.social?.whatsapp?.pageId;
     const refreshedOrder = await db.getOrder(order.id);
+    // العنوانُ العامّ للمنصّة — منه يُبنى رابطُ التتبّع. `PRODUCTION_URL` أوّلًا
+    // (نطاقُ التاجر إن وُجد) ثمّ نطاقُ المنصّة.
+    const trackBase = process.env.PRODUCTION_URL
+      || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '');
     const cur2 = approveSettings.brand?.currency || 'MAD';
     const brandName2 = approveSettings.brand?.name || 'المتجر';
     const itemsList2 = (refreshedOrder?.items||[]).map((i,idx) =>
@@ -233,7 +237,13 @@ router.put('/:id/approve', auth, async (req, res) => {
       `🔖 *رقم الطلب:* ${refreshedOrder?.id}`,
       `🔑 *كود التتبع:* *${refreshedOrder?.customerCode||'—'}*`,
       ``,
-      `📌 _احتفظ بكود التتبع لمتابعة طلبك_`,
+      // ── الرابطُ لا الكودُ وحدَه ──────────────────────────────────
+      //   كانت الرسالةُ تقول «احتفظ بالكود لمتابعة طلبك» **ولا صفحةَ يُدخَل
+      //   فيها**: وعدٌ في رسالةٍ بلا بابٍ يفي به. والرابطُ يحمل هويّةَ المتجر
+      //   والكودَ معًا، فيصل الزبونُ بضغطةٍ لا بنسخٍ ولصق.
+      ...(trackBase
+        ? [`🔗 تبّع طلبك: ${trackBase}/track/${req.user.id}?code=${encodeURIComponent(refreshedOrder?.customerCode||'')}`]
+        : [`📌 _احتفظ بكود التتبع لمتابعة طلبك_`]),
       `━━━━━━━━━━━━━━━━━━━━━━`,
       `🚚 سيتم الشحن خلال 24-48 ساعة`,
       `شكراً لثقتك! 🙏`,

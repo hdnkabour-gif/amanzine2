@@ -885,3 +885,36 @@ test('㉖ أثرُ الفهم يُقرأ من العقل لا يُكتَب في 
     `\`understand\` تُستدعى ${understandCalls} مرّاتٍ في الصفحة — تحليلٌ يتكرّر بلا داعٍ`);
 });
 
+
+// ㉗ ما تَعِد به الرسالةُ له بابٌ يفي به.
+//
+//   رسالةُ واتساب تقول للزبون «🔑 كود التتبع» و«احتفظ به لمتابعة طلبك»،
+//   والخادمُ يُجيب عن الكود منذ زمن (`GET /api/orders/track-code/:code`
+//   عامٌّ بلا مصادقة) — **ولا صفحةَ يُدخِله فيها**. وعدٌ في رسالةٍ بلا باب:
+//   الزبونُ يحتفظ بكودٍ لا يستعمله، ويتّصل بالتاجر ليسأل «فين وصل طلبي؟».
+test('㉗ للتتبّع صفحةٌ عامّةٌ، والرسالةُ تحمل رابطَها', () => {
+  const page = join(ROOT, 'src/pages/TrackOrder.tsx');
+  assert.ok(existsSync(page), 'لا صفحةَ تتبّع — الكودُ يُعطى ولا يُستعمَل');
+
+  const app = readFileSync(join(ROOT, 'src/App.tsx'), 'utf8');
+  assert.match(app, /path="\/track\/:userId"/, 'الصفحةُ مبنيّةٌ بلا مسار');
+  // عامٌّ لا محميّ: الزبونُ لا حسابَ له، ووضعُه خلف `isAuthed` يقفل البابَ عمّن بُني له.
+  const line = (app.match(/^.*path="\/track\/:userId".*$/m) || [''])[0];
+  assert.ok(!/isAuthed/.test(line), 'مسارُ التتبّع محميٌّ بحساب — والزبونُ لا حسابَ له');
+
+  const src = readFileSync(page, 'utf8');
+  assert.match(src, /track-code\//, 'الصفحةُ لا تنادي مسارَ الكود');
+  assert.match(src, /orders\/track\//, 'لا بحثَ بالهاتف — من ضاع منه الكودُ يبقى معه هاتفُه');
+
+  const orders = readFileSync(join(ROOT, 'server/routes/orders.js'), 'utf8');
+  assert.match(orders, /\/track\/\$\{req\.user\.id\}\?code=/,
+    'الرسالةُ تُعطي كودًا ولا تُعطي رابطًا — نسخٌ ولصقٌ بدل ضغطةٍ واحدة');
+});
+
+test('㉗ ولا يُعرَض رقمُ تتبّعٍ لا وجودَ له', () => {
+  // `trackingNumber` معناه واحدٌ لا ثانيَ له: رقمٌ جاء من شركةِ توصيل.
+  // عرضُ حقلٍ فارغٍ على أنّه رقمٌ يجعل الزبونَ يبحث عنه في موقع الشركة فلا يجده.
+  const src = readFileSync(join(ROOT, 'src/pages/TrackOrder.tsx'), 'utf8');
+  assert.match(src, /o\.trackingNumber \?/,
+    'رقمُ التتبّع يُعرَض بلا شرطٍ — سيظهر فارغًا أو مخترَعًا');
+});

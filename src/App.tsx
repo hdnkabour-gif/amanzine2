@@ -4,6 +4,7 @@ import { useStore } from './store';
 import AuthPage              from './pages/AuthPage';
 import MainLayout            from './pages/MainLayout';
 import LandingPage           from './pages/LandingPage';
+import TrackOrder            from './pages/TrackOrder';
 import Storefront            from './pages/Storefront';
 import Marketplace           from './pages/Marketplace';
 import Explore               from './pages/Explore';
@@ -328,6 +329,9 @@ function AppShell() {
         <Route path="/feed"           element={<ActivityFeed />} />
         <Route path="/market"         element={<Marketplace />} />
         <Route path="/business/:source/:id" element={<BusinessProfile />} />
+        {/* تتبّعُ الطلب — عامٌّ: الزبونُ لا حسابَ له. هويّةُ المتجر في الرابط
+            لأنّ المسارَين يشترطانها والزبونُ لا يعرفها ولا يجب أن يعرفها. */}
+        <Route path="/track/:userId"  element={<TrackOrder />} />
 
         {/* ── PUBLIC: Landing page (choose: merchant or customer) ── */}
         <Route path="/landing" element={<LandingPage />} />
