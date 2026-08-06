@@ -10,6 +10,7 @@ const { missingCredentials } = require('../services/delivery/contract');
 const cityEngine = require('../lib/cityEngine');
 const pricing = require('../lib/pricingEngine');
 const { resolveDeliveryFee } = require('../lib/deliveryPricing');
+const { runShipment } = require('../lib/shipmentAttempt');
 
 // ── ترحيلٌ لمرّةٍ واحدة: settings.delivery.providers ⇒ delivery_providers ──────
 // شركاتٌ أُضيفت عبر «البسيط» أو «واتساب» أو «وصفة URL» كانت تُحفَظ في الإعدادات
@@ -119,7 +120,6 @@ router.post('/create/:orderId', auth, async (req, res) => {
     console.log(`[Delivery] Using provider: ${prov.name} (apiType: ${prov.apiType})`);
 
     const settings = preSettings;
-    const failures = [];
     const steps = [{
       label: 'تجهيز بيانات الشحنة',
       ok: true,
@@ -140,114 +140,27 @@ router.post('/create/:orderId', auth, async (req, res) => {
     // لا فروعَ باسم شركة: السجلُّ يختار المزوّدَ من api_type (أو webhook عامًّا)،
     // والنتيجةُ تخرج بشكلٍ واحدٍ مهما اختلفت الشركة. إضافةُ شركةٍ = ملفٌّ جديد
     // في services/delivery/providers، بلا لمسِ هذا المسار.
-    // ترجمةُ المدينة إلى مُعرِّفِ الشركة قبل الإرسال. التاجرُ كتب «كازا» أو
-    // «الدار البيضاء»؛ الشركةُ تريد 18. غيابُ الخريطة ليس عطبًا — نُرسل الاسمَ
-    // كما كان (سلوكُ ما قبل هذه الطبقة) ونُسجّل الملاحظة.
-    const canonical = cityEngine.resolve(order.city);
-    let externalCityId = null;
-    if (canonical) {
-      try { externalCityId = await db.getExternalCityId(req.user.id, prov.id, canonical.id); }
-      catch { /* الخريطةُ اختياريّة */ }
-    }
-    if (canonical && !externalCityId) {
-      steps.push({
-        label: `مدينة «${canonical.name}» بلا مُعرِّفٍ لدى ${prov.name}`,
-        ok: true,
-        detail: 'يُرسَل الاسمُ نصًّا — زامِن المدن من صفحة التوصيل لدقّةٍ أعلى',
+    // المحاولةُ نفسُها في `lib/shipmentAttempt` — يشترك فيها هذا المسارُ
+    // ومُعيدُ المحاولة الدوريّ. كانت هنا بكاملها، فلمّا لزمت الإعادةُ آليًّا
+    // لم يكن أمامها إلّا نسخُها؛ ونسختان تتباعدان في شحنةٍ حقيقيّةٍ لزبون.
+    const out = await runShipment({
+      userId: req.user.id, order, prov, settings,
+      attempts: Number(order.deliveryAttempts || 0),
+    });
+    steps.push(...out.steps);
+    if (out.real) {
+      return res.json({
+        success: true, tracking: out.tracking, provider: prov.name, real: true,
+        via: out.via, steps, manual: { copyText: manualCopy, openUrl },
       });
     }
-
-    // ── إثراءُ البنود بالـSKU ─────────────────────────────────────
-    // بعضُ الشركات (Livo) تطلب مُعرِّفَ منتجٍ من كتالوجها هي، والجسرُ الوحيدُ
-    // إليه حقلُ «مرجع الزبون» — أي الـSKU عندنا. وبنودُ الطلب تحمل
-    // `productId` و`productName` ولا تحمل الـSKU، فتُقرأ هنا مرّةً واحدة.
-    // المزوّدُ يبقى نقيًّا: لا قاعدةَ بياناتٍ داخل ملفّ شركة.
-    let enrichedItems = order.items || [];
-    try {
-      const catalog = await db.getProducts(req.user.id);
-      const bySku = new Map(catalog.map(p => [p.id, p.sku]));
-      enrichedItems = enrichedItems.map(it => ({
-        ...it,
-        sku: it.sku || bySku.get(it.productId) || '',
-      }));
-    } catch { /* الإثراءُ تحسينٌ لا شرط */ }
-
-    const chosen = registry.resolve(prov);
-    if (chosen) {
-      const plugin = chosen.handler;
-      const label = `إرسال بيانات الشحنة إلى ${prov.name} (${chosen.label})`;
-      try {
-        const result = await plugin.createShipment(
-          {
-            ...order,
-            items: enrichedItems,
-            currency: settings.brand?.currency || 'MAD',
-            // المزوّدُ يُفضّل المُعرِّفَ إن وُجد، ويقع على الاسم إن لم يوجد.
-            cityId: externalCityId || undefined,
-            cityName: canonical?.name || order.city,
-          },
-          prov
-        );
-        if (result.success) {
-          const realTracking = result.trackingNumber || result.shipmentId || '';
-          steps.push({ label, ok: true, detail: plugin.meta.id });
-          steps.push({ label: 'استلام رقم التتبع من الشركة', ok: true, detail: realTracking });
-          await db.updateOrder(order.id, {
-            status: 'processing',
-            trackingNumber: realTracking,
-            deliveryProvider: prov.name,
-            providerId: plugin.meta.id,
-            // مُعرِّفُ المدينة عند الشركة يُحفَظ في الطلب: بعد سنةٍ تبقى الشحنةُ
-            // قابلةً لإعادة البناء حتى لو تغيّرت خرائطُ المدن أو الشركةُ نفسُها.
-            providerCityId: externalCityId || '',
-            providerShipmentId: result.shipmentId || '',
-            // العمودُ القديم يُملأ معه حتى تتوقّف القراءاتُ القديمة عنه.
-            livoOrderId: result.shipmentId || '',
-          });
-          await db.addLog({
-            userId: req.user.id, user: 'System',
-            action: `✅ شحنة حقيقية عبر ${chosen.label}: ${order.id}`,
-            details: `تتبع: ${realTracking}`, type: 'delivery', severity: 'success',
-          });
-          await db.addNotification({
-            userId: req.user.id, type: 'success',
-            message: `📦 أُنشئت شحنة حقيقية لدى ${prov.name} — تتبع: ${realTracking}`,
-          });
-          return res.json({
-            success: true, tracking: realTracking, provider: prov.name, real: true,
-            via: plugin.meta.id, steps, manual: { copyText: manualCopy, openUrl },
-          });
-        }
-        failures.push(`${chosen.label}: ${result.error}`);
-        steps.push({ label, ok: false, error: result.error });
-      } catch (e) {
-        console.error(`[Delivery/${plugin.meta.id}]`, e.message);
-        failures.push(`${chosen.label}: ${e.message}`);
-        steps.push({ label, ok: false, error: e.message });
-      }
-    }
-
-    // ── Simulation fallback ──────────────────────────────────────────
-    const why = failures.length ? failures.join(' · ') : 'لا يوجد مفتاح API أو Webhook مهيأ لهذه الشركة';
-    if (!failures.length) steps.push({ label: `لا قناة ربط حقيقية مهيأة لشركة ${prov.name}`, ok: false, error: 'أضف مفتاح API أو Webhook من صفحة التوصيل، أو استخدم الإدخال اليدوي' });
-    // ── لا رقمَ تتبّعٍ مُفبرك ───────────────────────────────────────
-    //   كان يُولَّد `TRK-XXXXXX` ويُكتَب في **نفس حقل** رقمِ التتبّع الحقيقيّ،
-    //   فيظهر في بطاقة الطلب بلونٍ أخضرَ ويُطبَع على الفاتورة التي تُسلَّم
-    //   للزبون. لا شيءَ بعدها يميّز رقمًا جاء من الشركة عن رقمٍ اخترعناه —
-    //   والتاجرُ يفتح موقعَ الشركة فلا يجد شيئًا، بحقّ.
-    //
-    //   `trackingNumber` معناه من الآن **واحدٌ لا ثانيَ له**: رقمٌ جاء من
-    //   شركةِ توصيل. وحين لا نُرسل، نقول إنّنا لم نُرسل ونطلب الإدخالَ اليدويّ.
-    steps.push({ label: 'لم يُولَّد رقمُ تتبّع — لم تُرسَل الشحنةُ فعلًا', ok: false, error: 'أدخل الرقمَ من موقع الشركة بعد تسجيل الطلب فيه' });
-    await db.updateOrder(order.id, {
-      status: 'processing',
-      deliveryProvider: prov.name,
-      deliveryStatus: 'manual_required',
-      trackingNumber: '',
+    res.json({
+      success: true, tracking: '', provider: prov.name, real: false,
+      // إعادةٌ مجدوَلة ⇒ لا عملَ على التاجر الآن. كان كلُّ فشلٍ يُطالبه
+      // بالإدخال اليدويّ ولو كان الانقطاعُ دقيقتَين.
+      needsManual: !!out.needsManual, retryAt: out.retryAt || null,
+      apiError: out.apiError, openUrl, steps, manual: { copyText: manualCopy, openUrl },
     });
-    await db.addLog({ userId: req.user.id, user: 'System', action: `⚠️ لم تُرسَل — إدخالٌ يدويٌّ مطلوب: ${order.id}`, details: `${prov.name} — السبب: ${why}`, type: 'delivery', severity: 'warning' });
-    await db.addNotification({ userId: req.user.id, type: 'warning', message: `⚠️ طلب ${order.id}: لم يُرسل لشركة ${prov.name} — سجّله في موقعها وأدخل رقمَ التتبّع (السبب: ${why})` });
-    res.json({ success: true, tracking: '', provider: prov.name, real: false, needsManual: true, apiError: why, openUrl, steps, manual: { copyText: manualCopy, openUrl } });
   } catch (e) { console.error('[delivery/create]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 

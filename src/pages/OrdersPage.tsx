@@ -243,7 +243,7 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [view, setView] = useState<'list' | 'kanban'>('list');
-  const [autoShipState, setAutoShipState] = useState<{id: string, step: number, msg: string, steps?: {label:string; ok:boolean; detail?:string; error?:string}[], real?: boolean} | null>(null);
+  const [autoShipState, setAutoShipState] = useState<{id: string, step: number, msg: string, steps?: {label:string; ok:boolean; detail?:string; error?:string}[], real?: boolean, /** إعادةٌ مجدوَلة: لا عملَ يدويًّا على التاجر الآن. */ retrying?: boolean} | null>(null);
   const [manualTrk, setManualTrk] = useState('');
   const [mainTab, setMainTab] = React.useState<'orders'|'customers'>('orders');
   const [showQuickOrder, setShowQuickOrder] = useState(false);
@@ -292,9 +292,16 @@ export default function OrdersPage() {
     if (r.real) {
       setAutoShipState({ id: order.id, step: 4, real: true, steps: r.steps,
         msg: `✅ شحنة حقيقية لدى ${r.provider} — رقم التتبع من الشركة: ${r.tracking}` });
+    } else if (r.retryAt) {
+      // عطبٌ عابرٌ لدى الشركة — لا عملَ على التاجر. كان كلُّ فشلٍ يُطالبه
+      // بالإدخال اليدويّ ولو كان الانقطاعُ دقيقتَين، فيتحوّل عطبُ الشركة
+      // عملًا عليه، وقد تبقى الشحنةُ بلا إرسالٍ إن انشغل.
+      const at = new Date(r.retryAt).toLocaleTimeString('ar-MA', { hour: '2-digit', minute: '2-digit' });
+      setAutoShipState({ id: order.id, step: 4, real: false, retrying: true, steps: r.steps,
+        msg: `🔁 ${r.provider} ما جاوباتش دابا — غانعاودو بوحدنا على ${at}. ما تدير والو.` });
     } else {
       setAutoShipState({ id: order.id, step: 4, real: false, steps: r.steps,
-        msg: `⚠️ لم تُرسل فعلياً لشركة التوصيل — ${r.apiError || 'لا قناة ربط مهيأة'}. سُجّل تتبع داخلي ${r.tracking}. استخدم «الإدخال اليدوي» بالأسفل لإيصالها للشركة.` });
+        msg: `⚠️ لم تُرسل فعلياً لشركة التوصيل — ${r.apiError || 'لا قناة ربط مهيأة'}. استخدم «الإدخال اليدوي» بالأسفل لإيصالها للشركة.` });
     }
   };
 
@@ -499,8 +506,12 @@ export default function OrdersPage() {
                     </div>
                   )}
 
-                  {/* 📋 الإدخال اليدوي — للشركات بدون ربط API: انسخ، أدخل في موقعها، ألصق رقم التتبع الحقيقي */}
-                  {(order.status === 'approved' || (autoShipState?.id === order.id && autoShipState.real === false)) && (
+                  {/* 📋 الإدخال اليدوي — للشركات بدون ربط API: انسخ، أدخل في موقعها، ألصق رقم التتبع الحقيقي.
+                      ولا يُعرَض حين تكون إعادةُ المحاولة مجدوَلة: الطلبُ في الطابور
+                      وسيُرسَل وحدَه، وعرضُ العمل اليدويّ هنا يدفع التاجرَ لتسجيلِ
+                      الشحنة مرّتين — مرّةً بيده ومرّةً بالإعادة. */}
+                  {(order.status === 'approved' || (autoShipState?.id === order.id && autoShipState.real === false))
+                    && !(autoShipState?.id === order.id && autoShipState.retrying) && (
                     <div style={{ padding: 14, borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px dashed var(--clr-border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--txt-1)' }}>📋 الإدخال اليدوي لدى شركة بدون ربط API</p>
                       <p style={{ fontSize: 11.5, color: 'var(--txt-3)', lineHeight: 1.7 }}>انسخ بيانات الشحنة، أدخلها في موقع شركة التوصيل بنفسك، ثم ألصق هنا <b>رقم التتبع الحقيقي</b> الذي أعطتك إياه الشركة — يُحفظ في الطلب ويظهر للزبون في صفحة التتبع.</p>

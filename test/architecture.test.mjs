@@ -741,3 +741,37 @@ test('㉒ لا يُستدعى الحَكَمان في مشهدٍ واحد أكث
   const parses = (submit.match(/\bunderstand\(/g) || []).length;
   assert.ok(parses <= 1, `\`submit\` يحلّل الجملةَ ${parses} مرّات — تحليلٌ واحدٌ يكفي`);
 });
+
+// ============================================================
+// ㉓ **قائمةُ مفاتيح الذاكرة واحدة** — ولو كُتبت بلغتَين.
+//
+//   المفاتيحُ مُعلَنةٌ مرّتين: `SYNCED_KEYS` في العميل (ما يُرفَع) و
+//   `MEMORY_KEYS` في الخادم (ما يُقبَل، وباستراتيجيّة دمجٍ لكلّ مفتاح).
+//   ولا يمكن دمجُهما في ملفٍّ واحد: العميلُ يحتاج القائمةَ **قبل** أوّل
+//   ردٍّ من الخادم ليرفع ما عنده، والخادمُ يحتاجها ليرفض ما لا يعرف.
+//
+//   وضررُ التباعد صامتٌ وكامل: `validateBatch` يردّ **الدفعةَ كلَّها** بـ400
+//   على مفتاحٍ واحدٍ غيرِ معروف، والعميلُ يبتلع الفشلَ ويُكمل من ذاكرته
+//   المحلّيّة. فمَن أضاف مفتاحًا في جهةٍ واحدةٍ أوقف مزامنةَ **كلّ** ما
+//   يتعلّمه التطبيقُ عن كلّ إنسان — بلا رسالةٍ ولا سجلّ.
+// ============================================================
+test('㉓ مفاتيحُ الذاكرة متطابقةٌ بين العميل والخادم', () => {
+  const client = readFileSync(join(ROOT, 'src/lib/userMemory.ts'), 'utf8');
+  const server = readFileSync(join(ROOT, 'server/lib/userMemory.js'), 'utf8');
+
+  const clientList = (client.match(/const SYNCED_KEYS = \[([\s\S]*?)\]/) || [])[1] || '';
+  const clientKeys = [...clientList.matchAll(/'([\w]+)'/g)].map(m => m[1]).sort();
+
+  const serverList = (server.match(/const MEMORY_KEYS = \{([\s\S]*?)\n\};/) || [])[1] || '';
+  const serverKeys = [...serverList.matchAll(/^\s{2}(\w+):\s*\{/gm)].map(m => m[1]).sort();
+
+  assert.ok(clientKeys.length >= 8, `قُرئت ${clientKeys.length} مفاتيحَ من العميل — تغيّرت الصيغةُ والحارسُ صار أعمى`);
+  assert.ok(serverKeys.length >= 8, `قُرئت ${serverKeys.length} مفاتيحَ من الخادم — تغيّرت الصيغةُ والحارسُ صار أعمى`);
+
+  const onlyClient = clientKeys.filter(k => !serverKeys.includes(k));
+  const onlyServer = serverKeys.filter(k => !clientKeys.includes(k));
+  assert.deepEqual(onlyClient, [],
+    `مفاتيحُ يرفعها العميلُ ويرفضها الخادمُ — تتوقّف المزامنةُ كلُّها بلا رسالة: ${onlyClient.join(' · ')}`);
+  assert.deepEqual(onlyServer, [],
+    `مفاتيحُ يقبلها الخادمُ ولا يرفعها أحد — ذاكرةٌ لا تُملأ أبدًا: ${onlyServer.join(' · ')}`);
+});
