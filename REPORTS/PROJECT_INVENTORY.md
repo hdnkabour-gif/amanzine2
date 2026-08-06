@@ -221,13 +221,15 @@
 | `browser.adapter.js` | 51 | وسيلةُ اتصال: أتمتةُ موقع الشركة (وصفةُ URL) حين لا تُقدّم API إطلاقًا. كان هذا المسارُ خارج السجلّ كلّيًّا في routes/delivery-auto.js، ومقطوعًا من طرفين: الوصفاتُ لم تكن | 0 | 🔌 تسجيلٌ تلقائيّ |
 | `webhook.adapter.js` | 73 | وسيلةُ اتصال (Adapter) لا شركة: تُرسل الطلبَ إلى رابطٍ يحدّده التاجر. الفرقُ جوهريّ. «Webhook» ليس اسمَ شركةِ توصيل، بل طريقةَ وصولٍ إليها؛ وحين كان مُسجَّلًا كمزوّدٍ كان | 0 | 🔌 تسجيلٌ تلقائيّ |
 
-### `server/services/delivery/providers/` — 4 ملفًّا
+### `server/services/delivery/providers/` — 6 ملفًّا
 
 | الملفّ | سطر | الدور | يستورده | الحالة |
 |---|--:|---|--:|---|
 | `amana.provider.js` | 61 | Amana — مصادقة Bearer، إنشاءُ طردٍ عبر /api/v1/parcels. مستخرَجٌ من فرعٍ شرطيٍّ كان داخل routes/delivery.js. | 0 | 🔌 تسجيلٌ تلقائيّ |
 | `jibli.provider.js` | 60 | Jibli — مصادقة X-API-Key، إنشاءُ طلبٍ عبر /v1/orders/create. مستخرَجٌ من فرعٍ شرطيٍّ كان داخل routes/delivery.js. | 0 | 🔌 تسجيلٌ تلقائيّ |
 | `livo.provider.js` | 239 | Livo — https://rest.livo.ma مصادقة: Bearer API key. لا endpoint لحساب الثمن ⇒ التسعير بقواعدَ محلّيّة. | 0 | 🔌 تسجيلٌ تلقائيّ |
+| `forcelog.provider.js` | 234 | ForceLog — https://api.forcelog.ma مصادقة X-API-Key. الردُّ مغلَّفٌ باسم العمليّة (`ADD-PARCEL`/`GET-TRACKING`)، والمدنُ **كائنٌ لا مصفوفة** يحمل ثمنَ كلّ مدينة ⇒ `pricing:'api'`. حدودُ الطول تُقَصّ. | 0 | 🔌 تسجيلٌ تلقائيّ |
+| `olivraison.provider.js` | 281 | Olivraison — https://partners.olivraison.com مصادقةٌ بخطوتين (apiKey+secretKey ⇒ JWT مخبَّأ). `/package/new` لا `/package` كي تبقى الشحنةُ قابلةً للتصحيح. `/cities` تُعطي المدنَ والأثمان. وتُقدّم `checkDestination` — فحصُ الأرقام المشبوهة قبل الشحن. | 0 | 🔌 تسجيلٌ تلقائيّ |
 | `promo_livraison.provider.js` | 227 | Promo Livraison — https://promo-livraison.ma/seller/api-parcels شركةٌ تخالف العاداتِ في ثلاثةِ مواضع، وكلٌّ منها يكفي وحدَه لكسر مزوّدٍ كُتب على النمط المعتاد: ① **نقطةٌ | 0 | 🔌 تسجيلٌ تلقائيّ |
 
 ### `src/` — 4 ملفًّا

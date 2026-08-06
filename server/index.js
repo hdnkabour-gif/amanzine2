@@ -588,6 +588,30 @@ function startShipmentRetryCron() {
 }
 startShipmentRetryCron();
 
+// ── مزامنةُ التتبّع الدوريّة ──────────────────────────────────────
+//
+//   ثلاثةُ مزوّدين يُعلنون `tracking:'api'` وقادرون على الجواب، ولم يكن
+//   يستدعيهم إلّا **إصبعُ التاجر**. فالزبونُ الذي يبحث بكوده يرى حالةً
+//   مجمّدةً عند لحظة الإنشاء، والشركةُ تعرف أنّ طردَه خرج للتوزيع.
+//
+//   نصفُ ساعةٍ لا خمسُ دقائق: حالةُ الشحنة تتغيّر مرّاتٍ في اليوم لا في
+//   الدقيقة، وسؤالٌ أكثفُ يحرق سقفَ الطلبات بلا خبرٍ جديد. والقرارُ كلُّه
+//   في `lib/trackingSync` — يُختبَر بلا مؤقّت.
+function startTrackingSyncCron() {
+  const { db } = require('./database');
+  const { runCycle } = require('./lib/trackingSync');
+  async function run() {
+    try {
+      const r = await runCycle(db);
+      if (r.checked) console.log(`[TrackingSync] ${r.checked} فُحصت · ${r.changed} تغيّرت · ${r.failed} أخفقت`);
+    } catch (e) { console.error('[TrackingSync]', e.message); }
+  }
+  setTimeout(run, 90 * 1000);
+  setInterval(run, 30 * 60 * 1000);
+  console.log('[TrackingSync] Cron scheduled every 30 minutes');
+}
+startTrackingSyncCron();
+
 
 
 module.exports = app;

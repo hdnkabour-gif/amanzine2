@@ -1095,7 +1095,10 @@ export default function DeliveryPage() {
                     ))}
                   </div>
 
-                  {addMode === 'api' && (
+                  {addMode === 'api' && (() => {
+                    // المزوّدُ المختار — مصدرُ كلّ ما يُعرَض بعده: حقولُه وقدراتُه.
+                    const pickedProvider = knownProviders.find(k => k.id === (config.apiType || '').toLowerCase()) || null;
+                    return (
                     <>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
                         {TEMPLATES.map(t => (
@@ -1119,12 +1122,49 @@ export default function DeliveryPage() {
                           </button>
                         ))}
                       </div>
+                      {/* **ما تُقدّمه هذه الشركةُ بالذات** — يُقرأ من `capabilities`
+                          التي يُعلنها مزوّدُها، لا من قائمةٍ في هذه الصفحة. فمن
+                          اختار شركةً لا تُقدّم تتبّعًا لا يُوعَد به، ومن اختار
+                          شركةً تنشر أثمانَها يعرف أنّه لن يكتبها بيده. */}
+                      {pickedProvider && (
+                        <div style={{ border: '1px solid var(--clr-border)', borderRadius: 12, padding: '11px 13px', background: 'rgba(52,211,153,0.06)' }}>
+                          <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--txt-2)', marginBottom: 7 }}>
+                            {pickedProvider.name} — واش كتوفّر:
+                          </p>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                            {[
+                              ['المدن', pickedProvider.capabilities?.cities === 'api', 'تُجلَب من الشركة'],
+                              ['الأثمان', pickedProvider.capabilities?.pricing === 'api', 'ثمنُ كلّ مدينة من الشركة'],
+                              ['التتبّع', pickedProvider.capabilities?.tracking === 'api', 'الحالةُ تتحدّث وحدَها كلّ نصف ساعة'],
+                              ['الدفع عند التسليم', pickedProvider.capabilities?.cod === true, ''],
+                              ['الرامساج', pickedProvider.capabilities?.pickup === true, ''],
+                            ].map(([label, on, note]) => (
+                              <span key={String(label)} title={on ? String(note) : 'غيرُ متاحٍ عبر API عند هذه الشركة'}
+                                style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 9px', borderRadius: 8,
+                                  border: `1px solid ${on ? 'rgba(52,211,153,0.4)' : 'var(--clr-border)'}`,
+                                  background: on ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.03)',
+                                  color: on ? '#34d399' : 'var(--txt-3)' }}>
+                                {on ? '✅' : '—'} {label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <Input label="اسم الشركة *" value={config.name || ''} onChange={v => setConfig(p => ({ ...p, name: v }))} ph="Amana Livraison" dir="rtl" mono={false} />
-                        <Input label="رابط الموقع" value={config.websiteUrl || ''} onChange={v => setConfig(p => ({ ...p, websiteUrl: v }))} ph="https://..." />
-                        <div style={{ gridColumn: '1/-1' }}>
-                          <Input label="رابط صفحة تسجيل الدخول *" value={config.loginUrl || ''} onChange={v => setConfig(p => ({ ...p, loginUrl: v }))} ph="https://.../login" />
-                        </div>
+                        {!pickedProvider && (
+                          <Input label="رابط الموقع" value={config.websiteUrl || ''} onChange={v => setConfig(p => ({ ...p, websiteUrl: v }))} ph="https://..." />
+                        )}
+                        {/* رابطُ الدخول واسمُ المستخدم وكلمةُ المرور وصفحاتُ
+                            الموقع كلُّها لمسار **أتمتة المتصفّح**، لا لِـAPI.
+                            وكانت تُعرَض للجميع وثلاثةٌ منها بنجمة «مطلوب» —
+                            فيملأ التاجرُ ما لا يصل الشركةَ أبدًا، ويظنّ أنّه
+                            نقص إن تركه. تظهر الآن حين لا مزوّدَ مسجَّلًا فقط. */}
+                        {!pickedProvider && (
+                          <div style={{ gridColumn: '1/-1' }}>
+                            <Input label="رابط صفحة تسجيل الدخول" value={config.loginUrl || ''} onChange={v => setConfig(p => ({ ...p, loginUrl: v }))} ph="https://.../login" />
+                          </div>
+                        )}
                         {/* حقولُ الاعتماد — **يُعلنها المزوّد، ولا تعرفها هذه الصفحة**.
                             كان هنا حقلٌ واحدٌ اسمُه «مفتاح API» يُعرَض للجميع: فمن
                             تطلب شركتُه مُعرِّفًا ثانيًا لم يجد أين يضعه، ومن لا تطلب
@@ -1170,7 +1210,13 @@ export default function DeliveryPage() {
                           </label>
                           <select className="select" style={{ width: '100%', fontSize: 12.5 }}
                             value={config.apiType || ''}
-                            onChange={e => setConfig(p => ({ ...p, apiType: e.target.value }))}>
+                            onChange={e => {
+                              const id = e.target.value;
+                              const k = knownProviders.find(x => x.id === id);
+                              // الاسمُ يأتي من المزوّد: من اختار «ForceLog» قال
+                              // اسمَها للتوّ، وسؤالُه عنه ثانيةً «موتُ السحر».
+                              setConfig(p => ({ ...p, apiType: id, name: k?.name || p.name }));
+                            }}>
                             <option value="">— بلا مزوّد مسجَّل (شحنٌ يدويّ/محاكاة) —</option>
                             {knownProviders.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
                           </select>
@@ -1185,16 +1231,23 @@ export default function DeliveryPage() {
                             );
                           })()}
                         </div>
-                        <div style={{ gridColumn: '1/-1' }}>
-                          <Input label="نقطة نهاية API" value={config.apiEndpoint || ''} onChange={v => setConfig(p => ({ ...p, apiEndpoint: v }))} ph="https://rest.livo.ma" />
-                        </div>
-                        <Input label="اسم المستخدم / البريد *" value={config.username || ''} onChange={v => setConfig(p => ({ ...p, username: v }))} ph="email@..." mono={false} />
-                        <Input label="كلمة المرور *" value={config.password || ''} onChange={v => setConfig(p => ({ ...p, password: v }))} ph="••••••••" secret mono={false} />
-                        <div style={{ gridColumn: '1/-1' }}>
-                          <Input label="صفحة إضافة طلب" value={config.addOrderPage || ''} onChange={v => setConfig(p => ({ ...p, addOrderPage: v }))} ph="https://.../new" />
-                        </div>
-                        <Input label="Bon de Livraison" value={config.livraisonBonPage || ''} onChange={v => setConfig(p => ({ ...p, livraisonBonPage: v }))} ph="https://..." />
-                        <Input label="Demande Ramassage" value={config.ramassagePage || ''} onChange={v => setConfig(p => ({ ...p, ramassagePage: v }))} ph="https://..." />
+                        {/* «نقطة نهاية API» يُعلنها مَن يحتاجها في `credentials`
+                            (Livo · Amana · Jibli). ومن لا يُعلنها فعنوانُه ثابتٌ
+                            في مزوّده — وعرضُ الحقل يدعو إلى تغييرِ ما لا يُغيَّر. */}
+                        {!pickedProvider && (
+                          <>
+                            <div style={{ gridColumn: '1/-1' }}>
+                              <Input label="نقطة نهاية API" value={config.apiEndpoint || ''} onChange={v => setConfig(p => ({ ...p, apiEndpoint: v }))} ph="https://rest.livo.ma" />
+                            </div>
+                            <Input label="اسم المستخدم / البريد" value={config.username || ''} onChange={v => setConfig(p => ({ ...p, username: v }))} ph="email@..." mono={false} />
+                            <Input label="كلمة المرور" value={config.password || ''} onChange={v => setConfig(p => ({ ...p, password: v }))} ph="••••••••" secret mono={false} />
+                            <div style={{ gridColumn: '1/-1' }}>
+                              <Input label="صفحة إضافة طلب" value={config.addOrderPage || ''} onChange={v => setConfig(p => ({ ...p, addOrderPage: v }))} ph="https://.../new" />
+                            </div>
+                            <Input label="Bon de Livraison" value={config.livraisonBonPage || ''} onChange={v => setConfig(p => ({ ...p, livraisonBonPage: v }))} ph="https://..." />
+                            <Input label="Demande Ramassage" value={config.ramassagePage || ''} onChange={v => setConfig(p => ({ ...p, ramassagePage: v }))} ph="https://..." />
+                          </>
+                        )}
                       </div>
                       <div style={{ display: 'flex', gap: 10 }}>
                         <button onClick={handleCloseAdd} className="btn btn-ghost" style={{ paddingInline: 20 }}>إلغاء</button>
@@ -1203,7 +1256,8 @@ export default function DeliveryPage() {
                         </button>
                       </div>
                     </>
-                  )}
+                    );
+                  })()}
 
                   {addMode === 'url-recipe' && (
                     <UrlWizard onSave={saveUrlRecipe} onCancel={handleCloseAdd} onDirtyChange={setUrlWizardDirty} />

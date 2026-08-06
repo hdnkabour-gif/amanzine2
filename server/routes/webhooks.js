@@ -11,23 +11,11 @@ const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'sahar_shop_verify';
 // يجعلها تصل وحدَها. المسارُ عامٌّ لا يعرف اسمَ شركة: يُطابق برقم التتبّع أو
 // بمعرّف الشحنة، ويُطبّع الحالةَ الواردة إلى حالات AMANZINE.
 
-/** حالاتُ الشركات مختلفة؛ التطبيعُ يمنع تسرُّبَ مفرداتها إلى قاعدتنا. */
-const STATUS_MAP = {
-  delivered: 'delivered', livre: 'delivered', livré: 'delivered', completed: 'delivered', 'تم التسليم': 'delivered',
-  shipped: 'shipped', in_transit: 'shipped', 'en cours': 'shipped', picked_up: 'shipped', 'في الطريق': 'shipped',
-  processing: 'processing', pending: 'processing', created: 'processing',
-  cancelled: 'cancelled', canceled: 'cancelled', returned: 'cancelled', refused: 'cancelled', 'ملغي': 'cancelled',
-};
+// الجدولُ والتطبيعُ في `lib/deliveryStatus.js` — تستعمله المزامنةُ الدوريّةُ
+// أيضًا. نسختان تنحرفان بصمت: تُضاف كلمةٌ في إحداهما فتُقرأ الشحنةُ ملغاةً
+// حين يصل الإشعار، وسليمةً حين تُستفتى الشركة.
+const { normalizeDeliveryStatus: _normalizeStatus } = require('../lib/deliveryStatus');
 
-function _normalizeStatus(raw) {
-  const k = String(raw || '').trim().toLowerCase();
-  return STATUS_MAP[k] || null;
-}
-
-/**
- * POST /api/webhooks/delivery/:providerRowId
- * التحقّقُ بسرٍّ مشترك: بدونه يستطيع أيُّ أحدٍ تعليمَ الطلبات «مُسلَّمة».
- */
 router.post('/delivery/:providerRowId', async (req, res) => {
   try {
     const row = await db.getDeliveryProviderRow(req.params.providerRowId);

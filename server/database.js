@@ -622,6 +622,36 @@ const db = {
     return rows.map(_mapOrder);
   },
 
+  /**
+   * شحناتٌ حيّةٌ حان وقتُ استفتاء الشركة عنها.
+   *
+   *   العطبُ الذي وُلدت منه: `delivery_status` لا يتغيّر إلّا إذا ضغط
+   *   التاجرُ زرًّا، أو أرسلت الشركةُ إشعارًا **وكان قد أعدّه**. فالزبونُ
+   *   الذي يبحث بكوده يرى حالةً **مجمّدةً عند لحظة الإنشاء** — والشركةُ
+   *   تعرف أنّ طردَه خرج للتوزيع منذ ساعتين.
+   *
+   *   والشروطُ حدودٌ لا تجميل:
+   *     · رقمُ شحنةٍ لدى الشركة — بلا معرّفٍ لا سؤال.
+   *     · الحالةُ ليست نهائيّة: المُسلَّمُ والملغى لا يتغيّران، وسؤالُهما
+   *       يستهلك سقفَ الطلبات (٥/ثانية عند بعضهم) بلا فائدة.
+   *     · مضت مهلةٌ على آخر مزامنة — وإلّا سألنا نفسَ الشحنة كلَّ دورة.
+   *     · وعمرُ الطلب دون ثلاثين يومًا: شحنةٌ منسيّةٌ منذ شهرٍ لا تُستفتى أبدًا.
+   */
+  async getOrdersDueForTrackingSync(minutes = 30, limit = 50) {
+    const { rows } = await pool.query(
+      `SELECT * FROM orders
+       WHERE COALESCE(provider_shipment_id, livo_order_id, '') <> ''
+         AND COALESCE(status, '') NOT IN ('delivered', 'cancelled')
+         AND created_at > NOW() - INTERVAL '30 days'
+         AND (delivery_synced_at IS NULL
+              OR delivery_synced_at <= NOW() - ($1 || ' minutes')::INTERVAL)
+       ORDER BY delivery_synced_at ASC NULLS FIRST
+       LIMIT $2`,
+      [String(minutes), limit]
+    ).catch(() => ({ rows: [] }));
+    return rows.map(_mapOrder);
+  },
+
   async getAbandonedConversations(limit = 200) {
     const { rows } = await pool.query(
       `SELECT c.* FROM conversations c
