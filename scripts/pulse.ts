@@ -70,6 +70,12 @@ export interface Pulse {
   unclassified: number;
   /** عُرف الاتّجاه: يَعرض أم يطلب؟ */
   stanceKnown: number;
+  /**
+   * جملٌ **يجب** أن يبقى اتّجاهُها مجهولًا: نفيٌ صريح، أو صيغةٌ لا تُلزم.
+   * تُحسَب ولا تُحاسَب — وحسابُها إخفاقًا يكافئ التخمينَ الذي يمنعه الدستور.
+   * مُشتقّةٌ في كلّ تشغيلٍ من `negated`/`mood`، لا قائمةً تُكتَب بيد.
+   */
+  stanceMoot: number;
   /** حقائقُ الشخص المستخرَجة — كان صفرًا قبل `personFacts`. */
   personFacts: number;
   /** طابقت قدرةً في الكتالوج — أي أنّ التطبيق يعرف **ماذا يفعل** بها. */
@@ -134,7 +140,7 @@ export interface Pulse {
 
 export function measure(): Pulse {
   const verdicts: Record<string, number> = {};
-  let understood = 0, stanceKnown = 0, personFacts = 0, abilityMatched = 0;
+  let understood = 0, stanceKnown = 0, personFacts = 0, abilityMatched = 0, stanceMoot = 0;
   let lostKnowledge = 0, contradiction = 0, wrongExecutions = 0, silent = 0, variantDrift = 0;
   let recklessExecutions = 0, unconfirmedDestructive = 0, needlessAsks = 0, abstraction = 0;
   let correct = 0, judged = 0, adminRead = 0, goalRead = 0, destRight = 0;
@@ -170,7 +176,23 @@ export function measure(): Pulse {
     // **الوجهة**: للفعل الإداريّ بابٌ واحدٌ لا غير، ويقوله الكتالوج.
     if (ACCOUNT_ADMIN.includes(s) && match && d.dest?.page === match.page) destRight++;
     if (LIFE_GOALS.includes(s) && u.goal && u.stance === 'seek' && d.say === u.goal.ask) goalRead++;
-    if (u.stance && u.stance !== 'unknown') stanceKnown++;
+    // ── **جملٌ «مجهولُ الاتّجاه» فيها هو الجوابُ الصحيح** ──────────
+    //
+    //   ثامنُ مقياسٍ يُصحَّح، ومن نفس الصنف: حلقةٌ تُحاسَب على جملٍ لا تخصّها.
+    //   الدستورُ نفسُه يوجب `unknown` في حالتَين، وهما مكتوبتان في `index.ts`:
+    //     · **نفيٌ صريح**: «ماشي بغيت نبيع» — «الاتّجاهُ يُبطَل ولا يُقلَب:
+    //       من نفى لم يقل ماذا يريد».
+    //     · **صيغةٌ لا تُلزم**: «بعت قميص البارح» ماضٍ يُخبِر عنه، لا يطلب
+    //       ولا يعرض. «التنفيذُ على غير الالتزام فعلٌ لم يطلبه أحد».
+    //
+    //   وعدُّهما إخفاقًا يعني أنّ الطريقَ الوحيدَ إلى ١٠٠٪ هو أن **يُخمّن**
+    //   التطبيقُ اتّجاهًا لم يُقَل — أي أن يكافئ المقياسُ ما يمنعه الدستور.
+    //
+    //   والاستثناءُ **محسوبٌ لا مكتوبٌ بيد**: يُشتقّ من `negated` و`mood`
+    //   في كلّ تشغيل. فلا تُهرَّب جملةٌ صعبةٌ بإضافة سطرٍ إلى قائمة.
+    const stanceMootHere = !!u.negated || u.mood?.executable === false;
+    if (stanceMootHere) stanceMoot++;
+    else if (u.stance && u.stance !== 'unknown') stanceKnown++;
     if (readPersonFacts(s).length) personFacts++;
     if (match) abilityMatched++;
     verdicts[d.verdict] = (verdicts[d.verdict] || 0) + 1;
@@ -249,7 +271,7 @@ export function measure(): Pulse {
     { name: 'التطبيع',  ok: ALL.length * 5 - variantDrift, of: ALL.length * 5 },
     { name: 'المفهوم',  ok: understood,     of: EXPECT_CONCEPT.length },
     { name: 'الإداريّ', ok: adminRead,       of: EXPECT_ADMIN.length },
-    { name: 'الاتّجاه',  ok: stanceKnown,    of: ALL.length },
+    { name: 'الاتّجاه',  ok: stanceKnown,    of: ALL.length - stanceMoot },
     { name: 'الحقائق',  ok: factExpected.filter(x => readPersonFacts(x).length).length, of: factExpected.length },
     { name: 'الغاية',   ok: goalRead,       of: goalExpected.length },
     { name: 'الوجهة',   ok: destRight,      of: ACCOUNT_ADMIN.length },
@@ -259,7 +281,7 @@ export function measure(): Pulse {
 
   const unclassified = ALL.filter(x => !CLASSIFIED.includes(x)).length;
 
-  return { sentences: ALL.length, understood, stanceKnown, personFacts, stages,
+  return { sentences: ALL.length, understood, stanceKnown, stanceMoot, personFacts, stages,
     conceptExpected: EXPECT_CONCEPT.length, factExpected: factExpected.length,
     goalRead, goalExpected: goalExpected.length,
     destRight, destExpected: ACCOUNT_ADMIN.length,
@@ -280,7 +302,8 @@ export function render(p: Pulse): string {
     `الوجهة          : ${p.destRight}/${p.destExpected} (${Math.round(p.destRight / p.destExpected * 100)}٪)  ← بابُ القدرة لا صفحةُ النيّة`,
     `فعلٌ إداريّ      : ${p.adminRead}/${p.adminExpected} (${Math.round(p.adminRead / p.adminExpected * 100)}٪)`,
     `غيرُ مصنَّفة     : ${p.unclassified}   ← يجب أن يبقى صفرًا`,
-    `عُرف الاتّجاه    : ${pct(p.stanceKnown)}`,
+    `عُرف الاتّجاه    : ${p.stanceKnown}/${p.sentences - p.stanceMoot} (${Math.round(p.stanceKnown / (p.sentences - p.stanceMoot) * 100)}٪)`
+      + `  ← و${p.stanceMoot} يجب أن تبقى مجهولةً (نفيٌ · صيغةٌ لا تُلزم)`,
     `حقائقُ الشخص    : ${pct(p.personFacts)}`,
     `طابقت قدرةً     : ${pct(p.abilityMatched)}`,
     `الأحكام         : ${v}`,
