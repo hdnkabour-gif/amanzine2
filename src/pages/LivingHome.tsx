@@ -23,7 +23,7 @@ import {
 } from '../lib/intentSnapshot';
 import UnderstandingCard from '../components/UnderstandingCard';
 import { correctionOptions, applyCorrection, buildMisread, thankFor, type CorrectionOption } from '../lib/correction';
-import { abilityFor } from '../lib/abilities';
+import { abilityFor, entityAccepts, VERB_MAP, OBJECT_MAP } from '../lib/abilities';
 import { readPersonFacts, rememberFacts, forgetFact, describeFacts } from '../lib/personFacts';
 import { decideExecution } from '../lib/executionPolicy';
 import { reportMisread } from '../lib/journey';
@@ -235,11 +235,20 @@ export default function LivingHome() {
     //   و`abilityFor` تُرجع `null` حين لا تطابق ولا تخمّن قدرةً قريبة —
     //   فيُحكَم بالعتبة العامّة، ولا يُنفَّذ فعلٌ لم يطلبه أحد.
     const match = abilityFor({ action: u.action, intent: r.intent });
-    const verdict = decideExecution(u, match || undefined);
+    // ── حدُّ القدرة الصادق ────────────────────────────────────────
+    //   يُسأل **المجالُ** لا الكتالوج: أيقبل هذا الكيانُ هذا الفعلَ أصلًا؟
+    //   ولا يُسأل إلّا حين يكون الفعلُ صريحًا (فعلٌ + هدفٌ مقروءان)، فالنيّةُ
+    //   الخشنةُ تُسأل ولا تُرفَض — الجهلُ عندنا ليس عجزًا عندنا.
+    //   وغيابُ القدرة من الكتالوج لا يُرفَض به شيء: قِيس فوُجد ٤٢ زوجًا
+    //   غيرَ مُعلَنٍ وفيها أبوابٌ تعمل (`view:product`).
+    const av = u.action ? VERB_MAP[u.action.verb] : undefined;
+    const ae = u.action ? OBJECT_MAP[u.action.object] : undefined;
+    const impossible = !!(av && ae && !entityAccepts(av, ae));
+    const verdict = decideExecution(u, match || undefined, impossible);
     const dec = decideInterface({ ...r, hasInput: true }, verdict.verdict);
-    // `explain` وحدَه يُقال ولا يُفعَل. وما عداه له شكلٌ في الواجهة، فلا
-    // يُطبَع نصُّه فوقها — نصٌّ ورسمٌ يقولان الشيءَ نفسَه ازدواجٌ لا تأكيد.
-    setSaid(verdict.verdict === 'explain' ? verdict.say : '');
+    // `explain` و`refuse` يُقالان ولا يُفعَلان. وما عداهما له شكلٌ في الواجهة،
+    // فلا يُطبَع نصُّه فوقها — نصٌّ ورسمٌ يقولان الشيءَ نفسَه ازدواجٌ لا تأكيد.
+    setSaid(verdict.verdict === 'explain' || verdict.verdict === 'refuse' ? verdict.say : '');
     setActionDest(verdict.dest?.page ?? null);
     setDecision(dec);
     // ── حقائقُ الشخص ────────────────────────────────────────────
@@ -459,7 +468,7 @@ export default function LivingHome() {
           نفسِه (`explain`) بدل صمتٍ يجعل الإنسانَ يظنّ أنّه أخطأ الكتابة.
           والشرطُ `mode === 'explain'` يربط ما يُعرَض بحكمِ الواجهة، فلا
           يبقى نصًّا يظهر بحسابٍ مستقلٍّ عن القرار. ── */}
-      {said && decision?.mode === 'explain' && !correcting && (
+      {said && (decision?.mode === 'explain' || decision?.mode === 'refuse') && !correcting && (
         <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', padding: '11px 15px', borderRadius: 13, border: '1px solid rgba(245,158,11,.28)', background: 'rgba(245,158,11,.07)', fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>
           {said}
         </div>

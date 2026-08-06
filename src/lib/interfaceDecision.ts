@@ -30,7 +30,9 @@ import type { Verdict } from './executionPolicy';
 // ثقةٍ منخفضة، وهذا هو «ما فهمناش» بلباسٍ مهذَّب.
 // `explain` = ليس طلبًا أصلًا (نقلُ كلامِ غيره، سؤالٌ عن التطبيق) — يُقال
 // ولا يُفعَل. كان الحكمُ يصدر ولا شكلَ له، فيُعرَض نصُّه بلا وضعٍ يحكمه.
-export type InterfaceMode = 'direct' | 'guided' | 'confirm' | 'clarify' | 'escalate' | 'welcome' | 'explain';
+// `refuse` = المجالُ لا يقبل هذا الفعلَ أصلًا. شكلٌ مستقلٌّ عن `explain`:
+// ذاك «ما طلبتَ شيئًا» وهذا «طلبتَ ما لا يُفعَل» — ولا يُخلَط الاعتذارُ بالشرح.
+export type InterfaceMode = 'direct' | 'guided' | 'confirm' | 'clarify' | 'escalate' | 'welcome' | 'explain' | 'refuse';
 
 export interface DecisionInput {
   intent: string;
@@ -66,6 +68,10 @@ export function decideInterface(need: DecisionInput, verdict: Verdict): Interfac
   // زبونٍ لا يُسأل «شنو نوع الخدمة؟» — ما طلب شيئًا حتّى يُستوضَح.
   if (verdict === 'explain') {
     return { mode: 'explain', reason: 'ليس طلبًا — نشرح ولا نفعل' };
+  }
+  // العجزُ يسبق السؤالَ الموجّه: لا يُستوضَح تفصيلُ فعلٍ لا يُفعَل.
+  if (verdict === 'refuse') {
+    return { mode: 'refuse', reason: 'المجالُ لا يقبل هذا الفعلَ — نقولها ولا نعتذر مرّتين' };
   }
   // يوجد سؤالٌ موجّه أصلًا → اسأل سؤالًا واحدًا (المحادثة القصيرة).
   if (need.steps && need.steps.length) {

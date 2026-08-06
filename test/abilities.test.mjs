@@ -216,3 +216,109 @@ test('و`auth` يطابق الواقع — ما أُعلن عامًّا يجب �
   }
   assert.deepEqual(wrong, [], wrong.join('\n  '));
 });
+
+// ============================================================
+// `ENTITY_VERBS` — إعلانٌ عن **المجال**، وحارسٌ يمنعه أن يصير بابًا خلفيًّا.
+//
+//   منه وحدَه يُقال «ما نقدرش». ولو تُرك بلا حارسٍ لتوسّع بالنيّة الحسنة حتّى
+//   يصير «كلُّ شيءٍ ممكن» — فيعود `refuse` ميّتًا كما كان، لكن بثوبٍ جديد.
+//
+//   والحدُّ مكانيكيّ: كلُّ فعلٍ مُعلَنٍ لكيانٍ يجب أن **تُبرّره قدرةٌ قائمة**
+//   في الكتالوج، أو أن يُعلَن نقصًا معروفًا في `KNOWN_GAPS` بسببٍ مكتوب.
+//   فلا يُضاف فعلٌ لكيانٍ لمجرّد أنّه يبدو معقولًا.
+// ============================================================
+
+// يُقرأ `ENTITY_VERBS` نصًّا كما يُقرأ الكتالوجُ نفسُه: هذا الحارسُ `.mjs`
+// والمصدرُ TypeScript، ولا نريد خطوةَ بناءٍ لحارسٍ يجب أن يعمل دائمًا.
+const EV_BLOCK = (CAT.match(/export const ENTITY_VERBS[^=]*= \{([\s\S]*?)\n\};/) || [])[1] || '';
+const ENTITY_VERBS = Object.fromEntries(
+  [...EV_BLOCK.matchAll(/^\s{2}(\w+):\s*\[([^\]]*)\]/gm)]
+    .map(m => [m[1], [...m[2].matchAll(/'(\w+)'/g)].map(x => x[1])])
+);
+const entityAccepts = (verb, entity) => (ENTITY_VERBS[entity] || []).includes(verb);
+
+test('إعلانُ المجال يُقرأ أصلًا', () => {
+  const n = Object.keys(ENTITY_VERBS).length;
+  assert.ok(n >= 20, `قُرئ ${n} كيانًا فقط — تغيّرت صيغةُ الملفّ والحارسُ صار أعمى`);
+});
+
+/**
+ * ثغراتُ كتالوجٍ معروفة: الكيانُ يقبل الفعلَ (بابٌ حقيقيٌّ في التطبيق) ولم
+ * تُعلَن له قدرةٌ بعد. **ليست عجزًا** — لا يُقال فيها «ما نقدرش» أبدًا.
+ * القائمةُ سقّاطة: تنقص ولا تزيد، وكلُّ سطرٍ فيها دَينٌ مُعلَن.
+ */
+const KNOWN_GAPS = new Set([
+  'view:product',            // GET /api/products + ProductsPage
+  'view:coupon',             // GET /api/coupons + CouponsPage
+  'view:delivery_provider',  // GET /api/delivery + DeliveryPage
+  'view:settings',           // GET /api/settings + SettingsPage
+  'view:account',            // ProfilePage
+  'view:media',              // GET /api/media/files/:filename
+  'view:phone', 'view:address', 'view:language',  // تُقرأ داخل الإعدادات
+  'view:workspace',          // Storefront + SettingsPage
+  'view:service', 'view:listing', 'view:booking', 'view:payment',
+  'create:knowledge',        // AddConceptPanel — تُعلَّم المنصّةُ مجالًا جديدًا
+  'view:message', 'view:need', 'view:knowledge',
+  'create:customer',         // POST /api/customers
+  'create:order',            // POST /api/orders (QuickOrderModal)
+  'create:message', 'create:need', 'create:service',
+  'create:listing', 'create:booking',
+  'update:coupon',           // PUT /api/coupons/:id
+  'update:delivery_provider',// POST /api/delivery (upsert)
+  'update:customer', 'update:service', 'update:listing', 'update:booking',
+  'update:knowledge', 'update:media',
+  'delete:coupon',           // DELETE /api/coupons/:id
+  'delete:customer',         // DELETE /api/customers/:id
+  'delete:delivery_provider',// DELETE /api/delivery/:id
+  'delete:service', 'delete:listing', 'delete:booking', 'delete:media',
+  'send:workspace',          // ShareShop — واتساب ونسخُ الرابط
+  'send:product',            // مشاركةُ رابط المنتج
+  'send:order',              // تأكيدُ الطلب عبر واتساب
+  'send:coupon', 'send:customer', 'send:message',
+  'view:shipment', 'view:provider',
+  'seek:need', 'seek:service', 'seek:listing', 'seek:provider',
+  'offer:service', 'offer:listing', 'offer:provider',
+  'book:booking',
+]);
+
+test('كلُّ فعلٍ مُعلَنٍ لكيانٍ إمّا له قدرةٌ أو ثغرةٌ مُعلَنة', () => {
+  const declared = new Set(ABILITIES.map(a => `${a.verb}:${a.entity}`));
+  const unjustified = [];
+  for (const [entity, verbs] of Object.entries(ENTITY_VERBS)) {
+    for (const v of verbs) {
+      const key = `${v}:${entity}`;
+      if (!declared.has(key) && !KNOWN_GAPS.has(key)) unjustified.push(key);
+    }
+  }
+  assert.deepEqual(unjustified.sort(), [],
+    `أفعالٌ مُعلَنةٌ بلا قدرةٍ ولا ثغرةٍ مُبرَّرة — إمّا أن تُعلَن القدرةُ أو يُحذَف الفعل:\n  ${unjustified.join('\n  ')}`);
+});
+
+test('ولا قدرةَ قائمةٌ يرفضها إعلانُ المجال — وإلّا رُفض ما يعمل', () => {
+  const wrong = [];
+  for (const a of ABILITIES) {
+    if (!entityAccepts(a.verb, a.entity)) wrong.push(`${a.id} (${a.verb}:${a.entity})`);
+  }
+  assert.deepEqual(wrong, [],
+    `قدراتٌ تعمل ويقول عنها الإعلانُ «مستحيلة» — ستُقابَل بـ«ما نقدرش»:\n  ${wrong.join('\n  ')}`);
+});
+
+test('والثغرةُ المُعلَنة ليست عجزًا — لا تُقابَل بـ«ما نقدرش» أبدًا', () => {
+  for (const key of KNOWN_GAPS) {
+    const [verb, entity] = key.split(':');
+    assert.ok(entityAccepts(verb, entity),
+      `«${key}» مُعلَنةٌ ثغرةً وإعلانُ المجال يرفضها — سيُقال فيها «ما نقدرش» وهي بابٌ يعمل`);
+  }
+});
+
+test('«ما نقدرش» ممكنةٌ فعلًا — الإعلانُ ليس «كلُّ شيءٍ مسموح»', () => {
+  // حارسُ ألّا يتحوّل هذا الملفّ إلى موافقةٍ شاملة، فيموت الحكمُ بصمت.
+  const impossible = [
+    ['create', 'phone'], ['delete', 'language'], ['send', 'settings'],
+    ['delete', 'order'], ['update', 'wallet'], ['delete', 'account'],
+  ];
+  for (const [v, e] of impossible) {
+    assert.equal(entityAccepts(v, e), false,
+      `«${v}:${e}» صارت مقبولةً — لا أحدَ يفعل هذا، والقبولُ يقتل حكمَ العجز`);
+  }
+});

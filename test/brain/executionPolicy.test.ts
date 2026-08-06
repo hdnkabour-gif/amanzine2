@@ -281,3 +281,51 @@ test('الوجهةُ ترافق كلَّ حكمٍ لا الحكمَ الناجح
   assert.equal(d.verdict, 'ask');
   assert.equal(d.dest?.page, 'profile', 'ضاعت الوجهةُ مع السؤال');
 });
+
+// ============================================================
+// «ما نقدرش» — عادت، وعلى أساسٍ يُقاس هذه المرّة.
+//
+//   حُذفت أوّلًا لأنّ بابَها كان تحصيلَ حاصل، والبديلُ المرشَّح («لا قدرةَ
+//   في الكتالوج») قِيس فوُجد يرفض ٤٢ زوجًا فيها أبوابٌ تعمل. وعادت الآن على
+//   `ENTITY_VERBS`: إعلانٌ عن المجال لا عن كتالوجنا.
+//
+//   وهذان الاختباران وجهان لعملةٍ واحدة: أن تصدر حين يجب، وألّا تصدر حين
+//   لا يجب. الأوّلُ وحدَه يُنتج مساعدًا يعتذر عمّا يقدر عليه.
+// ============================================================
+import { entityAccepts, VERB_MAP, OBJECT_MAP } from '../../src/lib/abilities';
+import { understand as understandKb } from '../../src/lib/akg/kb';
+
+/** نفسُ الحساب الذي تُجريه `LivingHome` — كي يُختبَر ما يعمل لا ما يُشبهه. */
+function judge(q: string) {
+  const u: any = understandKb(q);
+  const av = u.action ? VERB_MAP[u.action.verb] : undefined;
+  const ae = u.action ? OBJECT_MAP[u.action.object] : undefined;
+  const impossible = !!(av && ae && !entityAccepts(av, ae));
+  return decideExecution(u, undefined, impossible).verdict;
+}
+
+test('«ما نقدرش» تصدر فعلًا — «حيّد اللغة» فعلٌ لا يفعله أحد', () => {
+  assert.equal(judge('حيّد اللغة'), 'refuse',
+    'الحكمُ عاد ميّتًا كما كان — لا جملةَ تُنتجه');
+});
+
+test('ولا تصدر على بابٍ يعمل — «وريني المنتجات» والصفحةُ قائمة', () => {
+  // هذا هو الاختبارُ الذي أسقط البديلَ الأوّل: `view:product` ثغرةُ كتالوجٍ
+  // لا عجز. من قيسها عجزًا اعتذر عمّا يقدر عليه.
+  for (const q of ['وريني المنتجات', 'وريني الطلبات', 'وريني الزبناء', 'زيد منتوج جديد']) {
+    assert.notEqual(judge(q), 'refuse', `«${q}» رُفضت وهي بابٌ يعمل`);
+  }
+});
+
+test('والنيّةُ الخشنةُ تُسأل ولا تُرفَض — الجهلُ عندنا ليس عجزًا عندنا', () => {
+  for (const q of ['بغيت سباك', 'عندي محل ديال الخضرة', 'شي حاجة']) {
+    assert.notEqual(judge(q), 'refuse', `«${q}» رُفضت بلا فعلٍ صريح`);
+  }
+});
+
+test('العجزُ يسبق النقصَ — لا يُستوضَح تفصيلُ فعلٍ لا يُفعَل', () => {
+  const u: any = { confidence: 1, reasoning: [],
+    action: { verb: 'delete', object: 'language', scope: 'user', needs: ['أيّ لغة؟'], confidence: 1, reason: '' } };
+  assert.equal(decideExecution(u, undefined, true).verdict, 'refuse',
+    'سُئل عن تفصيلِ فعلٍ مستحيل');
+});

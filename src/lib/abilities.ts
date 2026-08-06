@@ -160,8 +160,13 @@ export const ABILITIES: Ability[] = [
   { id: 'BROADCAST_MESSAGE', verb: 'send', entity: 'message', say: 'تصيفط رسالة لكل الزبناء',
     // تخرج للناس ولا تُسترجَع — وإن كانت الرسالةُ نصًّا، فالإرسالُ حدثٌ نهائيّ.
     risk: 'high', needs: ['text', 'audience'], auth: true, page: null, api: '/api/broadcast' },
-  { id: 'MANAGE_MEDIA', verb: 'create', entity: 'media', say: 'تزيد تصاور',
-    risk: 'low', needs: [], auth: true, page: 'editor', api: '/api/media' },
+  // «تزيد تصاور» تقع في `ProductsPage` (رفعٌ إلى `/api/media/upload`)، أمّا
+  // `ImageEditorPage` فيُحمّل صورةً **ليعدّلها**. فمن قال «بغيت نزيد تصويرة»
+  // كان يُساق إلى محرّرٍ فارغٍ ينتظر صورةً لم يرفعها بعد.
+  { id: 'MANAGE_MEDIA', verb: 'create', entity: 'media', say: 'تزيد تصاور للمنتوج',
+    risk: 'low', needs: [], auth: true, page: 'products', api: '/api/media' },
+  { id: 'EDIT_MEDIA', verb: 'update', entity: 'media', say: 'تعدّل تصويرة (نصّ، شعار، خلفيّة)',
+    risk: 'low', needs: [], auth: true, page: 'editor', api: null },
   { id: 'DESIGN_BANNER', verb: 'create', entity: 'media', say: 'تصايب بانير ولا إعلان',
     risk: 'low', needs: [], auth: true, page: 'banner', api: null },
   { id: 'IMPORT_DATA', verb: 'create', entity: 'product', say: 'تجيب المنتوجات من محادثة ولا ملفّ',
@@ -205,8 +210,10 @@ export const ABILITIES: Ability[] = [
   { id: 'CHANGE_PHONE', verb: 'update', entity: 'phone', say: 'تبدّل النمرة ديالك',
     // النمرةُ هي الهويّةُ والدخول — خطؤها يقفل الحسابَ على صاحبه.
     risk: 'high', needs: ['phone'], auth: true, page: 'profile', api: '/api/auth' },
+  // العنوانُ يعيش في `SettingsPage` (`brand.address`) — و`ProfilePage` لا
+  // تحوي حقلَ عنوانٍ إطلاقًا. فكانت الوجهةُ صفحةً لا يجد فيها الإنسانُ ما جاء له.
   { id: 'CHANGE_ADDRESS', verb: 'update', entity: 'address', say: 'تبدّل العنوان',
-    risk: 'medium', needs: ['address'], auth: true, page: 'profile', api: '/api/settings' },
+    risk: 'medium', needs: ['address'], auth: true, page: 'settings', api: '/api/settings' },
   { id: 'CHANGE_LANGUAGE', verb: 'update', entity: 'language', say: 'تبدّل اللغة',
     risk: 'low', needs: [], auth: false, page: 'settings', api: null },
   { id: 'UPDATE_SETTINGS', verb: 'update', entity: 'settings', say: 'تبدّل الإعدادات',
@@ -312,6 +319,77 @@ export function availableTo(isAuthed: boolean): Ability[] {
  *   فصار «نفّذ» بابًا لا يُفتَح. هنا: العرضُ يُنفَّذ بما يُنفَّذ به العرض،
  *   والحذفُ يبقى مغلقًا.
  */
+// ============================================================
+// ما **يقبله الكيانُ** من أفعال — ومنه وحدَه يُقال «ما نقدرش».
+//
+//   ── لماذا وُلد هذا الإعلان ──
+//   حُذف حكمُ `refuse` بحقٍّ: بابُه الوحيد كان سؤالًا جوابُه `true` بحكم
+//   البناء. والبديلُ المرشَّح — «لا قدرةَ في الكتالوج ⇒ ما نقدرش» — قِيس
+//   فسقط: من ١٠٢ تركيبةٍ ممكنةٍ لا يغطّي الكتالوج ٤٢، وفيها `view:product`
+//   و`view:coupon` و`delete:customer` — أبوابٌ **تعمل** ولها مساراتٌ وصفحات.
+//   فذاك المقياسُ يقيس **نقصَ كتالوجنا** لا عجزَ التطبيق، ويقول «ما نقدرش»
+//   عمّا نقدر عليه — وهو أسوأُ من الصمت.
+//
+//   ── والفرقُ الذي يجعل الحكمَ صادقًا ──
+//   ٤٢ زوجًا صنفان لا صنفٌ واحد:
+//     · **ثغرةُ كتالوج**: `view:product` بابٌ حقيقيٌّ لم يُعلَن ⇒ يُعلَن، ولا
+//       يُقال فيه «ما نقدرش» أبدًا.
+//     · **تركيبةٌ لا وجودَ لها**: `create:phone` · `delete:language` ·
+//       `send:settings` — نتاجُ الضربِ الديكارتيّ لا نقصٌ عندنا. لا أحدَ
+//       «يُنشئ هاتفًا» ولا «يحذف لغة».
+//
+//   فالسؤالُ الصادقُ ليس «أفي الكتالوج قدرة؟» بل **«أيقبل هذا الكيانُ هذا
+//   الفعلَ أصلًا؟»** — وهي حقيقةٌ عن المجال تُعلَن مرّةً، لا تُشتقّ من نقصنا.
+//
+//   ── وحدُّه ──
+//   كلُّ فعلٍ مُعلَنٍ هنا **يجب أن يُبرَّر** بمسارٍ في الخادم أو صفحةٍ في
+//   التطبيق (`abilities.test.mjs`). فلا يصير هذا الإعلانُ بابًا خلفيًّا
+//   يُوسَّع بالنيّة الحسنة حتّى يُصبح «كلُّ شيءٍ ممكن» ويعود `refuse` ميّتًا.
+// ============================================================
+export const ENTITY_VERBS: Record<AbilityEntity, AbilityVerb[]> = {
+  // بضاعةٌ وخدمةٌ وإعلان: تُعرَض وتُطلَب وتُدار وتُشارَك.
+  product:  ['offer', 'seek', 'create', 'update', 'delete', 'view', 'send'],
+  service:  ['offer', 'seek', 'create', 'update', 'delete', 'view'],
+  listing:  ['offer', 'seek', 'create', 'update', 'delete', 'view'],
+  // المحلّ: يُنشأ ويُعدَّل ويُحذَف ويُشارَك رابطُه (ShareShop) — ولا يُطلَب.
+  workspace: ['create', 'update', 'delete', 'view', 'send'],
+  // الطلب: يُنشأ ويُعدَّل ويُشارَك تأكيدُه. **ولا يُحذَف** — يُلغى بتغيير حالته،
+  // وسجلُّه يبقى لأنّ مالًا تحرّك.
+  order:    ['create', 'update', 'view', 'send'],
+  shipment: ['send', 'view'],
+  customer: ['create', 'update', 'delete', 'view', 'send'],
+  booking:  ['book', 'create', 'update', 'delete', 'view'],
+  coupon:   ['create', 'update', 'delete', 'view', 'send'],
+  // المحفظة: تُقرأ. رصيدُها يتغيّر بالدفع لا بتحريرٍ مباشر.
+  wallet:   ['view'],
+  payment:  ['send', 'view'],
+  message:  ['create', 'view', 'send'],
+  // الحساب: يُنشأ ويُعدَّل ويُقرأ. حذفُه ليس مبنيًّا بعد — فلا يُدَّعى.
+  account:  ['create', 'view'],
+  // النمرةُ واللغةُ والعنوانُ صفاتٌ تُبدَّل وتُقرأ — لا تُنشأ ولا تُحذَف ولا تُرسَل.
+  phone:    ['update', 'view'],
+  address:  ['update', 'view'],
+  language: ['update', 'view'],
+  settings: ['update', 'view'],
+  delivery_provider: ['create', 'update', 'delete', 'view'],
+  media:    ['create', 'update', 'delete', 'view'],
+  knowledge: ['create', 'update', 'view'],
+  report:   ['view'],
+  need:     ['seek', 'create', 'view'],
+  provider: ['offer', 'seek', 'create', 'view'],
+};
+
+/**
+ * **حدُّ القدرة الصادق**: أيقبل هذا الكيانُ هذا الفعلَ أصلًا؟
+ *
+ *   `false` تعني عجزًا حقيقيًّا في المجال («احذف اللغة») — وعندها يُقال
+ *   «ما نقدرش» بحقّ. ولا تعني «لا قدرةَ في كتالوجنا»: تلك ثغرةٌ عندنا
+ *   يسدُّها حارسُ `abilities.test.mjs`، ولا يُحاسَب عليها الإنسان.
+ */
+export function entityAccepts(verb: AbilityVerb, entity: AbilityEntity): boolean {
+  return (ENTITY_VERBS[entity] || []).includes(verb);
+}
+
 export const RISK_THRESHOLD: Record<AbilityRisk, number> = {
   low: 0.45,
   medium: 0.70,
@@ -342,12 +420,12 @@ export function abilitiesWithoutPage(): Ability[] {
 //   وهذه تنفّذ فعلًا لم يطلبه أحد.
 
 /** فعلُ `actions.ts` ⇒ فعلُ الكتالوج. ما ليس في الجدول لا يُترجَم. */
-const VERB_MAP: Record<string, AbilityVerb> = {
+export const VERB_MAP: Record<string, AbilityVerb> = {
   view: 'view', create: 'create', update: 'update', delete: 'delete', send: 'send', share: 'send',
 };
 
 /** هدفُ `actions.ts` ⇒ كيانُ الكتالوج. */
-const OBJECT_MAP: Record<string, AbilityEntity> = {
+export const OBJECT_MAP: Record<string, AbilityEntity> = {
   phone: 'phone', language: 'language', password: 'account', account: 'account',
   workspace: 'workspace', shop_name: 'workspace', shop_hours: 'workspace',
   delivery: 'delivery_provider', settings: 'settings',
