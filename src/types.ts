@@ -307,6 +307,16 @@ export interface SecuritySettings {
   hcaptchaSecret?: string;    // hCaptcha — المفتاح السري (خادم فقط)
   autoLogoutMinutes: number;
   loginNotification: boolean;
+  /**
+   * تأكيدُ نمرة الزبون قبل تسجيل الطلب.
+   *
+   *   `first` (الافتراضيّ): يُسأل مَن لم يصله طردٌ من قبل. هناك تقع الخسارة —
+   *   الدفعُ عند الاستلام يجعل الطلبَ الوهميَّ **ثمنَ توصيلٍ حقيقيًّا** يدفعه
+   *   التاجرُ لطردٍ يُرفَض. والزبونُ العائدُ أثبت نمرتَه بالتسليم نفسِه، فسؤالُه
+   *   ثانيةً «يعرف ثمّ يسأل».
+   *   `always` لمن اكتوى · `off` لمن يعرف زبناءه واحدًا واحدًا.
+   */
+  verifyOrders?: 'off' | 'first' | 'always';
 }
 
 export interface NotifSettings {
@@ -404,7 +414,7 @@ export const defaultSettings: AppSettings = {
     categories: ['ملابس رجالية', 'ملابس نسائية', 'أحذية', 'إكسسوارات', 'ملابس أطفال'],
     taxRate: 0, autoPublishOnCreate: false,
   },
-  security: { twoFactorEnabled: false, autoLogoutMinutes: 60, loginNotification: true },
+  security: { twoFactorEnabled: false, autoLogoutMinutes: 60, loginNotification: true, verifyOrders: 'first' },
   notifs: { newOrder: true, newMessage: true, lowStock: true, orderShipped: true, sound: true, whatsappBroadcast: false },
   design: { theme: 'dark', primaryColor: '#6366f1', watermarkEnabled: false, watermarkText: '', compressImages: true },
   templates: [

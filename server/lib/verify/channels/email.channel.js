@@ -5,9 +5,15 @@ const mailer = require('../../mailer');
 
 const meta = { id: 'email', name: 'البريد الإلكترونيّ', kind: 'email' };
 
-/** مُهيّأةٌ حين يوجد ناقلُ بريدٍ فعلًا. لا SMTP ⇒ تُعلن العجزَ ولا تصمت. */
+/**
+ * مُهيّأةٌ حين يوجد **ناقلٌ أيًّا كان** — SMTP أو Brevo.
+ *
+ *   كانت تسأل `getTransport()` وهو SMTP وحدَه. وقياسٌ على متغيّرات المنصّة
+ *   أظهر أنّ SMTP غيرُ مضبوطٍ إطلاقًا وBrevo مضبوطة — فكانت القناةُ تُعلن
+ *   عجزَها في الإنتاج وهي قادرة، ويبقى التحقّقُ بلا قناةٍ واحدة.
+ */
 function available() {
-  return !!mailer.getTransport();
+  return mailer.available();
 }
 
 function html(code, storeName) {
@@ -24,20 +30,13 @@ function html(code, storeName) {
 
 /** @returns {Promise<{sent:boolean, reason?:string}>} لا يرمي أبدًا. */
 async function send({ to, code, storeName }) {
-  const transport = mailer.getTransport();
-  if (!transport) return { sent: false, reason: 'not-configured' };
-  try {
-    await transport.sendMail({
-      from: process.env.SMTP_FROM || `"${storeName || 'AMANZINE'}" <${process.env.SMTP_USER}>`,
-      to,
-      subject: '🔐 رمز التحقق — AMANZINE',
-      html: html(code, storeName),
-    });
-    return { sent: true };
-  } catch (e) {
-    console.error('[verify/email]', e.message);
-    return { sent: false, reason: e.message };
-  }
+  // يمرّ عبر `mailer.send` لا عبر ناقلٍ بعينه: هو الذي يختار SMTP أو Brevo،
+  // فلا تعرف القناةُ اسمَ ناقلٍ ولا تتباعد عن بقيّة البريد في المشروع.
+  return mailer.send({
+    to,
+    subject: '🔐 رمز التحقق — AMANZINE',
+    html: html(code, storeName),
+  });
 }
 
 module.exports = { meta, available, send };

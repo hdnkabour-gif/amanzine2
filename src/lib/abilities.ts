@@ -256,6 +256,103 @@ export const ABILITIES: Ability[] = [
     risk: 'high', needs: [], auth: true, page: 'knowledge', api: '/api/knowledge' },
   { id: 'FIELD_VISIT', verb: 'create', entity: 'provider', say: 'تسجّل زيارة ميدانية',
     risk: 'medium', needs: [], auth: true, page: 'field-visit', api: '/api/providers' },
+  // ── ما كان يعمل ولم يكن مُعلَنًا ───────────────────────────────
+  //
+  //   أربعون بابًا لها مسارٌ في الخادم وصفحةٌ في التطبيق ولم تكن في هذه
+  //   القائمة. وثمنُ ذلك مقيس: `abilityFor` تُرجع `null` لها، فيسقط الحكمُ
+  //   على **العتبة العامّة** بدل عتبةٍ تتبع الخطورة — أي أنّ «وريني
+  //   المنتجات» تُسأل حيث يجب أن تُنفَّذ، و«حيّد الكوبون» يمرّ حيث يجب أن
+  //   يُؤكَّد. القائمةُ الناقصةُ لا تصمت: تُخطئ في الاتّجاهين معًا.
+  //
+  //   وكلُّها مقيسةٌ لا مُخترَعة: لكلٍّ مسارٌ بالطريقة الصحيحة (يحرسه
+  //   `abilities.test.mjs`) وصفحةٌ يبلغها `MainLayout`.
+
+  // ① يرى ما عنده ──────────────────────────────────────────────
+  { id: 'VIEW_PRODUCTS', verb: 'view', entity: 'product', say: 'تشوف المنتوجات ديالك',
+    risk: 'low', needs: [], auth: true, page: 'products', api: '/api/products' },
+  { id: 'VIEW_SERVICES', verb: 'view', entity: 'service', say: 'تشوف الخدمات ديالك',
+    risk: 'low', needs: [], auth: true, page: 'services', api: '/api/providers' },
+  { id: 'VIEW_COUPONS', verb: 'view', entity: 'coupon', say: 'تشوف التخفيضات ديالك',
+    risk: 'low', needs: [], auth: true, page: 'coupons', api: '/api/coupons' },
+  { id: 'VIEW_BOOKINGS', verb: 'view', entity: 'booking', say: 'تشوف المواعيد',
+    risk: 'low', needs: [], auth: true, page: 'bookings', api: '/api/bookings' },
+  { id: 'VIEW_MESSAGES', verb: 'view', entity: 'message', say: 'تشوف الرسائل',
+    risk: 'low', needs: [], auth: true, page: 'conversations', api: '/api/conversations' },
+  { id: 'VIEW_DELIVERY_PROVIDERS', verb: 'view', entity: 'delivery_provider', say: 'تشوف شركات التوصيل',
+    risk: 'low', needs: [], auth: true, page: 'delivery', api: '/api/delivery' },
+  { id: 'VIEW_SETTINGS', verb: 'view', entity: 'settings', say: 'تشوف الإعدادات',
+    risk: 'low', needs: [], auth: true, page: 'settings', api: '/api/settings' },
+  { id: 'VIEW_WORKSPACE', verb: 'view', entity: 'workspace', say: 'تشوف معلومات المحلّ',
+    risk: 'low', needs: [], auth: true, page: 'settings', api: '/api/settings' },
+  { id: 'VIEW_PHONE', verb: 'view', entity: 'phone', say: 'تشوف النمرة ديالك',
+    risk: 'low', needs: [], auth: true, page: 'settings', api: '/api/settings' },
+  { id: 'VIEW_ADDRESS', verb: 'view', entity: 'address', say: 'تشوف العنوان',
+    risk: 'low', needs: [], auth: true, page: 'settings', api: '/api/settings' },
+  { id: 'VIEW_LANGUAGE', verb: 'view', entity: 'language', say: 'تشوف اللغة',
+    risk: 'low', needs: [], auth: true, page: 'settings', api: '/api/settings' },
+  { id: 'VIEW_MEDIA', verb: 'view', entity: 'media', say: 'تشوف التصاور ديالك',
+    risk: 'low', needs: [], auth: true, page: 'products', api: '/api/media' },
+  { id: 'VIEW_PAYMENTS', verb: 'view', entity: 'payment', say: 'تشوف الأداءات',
+    risk: 'low', needs: [], auth: true, page: 'wallet', api: '/api/payment' },
+  // الحاجاتُ المنشورة عامّةٌ عمدًا: مَن يعرض خدمةً يقرؤها ليردّ، ولا حسابَ يلزمه للقراءة.
+  { id: 'VIEW_NEEDS', verb: 'view', entity: 'need', say: 'تشوف الطلبات اللي كتبو الناس',
+    risk: 'low', needs: [], auth: false, page: 'home', api: '/api/needs' },
+
+  // ② يُنشئ ─────────────────────────────────────────────────────
+  { id: 'CREATE_CUSTOMER', verb: 'create', entity: 'customer', say: 'تزيد زبون',
+    risk: 'medium', needs: ['person'], auth: true, page: 'customers', api: '/api/customers' },
+  { id: 'CREATE_ORDER', verb: 'create', entity: 'order', say: 'تسجّل طلب',
+    risk: 'medium', needs: ['product'], auth: true, page: 'orders', api: '/api/orders' },
+  { id: 'CREATE_SERVICE', verb: 'create', entity: 'service', say: 'تزيد خدمة',
+    risk: 'medium', needs: ['trade'], auth: true, page: 'services', api: '/api/providers' },
+  { id: 'CREATE_LISTING', verb: 'create', entity: 'listing', say: 'تزيد إعلان',
+    risk: 'medium', needs: ['subject'], auth: true, page: 'publish', api: '/api/listings' },
+  { id: 'CREATE_BOOKING', verb: 'create', entity: 'booking', say: 'تسجّل موعد',
+    risk: 'medium', needs: ['person', 'time'], auth: true, page: 'bookings', api: '/api/bookings' },
+  { id: 'CREATE_MESSAGE', verb: 'create', entity: 'message', say: 'تصيفط رسالة لزبون',
+    risk: 'medium', needs: ['person', 'text'], auth: true, page: 'conversations', api: '/api/conversations' },
+  { id: 'CREATE_NEED', verb: 'create', entity: 'need', say: 'تكتب حاجة باش نقلّبو ليك',
+    risk: 'low', needs: ['subject'], auth: false, page: 'home', api: '/api/needs' },
+  { id: 'CREATE_KNOWLEDGE', verb: 'create', entity: 'knowledge', say: 'تعلّم التطبيق مفهوم جديد',
+    risk: 'medium', needs: ['subject'], auth: true, page: 'knowledge', api: '/api/knowledge' },
+
+  // ③ يعدّل ─────────────────────────────────────────────────────
+  { id: 'UPDATE_COUPON', verb: 'update', entity: 'coupon', say: 'تبدّل تخفيض',
+    risk: 'medium', needs: [], auth: true, page: 'coupons', api: '/api/coupons' },
+  { id: 'UPDATE_BOOKING', verb: 'update', entity: 'booking', say: 'تبدّل موعد',
+    risk: 'medium', needs: [], auth: true, page: 'bookings', api: '/api/bookings' },
+  { id: 'UPDATE_DELIVERY_PROVIDER', verb: 'update', entity: 'delivery_provider', say: 'تبدّل إعدادات شركة التوصيل',
+    risk: 'medium', needs: ['provider'], auth: true, page: 'delivery', api: '/api/delivery' },
+
+  // ④ يحذف — **كلُّها خطِرةٌ ولا تُسترجَع** ────────────────────────
+  { id: 'DELETE_COUPON', verb: 'delete', entity: 'coupon', say: 'تحيّد تخفيض',
+    risk: 'high', needs: [], auth: true, page: 'coupons', api: '/api/coupons' },
+  { id: 'DELETE_CUSTOMER', verb: 'delete', entity: 'customer', say: 'تحيّد زبون',
+    risk: 'high', needs: ['person'], auth: true, page: 'customers', api: '/api/customers' },
+  { id: 'DELETE_SERVICE', verb: 'delete', entity: 'service', say: 'تحيّد خدمة',
+    risk: 'high', needs: ['trade'], auth: true, page: 'services', api: '/api/providers' },
+  { id: 'DELETE_DELIVERY_PROVIDER', verb: 'delete', entity: 'delivery_provider', say: 'تحيّد شركة التوصيل',
+    risk: 'high', needs: ['provider'], auth: true, page: 'delivery', api: '/api/delivery' },
+
+  // ⑤ يرسل خارج نفسه — يخرج للناس فلا يُسترجَع ──────────────────
+  { id: 'SHARE_WORKSPACE', verb: 'send', entity: 'workspace', say: 'تشارك رابط محلّك',
+    risk: 'low', needs: [], auth: true, page: 'settings', api: '/api/settings' },
+  { id: 'SHARE_PRODUCT', verb: 'send', entity: 'product', say: 'تشارك رابط منتوج',
+    risk: 'low', needs: ['product'], auth: true, page: 'products', api: '/api/products' },
+  { id: 'SEND_ORDER_CONFIRM', verb: 'send', entity: 'order', say: 'تصيفط تأكيد الطلب للزبون',
+    risk: 'medium', needs: ['order'], auth: true, page: 'orders', api: '/api/orders' },
+  { id: 'SEND_COUPON', verb: 'send', entity: 'coupon', say: 'تصيفط تخفيض للزبناء',
+    risk: 'high', needs: ['audience'], auth: true, page: 'coupons', api: '/api/coupons' },
+  { id: 'SEND_TO_CUSTOMERS', verb: 'send', entity: 'customer', say: 'تصيفط رسالة لزبناءك',
+    risk: 'high', needs: ['audience', 'text'], auth: true, page: 'customers', api: '/api/customers' },
+
+  // ⑥ يطلب ويَعرض ──────────────────────────────────────────────
+  { id: 'SEEK_SERVICE', verb: 'seek', entity: 'service', say: 'تقلّب على خدمة',
+    risk: 'low', needs: ['subject'], auth: false, page: 'home', api: '/api/providers' },
+  { id: 'SEEK_LISTING', verb: 'seek', entity: 'listing', say: 'تقلّب على إعلان',
+    risk: 'low', needs: ['subject'], auth: false, page: 'home', api: '/api/listings' },
+  { id: 'OFFER_PROVIDER', verb: 'offer', entity: 'provider', say: 'تسجّل نشاطك باش يلقاوك الناس',
+    risk: 'medium', needs: ['trade'], auth: true, page: 'publish', api: '/api/providers' },
 ];
 
 // ── الوصولُ إلى القائمة ───────────────────────────────────────

@@ -4,6 +4,9 @@ const router = require('express').Router();
 const auth   = require('../middleware/auth');
 const crypto = require('crypto');
 const { db } = require('../database');
+const mailer = require('../lib/mailer');
+const verify = require('../lib/verify');
+const orderVerification = require('../lib/orderVerification');
 const sync   = require('../sync');
 const fetch  = require('node-fetch');
 const { resolveDeliveryFee } = require('../lib/deliveryPricing');
@@ -63,22 +66,14 @@ router.put('/:id', auth, async (req, res) => {
   } catch (e) { console.error('[orders]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
-function _sendBrevoEmail(apiKey, toEmail, toName, subject, html) {
-  return new Promise(resolve => {
-    if (!apiKey || !toEmail) return resolve(false);
-    const httpsB = require('https');
-    const body = JSON.stringify({
-      sender: { name: 'AMANZINE', email: 'noreply@amanzine.shop' },
-      to: [{ email: toEmail, name: toName || toEmail }],
-      subject, htmlContent: html,
-    });
-    const r = httpsB.request({ hostname: 'api.brevo.com', path: '/v3/smtp/email', method: 'POST',
-      headers: { 'api-key': apiKey, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
-      rs => { rs.resume(); resolve(rs.statusCode < 300); });
-    r.on('error', () => resolve(false)); r.setTimeout(8000, () => { r.destroy(); resolve(false); });
-    r.write(body); r.end();
-  });
-}
+// -- مُرسِلٌ واحدٌ للبريد --
+//   كانت هنا نسخةٌ ثانيةٌ من نداء Brevo بمهلتها ومعالجةِ أخطائها. نفسُ درسِ
+//   مُرسِل واتساب الذي كُتب أربع مرّات: أيُّ إصلاحٍ يجب أن يُطبَّق مرّتين،
+//   وأوّلُ من يُنسى هو الثاني. و`lib/mailer` يقبل الآن مفتاحَ تاجرٍ فتخرج
+//   رسالتُه باسمه هو لا باسم المنصّة.
+const _sendBrevoEmail = (apiKey, toEmail, toName, subject, html) =>
+  mailer.send({ apiKey, to: toEmail, toName, subject, html }).then(r => r.sent);
+
 
 function _verifyHCaptcha(secret, token) {
   return new Promise(resolve => {
@@ -207,6 +202,10 @@ router.put('/:id/approve', auth, async (req, res) => {
     const waToken = approveSettings.social?.whatsapp?.accessToken;
     const waPhoneId = approveSettings.social?.whatsapp?.pageId;
     const refreshedOrder = await db.getOrder(order.id);
+    // العنوانُ العامّ للمنصّة — منه يُبنى رابطُ التتبّع. `PRODUCTION_URL` أوّلًا
+    // (نطاقُ التاجر إن وُجد) ثمّ نطاقُ المنصّة.
+    const trackBase = process.env.PRODUCTION_URL
+      || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '');
     const cur2 = approveSettings.brand?.currency || 'MAD';
     const brandName2 = approveSettings.brand?.name || 'المتجر';
     const itemsList2 = (refreshedOrder?.items||[]).map((i,idx) =>
@@ -231,7 +230,13 @@ router.put('/:id/approve', auth, async (req, res) => {
       `🔖 *رقم الطلب:* ${refreshedOrder?.id}`,
       `🔑 *كود التتبع:* *${refreshedOrder?.customerCode||'—'}*`,
       ``,
-      `📌 _احتفظ بكود التتبع لمتابعة طلبك_`,
+      // ── الرابطُ لا الكودُ وحدَه ──────────────────────────────────
+      //   كانت الرسالةُ تقول «احتفظ بالكود لمتابعة طلبك» **ولا صفحةَ يُدخَل
+      //   فيها**: وعدٌ في رسالةٍ بلا بابٍ يفي به. والرابطُ يحمل هويّةَ المتجر
+      //   والكودَ معًا، فيصل الزبونُ بضغطةٍ لا بنسخٍ ولصق.
+      ...(trackBase
+        ? [`🔗 تبّع طلبك: ${trackBase}/track/${req.user.id}?code=${encodeURIComponent(refreshedOrder?.customerCode||'')}`]
+        : [`📌 _احتفظ بكود التتبع لمتابعة طلبك_`]),
       `━━━━━━━━━━━━━━━━━━━━━━`,
       `🚚 سيتم الشحن خلال 24-48 ساعة`,
       `شكراً لثقتك! 🙏`,
@@ -340,6 +345,29 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     if (preSettings.security?.hcaptchaSecret) {
       const human = await _verifyHCaptcha(preSettings.security.hcaptchaSecret, captchaToken);
       if (!human) return res.status(400).json({ error: 'فشل التحقق الأمني — حدّث الصفحة وأعد المحاولة' });
+    }
+
+    // ── تأكيدُ النمرة: أوّلَ مرّةٍ فقط ────────────────────────────
+    //   hCaptcha يمنع الآلة، ولا يمنع إنسانًا يكتب نمرةً ليست له. والدفعُ
+    //   عند الاستلام يجعل الطلبَ الوهميَّ **ثمنَ توصيلٍ حقيقيًّا** يدفعه
+    //   التاجر لطردٍ يُرفَض عند الباب.
+    //
+    //   والبرهانُ يُقرأ من القاعدة لا من الطلب: لو صُدِّق حقلٌ يرسله العميل
+    //   («verified: true») لكان البابُ مفتوحًا لمن يريد إغراقَ تاجرٍ بالطلبات.
+    const vp = await orderVerification.needsVerification({
+      userId, phone: customerPhone, settings: preSettings,
+    });
+    if (vp.required) {
+      const ok = await verify.isVerified({ identifier: customerPhone, purpose: 'order_confirm' });
+      if (!ok) {
+        // 428: «مطلوبٌ شرطٌ مسبق» — تقرؤها الواجهةُ فتفتح شاشةَ الرمز، ولا
+        // تعرضها خطأً عامًّا يجعل الزبونَ يظنّ أنّ الطلبَ فشل.
+        return res.status(428).json({
+          error: 'خاصّنا نتأكّدو من النمرة ديالك قبل ما نسجّلو الطلب',
+          needsVerification: true, purpose: 'order_confirm',
+          identifier: customerPhone, reason: vp.reason,
+        });
+      }
     }
 
     let subtotal = 0, totalCost = 0, giftFees = 0, itemCount = 0;

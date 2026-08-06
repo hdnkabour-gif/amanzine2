@@ -243,7 +243,18 @@ export default function LivingHome() {
     //   غيرَ مُعلَنٍ وفيها أبوابٌ تعمل (`view:product`).
     const av = u.action ? VERB_MAP[u.action.verb] : undefined;
     const ae = u.action ? OBJECT_MAP[u.action.object] : undefined;
-    const impossible = !!(av && ae && !entityAccepts(av, ae));
+    // **العجزُ حكمٌ قاطعٌ فلا يُبنى على قراءةٍ ضعيفة.**
+    //
+    //   قِيس: «زيد زبون جديد» تُقرأ `create:settings` بثقة **٠٫٣٥** — لأنّ
+    //   قارئَ الأفعال يسقط على `settings` حين لا يعرف الهدف. والمجالُ لا
+    //   يقبل إنشاءَ إعدادات، فكانت النتيجةُ **«ما كايتديرش أصلًا»** لطلبٍ
+    //   مشروعٍ تمامًا. أي أنّ سوءَ قراءةٍ يتحوّل رفضًا قاطعًا.
+    //
+    //   والقراءاتُ الصحيحةُ تحمل ٠٫٧٠–٠٫٨٥، والمُساءةُ ٠٫٣٥ — فالحدُّ يفصلهما
+    //   بوضوح. وما دونه يُسأل عنه: **الشكُّ يُسأل ولا يُرفَض**.
+    const READ_ENOUGH = 0.5;
+    const impossible = !!(av && ae && (u.action?.confidence ?? 0) >= READ_ENOUGH
+      && !entityAccepts(av, ae));
     const verdict = decideExecution(u, match || undefined, impossible);
     const dec = decideInterface({ ...r, hasInput: true }, verdict.verdict);
     // `explain` و`refuse` يُقالان ولا يُفعَلان. وما عداهما له شكلٌ في الواجهة،

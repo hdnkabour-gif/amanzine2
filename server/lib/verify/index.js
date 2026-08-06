@@ -160,8 +160,24 @@ async function check({ identifier, purpose, code }) {
     }
     return { valid: false, reason: 'wrong', left: MAX_ATTEMPTS - attempts };
   }
+  // النجاحُ يُعلَّم بوقتٍ صريح: `used = TRUE` وحدَها تُوضَع أيضًا عند الإبطال
+  // بعد استنفاد المحاولات، فلا تُميّز «تأكّد» من «فشل». والفرقُ يهمّ حين
+  // يسأل الخادمُ لاحقًا: أتأكّدت هذه النمرةُ فعلًا قبل قبول الطلب؟
+  await db.markVerified(row.id);
   await db.invalidateVerifications(id, purpose);
   return { valid: true };
+}
+
+/**
+ * أتأكّدت هذه الهويّةُ لهذا الغرض قريبًا؟ — يسأله الخادمُ **بنفسه**.
+ *
+ *   ولا يُصدَّق العميلُ في قوله «تأكّدتُ»: من أراد إغراقَ تاجرٍ بطلباتٍ
+ *   وهميّةٍ يرسل أيَّ حقلٍ يشاء. البرهانُ في القاعدة لا في الطلب.
+ */
+async function isVerified({ identifier, purpose, withinMs }) {
+  const id = normalizeIdentifier(identifier);
+  if (!id || !PURPOSES.includes(purpose)) return false;
+  return db.wasRecentlyVerified(id, purpose, withinMs);
 }
 
 /**
@@ -180,7 +196,7 @@ async function satisfy({ identifier, purpose, userId, via }) {
 }
 
 module.exports = {
-  start, check, satisfy, channelsFor, listChannels,
+  start, check, satisfy, isVerified, channelsFor, listChannels,
   MAX_ATTEMPTS, TTL_MS,
   _rejected,
 };

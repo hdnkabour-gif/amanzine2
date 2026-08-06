@@ -1,3 +1,4 @@
+import VerifyCode from '../components/VerifyCode';
 import { useState, useEffect, useRef } from 'react';
 import {
   ShoppingCart, X, MessageCircle, Share2, Plus, Minus, Check,
@@ -727,6 +728,10 @@ function LuckyWheel({userId,open,onClose}:{userId:string;open:boolean;onClose:()
 // ═══════════════════════════════════════════════════════════════ CART SIDEBAR
 function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:ReturnType<typeof useCart>;storeInfo:StoreInfo;userId:string;onClose:()=>void;onOrderSuccess:(id:string)=>void}) {
   const [step,setStep]=useState<'cart'|'checkout'|'success'>('cart');
+  // -- تأكيدُ النمرة حين يطلبه الخادم --
+  //   لا تقرّر الواجهةُ متى يلزم التأكيد: الخادمُ يقرأ إعدادَ التاجر وتاريخَ
+  //   النمرة ويردّ 428. فلو قرّرت الواجهةُ لأمكن تخطّيها بفتح أدوات المتصفّح.
+  const [needVerify,setNeedVerify]=useState<{identifier:string;reason:string}|null>(null);
   const [form,setForm]=useState({name:'',phone:'',city:'',address:'',email:'',notes:'',subscribe:true,paymentMethod:'cod' as 'cod'|'virement'});
   const [couponCode,setCouponCode]=useState(()=>{try{return localStorage.getItem('amanzine_wheel_code')||'';}catch{return '';}});
   const [couponDiscount,setCouponDiscount]=useState(0);
@@ -790,7 +795,7 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
   const handleOrder=async()=>{if(!form.name||!form.phone||!form.city){alert(T('ct.fillRequired'));return;}
     const captchaToken=hcapKey?(((window as any).hcaptcha?.getResponse?.())||''):'';
     if(hcapKey&&!captchaToken){alert(T('ct.captchaFirst'));return;}
-    setLoading(true);try{const items=cart.items.map(i=>({productId:i.product.id,productName:i.product.name,price:i.product.price,quantity:i.quantity,size:i.size,color:i.color,giftWrap:i.giftWrap,giftMessage:i.giftMessage}));const r=await fetch('/api/orders/public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,items,customerName:form.name,customerPhone:form.phone,city:form.city,address:form.address,total:grandTotal,deliveryCost:cityCost,couponCode:(couponDiscount>0||couponShipping)?couponCode:'',captchaToken,customerEmail:form.email.trim(),source:'Storefront',notes:`${form.notes}${form.subscribe?T('ct.subscribeNote'):''}`})});const data=await r.json();if(!r.ok)throw new Error(data.error);setOrderId(data.order.id);const finalTotal=data.applied?.total??grandTotal;try{localStorage.removeItem('amanzine_wheel_code');}catch{}try{const recent=JSON.parse(localStorage.getItem('amanzine_recent_orders')||'[]');localStorage.setItem('amanzine_recent_orders',JSON.stringify([{name:form.name,city:form.city,product:cart.items[0]?.product?.name||'منتج',time:new Date().toISOString()},...recent].slice(0,20)));}catch{}const phone=storeInfo.brand.phone?.replace(/\D/g,'');const itemsText=cart.items.map(i=>`• ${i.product.name} (${i.size} ${i.color}) x${i.quantity} — ${i.product.price*i.quantity} ${cur}`).join('\n');const promoText=[data.applied?.discount>0?`🏷️ ${data.applied.discountSource}: -${data.applied.discount} ${cur}`:'',data.applied?.freeShipping?'🚚 توصيل مجاني':''].filter(Boolean).join('\n');const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد تأكيد طلبي:\n\n${itemsText}\n${promoText?promoText+'\n':''}\n💰 الإجمالي: ${finalTotal} ${cur}\n\n👤 ${form.name}\n📱 ${form.phone}\n📍 ${form.city}\n🏠 ${form.address||'—'}`;if(phone)setTimeout(()=>window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank'),500);cart.clear();try{localStorage.removeItem('amanzine_cart');}catch{}setStep('success');onOrderSuccess(data.order.id);}catch(e:any){alert(T('ct.errPrefix',{e:e.message}));}setLoading(false);};
+    setLoading(true);try{const items=cart.items.map(i=>({productId:i.product.id,productName:i.product.name,price:i.product.price,quantity:i.quantity,size:i.size,color:i.color,giftWrap:i.giftWrap,giftMessage:i.giftMessage}));const r=await fetch('/api/orders/public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,items,customerName:form.name,customerPhone:form.phone,city:form.city,address:form.address,total:grandTotal,deliveryCost:cityCost,couponCode:(couponDiscount>0||couponShipping)?couponCode:'',captchaToken,customerEmail:form.email.trim(),source:'Storefront',notes:`${form.notes}${form.subscribe?T('ct.subscribeNote'):''}`})});const data=await r.json();if(r.status===428&&data?.needsVerification){setNeedVerify({identifier:data.identifier||form.phone,reason:data.reason||''});setLoading(false);return;}if(!r.ok)throw new Error(data.error);setNeedVerify(null);setOrderId(data.order.id);const finalTotal=data.applied?.total??grandTotal;try{localStorage.removeItem('amanzine_wheel_code');}catch{}try{const recent=JSON.parse(localStorage.getItem('amanzine_recent_orders')||'[]');localStorage.setItem('amanzine_recent_orders',JSON.stringify([{name:form.name,city:form.city,product:cart.items[0]?.product?.name||'منتج',time:new Date().toISOString()},...recent].slice(0,20)));}catch{}const phone=storeInfo.brand.phone?.replace(/\D/g,'');const itemsText=cart.items.map(i=>`• ${i.product.name} (${i.size} ${i.color}) x${i.quantity} — ${i.product.price*i.quantity} ${cur}`).join('\n');const promoText=[data.applied?.discount>0?`🏷️ ${data.applied.discountSource}: -${data.applied.discount} ${cur}`:'',data.applied?.freeShipping?'🚚 توصيل مجاني':''].filter(Boolean).join('\n');const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد تأكيد طلبي:\n\n${itemsText}\n${promoText?promoText+'\n':''}\n💰 الإجمالي: ${finalTotal} ${cur}\n\n👤 ${form.name}\n📱 ${form.phone}\n📍 ${form.city}\n🏠 ${form.address||'—'}`;if(phone)setTimeout(()=>window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank'),500);cart.clear();try{localStorage.removeItem('amanzine_cart');}catch{}setStep('success');onOrderSuccess(data.order.id);}catch(e:any){alert(T('ct.errPrefix',{e:e.message}));}setLoading(false);};
 
   const inpStyle:React.CSSProperties={width:'100%',padding:'12px 15px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'};
 
@@ -831,7 +836,22 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
             <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,color:DS.textSecondary}}><input type="checkbox" checked={form.subscribe} onChange={e=>setForm(f=>({...f,subscribe:e.target.checked}))} style={{accentColor:DS.purple,width:14,height:14}}/>{T('ct.wantOffers')}</label>
             <div style={{background:DS.glassBg,borderRadius:DS.radiusMd,padding:'16px',border:DS.glassBorder}}><div style={{fontSize:12,fontWeight:700,color:DS.textTertiary,marginBottom:10}}>{T('ct.orderSummary')}</div>{cart.items.map((item,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:DS.textSecondary,marginBottom:5}}><span>{item.product.name} ×{item.quantity}</span><span>{(item.product.price*item.quantity+(item.giftWrap?15:0)).toLocaleString()} {cur}</span></div>)}<div style={{paddingTop:10,borderTop:`1px solid ${DS.border}`,marginTop:10,display:'flex',flexDirection:'column',gap:5}}><div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:DS.textSecondary}}><span>{T('ct.subtotal')}</span><span>{cart.total.toLocaleString()} {cur}</span></div>{bestDiscount>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#10B981',fontWeight:600}}><span>{discountLabel}</span><span>-{bestDiscount.toLocaleString()} {cur}</span></div>}<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:freeShipping?'#10B981':DS.textSecondary,fontWeight:freeShipping?700:400}}><span>{T('ct.delivery')}</span><span>{freeShipping?T('ct.freeMark'):form.city?`${deliveryCost} ${cur}`:'—'}</span></div><div style={{display:'flex',justifyContent:'space-between',fontSize:16,fontWeight:900,paddingTop:8,borderTop:`1px solid ${DS.border}`}}><span>{T('ct.total')}</span><span style={{color:DS.orangeLight}}>{grandTotal.toLocaleString()} {cur}</span></div></div></div>
             {hcapKey&&<div style={{display:'flex',justifyContent:'center'}}><div id="hcap-box"/></div>}
+            {needVerify ? (
+              /* الطلبُ جاهزٌ وينتظر خطوةً واحدة — لا رسالةَ فشلٍ ولا إعادةَ ملءٍ
+                 للنموذج. وبعد التأكيد يُرسَل تلقائيًّا، فلا يُطالَب الزبونُ
+                 بالضغط مرّتين على شيءٍ قرّره للتوّ. */
+              <div style={{width:'100%'}}>
+                <VerifyCode
+                  identifier={needVerify.identifier}
+                  purpose="order_confirm"
+                  why={`${needVerify.reason} — نصيفطو ليك كود باش نتأكّدو، ومن بعد الطلب كيتسجّل وحدو.`}
+                  onCancel={()=>setNeedVerify(null)}
+                  onVerified={()=>{ setNeedVerify(null); handleOrder(); }}
+                />
+              </div>
+            ) : (
             <button onClick={handleOrder} disabled={loading} style={{width:'100%',height:52,borderRadius:DS.radiusFull,background:'#25D366',border:'none',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',opacity:loading?0.7:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>{loading?T('svc.sending'):<><MessageCircle size={16}/> {T('ct.confirmWA')}</>}</button>
+            )}
             <button onClick={()=>setStep('cart')} style={{background:'none',border:'none',color:DS.textTertiary,cursor:'pointer',fontSize:12,padding:6}}>{T('ct.back')}</button>
           </div>
         )}
