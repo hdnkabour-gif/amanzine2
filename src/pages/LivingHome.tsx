@@ -257,7 +257,7 @@ export default function LivingHome() {
     //   والحدُّ `READ_ENOUGH` كان مطبَّقًا على `impossible` وحدَه — أي أنّ
     //   القراءةَ الضعيفةَ لا تكفي **للرفض** وتكفي **للتنفيذ**. وهذا معكوس.
     const act = (u.action?.confidence ?? 0) >= READ_ENOUGH ? u.action : null;
-    const match = abilityFor({ action: act, intent: r.intent, stance: u.stance });
+    const match = abilityFor({ action: act, intent: r.intent, stance: u.stance, service: u.service });
     // ── حدُّ القدرة الصادق ────────────────────────────────────────
     //   يُسأل **المجالُ** لا الكتالوج: أيقبل هذا الكيانُ هذا الفعلَ أصلًا؟
     //   ولا يُسأل إلّا حين يكون الفعلُ صريحًا (فعلٌ + هدفٌ مقروءان)، فالنيّةُ

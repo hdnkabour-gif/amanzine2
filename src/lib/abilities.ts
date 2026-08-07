@@ -619,9 +619,35 @@ const INTENT_MAP: Record<string, string> = {
  *   يغيّر ثمنَ قميصه فُهم زبونًا بميزانية ١٢٠ درهمًا). فمن حسم الفعلُ عنده
  *   لا تُسأل النيّة.
  */
+/**
+ * **ما يُعلَن عنه، لا ما يُخزَّن.**
+ *
+ *   قِيس: «بغيت نبيع دار ديالي» ⇒ `SELL_PRODUCT` ⇒ **«أيّ منتوج؟»**. فالدارُ
+ *   صارت سلعةً في كتالوجِ متجرٍ، وصاحبُها يُسأل عن منتوج. وكذلك «عندي محل
+ *   للبيع» — والمحلُّ أصلٌ يُعلَن عنه لا بضاعةٌ في رفّ.
+ *
+ *   والقدرتان موجودتان أصلًا (`PUBLISH_LISTING` · `SEEK_LISTING`) وتعملان
+ *   للكراء وحدَه. فهذا **توسيعُ استعمالٍ لقدرةٍ قائمة**، لا قدرةٌ تُخترَع.
+ *
+ *   وجدولٌ لا شرطٌ خاصّ: إضافةُ مجالٍ يُعلَن عنه سطرٌ واحد.
+ */
+export const LISTED_CONCEPTS = new Set(['real_estate_agency']);
+
+/** يبدّل الكيانَ `product` بـ`listing` حين يكون المعروضُ ممّا يُعلَن عنه. */
+function asListed(hit: Ability | null, service?: string): Ability | null {
+  if (!hit || !service || !LISTED_CONCEPTS.has(service)) return hit;
+  if (hit.entity !== 'product') return hit;
+  return ABILITIES.find(x => x.verb === hit.verb && x.entity === 'listing') || hit;
+}
+
 export function abilityFor(input: {
   action?: { verb: string; object: string } | null;
   intent?: string;
+  /**
+   * المفهومُ المقروء. اختياريٌّ عمدًا كالاتّجاه: بدونه يبقى الحكمُ كما كان،
+   * فلا ينكسر مُنادٍ لم يُحدَّث.
+   */
+  service?: string;
   /**
    * **الاتّجاهُ — يَعرض أم يطلب.** اختياريٌّ عمدًا: بدونه يبقى الحكمُ كما
    * كان، فلا ينكسر مُنادٍ لم يُحدَّث.
@@ -637,7 +663,9 @@ export function abilityFor(input: {
     }
   }
   const byIntent = input.intent ? INTENT_MAP[input.intent] : undefined;
-  return honourStance((byIntent && BY_ID.get(byIntent)) || null, input.stance);
+  // الكيانُ يُصحَّح أوّلًا ثمّ الاتّجاه: `honourStance` تبحث **داخل الكيان**،
+  // فلو عكسنا الترتيبَ لبقيت تدور في `product` ولم تبلغ الإعلانَ أبدًا.
+  return honourStance(asListed((byIntent && BY_ID.get(byIntent)) || null, input.service), input.stance);
 }
 
 /**
