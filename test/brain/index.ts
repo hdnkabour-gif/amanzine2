@@ -79,3 +79,5 @@ import './ownerJourney.test';
 import './screens.test';
 // بوّابةُ الذكاء تبلغ الشاشةَ التي يفتحها الناسُ — والعجزُ عجزٌ بأيّ خطٍّ كُتب.
 import './escalation.test';
+// «فهمتُك، وهادشي مازال ما كايناش» — القناةُ الثالثة: فُهم تمامًا ولا باب.
+import './boundary.test';

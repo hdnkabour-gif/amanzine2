@@ -905,6 +905,32 @@ router.post('/judge-misread', auth, async (req, res) => {
   } catch { return res.json({ ok: false }); }
 });
 
+/**
+ * **طلبٌ فُهم تمامًا ولا بابَ له.**
+ *
+ *   مسارٌ عامٌّ كأختِه `suggest-unknown`: مَن يطلب ما لا نملكه زائرٌ غالبًا،
+ *   ولا معنى لأن نطلب منه حسابًا كي يخبرنا أنّنا ناقصون. والقراءةُ وحدَها
+ *   محميّة.
+ *
+ *   ولا يُنشئ هذا شيئًا: يزيد عدّادًا في `capability_demand` بحالة `pending`.
+ *   القدرةُ تُبنى بقرار إنسانٍ لا بعدّادٍ يمتلئ.
+ */
+router.post('/uncovered', async (req, res) => {
+  try {
+    const ok = await db.recordDemand(req.body?.kind, req.body?.text, {
+      city: req.body?.city, understood: req.body?.understood,
+    });
+    return res.json({ ok });
+  } catch { return res.json({ ok: false }); }
+});
+
+/** خارطةُ الطريق التي كتبها الناسُ — محميّة. */
+router.get('/demand-report', auth, async (req, res) => {
+  try {
+    return res.json({ demand: await db.topDemand(Number(req.query.limit) || 100) });
+  } catch { return res.status(500).json({ error: 'report failed' }); }
+});
+
 router.get('/unknown-report', auth, async (req, res) => {
   try {
     const rows = await db.topUnknownTexts(Number(req.query.limit) || 100, String(req.query.status || ''));

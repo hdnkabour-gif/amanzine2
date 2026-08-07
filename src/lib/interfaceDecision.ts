@@ -32,7 +32,7 @@ import type { Verdict } from './executionPolicy';
 // ولا يُفعَل. كان الحكمُ يصدر ولا شكلَ له، فيُعرَض نصُّه بلا وضعٍ يحكمه.
 // `refuse` = المجالُ لا يقبل هذا الفعلَ أصلًا. شكلٌ مستقلٌّ عن `explain`:
 // ذاك «ما طلبتَ شيئًا» وهذا «طلبتَ ما لا يُفعَل» — ولا يُخلَط الاعتذارُ بالشرح.
-export type InterfaceMode = 'direct' | 'guided' | 'confirm' | 'clarify' | 'escalate' | 'welcome' | 'explain' | 'refuse';
+export type InterfaceMode = 'direct' | 'guided' | 'confirm' | 'clarify' | 'escalate' | 'welcome' | 'explain' | 'refuse' | 'soon';
 
 export interface DecisionInput {
   intent: string;
@@ -72,6 +72,12 @@ export function decideInterface(need: DecisionInput, verdict: Verdict): Interfac
   // العجزُ يسبق السؤالَ الموجّه: لا يُستوضَح تفصيلُ فعلٍ لا يُفعَل.
   if (verdict === 'refuse') {
     return { mode: 'refuse', reason: 'المجالُ لا يقبل هذا الفعلَ — نقولها ولا نعتذر مرّتين' };
+  }
+  // **الحدُّ الصادقُ يسبق السؤالَ الموجّه.** وهذا موضعُه بالضبط: لو وُضع
+  //   بعده لَابتلعته `steps` — فالنيّةُ الخشنةُ تُنتج خطواتٍ دائمًا، وتلك
+  //   الخطواتُ هي عينُها حلقةُ الأسئلة التي لا تنتهي.
+  if (verdict === 'soon') {
+    return { mode: 'soon', reason: 'فُهم الطلبُ ولا بابَ له — نقولها ونسجّلها ولا نسأل سؤالًا بلا جواب' };
   }
   // يوجد سؤالٌ موجّه أصلًا → اسأل سؤالًا واحدًا (المحادثة القصيرة).
   if (need.steps && need.steps.length) {

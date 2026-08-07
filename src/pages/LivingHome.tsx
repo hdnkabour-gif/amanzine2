@@ -31,6 +31,7 @@ import { reportMisread } from '../lib/journey';
 import { understand, type Understanding } from '../lib/akg/kb';
 import { understandRules, shouldEscalate, RemoteProvider } from '../lib/understanding';
 import { refine } from '../lib/refine';
+import { recordDemand } from '../lib/boundary';
 import type { Journey } from '../lib/core/plugins';
 import type { Page } from '../types';
 
@@ -239,7 +240,7 @@ export default function LivingHome() {
   //   القواعدُ تحكم فورًا، والذكاءُ — إن صُعِّد — يعيد النداءَ بفهمٍ مُكمَّل.
   //   واستخراجُه في دالّةٍ ليس ترتيبًا: لو نُسِخ المنطقُ للمسار غير المتزامن
   //   لصار حَكَمان يفترقان مع أوّل تعديلٍ يمسّ أحدَهما.
-  const applyVerdict = (u: Understanding, r: NeedResult) => {
+  const applyVerdict = (u: Understanding, r: NeedResult, raw: string) => {
     // ── الحَكَمُ الواحد ───────────────────────────────────────────
     //   `decideExecution` يقول «نفّذ أم أكّد أم اسأل أم اشرح»، و
     //   `decideInterface` يترجم حكمَه إلى شكلِ واجهة. كانت الثانيةُ تحكم
@@ -270,7 +271,11 @@ export default function LivingHome() {
     // ولا يعرف المعجمُ كتالوجَ أحد. بلا هذا يبقى المؤشِّرُ مقروءًا ولا يشير
     // إلى شيء — طبقةٌ تعمل ولا أحدَ يعرف أنّها تعمل.
     const verdict = decideExecution(u, match || undefined, impossible,
-      { lastProduct: uctx.state.lastProduct });
+      { lastProduct: uctx.state.lastProduct, raw });
+    // **والوعدُ يُنفَّذ.** الحدُّ الصادق يقول «سجّلت طلبك»، فلو لم يُسجَّل صار
+    //   كذبةً ألطفَ من السؤال العاجز ولا فرقَ. وهذه هي القناةُ الثالثة:
+    //   ما فُهم تمامًا ولا بابَ له — خارطةُ الطريق يكتبها الناسُ بأنفسهم.
+    if (verdict.verdict === 'soon' && verdict.boundary) recordDemand(raw, verdict.boundary, u.city);
     const dec = decideInterface({ ...r, hasInput: true }, verdict.verdict);
     // `explain` و`refuse` يُقالان ولا يُفعَلان. وما عداهما له شكلٌ في الواجهة،
     // فلا يُطبَع نصُّه فوقها — نصٌّ ورسمٌ يقولان الشيءَ نفسَه ازدواجٌ لا تأكيد.
@@ -319,7 +324,7 @@ export default function LivingHome() {
       if (seq !== askSeq.current) return;          // ③ سؤالٌ ماضٍ ⇒ يُرمى
       const { u: filled, filled: what } = refine(base, ai);
       if (!what.length) return;                    // ② لم يزد شيئًا ⇒ لا تُحرَّك الشاشة
-      applyVerdict(filled, r);                     // ① نفسُ الحَكَم لا حَكَمٌ ثانٍ
+      applyVerdict(filled, r, q);                  // ① نفسُ الحَكَم لا حَكَمٌ ثانٍ
     }).catch(() => { /* شبكةٌ منقطعة ⇒ تبقى القواعد، وهي أرضيّةٌ تعمل دائمًا */ });
   };
 
@@ -335,7 +340,7 @@ export default function LivingHome() {
     //   الذاكرةُ والتصحيحُ يكتبان بين النداءَين، فيُبنى القرارُ على فهمٍ
     //   والعرضُ على فهمٍ آخرَ بلا أن يظهر ذلك في أيّ سطر.
     const u = understand(q);
-    const dec = applyVerdict(u, r);
+    const dec = applyVerdict(u, r, q);
     // ── **والذكاءُ يُستشار بعد أن تُجيب القواعد، لا قبلَها** ────────
     //   `understandHybrid`/`shouldEscalate` مبنيّتان منذ زمنٍ وتُناديان من
     //   `AssistantPage` وحدَها — أي أنّ **الشاشةَ الرئيسيّة**، وهي مدخلُ كلّ
@@ -563,6 +568,15 @@ export default function LivingHome() {
           نفسِه (`explain`) بدل صمتٍ يجعل الإنسانَ يظنّ أنّه أخطأ الكتابة.
           والشرطُ `mode === 'explain'` يربط ما يُعرَض بحكمِ الواجهة، فلا
           يبقى نصًّا يظهر بحسابٍ مستقلٍّ عن القرار. ── */}
+      {/* ── **فهمتُك، وهادشي مازال ما كايناش** ──────────────────────
+          ولها شكلُها وحدَها عمدًا: صندوقُ التحذير الكهرمانيُّ أدناه يقول
+          «انتبه، شيءٌ غلط». وهنا لا شيءَ غلط — الرجلُ قال ما يريد وفهمناه،
+          وناقصُنا نحن. فاللونُ لونُ اطمئنانٍ لا إنذار، والنبرةُ وعدٌ لا اعتذار. ── */}
+      {said && decision?.mode === 'soon' && !correcting && (
+        <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', padding: '13px 16px', borderRadius: 14, border: '1px solid rgba(10,143,111,.3)', background: 'linear-gradient(180deg,rgba(10,143,111,.10),rgba(10,143,111,.05))', fontSize: 13.5, lineHeight: 1.75, fontWeight: 650, color: 'var(--ink1)' }}>
+          {said}
+        </div>
+      )}
       {said && (decision?.mode === 'explain' || decision?.mode === 'refuse' || decision?.mode === 'clarify') && !correcting && (
         <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', padding: '11px 15px', borderRadius: 13, border: '1px solid rgba(245,158,11,.28)', background: 'rgba(245,158,11,.07)', fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>
           {said}
@@ -645,7 +659,9 @@ export default function LivingHome() {
               {tn.text}
             </div>
           ))}
-          {activeStep && !pending && (
+          {/* والخطواتُ تسكت تحت الحدّ الصادق: سؤالٌ موجَّهٌ تحت «مازال ما
+              كايناش» هو عينُ الحلقةِ التي بُني الحدُّ ليقطعها. */}
+          {activeStep && !pending && decision?.mode !== 'soon' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, alignSelf: 'flex-start', maxWidth: '92%' }}>
               {/* **كم بقي؟** الحوارُ بلا أفقٍ استجواب. المستخدمُ لا يعرف إن كان
                   أمامه سؤالٌ أم عشرة، فينسحب عند الثاني. جملةٌ واحدةٌ تُبدّل

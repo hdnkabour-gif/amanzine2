@@ -20,6 +20,7 @@
 
 import { CONFIDENCE } from './clarify';
 import { RISK_THRESHOLD, unmetNeeds, NEED_ASK, OBJECT_MAP, type Ability } from './abilities';
+import { boundaryFor, type Boundary } from './boundary';
 import type { Understanding } from './akg/kb';
 import type { Page } from '../types';
 import type { ActionObject } from './akg/kb/actions';
@@ -48,10 +49,16 @@ export type Verdict =
   | 'confirm'   // اعرض ما فهمتَ واطلب «واخّا»
   | 'ask'       // ينقص شيء — سؤالٌ واحد
   | 'explain'   // ليس طلبًا أصلًا — اشرح ولا تفعل
-  | 'refuse';   // لا يقبل هذا الكيانُ هذا الفعلَ أصلًا
+  | 'refuse'    // لا يقبل هذا الكيانُ هذا الفعلَ أصلًا
+  // **فُهم تمامًا، ولا بابَ له بعد.** غيرُ `refuse`: ذاك عبثٌ لا يُفعَل
+  //   («أنشئ إعدادات»)، وهذا طلبٌ مشروعٌ لم نبنِه — والفرقُ بينهما هو الفرقُ
+  //   بين «هادشي ما كايتديرش» و«مازال ما زدناهش». الأولى تُغلق، والثانية تَعِد.
+  | 'soon';
 
 export interface Decision {
   verdict: Verdict;
+  /** حين يكون الحكمُ `soon`: ما فُهم وأيُّ مجالٍ بلا باب — ليُسجَّل الطلب. */
+  boundary?: Boundary;
   /** ما يُقال للإنسان بالدارجة. */
   say: string;
   /** أثرُ القرار — أيُّ طبقةٍ حسمت ولماذا. يُعرَض عند الشكوى ويُصحَّح به. */
@@ -131,7 +138,15 @@ export function decideExecution(
   u: Understanding,
   match?: Ability,
   impossible = false,
-  ctx?: { lastProduct?: { id: string; name: string } },
+  ctx?: {
+    lastProduct?: { id: string; name: string };
+    /**
+     * نصُّ الجملة كما كتبها صاحبُها. تحتاجه طبقةُ الحدّ الصادق وحدَها:
+     * `Understanding` لا يحمل الأصل، وأنماطُ «مجالٍ بلا باب» تُقرأ من الكلام
+     * لا من الحقول — عمدًا، كي لا تدخل فهرسَ المفاهيم فتبتلع كلمةً عامّة.
+     */
+    raw?: string;
+  },
 ): Decision {
   const trace: string[] = [];
   // **الفعلُ الإداريُّ له بابٌ واحدٌ لا غير.** يُحسَب مرّةً ويُرفَق بكلّ حكم،
@@ -255,6 +270,19 @@ export function decideExecution(
       // خاصّها دابا — حوايج، أدوات القراية، ولا نقل مدرسيّ؟».
       //   وحدُّه: الغايةُ تجيب عن **ما المطلوب** وحدَه. لا تعرف ثمنًا ولا
       //   نمرةً ولا طلبًا — فلا تُقحَم في سؤالٍ لا تملك جوابَه.
+      // ── **والسؤالُ الذي لا جوابَ له يُستبدَل بصدق** ────────────────
+      //   هنا بالضبط كانت تُولَد الحلقةُ التي لا تنتهي: «بغيت نمشي لطنجة»
+      //   تُطابِق `FIND_PROVIDER` بنيّةٍ خشنة، فينقص «ما المطلوب» ⇒ «شنو
+      //   محتاج بالضبط؟». وقد قال ما يحتاج بالضبط. وأيُّ جوابٍ يعطيه لا
+      //   يجد بابًا، فيُسأل ثانيةً وثالثة.
+      //
+      //   والموضعُ مقصود: لا يُنطَق بالحدّ إلّا حيث كنّا سنسأل سؤالًا عاجزًا،
+      //   فلا يمكنه أن يُسكت مسارًا يعمل. ولو وُضع أعلى لَسبق أبوابًا مفتوحة.
+      const edge = ctx?.raw ? boundaryFor(ctx.raw, u, false) : null;
+      if (edge) {
+        trace.push(`حدٌّ صادق: ${edge.id} — فُهم ولا باب`);
+        return { verdict: 'soon', say: edge.say, trace, boundary: edge };
+      }
       const say = missing[0] === 'subject' && u.goal ? u.goal.ask : NEED_ASK[missing[0]];
       if (u.goal && missing[0] === 'subject') trace.push(`سؤالُ الغاية: ${u.goal.id}`);
       return { verdict: 'ask', say, trace, dest };

@@ -1446,6 +1446,38 @@ db.suggestForUnknown = async (text, suggestion, conceptId = '') => {
   } catch { return false; }
 };
 
+/**
+ * **طلبٌ فُهم ولا بابَ له — يُحصى ولا يُبنى.**
+ *
+ *   العدّادُ هو كلُّ القيمة: جملةٌ واحدةٌ رأيٌ، ومائةُ جملةٍ على نفس المجال
+ *   قرارُ منتَج. و`status` يبقى `pending` دائمًا من هنا — لا شيءَ يصير قدرةً
+ *   إلّا بحكم إنسان. القانون: لا تعلُّمَ ذاتيّ.
+ */
+db.recordDemand = async (kind, text, meta = {}) => {
+  const k = String(kind || '').trim().slice(0, 40);
+  const t = String(text || '').trim().slice(0, 200);
+  if (!k || t.length < 2) return false;
+  try {
+    await pool.query(
+      `INSERT INTO capability_demand (kind, text, city, understood) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (kind, text) DO UPDATE
+         SET count = capability_demand.count + 1, last_seen = NOW()`,
+      [k, t, String(meta.city || '').slice(0, 80), String(meta.understood || '').slice(0, 200)]);
+    return true;
+  } catch { return false; }   // الجدولُ قد لا يوجد بعد — لا نكسر طلبَ أحد
+};
+
+/** ما يطلبه الناسُ ولا نملكه، مرتّبًا بعدد من طلبه. */
+db.topDemand = async (limit = 100) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT kind, text, count, city, understood, status, last_seen
+         FROM capability_demand ORDER BY count DESC, last_seen DESC LIMIT $1`,
+      [Math.min(Number(limit) || 100, 500)]);
+    return rows;
+  } catch { return []; }
+};
+
 /** حكمُ الإنسان: `approved` أو `rejected`. لا شيءَ سواهما يُقبَل. */
 db.judgeUnknown = async (text, status) => {
   const s = status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : '';

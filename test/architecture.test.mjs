@@ -1069,12 +1069,12 @@ test('الشاشةُ الرئيسيّة تستشير الذكاءَ بعد أن 
     'صارت `submit` تنتظر الشبكةَ — شاشةٌ فارغةٌ حتّى يردّ الذكاء');
   assert.doesNotMatch(code, /await\s+understandHybrid|await\s+RemoteProvider/,
     'انتُظر جوابُ الذكاء قبل الرسم');
-  assert.ok(code.indexOf('applyVerdict(u, r)') < code.indexOf('escalate(q, u, r)'),
+  assert.ok(code.indexOf('applyVerdict(u, r') < code.indexOf('escalate(q, u, r'),
     'صُعِّد قبل أن تحكم القواعد');
 
   // ③ جوابُ الذكاء يعود إلى نفس الحَكَم — لا يفتح صفحةً بنفسه.
   assert.match(code, /refine\s*\(\s*base\s*,\s*ai\s*\)/, 'دخل جوابُ الذكاء بلا `refine`');
-  assert.match(code, /applyVerdict\s*\(\s*filled\s*,\s*r\s*\)/,
+  assert.match(code, /applyVerdict\(filled\s*,/,
     'جوابُ الذكاء لا يمرّ على الحَكَم — أو يُنفَّذ من تلقاء نفسه');
   const after = code.slice(code.indexOf('const escalate'), code.indexOf('const submit'));
   for (const forbidden of ['navigate(', 'setActionDest(', 'playGate(']) {
@@ -1123,4 +1123,46 @@ test('الفعلُ الضعيفُ لا يبلغ الكتالوج', () => {
     'سقط حدُّ القراءة عن الفعل قبل الكتالوج');
   assert.match(code, /abilityFor\(\{ action: act,/,
     'يُمرَّر الفعلُ الخام إلى الكتالوج — قراءةٌ بثقة ٠٫٣٥ تفتح صفحة');
+});
+
+// ============================================================
+// **«فهمتُك، وهادشي مازال ما كايناش» — ووعدٌ يُنفَّذ.**
+//
+//   الحدُّ الصادقُ يقول لصاحبه «سجّلت طلبك». فلو لم يُسجَّل صار كذبةً ألطفَ
+//   من السؤال العاجز ولا فرقَ بينهما — بل هي أسوأ، لأنّها تشتري رضاه بوعدٍ
+//   لا يُنفَّذ. فالتسجيلُ شرطٌ في الصياغة لا زينةٌ حولها.
+//
+//   وحدُّ الطبقةِ كلِّها: **لا تُنشئ قدرةً ولا مفهومًا**. تقول ولا تفتح بابًا.
+// ============================================================
+test('الحدُّ الصادقُ يُسجَّل فعلًا — لا وعدَ بلا قناة', () => {
+  const home = readFileSync(join(ROOT, 'src/pages/LivingHome.tsx'), 'utf8')
+    .split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.match(home, /verdict\.verdict === 'soon'[^\n]*recordDemand\(/,
+    'يُقال «سجّلت طلبك» ولا يُسجَّل — وعدٌ بلا قناة');
+  // ولا يُسأل سؤالٌ موجَّهٌ تحت جوابٍ يقول «مازال ما كايناش»: تلك عينُ
+  // الحلقةِ التي بُني الحدُّ ليقطعها.
+  assert.match(home, /activeStep && !pending && decision\?\.mode !== 'soon'/,
+    'الخطواتُ تُعرَض تحت الحدّ — عادت حلقةُ الأسئلة');
+
+  const b = readFileSync(join(ROOT, 'src/lib/boundary.ts'), 'utf8')
+    .split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  // **لا تفتح بابًا ولا تخترع مفهومًا.** لو أنشأت قدرةً لصارت الطبقةُ التي
+  // تُعلن العجزَ هي نفسُها التي تدّعي القدرة.
+  for (const forbidden of ['ABILITIES', 'abilityFor', 'resolveConcept', 'dest:']) {
+    assert.ok(!b.includes(forbidden), `طبقةُ الحدّ تلمس الكتالوجَ/المفاهيم: ${forbidden}`);
+  }
+  assert.match(b, /\bdeny\b/, 'سقط حارسُ المجال المخدوم — يُقال «ما كايناش» عن بابٍ يعمل');
+  assert.match(b, /if \(u\.service \|\| u\.profession \|\| u\.problem\) return null/,
+    'ينطق الحدُّ فوق خدمةٍ مقروءة');
+});
+
+test('وقناةُ الطلب لا تبني قدرةً بنفسها — لا تعلُّمَ ذاتيّ', () => {
+  const dbCode = readFileSync(join(ROOT, 'server/database.js'), 'utf8');
+  const fn = dbCode.slice(dbCode.indexOf('db.recordDemand'), dbCode.indexOf('db.topDemand'));
+  assert.ok(fn.length > 100, 'لم تُقرأ `recordDemand` — تغيّر الاسمُ والحارسُ أعمى');
+  // الحالةُ تبقى على `pending` الافتراضيّة: **لا ذكرَ لـ`status` هنا أصلًا**.
+  //   وأوّلُ صياغةٍ كانت `/SET[^)]*status/` فمرّت وهي جوفاء: `[^)]*` تقف عند
+  //   قوس `NOW()` قبل أن تبلغ الكلمة. وأسقطتُها بسبرٍ فلم يسقط شيء.
+  assert.ok(!/status/i.test(fn),
+    'تكتب قناةُ الطلب الحالةَ بنفسها — عدّادٌ يمتلئ فيصير قدرة');
 });

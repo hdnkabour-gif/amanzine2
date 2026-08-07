@@ -334,6 +334,30 @@ async function migrate() {
     await client.query(`ALTER TABLE learning_unknowns ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`).catch(() => {});
     await client.query(`CREATE INDEX IF NOT EXISTS idx_unknowns_status ON learning_unknowns(status, count DESC)`).catch(() => {});
 
+    // ── **ما فهمناه تمامًا ولا بابَ له** ─────────────────────────
+    //
+    //   القناةُ الثالثةُ ولم تكن موجودة. `learning_unknowns` يلتقط ما لم
+    //   نفهمه، و`learning_misreads` ما فهمناه غلطًا — وكلاهما **عطبٌ فينا**.
+    //   وهذا ليس عطبًا: طلبٌ مشروعٌ فُهم تمامًا ولم نبنِ له بابًا بعد.
+    //
+    //   وهو أنفعُ الثلاثة لصاحب المشروع: **خارطةُ الطريق يكتبها الناسُ
+    //   بأنفسهم**، مرتّبةً بعدد من طلبها. وكانت تُبتلَع في سؤالٍ لا جوابَ له
+    //   («شنو محتاج بالضبط؟») فلا تصل أحدًا ولا تُحصى.
+    //
+    //   و`status` هنا كما في أختَيه: لا شيءَ يصير قدرةً بلا حكم إنسان.
+    //   القانون: لا تعلُّمَ ذاتيّ — والطلبُ إشارةٌ لا إذنٌ بالبناء.
+    await client.query(`CREATE TABLE IF NOT EXISTS capability_demand (
+      kind TEXT NOT NULL,
+      text TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 1,
+      city TEXT DEFAULT '',
+      understood TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending',
+      last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (kind, text)
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_demand_kind ON capability_demand(kind, count DESC)`).catch(() => {});
+
     // ما فهمناه **غلطًا** — وردّه صاحبُه بـ«ماشي هادشي».
     //
     //   `learning_unknowns` أعلاه يلتقط ما لم نفهمه. ولم يكن لما فهمناه
