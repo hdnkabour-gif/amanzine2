@@ -241,6 +241,34 @@ const OBJECTS: { object: ActionObject; scope: ActionScope; terms: string[]; need
 const hits = (t: string, terms: string[]) => terms.find(w => t.includes(norm(w)));
 
 /**
+ * **والفعلُ لا تدخل عليه «ب» — سادسُ مواضع مصرف الكلمة العامّة.**
+ *
+ *   قِيس على جملةٍ كتبها صاحبُ المشروع:
+ *
+ *       «**بغير** شي واحد كيبيع ورقة البسطيلة قريب ليا»
+ *         ⇒ `update/settings` ⇒ **صفحةُ الإعدادات**
+ *
+ *   «بغير» خطأٌ مطبعيٌّ في «بغيت»، وفيها «غير» (بدِّل). فزبونٌ يقلّب على من
+ *   يبيع ورقةَ البسطيلة قربَه يُساق إلى إعدادات حسابه. وأسوأُ ما فيه أنّ
+ *   الحكمَ **تنفيذ** لا سؤال: لا يشكّ ولا يسأل.
+ *
+ *   ── ولماذا لا يكفي حدُّ الكلمة ──
+ *   `hitsWord` تسمح بسوابق العربيّة الملتصقة («بال» · «ب» · «ال» · «ل»)،
+ *   وهي **صحيحةٌ للأسماء**: «بالثمن» ثمنٌ، و«للطوموبيل» طوموبيل. لكنّ
+ *   الفعلَ العربيَّ لا تدخل عليه «ب» ولا «ال» ولا «ل» — فـ«بغير» لا تعني
+ *   «بـ+غيّر» في أيّ سياق. ولذلك سابقتان لا غير: **«و» و«ف»** العاطفتان
+ *   («وبدّل» · «فحيّد»).
+ *
+ *   والأهدافُ تبقى على `hits` العامّة: هي أسماءٌ تقبل كلَّ السوابق.
+ */
+const VERB_PREFIX = '(?:[وف])?';
+const hitsVerb = (t: string, terms: string[]) => terms.find(w => {
+  const n = norm(w);
+  const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|\\s)${VERB_PREFIX}${esc}`).test(t);
+});
+
+/**
  * يقرأ فعلًا إداريًّا من جملة، أو `null` إن لم تكن كذلك.
  *
  *   `null` هي الجوابُ الصحيح لأغلب الجمل: «بغيت نبيع قميص» تجارةٌ لا إعداد،
@@ -250,7 +278,7 @@ export function readAction(raw: string): ActionRead | null {
   const t = norm(deArabizi(raw || ''));
   if (!t) return null;
 
-  const v = VERBS.find(x => hits(t, x.terms));
+  const v = VERBS.find(x => hitsVerb(t, x.terms));
 
   // ── **هدفٌ يُولَّد بلا فعلٍ منطوق** ─────────────────────────────
   //
@@ -288,7 +316,7 @@ export function readAction(raw: string): ActionRead | null {
       reason: `«${hits(t, g.terms)}» — شيءٌ يصنعه التطبيق، فطلبُه طلبُ صنعِه`,
     };
   }
-  const vTerm = hits(t, v.terms)!;
+  const vTerm = hitsVerb(t, v.terms)!;
 
   const o = OBJECTS.find(x => hits(t, x.terms));
   if (!o) {

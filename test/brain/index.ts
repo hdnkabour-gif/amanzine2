@@ -73,3 +73,5 @@ import './condition.test';
 import './conversation.test';
 // الطالبُ يُساق إلى النشر: «شق» داخل «شقة» · الضميرُ · والاتّجاهُ لا يبلغ القدرة.
 import './direction.test';
+// رحلةُ مستخدمٍ عبر أيّام — جملٌ كتبها صاحبُ المشروع لا نموذجٌ لغويّ.
+import './ownerJourney.test';

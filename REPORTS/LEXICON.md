@@ -9,8 +9,8 @@
 
 | ما هو | العدد |
 |---|---|
-| مفهومًا يفهمه التطبيق | **٢٠٧** |
-| مصطلحًا مميَّزًا (كلَّ اللغات) | **٢٩٧٩** |
+| مفهومًا يفهمه التطبيق | **٢٠٨** |
+| مصطلحًا مميَّزًا (كلَّ اللغات) | **٣٠١٦** |
 | قدرةً يستطيع تنفيذها | **٩١** |
 | زوجَ فعلٍ×هدفٍ مقروءًا | **١١٢** |
 | غايةَ حياةٍ تُقرأ | **٧** |
@@ -296,10 +296,10 @@
 
 | الفئة | المفاهيم | مصطلحات |
 |---|---|---|
-| (بلا فئة) | ١٠٤ | ١٥٤٦ |
-| fashion | ٢٠ | ٧١٦ |
+| (بلا فئة) | ١٠٣ | ١٥٢٩ |
+| fashion | ٢٠ | ٧٢٠ |
 | automotive | ١١ | ٣٧٨ |
-| electronics | ٦ | ١٩١ |
+| electronics | ٧ | ٢١٨ |
 | تجارة / غذاء | ٣ | ٤٦ |
 | digital | ٣ | ٧٥ |
 | home | ٣ | ١٠١ |
@@ -325,6 +325,7 @@
 | حرف / جلديات | ١ | ١٠ |
 | خدمات / أمان | ١ | ١٢ |
 | تجارة / أزياء | ١ | ٦٧ |
+| education | ١ | ٣٠ |
 | دارجة: سفر / وكالة | ١ | ١٩ |
 | دارجة: تصليحات / إعلاميات | ١ | ٦٥ |
 | دارجة: سيارات / كراء | ١ | ١٥ |
@@ -458,7 +459,7 @@
 | `furniture_upholsterer` | كيصايب الصالون | تنجيد الأثاث المنزلي · كيصايب الصالون · Tapissier d’ameublement · Furniture Upholsterer · كيصايب الصالون · كنخيط الأثاث · كنبدل الثوب · كيصيب الصالونات · تنجيد الأثاث المنزلي · tapissier d’ameublement · furniture upholsterer |
 | `gardener` | جنايني | بستاني · جنايني · Jardinier · Gardener · جنايني · بستاني · مول الجردة · jardinier · بستاني · منسق حدائق · jardinier · paysagiste · gardener · landscaper |
 | `garment_bottom` | سروال | سراويل · سروال · Pantalons · Pants · سروال · سراويل · جينز · دجين · بنطلون · شورط · شورت · سروال قصير · كارغو · السروال … (+٢٨) |
-| `garment_dress` | روب وبلوزة | فساتين وبلوزات نسائية · روب وبلوزة · Robes · Dresses · روب · فستان · بلوزة · بلايز · جيب · تنورة · روب سواريه · الروب · الفستان · روب ديال العرس … (+٢٤) |
+| `garment_dress` | روب وبلوزة | فساتين وبلوزات نسائية · روب وبلوزة · Robes · Dresses · روب · فستان · بلوزة · بلايز · جيب · تنورة · روب سواريه · الروب · الفستان · روب ديال العرس … (+٢٨) |
 | `garment_outerwear` | فيست وكبوط | جواكت ومعاطف · فيست وكبوط · Vestes & manteaux · Jackets & coats · فيست · جاكيط · جاكيت · كبوط · معطف · بلوزون · كوستيم · بدلة · جيليه · دوديون … (+٣٦) |
 | `garment_top` | قميجة وتيشيرت | قمصان وتيشيرتات · قميجة وتيشيرت · Hauts / T-shirts · Tops & shirts · قميجة · قميص · تيشيرت · تي شيرت · مايوه · بولو · سويتشيرت · سويت شيرت · كنزة · تريكو … (+٤٤) |
 | `general_practitioner` | طبيب | طبيب عام · طبيب · Médecin généraliste · General practitioner · طبيب · دكتور · جنراليست · médecin généraliste · طبيب عام · médecin généraliste · general practitioner · gp |
@@ -532,7 +533,7 @@
 | `printer_repair` | تصليح الإمبريمانت | إصلاح الطابعات · تصليح الإمبريمانت · Réparation imprimante · Printer repair · إصلاح طابعة · صيانة طابعات · تعبئة حبر · تصليح الإمبريمانت · الطابعة خربانة · تعمير الحبر · reparation imprimante · toner · printer repair · toner refill … (+٢) |
 | `printing_shop_copy_center` | مطبعة | مطبعة وخدمات نسخ · مطبعة · Imprimerie / Photocopie · Printing shop / Copy center · مطبعة · طباعة · فوتوكوبي · كيطبع · impression · photocopie · مطبعة وخدمات نسخ · imprimerie / photocopie · printing shop / copy center |
 | `private_ambulance` | أمبولانس | سيارة إسعاف خاصة · أمبولانس · Ambulance privée · Private Ambulance · أمبولانس · ambulance · نقل المرضى · سيارة إسعاف · سيارة إسعاف خاصة · نقل صحي · ambulance privée · transport sanitaire · private ambulance · medical transport |
-| `private_tutor` | أستاذ | مدرس خصوصي · أستاذ · Enseignant · Private tutor · أستاذ · مدرس خصوصي · soutien scolaire · كيعطي الدروس · أستاذ خصوصي · soutien · دروس الدعم · مدرس خصوصي · دعم مدرسي · enseignant … (+٣) |
+| `private_tutor` | أستاذ | مدرس خصوصي · أستاذ · Enseignant · Private tutor · أستاذ · مدرس خصوصي · soutien scolaire · كيعطي الدروس · أستاذ خصوصي · soutien · دروس الدعم · يراجع مع · كيراجع مع · يراجع معاه … (+١٦) |
 | `real_estate_agency` | سمسار | سمسار عقاري · سمسار · Agence immobilière · Real Estate Agency · سمسار · وكالة عقارية · كراء · immobilier · سمسار عقاري · وكالة عقارية · agence immobilière · courtier immobilier · real estate agency · broker |
 | `real_estate_agent` | سيمان | وكيل عقاري / وسيط عقارات · سيمان · Agent immobilier / Agence immobilière · Real estate agent · سيمان · أجان عقاري · كيقلب على الديور · وسيط العقار · agence immobilière · وكيل عقاري / وسيط عقارات · agent immobilier / agence immobilière · real estate agent |
 | `restaurant` | ماكلة | مطعم · ماكلة · Restaurant · Restaurant · ماكلة · سناك · مطعم · وجبات · الماكلة · بوفية · طاكوس · سندويتش · واش كاين · المأكولات … (+١٧٩) |
@@ -557,6 +558,7 @@
 | `traditional_tent_maker` | خياط الخيام | صانع الخيام التقليدية · خياط الخيام · Fabricant de tentes traditionnelles · Traditional tent maker · خياط الخيام · كيصايب الخيام · خيام تقليدية · قبة · خيمة · صانع الخيام التقليدية · fabricant de tentes traditionnelles · traditional tent maker |
 | `travel_agency` | وكالة الأسفار | وكالة سفر · وكالة الأسفار · Agence de voyages · Travel agency · وكالة الأسفار · كيباع الرحلات · voyage · سياحة · حجز الطيارة · أجونس ديال السفر · billet · visa · وكالة سفر · وكالة سياحة … (+٥) |
 | `tv_and_audio_repair_technician` | مصلح التلفزة | مصلح أجهزة سمعية بصرية · مصلح التلفزة · Réparateur TV · TV and audio repair technician · مصلح التلفزة · كيصلح الـ TV · تصليح الشاشات · réparateur TV · مصلح أجهزة سمعية بصرية · réparateur tv · audio · vidéo · tv and audio repair technician |
+| `tv_repair` | التلفازة | إصلاح التلفاز · التلفازة · Réparation TV · TV repair · تلفازة · التلفازة · تلفزة · التلفزة · تيلي · التيلي · تلفاز · التلفاز · tv · television … (+١٣) |
 | `underwear_socks` | سلاوي وتريكو | ملابس داخلية وجوارب · سلاوي وتريكو · Sous-vêtements · Underwear & socks · تقاشر · سلاوي · ملابس داخلية · كيلوط · مايوه دياخل · chaussettes · sous vetement · slip · جوارب · ملابس داخلية … (+٤) |
 | `used_clothing` | جوطية | سوق الملابس المستعملة · جوطية · Marché aux puces · Flea market · جوطية · الجوطية · جوطيه · سوق البالي · فريب · فريپ · حوايج بالية · بالة · البالة · الفريب … (+٢٦) |
 | `used_furniture_seller` | بائع الأثاث المستعمل | بائع أثاث مستعمل · بائع الأثاث المستعمل · Vendeur de meubles d'occasion · Used Furniture Seller · بائع الأثاث المستعمل · كيباع الفرش القدام · marché aux puces · مول الفرش · بائع أثاث مستعمل · سوق الأثاث المستعمل · vendeur de meubles d'occasion · brocante · used furniture seller · secondhand furniture |
@@ -609,5 +611,6 @@
 | القنيطرة | القنيطرة · قنيطرة · kenitra · 9nitra |
 | آسفي | آسفي · اسفي · safi |
 | الصويرة | الصويرة · essaouira · sawira |
+| تيزنيت | تيزنيت · تزنيت · tiznit |
 | الناظور | الناظور · ناظور · nador |
 | بني ملال | بني ملال · beni mellal · bnimellal |
