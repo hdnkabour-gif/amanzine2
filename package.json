@@ -15,7 +15,7 @@
     "test:brain": "node scripts/run-brain-tests.mjs",
     "test:constitution": "node --test test/constitution.test.mjs test/theme.test.mjs",
     "test:knowledge": "node --test test/knowledge-health.test.mjs",
-    "test:architecture": "node --test test/architecture.test.mjs test/architecture-freshness.test.mjs test/abilities.test.mjs test/pageActions.test.mjs test/normalize-source.test.mjs test/pulse.test.mjs test/disconnected.test.mjs test/lexicon.test.mjs",
+    "test:architecture": "node --test test/architecture.test.mjs test/architecture-freshness.test.mjs test/abilities.test.mjs test/pageActions.test.mjs test/normalize-source.test.mjs test/pulse.test.mjs test/disconnected.test.mjs test/lexicon.test.mjs test/askKind.test.mjs",
     "audit:knowledge": "node scripts/knowledge-audit.mjs",
     "gen:variants": "node scripts/knowledge-audit.mjs --emit-index",
     "gen:cities": "node scripts/emit-cities.mjs",
@@ -24,7 +24,8 @@
     "test": "npm run test:brain && npm run test:constitution && npm run test:knowledge && npm run test:architecture && cd server && npm test",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx}\" \"server/**/*.js\"",
     "pulse": "node scripts/run-pulse.mjs",
-    "report:disconnected": "node scripts/disconnected.mjs"
+    "report:disconnected": "node scripts/disconnected.mjs",
+    "report:ask-kind": "node scripts/run-askKind.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.0",
