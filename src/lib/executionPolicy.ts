@@ -201,9 +201,15 @@ export function decideExecution(
   if (pointed) trace.push(`الإشارة «${u.action!.ref}» ⇒ «${pointed.name}»`);
 
   if (match) {
+    //   **والثمنُ المذكورُ يُطرَح كما يُطرَح المفهوم.** «بغيت نبيع كسوة…
+    //   بثمن مناسب ٥٠ درهم» ⇒ «بشحال؟» — والرقمُ مقروءٌ في `u.amount`.
+    //   وطرحُ ما عُرف هو كلُّ فائدة هذه الخطوة؛ فحقلٌ يُقرأ ولا يُطرَح يجعلها
+    //   استمارةً تسأل عمّا قيل لها.
+    const said = u.amount != null ? String(u.amount) : undefined;
     const missing = unmetNeeds(match, {
       trade: u.service || u.profession?.id,
       product: u.service || pointed?.id, subject: u.service || u.problem?.id,
+      price: said,
     });
     if (missing.length) {
       trace.push(`ينقص: ${missing[0]}`);

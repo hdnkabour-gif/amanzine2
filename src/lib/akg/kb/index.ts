@@ -37,6 +37,7 @@ import { detectAmbiguity, type Ambiguity } from './ambiguity';
 import { detectFacts, FACT_LABEL, type FactTopic } from './facts';
 import { readAction, type ActionRead } from './actions';
 import { readMood, type MoodRead } from './mood';
+import { readAmount } from '../../money';
 import { detectLifeNeed, type LifeNeed } from './goals';
 import { getProblem, type Problem } from './problems';
 import { findProblemBySymptom, BREAKDOWN_WORDS } from './symptomGraph';
@@ -97,6 +98,15 @@ export interface Understanding {
   // حالُ إنسانٍ يُشتَقّ منها ما يحتاج. تُقرأ قبل المفهوم لأنّها تصحّح
   // الاتّجاهَ وتحمل سؤالَها الخاصّ — سؤالُ الغاية أنفعُ من «شنو محتاج؟».
   goal?: LifeNeed;
+  /**
+   * **المبلغُ المذكورُ في الجملة** — إن ذُكر.
+   *
+   *   قِيس على جملةٍ من صاحب المشروع: «بغيت نبيع كسوة… **بثمن مناسب ٥٠
+   *   درهم**» ⇒ «**بشحال؟**». الرقمُ مقروءٌ في `readAmount` منذ زمن ولا
+   *   يبلغ الحَكَمَ — فيُسأل الإنسانُ عن رقمٍ قاله في الجملة نفسِها.
+   *   وهو «موتُ السحر» في أوضح صوره: يعرف ثمّ يسأل.
+   */
+  amount?: number;
 }
 
 // الاتّجاه: بدونه كان «أنا حدّاد» يُفهَم كطلبٍ لحدّاد، فيردّ التطبيق «نقلبو عليه»
@@ -567,13 +577,14 @@ export function understand(input: string): Understanding {
   }
   // الفعلُ الإداريّ يُقرأ أخيرًا وعلى النصّ الأصليّ. لا يُلغي ما فُهم: جملةٌ
   // قد تحمل فعلًا ومفهومًا معًا («بدّل ثمن الطرطاقة»).
+  const amount = readAmount(input);
   const negated = isNegated(t) || undefined;
   if (negated) reasoning.push('🚫 نفيٌ صريح — لا نُخمّن ما يريده، نسأله');
   const mood = readMood(input);
   if (!mood.executable) reasoning.push(`🗣️ صيغة: ${mood.mood} (${mood.reason}) — لا نُنفّذ`);
   const action = readAction(input) || undefined;
   if (action) reasoning.push(`⚙️ فعل: ${action.verb}/${action.object} (${action.reason})`);
-  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts, action, negated, mood, goal, services };
+  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts, action, negated, mood, goal, services, amount };
 }
 
 export function resolveTerm(term: string) { return normalize(term); }

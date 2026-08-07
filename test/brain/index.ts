@@ -65,3 +65,5 @@ import './actionConfidence.test';
 import './ownerSentences.test';
 // النافذةُ المركَّزة: تفتح الحقلَ المطلوبَ وحدَه لا الصفحةَ كاملةً.
 import './focusedEdit.test';
+// عشرُ جملٍ من صاحب المشروع: الثمنُ المذكور · «منتوج آخر» · الميناج · بارطاجي.
+import './tenSentences.test';

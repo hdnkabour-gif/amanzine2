@@ -10,9 +10,9 @@
 | ما هو | العدد |
 |---|---|
 | مفهومًا يفهمه التطبيق | **٢٠٧** |
-| مصطلحًا مميَّزًا (كلَّ اللغات) | **٢٩٦٢** |
+| مصطلحًا مميَّزًا (كلَّ اللغات) | **٢٩٧٩** |
 | قدرةً يستطيع تنفيذها | **٨٩** |
-| زوجَ فعلٍ×هدفٍ مقروءًا | **١١٤** |
+| زوجَ فعلٍ×هدفٍ مقروءًا | **١١٣** |
 | غايةَ حياةٍ تُقرأ | **٧** |
 | مدينةً كبرى بأحيائها | **٤٥** |
 | مكانًا مغربيًّا (جماعاتٌ ومراكز) | **٤٠٩** |
@@ -243,7 +243,6 @@
 | شارك اسم المحل | share | shop_name | — |
 | شارك وقت الخدمة | share | shop_hours | — |
 | شارك التوصيل | share | delivery | — |
-| شارك الواتساب | share | channel | — |
 | شارك الثمن | share | price | أيّ منتج؟ · بشحال؟ |
 | شارك المخزون | share | stock | أيّ منتج؟ |
 | شارك التصويرة | share | photo | أيّ منتج؟ |
@@ -303,7 +302,7 @@
 | digital | ٣ | ٧٥ |
 | home | ٣ | ١٠١ |
 | معلوميات | ٣ | ٥٢ |
-| home_services | ٢ | ٧٨ |
+| home_services | ٢ | ٩٥ |
 | مأكولات ومشروبات | ٢ | ٢٠٤ |
 | food | ٢ | ٦١ |
 | vehicle | ١ | ٣٩ |
@@ -475,7 +474,7 @@
 | `home_kitchen` | الطبخ فالدار | مطبخ منزلي · الطبخ فالدار · Cuisine à domicile · Home kitchen · طباخة · طباخ · مولات الطبخة · كنطبخ فالدار · نطبخ فالدار · الطبخ فالدار · ماكلة ديال الدار · ماكلة بيتية · طبخ منزلي · كنطيب فالدار … (+٢٠) |
 | `home_nurse` | ممرض | ممرض · ممرض · Infirmier à domicile · Home nurse · ممرض · infirmier · لافيرمي · كيدير الإبر · ممرض · ممرض منزلي · infirmier à domicile · home nurse |
 | `hotel` | أوطيل | فندق · أوطيل · Hôtel · Hotel · أوطيل · رياض · دار الضيافة · auberge · hotel · فندق · رياض · دار ضيافة · hôtel · riad … (+٤) |
-| `house_cleaner` | خدامة | عاملة تنظيف المنازل · خدامة · Femme/Homme de ménage · House cleaner · خدامة · femme de ménage · كتنظف البيوت · خدم بيوت · تسيق · كتسيق · نسيق · تسيّق · سيق ليا · تسيق ليا … (+١٧) |
+| `house_cleaner` | خدامة | عاملة تنظيف المنازل · خدامة · Femme/Homme de ménage · House cleaner · خدامة · femme de ménage · كتنظف البيوت · خدم بيوت · تسيق · كتسيق · نسيق · تسيّق · سيق ليا · تسيق ليا … (+٣٤) |
 | `house_painter` | مبيض | دهان منازل · مبيض · Peintre en bâtiment · House Painter · مبيض · صباغ ديال البيوت · كيدهن البيوت · كنبيض الحيوط · صباغ · كيصبغ البيوت · peinture · دهان منازل · طلاء الجدران · peintre en bâtiment … (+١) |
 | `hvac_technician_air_conditioning_technician` | فريݣو | فني تكييف وتبريد · فريݣو · Technicien climatisation et réfrigération · HVAC technician / Air-conditioning technician · فريݣو · كليماتيزار · تقني الكليم · كيصلح الكليم · froid industriel · فني تكييف وتبريد · technicien climatisation et réfrigération · hvac technician / air-conditioning technician |
 | `ice_cream_shop` | گلاص | محل مثلجات · گلاص · Glacier · Ice cream shop · گلاص · الگلاص · كلاص · جيلاطي · جيلاتي · مثلجات · ايس كريم · ايسكريم · glace · glass … (+١٣) |
