@@ -64,6 +64,11 @@ function applyFilters(list, f = {}) {
     if (f.openNow  && !(b.status && b.status.code === 'open')) return false;
     if (f.availableToday && !(b.availability && (b.availability.code === 'today'))) return false;
     if (f.priceMax != null && b.price != null && +b.price > +f.priceMax) return false;
+    // ── **حالُ السلعة: يُقصى المخالفُ لا المجهول** ──────────────
+    //   «فران يكون **جديد**» ⇒ تُقصى المعلَنةُ مستعملةً وحدَها. أمّا ما لم
+    //   يُكتَب حالُه فيبقى ظاهرًا — وإلّا لَما رأى أحدٌ شيئًا حتّى يملأ كلُّ
+    //   التجّار حقلًا جديدًا، ومرشِّحٌ يُفرّغ النتائجَ أسوأُ من غيابه.
+    if (f.condition && b.condition && b.condition !== f.condition) return false;
     if (f.priceMin != null && b.price != null && +b.price < +f.priceMin) return false;
     return true;
   });

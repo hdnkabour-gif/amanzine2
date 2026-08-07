@@ -40,6 +40,7 @@ export type ActionObject =
   | 'workspace' | 'shop_name' | 'shop_hours' | 'address' | 'delivery' | 'settings'  // إعداداتُ النشاط
   | 'product' | 'price' | 'stock' | 'photo' | 'content' // الكتالوج
   | 'channel'                                          // قنواتُ التواصل المربوطة
+  | 'shipment'                                         // شحنةٌ تُنشأ عند شركة
   | 'orders' | 'customers' | 'coupon' | 'wallet';      // العمل
 
 /** لمن يعود الهدف: الشخصُ أم نشاطُه؟ */
@@ -107,7 +108,10 @@ const VERBS: { verb: ActionVerb; terms: string[] }[] = [
   //   فالفيسبوك» تُقرأ **عرضَ خدمة** ⇒ «شنو نوع النشاط؟».
   { verb: 'share',  terms: ['شارك', 'نشارك', 'صيفط الرابط', 'رابط المحل',
                             'بارطاجي', 'نبارطاجي', 'برطاجي', 'نشير', 'شير', 'partager'] },
-  { verb: 'send',   terms: ['صيفط', 'نصيفط', 'ارسل', 'نرسل', 'envoyer'] },
+  // و«سيفط» بالسين كما «صيفط» بالصاد — الدارجةُ تُبدّلهما، والمغربيُّ
+  //   يكتب الاثنتَين. وكانت «بغيت **نسيفط** لبنتي واحد الأمانة» بلا فعلٍ
+  //   إطلاقًا لأنّ السينَ وحدَها غيرُ معروفة.
+  { verb: 'send',   terms: ['صيفط', 'نصيفط', 'سيفط', 'نسيفط', 'ارسل', 'نرسل', 'envoyer'] },
   // «شحال من» و«شحال عندي» سؤالُ عددٍ — وهو **عرضٌ** لا سؤالٌ عن قدرة.
   //   «وريني الطلبات» كانت تُقرأ و«شحال من طلب عندي» لا، وهما طلبٌ واحد:
   //   أرِني ما عندي. والمغربيُّ يسأل بالعدد أكثرَ ممّا يأمر بالعرض.
@@ -187,7 +191,13 @@ const OBJECTS: { object: ActionObject; scope: ActionScope; terms: string[]; need
   //   (`deliveryStatus`) — فالكيانُ قائمٌ ولم تكن له كلمة.
   { object: 'orders',    scope: 'workspace', terms: ['الطلبات', 'الطلبيات', 'كوموند', 'طلب', 'طلبية', 'commandes', 'commande',
                             'طرد راجع', 'الطرد الراجع', 'طرد رجع', 'كولي رتور', 'كولي راجع', 'مرتجع', 'المرتجعات', 'retour',
-                            'الطرد', 'طردي', 'الكولي', 'كولي', 'colis'] },
+                            'الطرد', 'طردي', 'الكولي', 'كولي', 'colis',
+  // «أمانة» — طردٌ يُرسَل مع سائقٍ أو شركة، وهي أشيعُ ما يقوله المغربيّ.
+  //   تنضمّ إلى هذه القائمة ولا تُفتَح لها قائمةٌ ثانية: كتبتُ أوّلًا هدفًا
+  //   مستقلًّا `shipment` فيه «كولي» و«الطرد» — وهي هنا أصلًا — فسبقه في
+  //   الترتيب وسرق «عندي كولي رتور» من `orders`. قائمتان لكلمةٍ واحدةٍ
+  //   تتباعدان، وأسقطني حارسٌ قائمٌ في أوّل تشغيل.
+                            'امانه', 'الامانه', 'باكيه'] },
   { object: 'customers', scope: 'workspace', terms: ['الزبناء', 'الزباين', 'العملاء', 'زبون', 'كليان', 'clients', 'client'] },
   { object: 'coupon',    scope: 'workspace', terms: ['كوبون', 'الكوبونات', 'تخفيض', 'خصم', 'promo'] },
   { object: 'wallet',    scope: 'workspace', terms: ['المحفظه', 'الرصيد', 'الفلوس ديالي', 'portefeuille'] },
@@ -264,7 +274,12 @@ export function readAction(raw: string): ActionRead | null {
   //
   //   والحدُّ ضيّق: **مع فعل المشاركة وحدَه**. أمّا «بغيت نربط الواتساب»
   //   فالقناةُ فيها هي المقصودةُ نفسُها، وتبقى كما هي.
-  const object = (v.verb === 'share' && o.object === 'channel') ? 'workspace' as ActionObject : o.object;
+  //   ونفسُ القاعدة مع الإرسال: «**صيفط** الطلب» و«**نسيفط** الأمانة»
+  //   ليستا نظرًا في الطلبات بل **شحنةً تُنشأ عند شركة**. فالفعلُ يُبدّل
+  //   ما يعنيه الهدفُ — كما تُبدّله المشاركةُ مع القناة.
+  const object = (v.verb === 'share' && o.object === 'channel') ? 'workspace' as ActionObject
+    : (v.verb === 'send' && o.object === 'orders') ? 'shipment' as ActionObject
+    : o.object;
   const scope = (object === o.object) ? o.scope : 'workspace' as ActionScope;
 
   // الحذفُ يحتاج تأكيدًا دائمًا — لا يُنفَّذ من جملةٍ واحدة مهما وضحت.
@@ -360,7 +375,7 @@ export function describeAction(a: ActionRead): string {
     product: 'المنتوج', price: 'الثمن', stock: 'المخزون', photo: 'الصورة',
     content: 'الوصف والهاشتاگ',
     channel: 'القنوات المربوطة',
-    orders: 'الطلبات', customers: 'الزبناء', coupon: 'الكوبون', wallet: 'المحفظة',
+    orders: 'الطلبات', shipment: 'الشحنة', customers: 'الزبناء', coupon: 'الكوبون', wallet: 'المحفظة',
   };
   return `${V[a.verb]} ${O[a.object]}`;
 }

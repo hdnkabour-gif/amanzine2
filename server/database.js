@@ -30,6 +30,8 @@ function _mapProduct(p) {
     colorImages:   (p.color_images && typeof p.color_images === 'object') ? p.color_images : {},
     imageUrl:      p.image_url     || '',
     videoUrl:      p.video_url     || '',
+    // حالُ السلعة: `''` تعني «لم يُقَل» — لا «جديدة» ولا «مستعملة».
+    condition:     p.condition     || '',
     isForChildren: !!p.is_for_children,
     ageRange:      p.age_range     || '',
     sizeType:      p.size_type     || 'adult',
@@ -256,10 +258,10 @@ const db = {
     const { rows } = await pool.query(
       `INSERT INTO products
         (id,user_id,name,description,price,cost,stock,sku,category,city,emoji,
-         images,sizes,colors,color_images,image_url,video_url,is_for_children,age_range,
+         images,sizes,colors,color_images,image_url,video_url,condition,is_for_children,age_range,
          size_type,views,sales,status,offer_type,duration,service_area,
          portfolio,custom_fields)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
        RETURNING *`,
       [
         id, p.userId, p.name || '', p.description || '',
@@ -272,6 +274,7 @@ const db = {
         JSON.stringify(p.colorImages || {}),
         p.imageUrl || '',
         p.videoUrl || '',
+        p.condition === 'new' || p.condition === 'used' ? p.condition : '',
         p.isForChildren ? true : false,
         p.ageRange || '',
         p.sizeType || 'adult',
@@ -291,7 +294,7 @@ const db = {
       name:         'name',         description:  'description',  price:   'price',
       cost:         'cost',         stock:        'stock',        sku:     'sku',
       category:     'category',     emoji:        'emoji',        status:  'status',
-      city:         'city',
+      city:         'city',         condition:    'condition',
       imageUrl:     'image_url',    videoUrl:     'video_url',    images:  'images',       sizes:   'sizes',
       colors:       'colors',       colorImages:  'color_images', isForChildren: 'is_for_children',
       ageRange:     'age_range',    sizeType:     'size_type',    views:   'views',

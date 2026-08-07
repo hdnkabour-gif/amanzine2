@@ -578,7 +578,7 @@ export const OBJECT_MAP: Record<string, AbilityEntity> = {
   phone: 'phone', language: 'language', password: 'account', account: 'account',
   workspace: 'workspace', shop_name: 'workspace', shop_hours: 'workspace',
   address: 'address',
-  delivery: 'delivery_provider', settings: 'settings',
+  delivery: 'delivery_provider', settings: 'settings', shipment: 'shipment',
   product: 'product', price: 'product', stock: 'product', photo: 'media',
   // **ووصفُ المنتوج وهاشتاگه كيانٌ قائمٌ بذاته — لا «منتوج».**
   //

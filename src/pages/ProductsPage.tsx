@@ -175,6 +175,8 @@ type WizardData = {
   imageUrl: string;
   videoUrl: string;
   status: ProductStatus;
+  /** جديد · مستعمل · فارغٌ = لم يُقَل. */
+  condition: '' | 'new' | 'used';
   variants: ColorVariant[];
   customFields: CustomFieldDef[];
   catValues: Record<string, string>; // قيم حقول الفئة من الخريطة الكاملة
@@ -192,7 +194,7 @@ const initData = (): WizardData => ({
   category: '', type: 'product', name: '', description: '',
   price: '', cost: '', stock: '', duration: '', workArea: '',
   portfolio: [], bookingDays: [], bookingTime: '', bookingLocation: '', bookingMethod: 'phone',
-  images: [], imageUrl: '', videoUrl: '', status: 'draft',
+  images: [], imageUrl: '', videoUrl: '', status: 'draft', condition: '',
   variants: [], customFields: [], catValues: {},
   designOpts: { showName: false, showPrice: false, watermark: false, textColor: '#ffffff' },
   processedImages: [],
@@ -567,6 +569,7 @@ export default function ProductsPage() {
       images: p.images?.length ? p.images : (p.imageUrl ? [p.imageUrl] : []),
       imageUrl: p.imageUrl || '',
       videoUrl: (p as any).videoUrl || '',
+      condition: ((p as any).condition || '') as '' | 'new' | 'used',
       status: p.status || 'draft',
       variants: (p as any).variants || [],
       customFields: manual,
@@ -887,6 +890,8 @@ export default function ProductsPage() {
         images: finalImages,
         imageUrl: finalImages[0] || data.imageUrl || '',
         videoUrl: data.videoUrl || '',
+        // حالُ السلعة — الفراغُ قيمةٌ مقصودة: «لم يُقَل». فلا تُقصى بمرشِّح.
+        condition: data.condition || '',
         category: catLabel,
         emoji: cfg.emoji,
         status,
@@ -1725,6 +1730,28 @@ export default function ProductsPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  {/* ── حالُ السلعة: جديدةٌ أم مستعملة ─────────────────────
+                      أوّلُ ما يسأل عنه المشتري بعد الثمن. و«ما قلتش» **خيارٌ
+                      قائمٌ لا فراغ**: سلعةٌ لم يُقَل حالُها تبقى ظاهرةً لمن
+                      يبحث عن جديدٍ أو مستعمل، ولا تُقصى بمرشِّحٍ لا تملك
+                      جوابَه. وإلزامُ التاجر بالاختيار يجعله يخمّن. */}
+                  <div>
+                    <label className="label">حالة السلعة</label>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {([['', 'ما قلتش'], ['new', '✨ جديد'], ['used', '♻️ مستعمل']] as const).map(([v, l]) => (
+                        <button key={v || 'none'} type="button"
+                          onClick={() => setData(d => ({ ...d, condition: v }))}
+                          style={{ flex: 1, padding: '10px 8px', borderRadius: 12, cursor: 'pointer',
+                            fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800,
+                            border: `1.5px solid ${data.condition === v ? 'var(--ember,#FF6A00)' : 'var(--clr-border,rgba(255,255,255,.14))'}`,
+                            background: data.condition === v ? 'rgba(255,106,0,.12)' : 'transparent',
+                            color: data.condition === v ? 'var(--ember,#FF6A00)' : 'var(--ink3)' }}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Product video (MP4 / MOV / WEBM) */}

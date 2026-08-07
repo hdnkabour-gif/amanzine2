@@ -33,11 +33,12 @@ import { conceptsIn, normalize, type VocabEntry } from './vocabulary';
 import { deArabizi } from './arabizi';
 import { normLoose } from '../../normalize';
 import { resolveConcept, resolveConcepts, resolveCity } from './knowledge';
-import { detectAmbiguity, type Ambiguity } from './ambiguity';
+import { detectAmbiguity, resolveAmbiguity, type Ambiguity } from './ambiguity';
 import { detectFacts, FACT_LABEL, type FactTopic } from './facts';
 import { readAction, type ActionRead } from './actions';
 import { readMood, type MoodRead } from './mood';
 import { readAmount } from '../../money';
+import { readCondition, type Condition } from '../../condition';
 import { detectLifeNeed, type LifeNeed } from './goals';
 import { getProblem, type Problem } from './problems';
 import { findProblemBySymptom, BREAKDOWN_WORDS } from './symptomGraph';
@@ -107,6 +108,14 @@ export interface Understanding {
    *   وهو «موتُ السحر» في أوضح صوره: يعرف ثمّ يسأل.
    */
   amount?: number;
+  /**
+   * **حالُ السلعة** — «الماكينة **قديمه** باغي نبيعها» ⇒ `used`.
+   *
+   *   أوّلُ ما يسأل عنه المشتري بعد الثمن، وأوّلُ ما يقوله البائع. ويُقرأ
+   *   بقارئٍ واحدٍ يشترك فيه البحثُ والنشر — ولو كُتب في الموضعَين
+   *   لتباعدا، فيُنشَر إعلانٌ بحالٍ لا يجده مَن يبحث عنه.
+   */
+  condition?: Condition;
 }
 
 // الاتّجاه: بدونه كان «أنا حدّاد» يُفهَم كطلبٍ لحدّاد، فيردّ التطبيق «نقلبو عليه»
@@ -548,6 +557,14 @@ export function understand(input: string): Understanding {
   // ولو بقي غامضًا فالجوابُ الصحيح **سؤال** لا نتيجة. لا نُلغي ما فُهم — نُرفقه.
   const ambiguity = detectAmbiguity(text) || undefined;
   if (ambiguity) reasoning.push(`❓ «${ambiguity.term}» تحتمل معنيَين — نسأل بدل أن نُخمّن`);
+  // **والقرينةُ التي تحسم تُصلح الفهمَ لا تُسكِت السؤالَ وحدَها.**
+  //   كان الحسمُ يُرمى: «بغيت نشري شي فران جديد ب٨٠٠ درهم» لا تُسأل (حسمت
+  //   «نشري» و«جديد») ويبقى المفهومُ `bakery` — أي يعرف الجوابَ ويصمت عنه.
+  const settled = ambiguity ? null : resolveAmbiguity(text);
+  if (settled && settled.id !== service) {
+    reasoning.push(`❓ «${settled.term}» تحتمل معنيَين — والقرينةُ حسمت: ${settled.id}`);
+    service = settled.id;
+  }
 
   // ── الثقةُ تتبع الدليل ──────────────────────────────────────
   //
@@ -578,13 +595,14 @@ export function understand(input: string): Understanding {
   // الفعلُ الإداريّ يُقرأ أخيرًا وعلى النصّ الأصليّ. لا يُلغي ما فُهم: جملةٌ
   // قد تحمل فعلًا ومفهومًا معًا («بدّل ثمن الطرطاقة»).
   const amount = readAmount(input);
+  const condition = readCondition(input);
   const negated = isNegated(t) || undefined;
   if (negated) reasoning.push('🚫 نفيٌ صريح — لا نُخمّن ما يريده، نسأله');
   const mood = readMood(input);
   if (!mood.executable) reasoning.push(`🗣️ صيغة: ${mood.mood} (${mood.reason}) — لا نُنفّذ`);
   const action = readAction(input) || undefined;
   if (action) reasoning.push(`⚙️ فعل: ${action.verb}/${action.object} (${action.reason})`);
-  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts, action, negated, mood, goal, services, amount };
+  return { problem, profession, capabilities, concepts, city, district, category, service, language, context, confidence, reasoning, learned, stance, ambiguity, facts, action, negated, mood, goal, services, amount, condition };
 }
 
 export function resolveTerm(term: string) { return normalize(term); }

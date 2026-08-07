@@ -1,6 +1,7 @@
 import { resolveConcept, resolveConcepts } from './akg/kb/knowledge';
 import { categoryForConcept } from './catalog';
 import { priceCeiling } from './money';
+import { readCondition, type Condition } from './condition';
 
 // ============================================================
 // نيّةُ البحث — الطبقةُ التي كانت مفقودةً بين الزبون والفهرس.
@@ -44,6 +45,15 @@ export interface SearchIntent {
    *   من يوصله.
    */
   maxPrice?: number;
+  /**
+   * حالُ السلعة إن قالها — «فران يكون **جديد**» ⇒ `new`.
+   *
+   *   ولا يُخمَّن: بلا كلمةٍ صريحةٍ يبقى غيرَ محدَّد. والمرشِّحُ على الخادم
+   *   **يُقصي المخالفَ وحدَه** ولا يُقصي المجهول — فسلعةٌ لم يُكتَب حالُها
+   *   تبقى ظاهرةً لمن يطلب جديدًا. وإلّا لَما رأى أحدٌ شيئًا حتّى يملأ
+   *   كلُّ التجّار حقلًا جديدًا: مرشِّحٌ يُفرِّغ النتائجَ أسوأُ من غيابه.
+   */
+  condition?: Condition;
   /** أيُّ مصطلحٍ طابق وبأيّ طريق — للشرح والتصحيح، لا للعرض. */
   matched?: { term: string; via: string };
 }
@@ -65,11 +75,12 @@ export function expandQuery(raw: string): SearchIntent {
   // لم يُفهَم مفهومُه، وميزانيّتُه مفهومةٌ تمامًا. وربطُ الاثنين يُسقط الثانيَ
   // لعجز الأوّل.
   const maxPrice = priceCeiling(q);
+  const condition = readCondition(q);
 
   const found = resolveConcept(q);
   if (!found) {
     // لم يُفهَم — نُرسل ما كتبه وحدَه. البحثُ لا يتعطّل لأنّ الفهمَ عجز.
-    return { raw: q, terms: [q], maxPrice };
+    return { raw: q, terms: [q], maxPrice, condition };
   }
 
   const terms = new Set<string>([q]);
@@ -91,7 +102,7 @@ export function expandQuery(raw: string): SearchIntent {
     category: categoryForConcept(found.id)?.id,
     terms: [...terms].slice(0, MAX_TERMS),
     matched: found.matched,
-    maxPrice,
+    maxPrice, condition,
   };
 }
 
@@ -112,7 +123,7 @@ export function expandAll(raw: string, max = 3): SearchIntent[] {
       ...(c.services || []).map(clean).filter(t => t.length >= 3),
     ])].slice(0, MAX_TERMS),
     matched: c.matched,
-    maxPrice: priceCeiling(q),
+    maxPrice: priceCeiling(q), condition: readCondition(q),
   }));
   return out.length ? out : [expandQuery(q)];
 }
@@ -128,5 +139,6 @@ export function toSearchParams(intent: SearchIntent, city?: string): URLSearchPa
   if (intent.category) p.set('category', intent.category);
   // الميزانيّةُ تُرسَل رقمًا لا نصًّا: الخادمُ يرشّح، ولا يقرأ الدارجة.
   if (intent.maxPrice) p.set('priceMax', String(intent.maxPrice));
+  if (intent.condition) p.set('condition', intent.condition);
   return p;
 }

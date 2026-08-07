@@ -436,6 +436,10 @@ async function migrate() {
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT ''`).catch(() => {});
     // المدينة: سؤالٌ إجباريٌّ في المساعد كان يسقط عند الحفظ لأنّ لا عمودَ له.
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS city TEXT DEFAULT ''`).catch(() => {});
+    // حالُ السلعة: جديدةٌ أم مستعملة. أوّلُ ما يسأل عنه المشتري بعد الثمن.
+    //   الفراغُ **قيمةٌ مقصودة** لا نقص: سلعةٌ لم يُقَل حالُها تبقى ظاهرةً
+    //   لمن يبحث عن جديدٍ أو مستعمل، ولا تُقصى بمرشِّحٍ لا تملك جوابَه.
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS condition TEXT DEFAULT ''`).catch(() => {});
     await client.query(`CREATE INDEX IF NOT EXISTS idx_products_city ON products(city) WHERE city <> ''`).catch(() => {});
 
     // Abandoned-cart reminder flag (H-4) — لتذكير موثوق عبر cron بدل setTimeout

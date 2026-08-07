@@ -67,3 +67,5 @@ import './ownerSentences.test';
 import './focusedEdit.test';
 // عشرُ جملٍ من صاحب المشروع: الثمنُ المذكور · «منتوج آخر» · الميناج · بارطاجي.
 import './tenSentences.test';
+// حالُ السلعة: جديدةٌ أم مستعملة — أوّلُ ما يسأل عنه المشتري بعد الثمن.
+import './condition.test';

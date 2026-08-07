@@ -36,6 +36,9 @@ function parseFilters(qs = {}) {
   if (on(qs.offers)) f.offers = true;
   if (on(qs.openNow)) f.openNow = true;
   if (on(qs.availableToday)) f.availableToday = true;
+  // حالُ السلعة — تُقبَل القيمتان المُعلَنتان وحدَهما، وما عداهما يُهمَل.
+  //   وقيمةٌ مجهولةٌ لا تصير مرشِّحًا: مرشِّحٌ لا يفهم نفسَه يُفرّغ النتائج.
+  if (qs.condition === 'new' || qs.condition === 'used') f.condition = qs.condition;
   const min = money(qs.priceMin), max = money(qs.priceMax);
   if (min != null) f.priceMin = min;
   if (max != null) f.priceMax = max;
