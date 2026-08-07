@@ -270,7 +270,16 @@ export default function LivingHome() {
     const dec = decideInterface({ ...r, hasInput: true }, verdict.verdict);
     // `explain` و`refuse` يُقالان ولا يُفعَلان. وما عداهما له شكلٌ في الواجهة،
     // فلا يُطبَع نصُّه فوقها — نصٌّ ورسمٌ يقولان الشيءَ نفسَه ازدواجٌ لا تأكيد.
-    setSaid(verdict.verdict === 'explain' || verdict.verdict === 'refuse' ? verdict.say : '');
+    // ── **وسؤالُ الحَكَم يُعرَض كما يُعرَض شرحُه** ──────────────────
+    //   كان السطرُ يحفظ `say` لـ`explain` و`refuse` وحدَهما، ويرمي سؤالَ
+    //   `ask`. وقِيس على شاشةٍ حيّة: «bghit nessayeb lfran deyali khasser»
+    //   ⇒ الحَكَمُ يقول **«فران ديال الطياب (آلة)، ولا محلّ ديال الخبز؟»**
+    //   والشاشةُ تعرض «مخبز ٨٦٪» وزرَّ «يالله نمشيو للسوق».
+    //
+    //   أي أنّ الغموضَ يُكشَف ويُصاغ سؤالُه ثمّ **يُرمى**، فيُساق صاحبُ فرنٍ
+    //   خاسرٍ إلى سوقِ المخابز. والسؤالُ المرميُّ أسوأُ من غيابه: بُني كي
+    //   لا يُخمَّن، فصار التخمينُ يقع ومعه سؤالٌ مكتوبٌ لا يراه أحد.
+    setSaid(verdict.say || '');
     setActionDest(verdict.dest?.page ?? null);
     //   ولا تُفتَح النافذةُ إلّا على حكمٍ يُنفَّذ أو يُؤكَّد: `ask` تعني أنّ
     //   شيئًا ناقصٌ فيُسأل عنه أوّلًا، وفتحُ حقلٍ فوق سؤالٍ يُربك.
@@ -495,7 +504,7 @@ export default function LivingHome() {
           نفسِه (`explain`) بدل صمتٍ يجعل الإنسانَ يظنّ أنّه أخطأ الكتابة.
           والشرطُ `mode === 'explain'` يربط ما يُعرَض بحكمِ الواجهة، فلا
           يبقى نصًّا يظهر بحسابٍ مستقلٍّ عن القرار. ── */}
-      {said && (decision?.mode === 'explain' || decision?.mode === 'refuse') && !correcting && (
+      {said && (decision?.mode === 'explain' || decision?.mode === 'refuse' || decision?.mode === 'clarify') && !correcting && (
         <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', padding: '11px 15px', borderRadius: 13, border: '1px solid rgba(245,158,11,.28)', background: 'rgba(245,158,11,.07)', fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>
           {said}
         </div>
@@ -630,7 +639,10 @@ export default function LivingHome() {
               </button>
             </div>
           )}
-          {(pending || !result.steps) && !(!pending && !confirmed && decision?.mode === 'confirm') && !(snap && stageOf(snap) === 'escalate') && (
+          {/* ولا تُعرَض وجهةٌ ما دام سؤالٌ معلّقًا: عرضُ زرِّ «يالله نمشيو»
+              تحت سؤالٍ يجعل الجوابَ اختياريًّا، فيُضغَط الزرُّ ويُساق الإنسانُ
+              إلى وجهةٍ بُنيت على تخمينٍ كان السؤالُ نفسُه يمنعه. */}
+          {(pending || !result.steps) && !(!pending && !confirmed && decision?.mode === 'confirm') && !(snap && stageOf(snap) === 'escalate') && !(!pending && said && decision?.mode === 'clarify') && (
             <DestinationCard next={pending?.next || result.next}
               dest={pending ? { page: pending.page, url: pending.url } : liveDest(actionDest, result)}
               intent={result.intent}
