@@ -922,3 +922,62 @@ test('㉗ ولا يُعرَض رقمُ تتبّعٍ لا وجودَ له', () =>
   assert.match(src, /o\.trackingNumber \?/,
     'رقمُ التتبّع يُعرَض بلا شرطٍ — سيظهر فارغًا أو مخترَعًا');
 });
+
+// ============================================================
+// ㉘ **النافذةُ تفتح الحقلَ المطلوبَ وحدَه — ولا تفتح ما لا تحفظه.**
+//
+//   طلبُ صاحب المشروع نصًّا: «نافذة منبثقة تفتح فقط الشيء الذي يطلبه
+//   المستخدم — مثلًا رقم الهاتف تفتح فقط خانة لكتابة رقم الهاتف، ليس صفحة
+//   الإعدادات بالكامل».
+//
+//   وخطرُ الآليّة معكوسُ نفعها: **نافذةٌ تُفتَح ولا تحفظ أسوأُ من صفحةٍ
+//   كاملة**. الصفحةُ تُتعِب، والنافذةُ الكاذبةُ تُوهِم أنّ العملَ تمّ.
+// ============================================================
+
+test('㉘ لا يُفتَح حقلٌ إلّا وله مسارُ حفظٍ حقيقيّ', () => {
+  const src = readFileSync(join(ROOT, 'src/components/FocusedEdit.tsx'), 'utf8');
+  const declared = (src.match(/export const FOCUSABLE = \[([^\]]*)\]/) || [])[1] || '';
+  const fields = [...declared.matchAll(/'(\w+)'/g)].map(m => m[1]);
+  assert.ok(fields.length >= 3, `قُرئ ${fields.length} حقلًا — تغيّرت الصيغةُ والحارسُ أعمى`);
+
+  const SAVES = { phone: 'phone', shop_name: 'name', address: 'address',
+                  language: 'language', shop_hours: 'workStart' };
+  for (const f of fields) {
+    assert.ok(SAVES[f], `«${f}» مُعلَنٌ قابلًا للفتح ولا حقلَ محفوظًا معروفًا له`);
+    assert.ok(new RegExp(`\\b${SAVES[f]}\\b`).test(src),
+      `«${f}» يُفتَح ولا يُكتَب في \`brand.${SAVES[f]}\` — نافذةٌ لا تحفظ`);
+  }
+  assert.match(src, /updateSettings\('brand'/, 'النافذةُ لا تحفظ شيئًا إطلاقًا');
+
+  // وكلُّ حقلٍ يجب أن يقرأه قارئُ اللغة — وإلّا فهو بابٌ لا يُفتَح أبدًا.
+  const acts = readFileSync(join(ROOT, 'src/lib/akg/kb/actions.ts'), 'utf8');
+  for (const f of fields) {
+    assert.ok(new RegExp(`object: '${f}'`).test(acts),
+      `«${f}» مُعلَنٌ في النافذة ولا يقرؤه \`actions.ts\` — يبدو مبنيًّا وهو ميّت`);
+  }
+});
+
+test('㉘ والنمرةُ تمرّ بالتحقّق — لا بابَ خلفيًّا حول حمايةٍ قائمة', () => {
+  // مسارُ تبديل النمرة في `SettingsPage` يمرّ بـ`VerifyCode` بغرض
+  // `phone_change`. ونافذةٌ سريعةٌ تحفظ بلا تأكيدٍ تعني بابًا خلفيًّا حول
+  // حمايةٍ بُنيت عمدًا — وهي أخطرُ من غياب النافذة كلِّها.
+  const src = readFileSync(join(ROOT, 'src/components/FocusedEdit.tsx'), 'utf8');
+  const code = src.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.match(code, /VerifyCode/, 'النافذةُ لا تعرف التحقّقَ إطلاقًا');
+  assert.match(code, /purpose="phone_change"/, 'تحقّقٌ بغرضٍ آخر — الغرضُ جزءٌ من المفتاح');
+  const saves = [...code.matchAll(/save\(\{[^}]*phone[^}]*\}\)/g)];
+  assert.equal(saves.length, 1,
+    `حفظُ النمرة يقع في ${saves.length} موضعًا — أحدُها يتجاوز التحقّق`);
+  assert.match(code, /onVerified=\{\(\) => save\(\{ phone/,
+    'حفظُ النمرة خارجَ مسار التحقّق');
+});
+
+test('㉘ والمشهدُ يفتحها فعلًا — ومن حكمٍ واحدٍ لا من نسخةٍ ثانية', () => {
+  const home = readFileSync(join(ROOT, 'src/pages/LivingHome.tsx'), 'utf8');
+  const code = home.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.match(code, /<FocusedEdit/, '`FocusedEdit` غيرُ مركَّبٍ — يُبنى ولا يُرى');
+  assert.match(code, /isFocusable\(verdict\.dest\?\.focus\)/,
+    'الحقلُ لا يُقرأ من حكم الحَكَم — نسخةٌ ثانيةٌ ستتباعد عنه');
+  assert.match(code, /'execute' \|\| verdict\.verdict === 'confirm'/,
+    'النافذةُ تُفتَح على كلّ حكم — حتّى `ask` حيث ينقص شيءٌ يُسأل عنه أوّلًا');
+});

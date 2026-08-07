@@ -12,7 +12,7 @@
 | مفهومًا يفهمه التطبيق | **٢٠٧** |
 | مصطلحًا مميَّزًا (كلَّ اللغات) | **٢٩٦٢** |
 | قدرةً يستطيع تنفيذها | **٨٩** |
-| زوجَ فعلٍ×هدفٍ مقروءًا | **١٠٨** |
+| زوجَ فعلٍ×هدفٍ مقروءًا | **١١٤** |
 | غايةَ حياةٍ تُقرأ | **٧** |
 | مدينةً كبرى بأحيائها | **٤٥** |
 | مكانًا مغربيًّا (جماعاتٌ ومراكز) | **٤٠٩** |
@@ -58,7 +58,7 @@
 | تسجّل خلاص ولا تأكّد أنّه وصل | send | payment | شحال؟ · بأشنو؟ | high | wallet | /api/payment |
 | تأكّد نمرتك ولا بريدك | view | account | — | low | بلا صفحةٍ **عمدًا** ⁽¹⁾ | /api/verify |
 | تدخل ولا تصايب حساب | create | account | شنو النمرة؟ | medium | profile | /api/auth |
-| تبدّل النمرة ديالك | update | phone | شنو النمرة؟ | high | profile | /api/auth |
+| تبدّل النمرة ديالك | update | phone | شنو النمرة؟ | high | settings | /api/settings |
 | تبدّل العنوان | update | address | شنو العنوان؟ | medium | settings | /api/settings |
 | تبدّل اللغة | update | language | — | low | settings | — |
 | تبدّل الإعدادات | update | settings | — | medium | settings | /api/settings |
@@ -164,6 +164,7 @@
 | وريني اللغة | view | language | — |
 | وريني حسابي | view | account | — |
 | وريني المحل | view | workspace | — |
+| وريني اسم المحل | view | shop_name | — |
 | وريني وقت الخدمة | view | shop_hours | — |
 | وريني التوصيل | view | delivery | — |
 | وريني الواتساب | view | channel | — |
@@ -182,6 +183,7 @@
 | زيد اللغة | create | language | — |
 | زيد حسابي | create | account | — |
 | زيد المحل | create | workspace | — |
+| زيد اسم المحل | create | shop_name | — |
 | زيد وقت الخدمة | create | shop_hours | — |
 | زيد التوصيل | create | delivery | — |
 | زيد الواتساب | create | channel | — |
@@ -200,6 +202,7 @@
 | بدل اللغة | update | language | — |
 | بدل حسابي | update | account | — |
 | بدل المحل | update | workspace | — |
+| بدل اسم المحل | update | shop_name | — |
 | بدل وقت الخدمة | update | shop_hours | — |
 | بدل التوصيل | update | delivery | — |
 | بدل الواتساب | update | channel | — |
@@ -218,6 +221,7 @@
 | حيد اللغة | delete | language | تأكيد: هذا لا يُسترجَع |
 | حيد حسابي | delete | account | تأكيد: هذا لا يُسترجَع |
 | حيد المحل | delete | workspace | تأكيد: هذا لا يُسترجَع |
+| حيد اسم المحل | delete | shop_name | تأكيد: هذا لا يُسترجَع |
 | حيد وقت الخدمة | delete | shop_hours | تأكيد: هذا لا يُسترجَع |
 | حيد التوصيل | delete | delivery | تأكيد: هذا لا يُسترجَع |
 | حيد الواتساب | delete | channel | تأكيد: هذا لا يُسترجَع |
@@ -236,6 +240,7 @@
 | شارك اللغة | share | language | — |
 | شارك حسابي | share | account | — |
 | شارك المحل | share | workspace | — |
+| شارك اسم المحل | share | shop_name | — |
 | شارك وقت الخدمة | share | shop_hours | — |
 | شارك التوصيل | share | delivery | — |
 | شارك الواتساب | share | channel | — |
@@ -254,6 +259,7 @@
 | صيفط اللغة | send | language | — |
 | صيفط حسابي | send | account | — |
 | صيفط المحل | send | workspace | — |
+| صيفط اسم المحل | send | shop_name | — |
 | صيفط وقت الخدمة | send | shop_hours | — |
 | صيفط التوصيل | send | delivery | — |
 | صيفط الواتساب | send | channel | — |

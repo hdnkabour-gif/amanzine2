@@ -24,6 +24,7 @@ import {
 import UnderstandingCard from '../components/UnderstandingCard';
 import { correctionOptions, applyCorrection, buildMisread, thankFor, type CorrectionOption } from '../lib/correction';
 import { abilityFor, entityAccepts, VERB_MAP, OBJECT_MAP } from '../lib/abilities';
+import FocusedEdit, { isFocusable, type FocusField } from '../components/FocusedEdit';
 import { readPersonFacts, rememberFacts, forgetFact, describeFacts } from '../lib/personFacts';
 import { decideExecution } from '../lib/executionPolicy';
 import { reportMisread } from '../lib/journey';
@@ -94,6 +95,12 @@ export default function LivingHome() {
    *   والكتالوجُ يعرف البابَ الصحيح ولم يكن أحدٌ يسأله.
    */
   const [actionDest, setActionDest] = useState<Page | null>(null);
+  // ── **الحقلُ المطلوبُ وحدَه** ─────────────────────────────────
+  //   من قال «بدّل النمرة ديالي» يُفتَح له حقلُ النمرة هنا، ولا يُنقَل
+  //   إلى صفحةِ إعداداتٍ فيها خمسون حقلًا يبحث فيها عمّا سمّاه للتوّ.
+  //   والحقلُ يأتي من `verdict.dest.focus` — أي من هدف الفعل المقروء،
+  //   فلا قائمةَ ثانيةً هنا تتباعد عن قارئ اللغة.
+  const [focusField, setFocusField] = useState<FocusField | null>(null);
   // ما تعلّمناه عن الشخص من جملته — يُعرَض ليراجعه، لا ليُخفى.
   const [learned, setLearned] = useState('');
 
@@ -265,6 +272,11 @@ export default function LivingHome() {
     // فلا يُطبَع نصُّه فوقها — نصٌّ ورسمٌ يقولان الشيءَ نفسَه ازدواجٌ لا تأكيد.
     setSaid(verdict.verdict === 'explain' || verdict.verdict === 'refuse' ? verdict.say : '');
     setActionDest(verdict.dest?.page ?? null);
+    //   ولا تُفتَح النافذةُ إلّا على حكمٍ يُنفَّذ أو يُؤكَّد: `ask` تعني أنّ
+    //   شيئًا ناقصٌ فيُسأل عنه أوّلًا، وفتحُ حقلٍ فوق سؤالٍ يُربك.
+    setFocusField(
+      (verdict.verdict === 'execute' || verdict.verdict === 'confirm')
+        && isFocusable(verdict.dest?.focus) ? verdict.dest!.focus as FocusField : null);
     setDecision(dec);
     // ── حقائقُ الشخص ────────────────────────────────────────────
     //   «أنا خضار» تصريحٌ يُحفَظ، و«بغيت نبيع طوموبيل» نيّةٌ لا تُحفَظ —
@@ -718,6 +730,9 @@ export default function LivingHome() {
           </div>
         </div>
       )}
+
+      {/* الحقلُ المطلوبُ وحدَه — فوق المشهد، بلا مغادرةِ ما كتبه للتوّ. */}
+      {focusField && <FocusedEdit field={focusField} onClose={() => setFocusField(null)} />}
     </div>
   );
 }

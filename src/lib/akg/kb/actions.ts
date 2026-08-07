@@ -37,7 +37,7 @@ export type ActionVerb = 'view' | 'create' | 'update' | 'delete' | 'share' | 'se
 /** بماذا. */
 export type ActionObject =
   | 'phone' | 'language' | 'password' | 'account'      // إعداداتُ الشخص
-  | 'workspace' | 'shop_name' | 'shop_hours' | 'delivery' | 'settings'  // إعداداتُ النشاط
+  | 'workspace' | 'shop_name' | 'shop_hours' | 'address' | 'delivery' | 'settings'  // إعداداتُ النشاط
   | 'product' | 'price' | 'stock' | 'photo' | 'content' // الكتالوج
   | 'channel'                                          // قنواتُ التواصل المربوطة
   | 'orders' | 'customers' | 'coupon' | 'wallet';      // العمل
@@ -119,9 +119,18 @@ const OBJECTS: { object: ActionObject; scope: ActionScope; terms: string[]; need
   { object: 'account',  scope: 'user', terms: ['الحساب ديالي', 'حسابي', 'الكونط ديالي', 'mon compte'] },
 
   // النشاط
-  { object: 'workspace',  scope: 'workspace', terms: ['محل', 'المحل', 'متجر', 'المتجر', 'حانوت', 'الحانوت', 'نشاط', 'boutique', 'magasin'] },
+  // **الأخصُّ قبل الأعمّ — والملفُّ يقول ذلك ثمّ يخالفه.** كان `workspace`
+  //   أوّلًا، وفيه «المحل». فـ«بدّل **اسم المحل**» تُقرأ `update/workspace`
+  //   ويضيع «الاسم» — أي تُفتَح إعداداتُ المحلّ كلُّها لمن سمّى حقلًا واحدًا.
+  //   ولم يظهر ذلك قبلَ اليومَ لأنّ الوجهةَ كانت صفحةً في الحالتَين.
   { object: 'shop_name',  scope: 'workspace', terms: ['اسم المحل', 'سميه المحل', 'اسم المتجر'] },
   { object: 'shop_hours', scope: 'workspace', terms: ['وقت الخدمه', 'ساعات العمل', 'وقتاش كنحل', 'التوقيت'] },
+  { object: 'workspace',  scope: 'workspace', terms: ['محل', 'المحل', 'متجر', 'المتجر', 'حانوت', 'الحانوت', 'نشاط', 'boutique', 'magasin'] },
+  // **العنوانُ كان قدرةً بلا كلمة.** `CHANGE_ADDRESS` مُعلَنةٌ منذ زمن و
+  //   `brand.address` يُحفَظ ويُعرَض للزبون ويدخل في حساب التوصيل — ولم يكن
+  //   في قائمة الأهداف هدفٌ اسمُه «عنوان». فـ«بغيت نبدل العنوان» تُقرأ
+  //   `update/settings` ⇒ **«شنو بغيتي تبدّل؟»** لمن سمّاه للتوّ.
+  { object: 'address',    scope: 'workspace', terms: ['العنوان', 'العنوان ديال المحل', 'لادريس', 'adresse'] },
   { object: 'delivery',   scope: 'workspace', terms: ['التوصيل', 'شركه التوصيل', 'ثمن التوصيل', 'livraison'] },
   // **وربطُ الواتساب فعلٌ إداريٌّ وله صفحةٌ تعمل** (`ConnectionsPage`).
   //   كان «بغيت نربط الواتساب ديالي بالحساب» يُقرأ **عرضَ خدمة** ويُساق إلى
@@ -269,7 +278,7 @@ export function describeAction(a: ActionRead): string {
   const O: Record<ActionObject, string> = {
     phone: 'رقم الهاتف', language: 'اللغة', password: 'كلمة السرّ', account: 'الحساب',
     workspace: 'المحلّ', shop_name: 'اسم المحلّ', shop_hours: 'وقت الخدمة',
-    delivery: 'التوصيل', settings: 'الإعدادات',
+    address: 'العنوان', delivery: 'التوصيل', settings: 'الإعدادات',
     product: 'المنتوج', price: 'الثمن', stock: 'المخزون', photo: 'الصورة',
     content: 'الوصف والهاشتاگ',
     channel: 'القنوات المربوطة',

@@ -63,3 +63,5 @@ import './symptomBoundary.test';
 import './actionConfidence.test';
 // ثلاثَ عشرةَ جملةً كتبها صاحبُ المشروع — مختلطةً عمدًا كما يتكلّم الناس.
 import './ownerSentences.test';
+// النافذةُ المركَّزة: تفتح الحقلَ المطلوبَ وحدَه لا الصفحةَ كاملةً.
+import './focusedEdit.test';

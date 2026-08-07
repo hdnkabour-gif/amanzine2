@@ -236,9 +236,22 @@ export const ABILITIES: Ability[] = [
     risk: 'low', needs: [], auth: false, page: null, api: '/api/verify' },
   { id: 'SIGN_IN', verb: 'create', entity: 'account', say: 'تدخل ولا تصايب حساب',
     risk: 'medium', needs: ['phone'], auth: false, page: 'profile', api: '/api/auth' },
+  // ── **النمرةُ كانت تشير إلى بابٍ لا يفتحها** ────────────────────
+  //
+  //   قِيس ثلاثةَ أشياءَ فسقطت كلُّها: جدولُ `users` **بلا عمود هاتف**، و
+  //   `ProfilePage` **بلا حقل هاتف** إطلاقًا، و`/api/auth` فيه `request-otp`
+  //   و`verify-otp` وحدَهما — يُرسلان رمزًا إلى **البريد** ولا يكتبان نمرةً
+  //   في أيّ مكان. فقدرةٌ تقول «تبدّل النمرة ديالك» وتشير إلى ثلاثةِ فراغات.
+  //
+  //   والنمرةُ الوحيدةُ الحقيقيّةُ في التطبيق هي `settings.brand.phone`:
+  //   تظهر في المتجر، وفي رسالة واتساب للزبون، وفي جاهزيّة المحلّ. وهي ما
+  //   يعنيه التاجرُ حين يقول «بدّل النمرة ديالي» — الدخولُ بالبريد لا بها.
+  //
+  //   ومسارُها `/api/settings` مع تحقّقٍ عبر `/api/verify` (`phone_change`)،
+  //   وهو قائمٌ ويعمل في `SettingsPage`. والنافذةُ المركَّزةُ تستعمله نفسَه.
   { id: 'CHANGE_PHONE', verb: 'update', entity: 'phone', say: 'تبدّل النمرة ديالك',
-    // النمرةُ هي الهويّةُ والدخول — خطؤها يقفل الحسابَ على صاحبه.
-    risk: 'high', needs: ['phone'], auth: true, page: 'profile', api: '/api/auth' },
+    // النمرةُ قناةُ الزبون الوحيدة — خطؤها يقطع الاتّصالَ بلا أن يشتكي أحد.
+    risk: 'high', needs: ['phone'], auth: true, page: 'settings', api: '/api/settings' },
   // العنوانُ يعيش في `SettingsPage` (`brand.address`) — و`ProfilePage` لا
   // تحوي حقلَ عنوانٍ إطلاقًا. فكانت الوجهةُ صفحةً لا يجد فيها الإنسانُ ما جاء له.
   { id: 'CHANGE_ADDRESS', verb: 'update', entity: 'address', say: 'تبدّل العنوان',
@@ -564,6 +577,7 @@ export const VERB_MAP: Record<string, AbilityVerb> = {
 export const OBJECT_MAP: Record<string, AbilityEntity> = {
   phone: 'phone', language: 'language', password: 'account', account: 'account',
   workspace: 'workspace', shop_name: 'workspace', shop_hours: 'workspace',
+  address: 'address',
   delivery: 'delivery_provider', settings: 'settings',
   product: 'product', price: 'product', stock: 'product', photo: 'media',
   // **ووصفُ المنتوج وهاشتاگه كيانٌ قائمٌ بذاته — لا «منتوج».**
