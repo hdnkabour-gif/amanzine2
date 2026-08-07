@@ -152,7 +152,9 @@ const VERBS: { verb: ActionVerb; terms: string[] }[] = [
 // مستقلّ، ولو سبقته «الإعدادات» العامّةُ لابتلعته.
 const OBJECTS: { object: ActionObject; scope: ActionScope; terms: string[]; needs?: string[] }[] = [
   // إعداداتُ الشخص
-  { object: 'phone',    scope: 'user', terms: ['رقم الهاتف', 'رقم التيليفون', 'النمرة', 'رقمي', 'الهاتف ديالي', 'numero'] },
+  // «نمرة» عاريةً بلا «ال» — «بدّل **نمرة** ديالي» كما تُكتَب باللاتينيّة
+  //   (`nemra`). نفسُ نقصِ المجرّد الذي عُولج في «ثمن» و«تصويرة».
+  { object: 'phone',    scope: 'user', terms: ['رقم الهاتف', 'رقم التيليفون', 'النمرة', 'نمرة', 'رقمي', 'الهاتف ديالي', 'numero'] },
   { object: 'password', scope: 'user', terms: ['كلمة السر', 'كلمه السر', 'الباسوورد', 'mot de passe', 'password'] },
   { object: 'language', scope: 'user', terms: ['اللغه', 'اللغة', 'لغه التطبيق', 'بالعربيه', 'بالفرنسيه', 'langue'] },
   { object: 'account',  scope: 'user', terms: ['الحساب ديالي', 'حسابي', 'الكونط ديالي', 'mon compte'] },
@@ -162,7 +164,9 @@ const OBJECTS: { object: ActionObject; scope: ActionScope; terms: string[]; need
   //   أوّلًا، وفيه «المحل». فـ«بدّل **اسم المحل**» تُقرأ `update/workspace`
   //   ويضيع «الاسم» — أي تُفتَح إعداداتُ المحلّ كلُّها لمن سمّى حقلًا واحدًا.
   //   ولم يظهر ذلك قبلَ اليومَ لأنّ الوجهةَ كانت صفحةً في الحالتَين.
-  { object: 'shop_name',  scope: 'workspace', terms: ['اسم المحل', 'سميه المحل', 'اسم المتجر'] },
+  //   و«السميّة» وحدَها اسمُ المحلّ في الدارجة — «بدّل **السمية** ديال المحل»
+  //   كانت تُقرأ `workspace` فتُفتَح الصفحةُ كاملةً لمن سمّى خانةً واحدة.
+  { object: 'shop_name',  scope: 'workspace', terms: ['اسم المحل', 'سميه المحل', 'اسم المتجر', 'السميه', 'سميه'] },
   { object: 'shop_hours', scope: 'workspace', terms: ['وقت الخدمه', 'ساعات العمل', 'وقتاش كنحل', 'التوقيت'] },
   { object: 'workspace',  scope: 'workspace', terms: ['محل', 'المحل', 'متجر', 'المتجر', 'حانوت', 'الحانوت', 'نشاط', 'boutique', 'magasin'] },
   // **العنوانُ كان قدرةً بلا كلمة.** `CHANGE_ADDRESS` مُعلَنةٌ منذ زمن و

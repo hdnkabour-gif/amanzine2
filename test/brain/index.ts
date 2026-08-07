@@ -75,3 +75,5 @@ import './conversation.test';
 import './direction.test';
 // رحلةُ مستخدمٍ عبر أيّام — جملٌ كتبها صاحبُ المشروع لا نموذجٌ لغويّ.
 import './ownerJourney.test';
+// من شاشات صاحب المشروع: الحَكَمُ يقرأ صحيحًا والشاشةُ تسأل كأنّها لم تقرأ.
+import './screens.test';
