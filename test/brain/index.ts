@@ -69,3 +69,5 @@ import './focusedEdit.test';
 import './tenSentences.test';
 // حالُ السلعة: جديدةٌ أم مستعملة — أوّلُ ما يسأل عنه المشتري بعد الثمن.
 import './condition.test';
+// المحادثةُ كيانٌ يُدار: زرّان يُضغطان كلَّ يومٍ ولا كلمةَ تبلغهما.
+import './conversation.test';

@@ -43,7 +43,7 @@ export type AbilityVerb =
 /** الكيان — على ماذا يقع الفعل. */
 export type AbilityEntity =
   | 'product' | 'service' | 'listing' | 'workspace' | 'order' | 'shipment'
-  | 'customer' | 'booking' | 'coupon' | 'wallet' | 'payment' | 'message'
+  | 'customer' | 'booking' | 'coupon' | 'wallet' | 'payment' | 'message' | 'conversation'
   | 'account' | 'phone' | 'address' | 'language' | 'settings' | 'delivery_provider'
   | 'media' | 'content' | 'channel' | 'knowledge' | 'report' | 'need' | 'provider';
 
@@ -363,6 +363,9 @@ export const ABILITIES: Ability[] = [
     risk: 'medium', needs: [], auth: true, page: 'bookings', api: '/api/bookings' },
   { id: 'UPDATE_DELIVERY_PROVIDER', verb: 'update', entity: 'delivery_provider', say: 'تبدّل إعدادات شركة التوصيل',
     risk: 'medium', needs: ['provider'], auth: true, page: 'delivery', api: '/api/delivery' },
+  // التثبيتُ **يُقلَب بضغطة** — فخطورتُه دنيا، ولا يُؤكَّد ما يُلغى بمثله.
+  { id: 'PIN_CONVERSATION', verb: 'update', entity: 'conversation', say: 'تثبّت محادثة ولا تحيّد التثبيت',
+    risk: 'low', needs: [], auth: true, page: 'conversations', api: '/api/conversations' },
 
   // ④ يحذف — **كلُّها خطِرةٌ ولا تُسترجَع** ────────────────────────
   { id: 'DELETE_COUPON', verb: 'delete', entity: 'coupon', say: 'تحيّد تخفيض',
@@ -373,6 +376,8 @@ export const ABILITIES: Ability[] = [
     risk: 'high', needs: ['trade'], auth: true, page: 'services', api: '/api/providers' },
   { id: 'DELETE_DELIVERY_PROVIDER', verb: 'delete', entity: 'delivery_provider', say: 'تحيّد شركة التوصيل',
     risk: 'high', needs: ['provider'], auth: true, page: 'delivery', api: '/api/delivery' },
+  { id: 'DELETE_CONVERSATION', verb: 'delete', entity: 'conversation', say: 'تحيّد محادثة',
+    risk: 'high', needs: [], auth: true, page: 'conversations', api: '/api/conversations' },
 
   // ⑤ يرسل خارج نفسه — يخرج للناس فلا يُسترجَع ──────────────────
   { id: 'SHARE_WORKSPACE', verb: 'send', entity: 'workspace', say: 'تشارك رابط محلّك',
@@ -506,6 +511,10 @@ export const ENTITY_VERBS: Record<AbilityEntity, AbilityVerb[]> = {
   wallet:   ['view'],
   payment:  ['send', 'view'],
   message:  ['create', 'view', 'send'],
+  // المحادثةُ وعاءُ الرسائل لا رسالة: تُثبَّت وتُحيَّد. وإنشاؤها فعلُ
+  //   `CREATE_MESSAGE` نفسِه (أوّلُ رسالةٍ تفتح محادثة) فلا يُكرَّر هنا،
+  //   وعرضُها `VIEW_MESSAGES` — كيانٌ واحدٌ لا يُعلَن مرّتَين.
+  conversation: ['update', 'delete'],
   // الحساب: يُنشأ ويُعدَّل ويُقرأ. حذفُه ليس مبنيًّا بعد — فلا يُدَّعى.
   account:  ['create', 'view'],
   // النمرةُ واللغةُ والعنوانُ صفاتٌ تُبدَّل وتُقرأ — لا تُنشأ ولا تُحذَف ولا تُرسَل.
@@ -592,6 +601,7 @@ export const OBJECT_MAP: Record<string, AbilityEntity> = {
   //   الكتالوج قدرةٌ تبلغهما. طبقةٌ تعمل ولا أحدَ يعرف أنّها تعمل.
   content: 'content', channel: 'channel',
   orders: 'order', customers: 'customer', coupon: 'coupon', wallet: 'wallet',
+  conversation: 'conversation',
 };
 
 /** نيّةُ `needEngine` ⇒ قدرة. النيّاتُ أخشنُ من الأفعال، فتُطابَق مباشرةً. */

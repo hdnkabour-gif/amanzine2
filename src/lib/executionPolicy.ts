@@ -19,7 +19,7 @@
 // ============================================================
 
 import { CONFIDENCE } from './clarify';
-import { RISK_THRESHOLD, unmetNeeds, NEED_ASK, type Ability } from './abilities';
+import { RISK_THRESHOLD, unmetNeeds, NEED_ASK, OBJECT_MAP, type Ability } from './abilities';
 import type { Understanding } from './akg/kb';
 import type { Page } from '../types';
 import type { ActionObject } from './akg/kb/actions';
@@ -104,6 +104,16 @@ export interface Decision {
 const DESTRUCTIVE = new Set(['delete']);
 
 /**
+ * **حدُّ التصديق: دون هذا لا يُبنى على القراءة شيء.**
+ *
+ *   كان مكتوبًا داخلَ فرعٍ واحدٍ من الحكم فطُبِّق هناك وحدَه، ونُسي في
+ *   الحقل (`focus`) — فمنعت القراءةُ الضعيفةُ من أن تُنتج سؤالًا وسُمح لها
+ *   أن تُنتج حقلًا. وحدٌّ يُكتَب في موضعٍ يُنسى في الباقي: هذا سببُ رفعه
+ *   إلى الملفّ.
+ */
+const READ_ENOUGH = 0.5;
+
+/**
  * الحكمُ الواحد.
  *
  * @param u ما فهمته الطبقات
@@ -155,8 +165,34 @@ export function decideExecution(
   //   يريد بيعَ منتوجٍ تُفتَح له **نافذةُ إضافة منتوج**، لا لا شيء.
   //   و`focus` يُرفَق حين يسمّي الإنسانُ حقلًا بعينه: هدفُ الفعل المقروء هو
   //   اسمُ الحقل، فلا قائمةَ ثانية. ويُسقَط مع صفحة `home` كما تُسقَط الوجهة.
+  //
+  //   ── **والحقلُ لا يُؤخَذ من قراءةٍ لا تكفي** (عطبٌ قِيس) ────────
+  //
+  //     «بغيت نبيع شي حاجة جديدة» ⇒ وجهة `publish` وحقل **`settings`**
+  //
+  //   و«جديد» في هذه الجملة صفةُ سلعةٍ لا أمرَ إنشاء، فتُقرأ فعلًا بلا هدفٍ
+  //   ويسقط على `settings` بثقة **٠٫٣٥**. والصفحةُ صحيحةٌ (`SELL_PRODUCT`
+  //   من النيّة) والحقلُ خاطئ — فتُفتَح خانةُ إعداداتٍ لمن يريد أن يبيع.
+  //
+  //   وشرطان يمنعانه، وكلاهما مكتوبٌ في هذا الملفّ أصلًا:
+  //
+  //   ① **الحدُّ نفسُه** (`READ_ENOUGH`): قراءةٌ دون ٠٫٥ لا تُنتج «ما نقدرش»
+  //      ولا سؤالًا — ولا يصحّ أن تُنتج حقلًا. كان الحدُّ مطبَّقًا في موضعَين
+  //      ومنسيًّا في الثالث.
+  //   ② **اتّفاقُ المصدرَين**: البابُ من القدرة، فليكن الحقلُ من القراءة
+  //      التي **أنتجت** تلك القدرة. `abilityFor` تجرّب الفعلَ ثمّ النيّة،
+  //      فإن جاءت القدرةُ من النيّة كان هدفُ الفعل شيئًا آخرَ تمامًا —
+  //      وحقلٌ من قراءةٍ وبابٌ من أخرى تركيبٌ لا أحدَ قاله.
+  //
+  //   ولا يمسّ هذا البابَ المقصود: «بدّل اسم المحلّ» هدفُها `shop_name`
+  //   وكيانُها `workspace` وقدرتُها `UPDATE_WORKSPACE` — اتّفقا، فيبقى
+  //   الحقلُ أخصَّ من الصفحة كما وُضع.
+  const object = u.action?.object;
+  const focusOk = !!object
+    && (u.action?.confidence ?? 0) >= READ_ENOUGH
+    && !!match && OBJECT_MAP[object] === match.entity;
   const dest = match?.page && match.page !== 'home'
-    ? { page: match.page, ...(u.action?.object ? { focus: u.action.object } : {}) }
+    ? { page: match.page, ...(focusOk ? { focus: object } : {}) }
     : undefined;
 
   // ① صيغةُ الكلام تسبق كلَّ شيء: من يحكي عن غيره لا يُنفَّذ له فعلٌ ولو
@@ -237,7 +273,6 @@ export function decideExecution(
     //   تزيد؟». والقدرةُ مطابِقةٌ تمامًا (يعرف حرفتَه: حلويات) — فيُسأل مَن
     //   قال حرفتَه سؤالًا وُلد من سوء قراءة. ونفسُ الحدّ (٠٫٥) الذي يمنع
     //   القراءةَ الضعيفة أن تُنتج «ما نقدرش» يمنعها أن تُنتج سؤالًا.
-    const READ_ENOUGH = 0.5;
     const heard = (u.action?.confidence ?? 0) >= READ_ENOUGH ? (u.action?.needs || []) : [];
     const extra = heard.find(n => !/^تأكيد/.test(n) && !(pointed && /منتج|منتوج/.test(n)));
     if (extra) {

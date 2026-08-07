@@ -10,8 +10,8 @@
 | ما هو | العدد |
 |---|---|
 | فعلًا يملكه الإنسان (بلا بنيةٍ داخليّة) | **٣١** |
-| منها **يبلغه الكلامُ** | **٢٣** |
-| منها لا يبلغه الكلامُ بعد | **٤** |
+| منها **يبلغه الكلامُ** | **٢٥** |
+| منها لا يبلغه الكلامُ بعد | **٢** |
 | فعلًا لا تستعمله أيُّ صفحة | **٤** |
 | صفحةً مقروءة | **٢٦** |
 
@@ -40,8 +40,8 @@
 | `trackOrder` | view | orders | ✅ تشوف الطلبات |
 | `sendMessage` | send | conversations | ✅ تهضر مع زبون |
 | `addConversation` | create | conversations | ✅ تصيفط رسالة لزبون |
-| `updateConversation` | update | conversations | ❌ **ما كايناش** |
-| `deleteConversation` | delete | conversations | ❌ **ما كايناش** |
+| `updateConversation` | update | conversations | ✅ تثبّت محادثة ولا تحيّد التثبيت |
+| `deleteConversation` | delete | conversations | ✅ تحيّد محادثة |
 | `addTemplate` | create | settings | ✅ تصايب المحلّ ديالك |
 | `updateTemplate` | update | settings | ✅ تبدّل معلومات المحلّ |
 | `deleteTemplate` | delete | settings | ✅ تحيّد المحلّ ديالك |
@@ -56,8 +56,6 @@
 كلُّ سطرٍ هنا **عملٌ حقيقيّ**: الإنسانُ يفعله بيده في صفحةٍ ولا يستطيع أن يطلبه بالكلام.
 
 · `login` (بلا صيغة) — في: delivery · settings
-· `updateConversation` (update) — في: conversations
-· `deleteConversation` (delete) — في: conversations
 · `resetToDemo` (بلا صيغة) — في: settings
 
 ## ④ أفعالٌ لا تستعملها صفحة

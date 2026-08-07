@@ -11,7 +11,7 @@
 |---|---|
 | مفهومًا يفهمه التطبيق | **٢٠٧** |
 | مصطلحًا مميَّزًا (كلَّ اللغات) | **٢٩٧٩** |
-| قدرةً يستطيع تنفيذها | **٨٩** |
+| قدرةً يستطيع تنفيذها | **٩١** |
 | زوجَ فعلٍ×هدفٍ مقروءًا | **١١٢** |
 | غايةَ حياةٍ تُقرأ | **٧** |
 | مدينةً كبرى بأحيائها | **٤٥** |
@@ -101,10 +101,12 @@
 | تبدّل تخفيض | update | coupon | — | medium | coupons | /api/coupons |
 | تبدّل موعد | update | booking | — | medium | bookings | /api/bookings |
 | تبدّل إعدادات شركة التوصيل | update | delivery_provider | أيّ شركة؟ | medium | delivery | /api/delivery |
+| تثبّت محادثة ولا تحيّد التثبيت | update | conversation | — | low | conversations | /api/conversations |
 | تحيّد تخفيض | delete | coupon | — | high | coupons | /api/coupons |
 | تحيّد زبون | delete | customer | مع من؟ | high | customers | /api/customers |
 | تحيّد خدمة | delete | service | شنو نوع النشاط ولا الخدمة؟ | high | services | /api/providers |
 | تحيّد شركة التوصيل | delete | delivery_provider | أيّ شركة؟ | high | delivery | /api/delivery |
+| تحيّد محادثة | delete | conversation | — | high | conversations | /api/conversations |
 | تشارك رابط محلّك | send | workspace | — | low | settings | /api/settings |
 | تشارك رابط منتوج | send | product | أيّ منتوج؟ | low | products | /api/products |
 | تصيفط تأكيد الطلب للزبون | send | order | أيّ طلب؟ | medium | orders | /api/orders |
@@ -139,6 +141,7 @@
 | wallet | view |
 | payment | send · view |
 | message | create · view · send |
+| conversation | update · delete |
 | account | create · view |
 | phone | update · view |
 | address | update · view |

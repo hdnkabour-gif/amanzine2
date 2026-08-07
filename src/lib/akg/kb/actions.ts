@@ -41,6 +41,7 @@ export type ActionObject =
   | 'product' | 'price' | 'stock' | 'photo' | 'content' // الكتالوج
   | 'channel'                                          // قنواتُ التواصل المربوطة
   | 'shipment'                                         // شحنةٌ تُنشأ عند شركة
+  | 'conversation'                                     // محادثةٌ تُدار: تُثبَّت وتُحيَّد
   | 'orders' | 'customers' | 'coupon' | 'wallet';      // العمل
 
 /** لمن يعود الهدف: الشخصُ أم نشاطُه؟ */
@@ -75,6 +76,18 @@ export interface ActionRead {
    *   بالرفض — وهما نقيضان على مالِ الناس. فتُقرأ الحالةُ صراحةً.
    */
   status?: 'approved' | 'rejected' | 'delivered';
+  /**
+   * **التثبيتُ في المحادثة** — والفعلُ في الصفحة زرٌّ **يقلب**، لا فعلان.
+   *
+   *   `updateConversation(id, { pinned: !conv.pinned })` سطرٌ واحدٌ في
+   *   `MessagesPage` يُثبِّت ويرفع التثبيت. ولو اكتُفي بالفعل (`update`)
+   *   لَما عُرف أيُّ الاتّجاهَين قُصد — وهما نقيضان كما الموافقةُ والرفض.
+   *
+   *   ولذلك تُقلَب هنا صيغةُ الفعل: «**حيّد** التثبيت» فعلُها المنطوقُ حذفٌ
+   *   ومرادُها تعديل. فمن قرأ الحذفَ حرفيًّا مسح المحادثةَ كلَّها لمن أراد
+   *   نزعَ دبّوسٍ عنها — وذاك لا يُسترجَع، والدبّوسُ يُعاد بضغطة.
+   */
+  pinned?: boolean;
   confidence: number;
   /** لماذا قُرئت هكذا — «كلُّ شيءٍ قابل للشرح». */
   reason: string;
@@ -198,6 +211,25 @@ const OBJECTS: { object: ActionObject; scope: ActionScope; terms: string[]; need
   //   الترتيب وسرق «عندي كولي رتور» من `orders`. قائمتان لكلمةٍ واحدةٍ
   //   تتباعدان، وأسقطني حارسٌ قائمٌ في أوّل تشغيل.
                             'امانه', 'الامانه', 'باكيه'] },
+  // **المحادثةُ كيانٌ يُدار، لا رسالةٌ تُرسَل.**
+  //
+  //   جردُ الصفحات (`REPORTS/PAGE_ACTIONS.md`) كشفهما: `deleteConversation`
+  //   و`updateConversation` زرّان يضغطهما التاجرُ في `MessagesPage` — حذفٌ
+  //   وتثبيت — ولم تكن في اللغة كلمةٌ واحدةٌ تبلغهما. فكانت «حيد هاد
+  //   المحادثة» تُقرأ `delete/settings` ⇒ **«شنو بغيتي تحيّد؟»** لمن سمّى
+  //   ما يريد حذفَه في الجملة نفسِها. وهو «يعرف ثمّ يسأل» في أوضح صوره.
+  //
+  //   ── ولمَ تسبق `customers` ──
+  //   «المحادثة ديال **الزبون**» تحمل كلمتَي القائمتَين، و`OBJECTS.find`
+  //   تأخذ أوّلَ مطابِق. فلو سبق الأعمُّ لَابتلع الأخصَّ وصار طلبُ حذفِ
+  //   محادثةٍ حذفَ **زبون** — نفسُ قاعدة هذا الملفّ: الأخصُّ قبل الأعمّ.
+  //
+  //   و«التثبيت» في هذه القائمة لأنّ `pinned` صفةٌ لا يملكها في التطبيق
+  //   كلِّه غيرُ `Conversation` (`types.ts`). فمن قال «حيد التثبيت» بلا
+  //   ذكرِ محادثةٍ لم يترك لبسًا.
+  { object: 'conversation', scope: 'workspace', terms: ['المحادثة', 'محادثة', 'المحادثات', 'الشات', 'شات',
+                            'الدردشة', 'دردشة', 'conversation', 'chat', 'discussion',
+                            'التثبيت', 'تثبيت'] },
   { object: 'customers', scope: 'workspace', terms: ['الزبناء', 'الزباين', 'العملاء', 'زبون', 'كليان', 'clients', 'client'] },
   { object: 'coupon',    scope: 'workspace', terms: ['كوبون', 'الكوبونات', 'تخفيض', 'خصم', 'promo'] },
   { object: 'wallet',    scope: 'workspace', terms: ['المحفظه', 'الرصيد', 'الفلوس ديالي', 'portefeuille'] },
@@ -233,6 +265,21 @@ export function readAction(raw: string): ActionRead | null {
   //   يطلب إنشاءَه. وثقتُها دون المنطوق (٠٫٦٠) لأنّ الفعلَ مُستنتَجٌ لا مقول.
   const GENERATED: ActionObject[] = ['content', 'photo'];
   if (!v) {
+    // ── **«ثبّت» فعلٌ لا يقع إلّا على محادثة** ───────────────────
+    //
+    //   ولذلك لا يدخل قائمةَ الأفعال العامّة: «ثبت الطلب» في الدارجة
+    //   تصديقٌ عليه لا تدبيسٌ له، ولو أُعلن فعلًا عامًّا لَقلب موافقةَ
+    //   التاجر على طلبٍ إلى تعديلٍ لا معنى له. فيُقرأ هنا وحدَه، مقيَّدًا
+    //   بهدفٍ واحدٍ صرّح به المتكلّم.
+    const pin = readPin(t);
+    const conv = pin !== undefined && OBJECTS.find(x => x.object === 'conversation' && hits(t, x.terms));
+    if (conv) {
+      return {
+        verb: 'update', object: 'conversation', scope: 'workspace',
+        needs: [], ref: readRef(t), pinned: pin, confidence: 0.75,
+        reason: `«${hits(t, conv.terms)}» + ${pin ? 'تثبيت' : 'رفعُ تثبيت'} — والفعلُ مفهومٌ من الاتّجاه`,
+      };
+    }
     const g = OBJECTS.find(x => GENERATED.includes(x.object) && hits(t, x.terms));
     if (!g) return null;
     return {
@@ -294,11 +341,41 @@ export function readAction(raw: string): ActionRead | null {
 
   const ref = readRef(t);
   const status = object === 'orders' ? readOrderStatus(t) : undefined;
+
+  // ── **«حيّد التثبيت» ليست حذفًا** ──────────────────────────────
+  //
+  //   الفعلُ المنطوقُ حذفٌ والمرادُ تعديل. فمن قرأ الحذفَ حرفيًّا مسح
+  //   المحادثةَ كلَّها لمن أراد نزعَ دبّوسٍ عنها — والدبّوسُ يُعاد بضغطة،
+  //   والمحادثةُ لا. فيُقلَب الفعلُ حين يُقرأ اتّجاهُ التثبيت صراحةً.
+  const pinned = object === 'conversation' ? readPin(t) : undefined;
+  const verb = pinned === undefined ? v.verb : 'update' as ActionVerb;
+  //   ولا تأكيدَ على تعديلٍ يُقلَب بضغطة: سطرُ «هذا لا يُسترجَع» أُضيف
+  //   أعلاه للحذف، ويُنزَع مع الفعل الذي نُزع.
+  const finalNeeds = verb === v.verb ? needs : needs.filter(x => !x.startsWith('تأكيد'));
+
   return {
-    verb: v.verb, object, scope, needs, ref, status,
-    confidence: needs.length ? 0.7 : 0.85,
-    reason: `«${vTerm}» + «${oTerm}»${ref ? ` + إشارة «${ref === 'this' ? 'هاد' : 'آخر'}»` : ''}`,
+    verb, object, scope, needs: finalNeeds, ref, status, pinned,
+    confidence: finalNeeds.length ? 0.7 : 0.85,
+    reason: pinned !== undefined
+      ? `«${oTerm}» + ${pinned ? 'تثبيت' : 'رفعُ تثبيت'}`
+      : `«${vTerm}» + «${oTerm}»${ref ? ` + إشارة «${ref === 'this' ? 'هاد' : 'آخر'}»` : ''}`,
   };
+}
+
+/**
+ * اتّجاهُ التثبيت — `true` تثبيتٌ · `false` رفعُه · `undefined` لم يُذكَر.
+ *
+ *   ورفعُ التثبيت يُفحَص **أوّلًا** لأنّ عبارتَه تحتوي كلمةَ التثبيت نفسَها:
+ *   «حيّد **التثبيت**». فلو قُدِّم الإثباتُ لَابتلع نقيضَه — وهو نفسُ
+ *   خطأ «وافق/رفض» الذي فُصل في `readOrderStatus`.
+ */
+function readPin(t: string): boolean | undefined {
+  const UNPIN = ['حيد التثبيت', 'حيّد التثبيت', 'نحيد التثبيت', 'فك التثبيت', 'نفك التثبيت',
+                 'الغي التثبيت', 'نلغي التثبيت', 'بلا تثبيت', 'ماباغيش تثبيت'];
+  const PIN   = ['ثبت', 'ثبّت', 'نثبت', 'ثبتلي', 'تثبيت', 'epingler', 'pin'];
+  if (UNPIN.some(w => t.includes(norm(w)))) return false;
+  if (PIN.some(w => hitsWord(norm(w), t))) return true;
+  return undefined;
 }
 
 /**
@@ -375,7 +452,11 @@ export function describeAction(a: ActionRead): string {
     product: 'المنتوج', price: 'الثمن', stock: 'المخزون', photo: 'الصورة',
     content: 'الوصف والهاشتاگ',
     channel: 'القنوات المربوطة',
-    orders: 'الطلبات', shipment: 'الشحنة', customers: 'الزبناء', coupon: 'الكوبون', wallet: 'المحفظة',
+    orders: 'الطلبات', shipment: 'الشحنة', conversation: 'المحادثة',
+    customers: 'الزبناء', coupon: 'الكوبون', wallet: 'المحفظة',
   };
+  // **والتثبيتُ يُسمّى باسمه.** «نبدّل المحادثة» نصٌّ لا يصف ما سيحدث، وهذا
+  //   النصُّ يُعرَض قبل التنفيذ ليقرّر الإنسانُ عليه — فلا يصحّ أن يُبهم.
+  if (a.pinned !== undefined) return a.pinned ? 'نثبّت المحادثة' : 'نحيّد تثبيت المحادثة';
   return `${V[a.verb]} ${O[a.object]}`;
 }
