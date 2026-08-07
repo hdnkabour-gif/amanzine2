@@ -3,7 +3,7 @@
 > **مُولَّدٌ آليًّا** بـ`npm run report:lexicon` — لا يُحرَّر بيد.
 > يُقرأ من نفس المصادر التي يقرؤها التطبيقُ في التشغيل، فلا يكذب بعد تعديل.
 
-آخرُ توليد: 2026-08-06
+آخرُ توليد: 2026-08-07
 
 ## ① الخلاصةُ بالأرقام
 
@@ -48,7 +48,7 @@
 | تجيب المنتوجات من محادثة ولا ملفّ | create | product | — | medium | import | /api/products |
 | تشوف الطلبات | view | order | — | low | orders | /api/orders |
 | تبدّل حالة ولا عنوان الطلب | update | order | أيّ طلب؟ | medium | orders | /api/orders |
-| تشوف فين وصل الطلب | view | shipment | أيّ طلب؟ | low | **بلا باب** | /api/orders |
+| تشوف فين وصل الطلب | view | shipment | أيّ طلب؟ | low | بلا صفحةٍ **عمدًا** ⁽¹⁾ | /api/orders |
 | تصيفط الطلب مع شركة التوصيل | send | shipment | أيّ طلب؟ · أيّ شركة؟ | high | delivery | /api/delivery |
 | تصيفط الطلب لشركة ما عندهاش API | send | shipment | أيّ طلب؟ | high | delivery | /api/delivery-auto |
 | تربط شركة التوصيل ديالك | create | delivery_provider | أيّ شركة؟ · التوكن ديال الشركة؟ | high | connections | /api/delivery |
@@ -56,14 +56,14 @@
 | تهضر مع زبون | send | message | مع من؟ | medium | conversations | /api/conversations |
 | تشوف الرصيد ديالك | view | wallet | — | low | wallet | /api/wallet |
 | تسجّل خلاص ولا تأكّد أنّه وصل | send | payment | شحال؟ · بأشنو؟ | high | wallet | /api/payment |
-| تأكّد نمرتك ولا بريدك | view | account | — | low | **بلا باب** | /api/verify |
+| تأكّد نمرتك ولا بريدك | view | account | — | low | بلا صفحةٍ **عمدًا** ⁽¹⁾ | /api/verify |
 | تدخل ولا تصايب حساب | create | account | شنو النمرة؟ | medium | profile | /api/auth |
 | تبدّل النمرة ديالك | update | phone | شنو النمرة؟ | high | profile | /api/auth |
 | تبدّل العنوان | update | address | شنو العنوان؟ | medium | settings | /api/settings |
 | تبدّل اللغة | update | language | — | low | settings | — |
 | تبدّل الإعدادات | update | settings | — | medium | settings | /api/settings |
 | تسيّر التنبيهات | update | settings | — | low | notifications | /api/push |
-| الذاكرة ديالك تبقى معاك ف كل جهاز | update | settings | — | low | **بلا باب** | /api/memory |
+| الذاكرة ديالك تبقى معاك ف كل جهاز | update | settings | — | low | بلا صفحةٍ **عمدًا** ⁽¹⁾ | /api/memory |
 | تشوف اللي جديد قربك | view | listing | — | low | home | /api/feed |
 | تكتشف اللي كاين ف المدينة ديالك | view | provider | — | low | home | /api/discover |
 | نقترح عليك اللي يناسبك | view | listing | — | low | home | /api/recommend |
@@ -113,6 +113,13 @@
 | تقلّب على خدمة | seek | service | شنو محتاج بالضبط؟ | low | home | /api/providers |
 | تقلّب على إعلان | seek | listing | شنو محتاج بالضبط؟ | low | home | /api/listings |
 | تسجّل نشاطك باش يلقاوك الناس | offer | provider | شنو نوع النشاط ولا الخدمة؟ | medium | publish | /api/providers |
+
+⁽¹⁾ **بلا صفحةٍ عمدًا** — ولكلٍّ سببٌ مكتوبٌ ومحروسٌ في `test/abilities.test.mjs`:
+· `TRACK_ORDER` — بابُه يعمل (`/track/:userId`) وهو خارج `PAGE_IDS` لأنّ تلك صفحاتُ التاجر، وهذا بابُ الزبون.
+· `VERIFY_IDENTITY` — يظهر **داخل** الفعل الذي طلبه (تأكيدُ طلبٍ · تبديلُ نمرة)، وصفحةٌ له بابٌ يُتحقَّق فيه من لا شيء.
+· `SYNC_MEMORY` — يقع من نفسه عند الدخول والتبدّل. قيمتُه كلُّها في أنّه لا يُطلَب.
+
+**ولا ثغرةَ باقية:** كلُّ قدرةٍ إمّا لها صفحةٌ أو سببٌ مكتوبٌ لغيابها.
 
 ### الأفعالُ التي يقبلها كلُّ كيان
 

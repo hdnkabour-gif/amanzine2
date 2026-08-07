@@ -17,7 +17,7 @@
 //
 //   الاستعمال:  npm run report:lexicon
 // ============================================================
-import { writeFileSync, mkdirSync, mkdtempSync } from 'node:fs';
+import { writeFileSync, readFileSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -131,12 +131,46 @@ p();
 p('كلُّ سطرٍ **عقد**: فعلٌ وكيانٌ وما يحتاجه قبل التنفيذ وخطورتُه وأين يعيش.');
 p('و«الخطورة» تحدّد العتبة: `low` يُنفَّذ بثقةٍ أقلّ، و`high` **يُؤكَّد دائمًا**.');
 p();
+// ── **«بلا صفحة» ليست «بلا باب»** ────────────────────────────
+//
+//   كان العمودُ يكتب «**بلا باب**» لكلّ `page: null`، فأعلن التقريرُ ثغرتَين
+//   لا وجودَ لهما: `TRACK_ORDER` **بابُه يعمل** (`/track/:userId` في
+//   `App.tsx` → `TrackOrder.tsx`)، لكنّه خارج `PAGE_IDS` لأنّ تلك صفحاتُ
+//   التاجر داخل `MainLayout` وهذا بابُ الزبون: بلا حسابٍ ولا قائمة.
+//   و`VERIFY_IDENTITY` يظهر **داخل** الفعل الذي طلبه، و`SYNC_MEMORY` يقع
+//   من نفسه في `userMemory.ts`.
+//
+//   وهذا هو العطبُ الذي يحذّر منه التقريرُ نفسُه مقلوبًا: «تقريرٌ يعرض بعضَ
+//   ما يُستطاع أسوأُ من غيابه». وأن يقول عن بابٍ يعمل إنّه معدومٌ أسوأُ
+//   منهما معًا — يقرؤه صاحبُ المشروع فيطلب بناءَ ما هو مبنيّ.
+//
+//   والقائمةُ **ليست نسخةً ثانية**: تُقرأ من سقّاطة `abilities.test.mjs`
+//   نصًّا — وهي المكانُ الوحيدُ الذي يُعلن هذا الاستثناءَ ويحرسه.
+const RATCHET = readFileSync(join(ROOT, 'test/abilities.test.mjs'), 'utf8');
+const DELIBERATE = new Set(
+  ((RATCHET.match(/const KNOWN = \[([^\]]*)\]/) || [])[1] || '')
+    .match(/'([A-Z_]+)'/g)?.map(s => s.replace(/'/g, '')) || []
+);
+
 p('| ما يقوله للإنسان | الفعل | الكيان | يحتاج | الخطورة | الصفحة | المسار |');
 p('|---|---|---|---|---|---|---|');
 for (const a of M.ABILITIES) {
   const needs = a.needs.length ? a.needs.map(k => M.NEED_ASK[k]).join(' · ') : '—';
-  p(`| ${a.say} | ${a.verb} | ${a.entity} | ${needs} | ${a.risk} | ${a.page || '**بلا باب**'} | ${a.api || '—'} |`);
+  const where = a.page ? a.page
+    : DELIBERATE.has(a.id) ? 'بلا صفحةٍ **عمدًا** ⁽¹⁾'
+    : '**ثغرة: بلا باب**';
+  p(`| ${a.say} | ${a.verb} | ${a.entity} | ${needs} | ${a.risk} | ${where} | ${a.api || '—'} |`);
 }
+p();
+const missing = M.ABILITIES.filter(a => !a.page && !DELIBERATE.has(a.id));
+p('⁽¹⁾ **بلا صفحةٍ عمدًا** — ولكلٍّ سببٌ مكتوبٌ ومحروسٌ في `test/abilities.test.mjs`:');
+p('· `TRACK_ORDER` — بابُه يعمل (`/track/:userId`) وهو خارج `PAGE_IDS` لأنّ تلك صفحاتُ التاجر، وهذا بابُ الزبون.');
+p('· `VERIFY_IDENTITY` — يظهر **داخل** الفعل الذي طلبه (تأكيدُ طلبٍ · تبديلُ نمرة)، وصفحةٌ له بابٌ يُتحقَّق فيه من لا شيء.');
+p('· `SYNC_MEMORY` — يقع من نفسه عند الدخول والتبدّل. قيمتُه كلُّها في أنّه لا يُطلَب.');
+p();
+p(missing.length
+  ? `**وثغراتٌ حقيقيّة (${n(missing.length)}):** ${missing.map(a => `\`${a.id}\``).join(' · ')} — تعمل على الخادم ولا بابَ لها.`
+  : '**ولا ثغرةَ باقية:** كلُّ قدرةٍ إمّا لها صفحةٌ أو سببٌ مكتوبٌ لغيابها.');
 p();
 p('### الأفعالُ التي يقبلها كلُّ كيان');
 p();
