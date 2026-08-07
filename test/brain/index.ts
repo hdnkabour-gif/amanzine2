@@ -77,3 +77,5 @@ import './direction.test';
 import './ownerJourney.test';
 // من شاشات صاحب المشروع: الحَكَمُ يقرأ صحيحًا والشاشةُ تسأل كأنّها لم تقرأ.
 import './screens.test';
+// بوّابةُ الذكاء تبلغ الشاشةَ التي يفتحها الناسُ — والعجزُ عجزٌ بأيّ خطٍّ كُتب.
+import './escalation.test';

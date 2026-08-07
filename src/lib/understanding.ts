@@ -74,7 +74,24 @@ export function understandRules(text: string, _ctx?: UnderstandingContext): Unde
     reasoning.push(`🎯 نيّة الإنسان: ${intent}`);
   }
 
-  const confidence = Math.max(u.confidence, h.confidence);
+  // ── **البوّابةُ تقرأ بعينٍ واحدة** ────────────────────────────
+  //   قِيس: «بغيت نبدل رقم الهاتف ديالي» ⇒ `understand` تقرأ `update/phone`
+  //   بثقة **٠٫٨٥**، وهذا السطرُ يُخرج `NONE` وثقةً **٠٫٢**. لأنّه لا يسأل
+  //   إلّا عن `problem`/`profession` — أي عن **السوق وحدَه**، ولا يرى الفعلَ
+  //   الإداريَّ ولا الغاية.
+  //
+  //   وهذه عينُ بوّابة التصعيد: `shouldEscalate` تقرأ هذه الثقةَ وحدَها. فكلُّ
+  //   طلبٍ إداريٍّ مفهومٍ تمامًا كان يبدو لها **عجزًا كاملًا** ⇒ يُرسَل للذكاء
+  //   بلا حاجة. والثقةُ هنا معناها «كم قرأنا»، فلتقُل ما قرأناه فعلًا.
+  const ACTION_READ = 0.5;   // دون هذا تسقط قارئةُ الأفعال على `settings` تخمينًا
+  const confidence = Math.max(
+    u.confidence, h.confidence,
+    (u.action?.confidence ?? 0) >= ACTION_READ ? (u.action!.confidence ?? 0) : 0,
+    u.goal ? 0.7 : 0,
+  );
+  if (u.action && (u.action.confidence ?? 0) >= ACTION_READ) {
+    reasoning.push(`⚙️ فعلٌ داخل التطبيق: ${u.action.verb}/${u.action.object}`);
+  }
   return {
     intent,
     profession: u.profession?.label,
@@ -155,19 +172,28 @@ export function shouldEscalate(text: string, base: UnderstandingResult): boolean
   const t = text.trim();
   if (t.length < 3) return false;
   const words = t.split(/\s+/).filter(Boolean).length;
-  const arabic = /[؀-ۿ]/.test(t);
-  const latin = /[a-z]/i.test(t);
-  const mixed = arabic && latin;
   const longStory = words >= 6;              // قصّةٌ طويلة
   const weakFloor = base.confidence < 0.5;   // القواعد غير واثقة
-  const unresolvedLatin = latin && !base.profession && !base.problem;
+  // ── **العجزُ عجزٌ بأيّ خطٍّ كُتب** ─────────────────────────────
+  //   كان الشرطُ `latin && !profession && !problem`، وكان الفرعُ كلُّه
+  //   `weakFloor && (mixed || unresolvedLatin)` — وكِلا طرفَي «أو» يشترط حرفًا
+  //   لاتينيًّا. فقِيس:
+  //
+  //       «bghit chi haja»  ثقة ٠٫٢ ⇒ **يُصعَّد**
+  //       «بغيت شي حاجة»    ثقة ٠٫٢ ⇒ **لا يُصعَّد**
+  //
+  //   نفسُ المعنى، ونفسُ العجز، وحكمان متعاكسان — لأنّ الخطَّ اختلف. أي أنّ
+  //   أرضيّةَ «القواعدُ لم تفهم» كانت **معطَّلةً على العربيّة**، وهي خطُّ
+  //   أكثرِ من يكتب هنا. ولا يظهر هذا في أيّ اختبار: التصعيدُ بلا مفتاحٍ
+  //   يسقط للقواعد بصمت، فالعطبُ يُخفيه سقوطُه الرشيق.
+  const unread = !base.profession && !base.problem;
   // سردٌ حقيقيّ (≥٨ كلمات) = شغل الذكاء، حتى لو ظنّت القواعد أنّها حلّته — إذ قد
   // تختزل القصّة خطأً إلى مهنةٍ واحدةٍ واثقة. (بلا مزوّد ⇒ يسقط للقواعد بلا ضرر.)
   const veryLong = words >= 8;
   const fullyResolved = !!(base.profession && (base.problem || base.city));
   if (veryLong) return true;
   if (longStory && !fullyResolved) return true;
-  return weakFloor && (mixed || unresolvedLatin);
+  return weakFloor && unread;
 }
 
 // ── الطبقة ③: التنسيق الهجين (متزامن للقواعد، لا-متزامن للذكاء عند اللزوم) ──

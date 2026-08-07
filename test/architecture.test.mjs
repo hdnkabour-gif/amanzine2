@@ -1044,3 +1044,83 @@ test('صيغةُ العرض تفرّق بين الحرفة والسلعة', () =
   assert.match(code, /isWho\s*\?\s*`نتا/,
     'صيغةُ «نتا» ما بقاتش مشروطةً بالحرفة');
 });
+
+// ============================================================
+// **البوّابةُ تبلغ الشاشةَ التي يفتحها الناس.**
+//
+//   قِيس قبل الربط: `understandHybrid`/`shouldEscalate` تُنادَيان من
+//   `AssistantPage.tsx` **وحدَها** في كامل الشجرة. أي أنّ الشاشةَ الرئيسيّة —
+//   مدخلَ كلّ من يفتح التطبيق — لم تعرف قطُّ أنّ للذكاء بابًا.
+//
+//   وهذا حارسُ **الشكل** لا النتيجة: النتيجةُ محروسةٌ في `escalation.test`،
+//   وهنا يُحرَس أنّ الربطَ بقي على شرطه — بثًّا بعد القواعد، بحَكَمٍ واحد،
+//   وبلا تنفيذٍ من الذكاء مباشرةً.
+// ============================================================
+test('الشاشةُ الرئيسيّة تستشير الذكاءَ بعد أن تُجيب القواعد', () => {
+  const f = join(ROOT, 'src/pages/LivingHome.tsx');
+  const code = readFileSync(f, 'utf8').split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+
+  // ① البوّابةُ موصولةٌ فعلًا — لا مستورَدةً وحدَها.
+  assert.match(code, /shouldEscalate\s*\(/, 'الشاشةُ الرئيسيّة لا تسأل بوّابةَ التصعيد');
+  assert.match(code, /escalate\s*\(\s*q\s*,/, 'التصعيدُ معرَّفٌ ولا يُنادى من `submit`');
+
+  // ② القواعدُ ترسم أوّلًا: `submit` تبقى متزامنة، والتصعيدُ بعد الحكم.
+  assert.doesNotMatch(code, /const\s+submit\s*=\s*async/,
+    'صارت `submit` تنتظر الشبكةَ — شاشةٌ فارغةٌ حتّى يردّ الذكاء');
+  assert.doesNotMatch(code, /await\s+understandHybrid|await\s+RemoteProvider/,
+    'انتُظر جوابُ الذكاء قبل الرسم');
+  assert.ok(code.indexOf('applyVerdict(u, r)') < code.indexOf('escalate(q, u, r)'),
+    'صُعِّد قبل أن تحكم القواعد');
+
+  // ③ جوابُ الذكاء يعود إلى نفس الحَكَم — لا يفتح صفحةً بنفسه.
+  assert.match(code, /refine\s*\(\s*base\s*,\s*ai\s*\)/, 'دخل جوابُ الذكاء بلا `refine`');
+  assert.match(code, /applyVerdict\s*\(\s*filled\s*,\s*r\s*\)/,
+    'جوابُ الذكاء لا يمرّ على الحَكَم — أو يُنفَّذ من تلقاء نفسه');
+  const after = code.slice(code.indexOf('const escalate'), code.indexOf('const submit'));
+  for (const forbidden of ['navigate(', 'setActionDest(', 'playGate(']) {
+    assert.ok(!after.includes(forbidden),
+      `الذكاءُ ينفّذ مباشرةً داخل التصعيد: ${forbidden}`);
+  }
+
+  // ④ جوابٌ متأخّرٌ عن سؤالٍ ماضٍ لا يقلب الشاشةَ تحت يد صاحبها.
+  assert.match(code, /seq\s*!==\s*askSeq\.current/, 'سقط حارسُ الجواب المتأخّر');
+});
+
+test('و`refine` تملأ ولا تمسح — القاعدةُ في الكود لا في النيّة', () => {
+  const code = readFileSync(join(ROOT, 'src/lib/refine.ts'), 'utf8')
+    .split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  // كلُّ إسنادٍ مشروطٌ بفراغ الحقل. لو سقط الشرطُ صار الدمجُ استبدالًا،
+  // فيخسر التطبيقُ ثلثَي ما قرأه مقابلَ انتظارِ شبكة.
+  for (const field of ['city', 'service']) {
+    assert.match(code, new RegExp(`if\\s*\\(\\s*!next\\.${field}`),
+      `\`${field}\` يُكتَب بلا شرطِ فراغ — الذكاءُ يمسح ما قُرئ`);
+  }
+  // ولا يُمَسّ ما لا مقابلَ له في العقد البعيد: صمتُه ليس نفيًا.
+  for (const untouched of ['action', 'stance', 'ambiguity', 'goal', 'services']) {
+    assert.doesNotMatch(code, new RegExp(`next\\.${untouched}\\s*=`),
+      `مسّ الدمجُ \`${untouched}\` والعقدُ البعيدُ لا يحمل له مقابلًا`);
+  }
+  // والمصدرُ يُفحَص: جوابُ القواعد لا يُدمَج في نفسه.
+  assert.match(code, /ai\.source\s*!==\s*'llm'/, 'سقط فحصُ المصدر');
+});
+
+// ============================================================
+// **قراءةٌ ضعيفةٌ لا تُفتَح بها صفحة.**
+//
+//   قِيس على جملةٍ من جملِ القبول: «بغيت نمشي الحي عندي غير 10 دراهم» ⇒
+//   قارئةُ الأفعال تسقط على `update/settings` بثقة **٠٫٣٥**، فتُخرج
+//   `UPDATE_SETTINGS` وتُساق الوجهةُ إلى **إعدادات الحساب**. رجلٌ يقول إنّ
+//   معه عشرةَ دراهمَ يُفتَح له بابُ إعداداته.
+//
+//   والحدُّ `READ_ENOUGH` كان موجودًا ومطبَّقًا على `impossible` **وحدَه** —
+//   أي أنّ القراءةَ الضعيفةَ لا تكفي للرفض وتكفي للفتح. وهذا معكوسٌ: الرفضُ
+//   أهونُ من فتحِ بابٍ خاطئٍ بلا أن يطلبه أحد.
+// ============================================================
+test('الفعلُ الضعيفُ لا يبلغ الكتالوج', () => {
+  const code = readFileSync(join(ROOT, 'src/pages/LivingHome.tsx'), 'utf8')
+    .split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.match(code, /const\s+act\s*=\s*\(u\.action\?\.confidence[^)]*\)\s*>=\s*READ_ENOUGH/,
+    'سقط حدُّ القراءة عن الفعل قبل الكتالوج');
+  assert.match(code, /abilityFor\(\{ action: act,/,
+    'يُمرَّر الفعلُ الخام إلى الكتالوج — قراءةٌ بثقة ٠٫٣٥ تفتح صفحة');
+});

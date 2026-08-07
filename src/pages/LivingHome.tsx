@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import {
   Search, Mic, Camera, MapPin, ArrowLeft, Check, RotateCcw,
@@ -28,7 +28,9 @@ import FocusedEdit, { isFocusable, type FocusField } from '../components/Focused
 import { readPersonFacts, rememberFacts, forgetFact, describeFacts } from '../lib/personFacts';
 import { decideExecution } from '../lib/executionPolicy';
 import { reportMisread } from '../lib/journey';
-import { understand } from '../lib/akg/kb';
+import { understand, type Understanding } from '../lib/akg/kb';
+import { understandRules, shouldEscalate, RemoteProvider } from '../lib/understanding';
+import { refine } from '../lib/refine';
 import type { Journey } from '../lib/core/plugins';
 import type { Page } from '../types';
 
@@ -42,6 +44,14 @@ import type { Page } from '../types';
 
 const MAX_BEATS = 5;
 const VISIT_KEY = 'amanzine_last_visit';
+
+// **قراءةٌ ضعيفةٌ لا تُرفَض بها قدرةٌ ولا تُفتَح بها.**
+//
+//   قِيس: «زيد زبون جديد» تُقرأ `create:settings` بثقة **٠٫٣٥** — لأنّ قارئَ
+//   الأفعال يسقط على `settings` حين لا يعرف الهدف. والقراءاتُ الصحيحةُ تحمل
+//   ٠٫٧٠–٠٫٨٥، فالحدُّ يفصلهما بوضوح. وما دونه يُسأل عنه: **الشكُّ يُسأل ولا
+//   يُرفَض** — ولا يُنفَّذ به شيءٌ أيضًا.
+const READ_ENOUGH = 0.5;
 
 interface Turn { who: 'sys' | 'user'; text: string }
 interface Beat { id: string; icon: any; color: string; title: string; sub?: string; page?: Page; pr: number }
@@ -80,6 +90,8 @@ export default function LivingHome() {
   const [thanks, setThanks] = useState('');
   // ما يقوله التطبيقُ حين لا يكون الكلامُ طلبًا أصلًا — يُقال ولا يُفعَل.
   const [said, setSaid] = useState('');
+  // عدّادُ الأسئلة — يميّز جوابَ الذكاء الحاضرَ من جوابِ سؤالٍ سبقه.
+  const askSeq = useRef(0);
   // قرارُ الواجهة — يُحسَب مرّةً في `submit` ويُقرأ في العرض. كان يُعاد
   // حسابُه في كلّ رسمٍ من `decideInterface(result)`، فحَكَمان على مشهدٍ واحد.
   const [decision, setDecision] = useState<InterfaceDecision | null>(null);
@@ -223,18 +235,11 @@ export default function LivingHome() {
     }
   };
 
-  const submit = (raw: string) => {
-    const q = raw.trim();
-    if (!q) return;
-    receptionTurn(q, 'text');                                // قياس: دورٌ كتابيّ
-    const { result: r, journey: j } = orchestrate(q, uctx); // Context → Orchestrator → Journey (+ تعلّم الخادم)
-    if (r.intent !== 'unknown') receptionUnderstood();       // قياس: زمن أوّل فهم
-    // ── تحليلٌ واحدٌ للجملة ───────────────────────────────────────
-    //   كانت `understand(q)` تُستدعى مرّتين هنا بعد أن حلّلها `orchestrate`،
-    //   فثلاثةُ تحليلاتٍ لجملةٍ واحدة. والخطرُ ليس الكلفةَ بل **التباعد**:
-    //   الذاكرةُ والتصحيحُ يكتبان بين النداءَين، فيُبنى القرارُ على فهمٍ
-    //   والعرضُ على فهمٍ آخرَ بلا أن يظهر ذلك في أيّ سطر.
-    const u = understand(q);
+  // ── **حَكَمٌ واحدٌ يُنادى مرّتين** ──────────────────────────────
+  //   القواعدُ تحكم فورًا، والذكاءُ — إن صُعِّد — يعيد النداءَ بفهمٍ مُكمَّل.
+  //   واستخراجُه في دالّةٍ ليس ترتيبًا: لو نُسِخ المنطقُ للمسار غير المتزامن
+  //   لصار حَكَمان يفترقان مع أوّل تعديلٍ يمسّ أحدَهما.
+  const applyVerdict = (u: Understanding, r: NeedResult) => {
     // ── الحَكَمُ الواحد ───────────────────────────────────────────
     //   `decideExecution` يقول «نفّذ أم أكّد أم اسأل أم اشرح»، و
     //   `decideInterface` يترجم حكمَه إلى شكلِ واجهة. كانت الثانيةُ تحكم
@@ -243,27 +248,24 @@ export default function LivingHome() {
     //   فيُحكَم بالعتبة العامّة، ولا يُنفَّذ فعلٌ لم يطلبه أحد.
     // والاتّجاهُ يُمرَّر: النيّةُ وحدَها لا تعرف أيَعرض أم يطلب، فـ«كنقلب على
     // دار للكراء» و«عندي دار للكراء» كانتا تُخرجان **نفسَ الشيء حرفيًّا**.
-    const match = abilityFor({ action: u.action, intent: r.intent, stance: u.stance });
+    // ── **والفعلُ الضعيفُ لا يفتح بابًا** ──────────────────────────
+    //   قِيس: «بغيت نمشي الحي عندي غير 10 دراهم» ⇒ قارئةُ الأفعال تسقط على
+    //   `update/settings` بثقة **٠٫٣٥**، فتُخرج `UPDATE_SETTINGS` وتُساق
+    //   الوجهةُ إلى **إعدادات الحساب**. رجلٌ يقول إنّ معه عشرةَ دراهم يُفتَح
+    //   له بابُ إعداداته.
+    //   والحدُّ `READ_ENOUGH` كان مطبَّقًا على `impossible` وحدَه — أي أنّ
+    //   القراءةَ الضعيفةَ لا تكفي **للرفض** وتكفي **للتنفيذ**. وهذا معكوس.
+    const act = (u.action?.confidence ?? 0) >= READ_ENOUGH ? u.action : null;
+    const match = abilityFor({ action: act, intent: r.intent, stance: u.stance });
     // ── حدُّ القدرة الصادق ────────────────────────────────────────
     //   يُسأل **المجالُ** لا الكتالوج: أيقبل هذا الكيانُ هذا الفعلَ أصلًا؟
     //   ولا يُسأل إلّا حين يكون الفعلُ صريحًا (فعلٌ + هدفٌ مقروءان)، فالنيّةُ
     //   الخشنةُ تُسأل ولا تُرفَض — الجهلُ عندنا ليس عجزًا عندنا.
     //   وغيابُ القدرة من الكتالوج لا يُرفَض به شيء: قِيس فوُجد ٤٢ زوجًا
     //   غيرَ مُعلَنٍ وفيها أبوابٌ تعمل (`view:product`).
-    const av = u.action ? VERB_MAP[u.action.verb] : undefined;
-    const ae = u.action ? OBJECT_MAP[u.action.object] : undefined;
-    // **العجزُ حكمٌ قاطعٌ فلا يُبنى على قراءةٍ ضعيفة.**
-    //
-    //   قِيس: «زيد زبون جديد» تُقرأ `create:settings` بثقة **٠٫٣٥** — لأنّ
-    //   قارئَ الأفعال يسقط على `settings` حين لا يعرف الهدف. والمجالُ لا
-    //   يقبل إنشاءَ إعدادات، فكانت النتيجةُ **«ما كايتديرش أصلًا»** لطلبٍ
-    //   مشروعٍ تمامًا. أي أنّ سوءَ قراءةٍ يتحوّل رفضًا قاطعًا.
-    //
-    //   والقراءاتُ الصحيحةُ تحمل ٠٫٧٠–٠٫٨٥، والمُساءةُ ٠٫٣٥ — فالحدُّ يفصلهما
-    //   بوضوح. وما دونه يُسأل عنه: **الشكُّ يُسأل ولا يُرفَض**.
-    const READ_ENOUGH = 0.5;
-    const impossible = !!(av && ae && (u.action?.confidence ?? 0) >= READ_ENOUGH
-      && !entityAccepts(av, ae));
+    const av = act ? VERB_MAP[act.verb] : undefined;
+    const ae = act ? OBJECT_MAP[act.object] : undefined;
+    const impossible = !!(av && ae && !entityAccepts(av, ae));
     // والسياقُ يُمرَّر: «مسح **هاد** المنتوج» تعيّن المقصودَ بغير اسمِه،
     // ولا يعرف المعجمُ كتالوجَ أحد. بلا هذا يبقى المؤشِّرُ مقروءًا ولا يشير
     // إلى شيء — طبقةٌ تعمل ولا أحدَ يعرف أنّها تعمل.
@@ -289,6 +291,61 @@ export default function LivingHome() {
       (verdict.verdict === 'execute' || verdict.verdict === 'confirm')
         && isFocusable(verdict.dest?.focus) ? verdict.dest!.focus as FocusField : null);
     setDecision(dec);
+    return dec;
+  };
+
+  /**
+   * **التصعيد: يُسأل الذكاءُ حين تعجز القواعد، ويُردّ جوابُه من بابنا.**
+   *
+   *   ثلاثةُ حدودٍ تُبقيه خادمًا لا سيّدًا:
+   *
+   *   ①  **لا يُنفِّذ**. يعود جوابُه إلى `refine` ثمّ إلى `applyVerdict` —
+   *      أي إلى نفس الحَكَم الذي حكم على القواعد. فلا يفتح صفحةً بنفسه ولا
+   *      يستدعي قدرةً؛ يقترح معنًى والقرارُ يبقى عندنا.
+   *   ②  **لا يمسح**. `refine` تملأ الفارغَ وحدَه، فحقلٌ قرأته القواعدُ لا
+   *      يُبدَّل بجوابٍ أفقرَ منه (٨ حقولٍ مقابل ٢١).
+   *   ③  **لا يتأخّر على صاحبه**. جوابٌ يصل بعد أن كتب المستخدمُ جملةً
+   *      أخرى يُرمى — وإلّا انقلبت الشاشةُ تحت يده إلى فهمِ سؤالٍ ماضٍ.
+   */
+  const escalate = (q: string, base: Understanding, r: NeedResult) => {
+    const seq = ++askSeq.current;
+    const rules = understandRules(q);
+    if (!shouldEscalate(q, rules)) return;
+    if (!RemoteProvider.available()) return;
+    RemoteProvider.understand(q, {
+      city: uctx.place.city || undefined,
+      recentMessages: [q],
+    }).then(ai => {
+      if (seq !== askSeq.current) return;          // ③ سؤالٌ ماضٍ ⇒ يُرمى
+      const { u: filled, filled: what } = refine(base, ai);
+      if (!what.length) return;                    // ② لم يزد شيئًا ⇒ لا تُحرَّك الشاشة
+      applyVerdict(filled, r);                     // ① نفسُ الحَكَم لا حَكَمٌ ثانٍ
+    }).catch(() => { /* شبكةٌ منقطعة ⇒ تبقى القواعد، وهي أرضيّةٌ تعمل دائمًا */ });
+  };
+
+  const submit = (raw: string) => {
+    const q = raw.trim();
+    if (!q) return;
+    receptionTurn(q, 'text');                                // قياس: دورٌ كتابيّ
+    const { result: r, journey: j } = orchestrate(q, uctx); // Context → Orchestrator → Journey (+ تعلّم الخادم)
+    if (r.intent !== 'unknown') receptionUnderstood();       // قياس: زمن أوّل فهم
+    // ── تحليلٌ واحدٌ للجملة ───────────────────────────────────────
+    //   كانت `understand(q)` تُستدعى مرّتين هنا بعد أن حلّلها `orchestrate`،
+    //   فثلاثةُ تحليلاتٍ لجملةٍ واحدة. والخطرُ ليس الكلفةَ بل **التباعد**:
+    //   الذاكرةُ والتصحيحُ يكتبان بين النداءَين، فيُبنى القرارُ على فهمٍ
+    //   والعرضُ على فهمٍ آخرَ بلا أن يظهر ذلك في أيّ سطر.
+    const u = understand(q);
+    const dec = applyVerdict(u, r);
+    // ── **والذكاءُ يُستشار بعد أن تُجيب القواعد، لا قبلَها** ────────
+    //   `understandHybrid`/`shouldEscalate` مبنيّتان منذ زمنٍ وتُناديان من
+    //   `AssistantPage` وحدَها — أي أنّ **الشاشةَ الرئيسيّة**، وهي مدخلُ كلّ
+    //   من يفتح التطبيق، لا تعرف أنّ البوّابةَ موجودة. طبقةٌ تعمل ولا أحدَ
+    //   يعرف أنّها تعمل، وهي ثالثُ مرّةٍ يتكرّر فيها هذا النمطُ هنا.
+    //
+    //   والربطُ **بثٌّ لا نداء**: `submit` متزامنةٌ والذكاءُ بعيد. فلو انتُظِر
+    //   جوابُه قبل الرسم لَحدّق مغربيٌّ على 4G في شاشةٍ فارغةٍ عشرَ ثوانٍ
+    //   مقابلَ فهمٍ أدقّ قليلًا. القواعدُ ترسم الآن، والذكاءُ يُكمّل إن جاء.
+    escalate(q, u, r);
     // ── حقائقُ الشخص ────────────────────────────────────────────
     //   «أنا خضار» تصريحٌ يُحفَظ، و«بغيت نبيع طوموبيل» نيّةٌ لا تُحفَظ —
     //   فمن باع سيّارتَه مرّةً ليس بائعَ سيّارات. وما يُحفَظ يُعرَض فورًا
