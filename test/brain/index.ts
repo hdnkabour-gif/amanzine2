@@ -71,3 +71,5 @@ import './tenSentences.test';
 import './condition.test';
 // المحادثةُ كيانٌ يُدار: زرّان يُضغطان كلَّ يومٍ ولا كلمةَ تبلغهما.
 import './conversation.test';
+// الطالبُ يُساق إلى النشر: «شق» داخل «شقة» · الضميرُ · والاتّجاهُ لا يبلغ القدرة.
+import './direction.test';

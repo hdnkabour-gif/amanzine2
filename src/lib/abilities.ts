@@ -622,6 +622,11 @@ const INTENT_MAP: Record<string, string> = {
 export function abilityFor(input: {
   action?: { verb: string; object: string } | null;
   intent?: string;
+  /**
+   * **الاتّجاهُ — يَعرض أم يطلب.** اختياريٌّ عمدًا: بدونه يبقى الحكمُ كما
+   * كان، فلا ينكسر مُنادٍ لم يُحدَّث.
+   */
+  stance?: string;
 }): Ability | null {
   const a = input.action;
   if (a) {
@@ -632,5 +637,32 @@ export function abilityFor(input: {
     }
   }
   const byIntent = input.intent ? INTENT_MAP[input.intent] : undefined;
-  return (byIntent && BY_ID.get(byIntent)) || null;
+  return honourStance((byIntent && BY_ID.get(byIntent)) || null, input.stance);
+}
+
+/**
+ * **الاتّجاهُ لا يُناقَض** — قاعدةٌ تُقرأ من الكتالوج، لا استثناءٌ يُكتَب.
+ *
+ *   ── ما كشفه القياس ──
+ *   `INTENT_MAP` يربط `rent ⇒ PUBLISH_LISTING` **بلا نظرٍ إلى الاتّجاه**،
+ *   فيُساق من يبحث عن دارٍ ليسكنها إلى صفحة **نشرِ إعلان**:
+ *
+ *       «كنقلب على دار للكراء»   اتّجاه seek  ⇒ PUBLISH_LISTING ⇒ publish
+ *       «عندي دار للكراء»        اتّجاه offer ⇒ PUBLISH_LISTING ⇒ publish
+ *
+ *   الباحثُ والعارضُ يُخرجان **نفسَ الشيء حرفيًّا** — والاتّجاهُ مقروءٌ
+ *   صحيحًا في الحالتَين ولا أحدَ يسأله.
+ *
+ *   ── ولماذا قاعدةٌ لا سطرٌ لـ`rent` ──
+ *   إصلاحُ `rent` وحدَه يترك الجذرَ: أيُّ نيّةٍ تُخرج قدرةَ **عرضٍ** لمن
+ *   يطلب تفعل الشيءَ نفسَه. والمقابلُ يُبحَث عنه في الكتالوج بنفس الكيان —
+ *   فإن لم يوجد بقيت القدرةُ كما هي: **لا نخترع بابًا غيرَ مبنيّ**.
+ *   (`SEEK_LISTING` مبنيّةٌ ومُعلَنةٌ منذ زمن — كان ينقصها من يصلها.)
+ */
+function honourStance(hit: Ability | null, stance?: string): Ability | null {
+  if (!hit || (stance !== 'seek' && stance !== 'offer')) return hit;
+  const want = stance === 'seek' ? 'seek' : 'offer';
+  const clash = stance === 'seek' ? 'offer' : 'seek';
+  if (hit.verb !== clash) return hit;
+  return ABILITIES.find(x => x.verb === want && x.entity === hit.entity) || hit;
 }
