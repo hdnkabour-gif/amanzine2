@@ -25,3 +25,4 @@ Thumbs.db
 # Temp
 *.tmp
 *.temp
+REPORTS/browser/*.png
