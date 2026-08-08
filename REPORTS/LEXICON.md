@@ -10,7 +10,7 @@
 | ما هو | العدد |
 |---|---|
 | مفهومًا يفهمه التطبيق | **٢٠٨** |
-| مصطلحًا مميَّزًا (كلَّ اللغات) | **٣٠١٩** |
+| مصطلحًا مميَّزًا (كلَّ اللغات) | **٣٠٤٤** |
 | قدرةً يستطيع تنفيذها | **٩١** |
 | زوجَ فعلٍ×هدفٍ مقروءًا | **١١٢** |
 | غايةَ حياةٍ تُقرأ | **٧** |
@@ -335,7 +335,7 @@
 | دارجة: عقار / سمسار | ١ | ١٤ |
 | دارجة: سياحة / أوطيل | ١ | ١٨ |
 | دارجة: خدمات / سيبير | ١ | ١٦ |
-| دارجة: تصليحات / أجهزة الدار | ١ | ١١ |
+| دارجة: تصليحات / أجهزة الدار | ١ | ٣٩ |
 | دارجة: خدمات منزلية / كليم | ١ | ١٢ |
 | دارجة: إلكترونيات / بارابول | ١ | ١٢ |
 | دارجة: بناء / رخام | ١ | ١٢ |
@@ -472,7 +472,7 @@
 | `hardware_household_supplies` | دروگري | متجر أدوات ومواد منزلية · دروگري · Droguerie / Quincaillerie · Hardware & Household Supplies · دروگري · دروكري · كينكايري · مواد التنظيف · quincaillerie · متجر أدوات ومواد منزلية · droguerie / quincaillerie · hardware & household supplies |
 | `hardware_store` | دروڭري | متجر أدوات منزلية · دروڭري · Droguerie · Hardware Store · دروڭري · دروكري · محل دروڭري · متجر أدوات منزلية · أجهزة وأواني · droguerie · quincaillerie · hardware store · household supplies |
 | `herbalist` | عطار | عطار · عطار · Herboriste · Herbalist · عطار · عطار · متجر أعشاب وتوابل · herboriste · épices · herbalist · spice shop |
-| `home_appliance_repair` | تصليح الثلاجة | إصلاح الأجهزة المنزلية · تصليح الثلاجة · Réparation électroménager · Home Appliance Repair · تصليح الثلاجة · تصليح الغسالة · إلكتروميناجي · électroménager · إصلاح الأجهزة المنزلية · réparation électroménager · home appliance repair |
+| `home_appliance_repair` | تصليح الثلاجة | إصلاح الأجهزة المنزلية · تصليح الثلاجة · Réparation électroménager · Home Appliance Repair · تصليح الثلاجة · تصليح الغسالة · إلكتروميناجي · électroménager · الغسالة · غسالة · ماكينة الغسيل · ماشينة ديال الغسيل · الطياشة · لاماشين … (+٢٥) |
 | `home_appliance_repair_technician` | كيصلح الآلات | مصلح أجهزة منزلية · كيصلح الآلات · Réparateur d'électroménager · Home appliance repair technician · كيصلح الآلات · تصليح الغسالات · كيصلح الثلاجة · مصلح électroménager · مصلح أجهزة منزلية · تصليح الغسالات والثلاجات · réparateur d'électroménager · dépanneur · home appliance repair technician |
 | `home_kitchen` | الطبخ فالدار | مطبخ منزلي · الطبخ فالدار · Cuisine à domicile · Home kitchen · طباخة · طباخ · مولات الطبخة · كنطبخ فالدار · نطبخ فالدار · الطبخ فالدار · ماكلة ديال الدار · ماكلة بيتية · طبخ منزلي · كنطيب فالدار … (+٢٠) |
 | `home_nurse` | ممرض | ممرض · ممرض · Infirmier à domicile · Home nurse · ممرض · infirmier · لافيرمي · كيدير الإبر · ممرض · ممرض منزلي · infirmier à domicile · home nurse |

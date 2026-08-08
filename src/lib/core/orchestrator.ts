@@ -2,6 +2,7 @@ import { parseNeed, type NeedResult } from '../needEngine';
 import { searchAPI, trackAPI } from '../../services/api';
 import { logInteraction, type Via } from '../experienceLog';
 import { resolvePlugin, type Journey } from './plugins';
+import { expandQuery, toSearchFilters } from '../searchIntent';
 import type { UserContext } from './context';
 
 // ============================================================
@@ -25,7 +26,9 @@ export function orchestrate(raw: string, uctx: UserContext): Orchestrated {
   const journey: Journey | 'discover' = plugin ? plugin.journeyOf(result.intent) : 'discover';
 
   if (CONSUMER.includes(result.intent)) {                        // dispatch → Search/Learning (server)
-    try { searchAPI.query(raw, { city: uctx.place.city }).catch(() => {}); } catch { /* noop */ }
+    // نفسُ العقد: البابُ الذي يتعلّم منه الخادمُ يرى ما تراه الشاشة — وإلّا
+    // تعلّم من جملةٍ خامّةٍ بلا مرادفاتٍ وسجّل «بلا نتيجة» على بحثٍ ناجح.
+    try { searchAPI.query(raw, toSearchFilters(expandQuery(raw), uctx.place.city)).catch(() => {}); } catch { /* noop */ }
   }
   return { result, journey };
 }

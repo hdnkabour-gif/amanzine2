@@ -101,6 +101,11 @@ app.use(cors({
     const allowed = [
       'http://localhost:5173', 'http://localhost:3000',
       'http://localhost:3001', 'http://localhost:4173',
+      // `127.0.0.1` و`localhost` أصلان مختلفان عند المتصفّح ولو كانا الجهازَ
+      // نفسَه. وبلا هذه الأربعة يُردّ كلُّ نداءٍ من متصفّحٍ فُتح على العنوان
+      // الرقميّ — وهو ما تفتحه أدواتُ القياس — فيبدو التطبيقُ معطوبًا وهو سليم.
+      'http://127.0.0.1:5173', 'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001', 'http://127.0.0.1:4173',
       ...(process.env.PRODUCTION_URL   ? [process.env.PRODUCTION_URL]   : []),
       ...(process.env.FRONTEND_URL     ? [process.env.FRONTEND_URL]     : []),
       ...(process.env.RAILWAY_PUBLIC_DOMAIN
@@ -306,9 +311,16 @@ process.on('uncaughtException', (err) => {
 
 // ── Error handler ────────────────────────────────────────────
 app.use((err, req, res, _next) => {
-  logger.error('Request error', { path: req.path, method: req.method, error: err.message });
-  logger.capture(err);
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+  // ── **الرفضُ ليس عطبًا** ──────────────────────────────────────
+  //   أصلٌ خارجَ القائمة يُردّ — وهذا قرارٌ صحيحٌ من الخادم. لكنّه كان
+  //   يخرج بـ500، فيقرأ من يقيسه «الخادمُ انهار» ويذهب يفتّش في قاعدة
+  //   البيانات. ضاعت ساعةٌ على هذا في هذه الجلسة بالذات.
+  //   403 تقول الحقيقة: طلبُك مفهومٌ ومرفوض.
+  const cors = /^CORS: /.test(err.message || '');
+  const status = cors ? 403 : (err.status || 500);
+  if (cors) logger.warn('Blocked origin', { path: req.path, error: err.message });
+  else { logger.error('Request error', { path: req.path, method: req.method, error: err.message }); logger.capture(err); }
+  res.status(status).json({ error: err.message || 'Internal server error' });
 });
 
 // ── Start ────────────────────────────────────────────────────

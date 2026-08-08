@@ -32,7 +32,7 @@ import { understand, type Understanding } from '../lib/akg/kb';
 // أرضيّةُ الفهم: هل عندنا دليلٌ، أم رجعت النيّةُ من المصرف؟
 import { readGround, type Reading } from '../lib/evidence';
 // مرادفاتُ المفهوم — تعبر مع الإنسان إلى السوق فلا يُبحَث بجملةٍ خامّة.
-import { conceptTerms } from '../lib/akg/kb/knowledge';
+import { expandQuery, toSearchParams } from '../lib/searchIntent';
 import Mirror from '../components/Mirror';
 // الجملةُ الحيّة: طبقةُ عرضٍ تُعيد كلامَه ومعه الفراغُ — لا نافذةَ ولا صفحة.
 import { liveSentenceFor, type LiveSentence as LS, type Slot } from '../lib/liveSentence';
@@ -245,10 +245,7 @@ export default function LivingHome() {
       let url = dest.url;
       if (url.startsWith('/market') || url.startsWith('/explore')) {
         const raw = result?.object?.raw || text;
-        const sep = url.includes('?') ? '&' : '?';
-        url += `${sep}q=${encodeURIComponent(raw)}`;
         const city = result?.object?.location;
-        if (city) url += `&city=${encodeURIComponent(city)}`;
         // ── **والفهمُ يعبر معه إلى السوق** ────────────────────────
         //   رآه صاحبُ المشروع في لقطتَين متتاليتَين: كتب «بغيت شي كسوة لبنتي
         //   أنا فكازة»، فقرأ التطبيقُ `ملابس الأطفال` بيقين ٨٠٪ وعرضه، ثمّ
@@ -263,11 +260,12 @@ export default function LivingHome() {
         //   لم يُقرأ. والمرادفاتُ تُضاف ولا تحلّ محلّها.
         //   والمفهومُ يُقرأ من التحليل المحفوظ عند الإرسال (`lastU`) — لا
         //   بتحليلٍ ثانٍ للنصّ هنا: القاعدةُ ㉒، تحليلٌ واحدٌ للجملة.
-        const cid = lastU?.service;
-        if (cid) {
-          const t = conceptTerms(cid, 16);
-          if (t.length) url += `&terms=${encodeURIComponent(t.join('|'))}`;
-        }
+        //
+        //   وكانت السلسلةُ تُبنى هنا بيدٍ: `q` و`city` و`terms` وحدَها.
+        //   فسقفُ الثمن («بأقلّ من ٢٠٠ درهم») وحالُ السلعة («يكون جديد»)
+        //   والفئةُ — كلُّها مقروءةٌ ولا تركب. العقدُ الآن واحدٌ لكلّ باب.
+        const qs = toSearchParams(expandQuery(raw, lastU?.service), city || undefined);
+        url += (url.includes('?') ? '&' : '?') + qs.toString();
       }
       const target = url;
       // تنقّلٌ داخل الراوتر لا إعادةُ تحميل: كانت location.assign تهدم الحالة

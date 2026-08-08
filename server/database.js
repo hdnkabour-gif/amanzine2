@@ -1260,11 +1260,13 @@ db.getListing = async (id) => {
   const { rows } = await pool.query('SELECT * FROM listings WHERE id = $1', [id]);
   return _mapListing(rows[0]) || null;
 };
-db.getPublicListings = async ({ city, type, q, limit = 60 } = {}) => {
+db.getPublicListings = async ({ city, type, q, terms, limit = 60 } = {}) => {
   const conds = ["status = 'approved'"]; const vals = []; let i = 1;
   if (city) { conds.push(`city = $${i++}`); vals.push(city); }
   if (type) { conds.push(`type = $${i++}`); vals.push(type); }
-  if (q)    { conds.push(`(LOWER(name) LIKE $${i} OR LOWER(description) LIKE $${i} OR LOWER(category) LIKE $${i})`); vals.push('%' + String(q).toLowerCase() + '%'); i++; }
+  // نفسُ مطابِق المنتجات — لا مطابقةَ ثانيةٌ لسؤالٍ واحد (انظر `matchClause`).
+  const clause = matchClause({ q, terms }, ['name', 'description', 'category'], vals, i);
+  if (clause) { conds.push(clause.sql); i = clause.next; }
   vals.push(Math.min(+limit || 60, 200));
   const { rows } = await pool.query(
     `SELECT l.*,
@@ -1575,10 +1577,68 @@ const AR_NORM = (t) => String(t || '').toLowerCase()
   .replace(/\s+/g, ' ').trim();
 
 /**
- * `terms` — مرادفاتُ المفهوم كما وسّعتها الواجهةُ من قاعدة المعرفة
- * («بلومبي» ⇒ سباك · Plombier · Plumber · فتح المجاري …). الخادمُ يبقى
- * محرّكَ بحثٍ ولا يعرف أنّها شيءٌ واحد — هذا عملُ طبقة الفهم، لا SQL.
+ * **مطابِقٌ واحدٌ لكلّ المصادر.**
+ *
+ *   كان التفكيكُ والتطبيعُ مكتوبَين في `discoverProducts` وحدَه، بينما
+ *   `getPublicListings` و`discoverProviders` تبحثان بـ`LIKE '%<الجملة>%'`
+ *   حرفيًّا. فمن كتب «بغيت شي كسوة لبنتي أنا فكازة» كان يجد منتجًا في
+ *   المتجر ولا يجد إعلانًا مطابقًا في السوق — **وهو نفسُ السؤال**.
+ *   ثلاثةُ مصادرَ وثلاثُ مطابقاتٍ مختلفة: هذا هو العطب، لا صفحةٌ بعينها.
+ *
+ *   `terms` — مرادفاتُ المفهوم كما وسّعتها الواجهةُ من قاعدة المعرفة
+ *   («بلومبي» ⇒ سباك · Plombier · Plumber · فتح المجاري …). الخادمُ يبقى
+ *   محرّكَ بحثٍ ولا يعرف أنّها شيءٌ واحد — هذا عملُ طبقة الفهم، لا SQL.
+ *
+ *   تُجرَّب العبارةُ كاملةً **وكلماتُها**: الأولى أدقُّ والثانيةُ تُنقذ حين
+ *   تفشل، لأنّ أحدًا لا يسمّي بضاعتَه بالترتيب الذي يكتبه الباحث —
+ *   «حوايج صغار» لا تُطابق «حوايج **دراري** صغار» متّصلةً. وحدُّ ثلاثةِ
+ *   أحرفٍ للكلمة المفكَّكة يمنع الضجيج («شي» · «ديال» · «لي» تقع في كلّ
+ *   شيء)، والعبارةُ الأصليّةُ تبقى بحدّها (حرفان) لأنّها مقصودة.
+ *
+ * @returns {{ sql: string, next: number } | null} — `null` إن لا كلمةَ تُطابَق.
  */
+/**
+ * أدواتُ الكلام لا تدلّ على بضاعة.
+ *
+ *   حدُّ الأحرف وحدَه لا يكفي: «بغيت» و«ديال» و«عندي» و«ليا» كلُّها ثلاثةُ
+ *   أحرفٍ فأكثر، وتقع في كلّ جملةٍ يكتبها مغربيّ. وحين تصير كلماتِ بحثٍ
+ *   تُطابق ما لا يخصّ الطلبَ فيرجع ضجيجٌ قبل المطلوب.
+ *
+ *   وتُحذَف من **الكلمات المفكَّكة وحدَها**؛ العبارةُ كاملةً تبقى كما هي.
+ *   فمن كتب «حوايج ديال الدراري» يبقى له «حوايج» و«الدراري» والعبارةُ
+ *   نفسُها — ولا يُفقَد شيء.
+ */
+const STOP = new Set([
+  'بغيت', 'بغينا', 'باغي', 'باغيه', 'نبغي', 'عندي', 'عندنا', 'عندك',
+  'ديال', 'ديالي', 'ديالك', 'ديالو', 'شنو', 'واش', 'فين', 'شكون',
+  'ليا', 'ليك', 'ليه', 'حتى', 'هاد', 'هادي', 'اللي', 'كاين', 'كاينه',
+  'خاصني', 'مستعجل', 'شويه', 'بزاف', 'من', 'في', 'على', 'مع', 'الا',
+].map(w => AR_NORM(w)));
+
+const matchWords = ({ q, terms } = {}) => {
+  const raw = [q, ...(Array.isArray(terms) ? terms : [])];
+  const parts = raw.flatMap(t => String(t || '').split(/\s+/))
+    .filter(w => w.length >= 3).map(t => AR_NORM(t)).filter(t => !STOP.has(t));
+  return [...new Set([...raw.map(t => AR_NORM(t)), ...parts])
+    .values()].filter(t => t && t.length >= 2).slice(0, 40);
+};
+// `extra(n)` — شرطٌ إضافيٌّ لكلّ كلمةٍ بنفس رقم متغيّرها (جدولٌ مرتبطٌ مثلًا).
+const matchClause = ({ q, terms } = {}, cols = [], vals = [], start = 1, extra = null) => {
+  const words = matchWords({ q, terms });
+  if (!words.length || (!cols.length && !extra)) return null;
+  let i = start;
+  const ors = words.map(w => {
+    vals.push('%' + w + '%');
+    const n = i++;
+    // التطبيعُ يقع على العمود أيضًا: «جلابة» المخزّنةُ تُطابق «جلابه» المكتوبة.
+    const one = cols.map(c => `${AR_SQL(c)} LIKE $${n}`);
+    if (extra) one.push(extra(n));
+    return `(${one.join(' OR ')})`;
+  });
+  return { sql: `(${ors.join(' OR ')})`, next: i };
+};
+db._matchWords = matchWords; // مكشوفٌ للاختبار وحدَه — لا يُنادى من الإنتاج.
+
 db.discoverProducts = async ({ city, q, terms, limit = 24 } = {}) => {
   const conds = ["p.status = 'published'"]; const vals = []; let i = 1;
   // مدينةُ الإعلان أوّلًا، ومدينةُ المتجر احتياطًا: التاجرُ قد يبيع في مدينةٍ
@@ -1601,19 +1661,8 @@ db.discoverProducts = async ({ city, q, terms, limit = 24 } = {}) => {
   //
   //   وحدُّ ثلاثةِ أحرفٍ للكلمة المفكَّكة يمنع الضجيج: «شي» و«ديال» و«لي»
   //   تقع في كلّ شيء. والعبارةُ الأصليّةُ تبقى بحدّها (حرفان) لأنّها مقصودة.
-  const raw = [q, ...(Array.isArray(terms) ? terms : [])];
-  const parts = raw.flatMap(t => String(t || '').split(/\s+/)).filter(w => w.length >= 3);
-  const words = [...new Set([...raw, ...parts]
-    .map(t => AR_NORM(t)).filter(t => t && t.length >= 2))].slice(0, 40);
-  if (words.length) {
-    const ors = words.map(w => {
-      vals.push('%' + w + '%');
-      const n = i++;
-      // التطبيعُ يقع على العمود أيضًا: «جلابة» المخزّنةُ تُطابق «جلابه» المكتوبة.
-      return `(${AR_SQL('p.name')} LIKE $${n} OR ${AR_SQL('p.description')} LIKE $${n} OR ${AR_SQL('p.category')} LIKE $${n})`;
-    });
-    conds.push(`(${ors.join(' OR ')})`);
-  }
+  const clause = matchClause({ q, terms }, ['p.name', 'p.description', 'p.category'], vals, i);
+  if (clause) { conds.push(clause.sql); i = clause.next; }
   vals.push(Math.min(+limit || 24, 60));
   const { rows } = await pool.query(
     `SELECT p.id, p.user_id, p.name, p.price, p.category, p.city, p.emoji, p.image_url, p.views, p.offer_type,
@@ -1632,15 +1681,15 @@ db.discoverProducts = async ({ city, q, terms, limit = 24 } = {}) => {
   }));
 };
 
-db.discoverProviders = async ({ city, q, limit = 24 } = {}) => {
+db.discoverProviders = async ({ city, q, terms, limit = 24 } = {}) => {
   const conds = ["pr.status = 'approved'"]; const vals = []; let i = 1;
   if (city) { conds.push(`pr.city = $${i++}`); vals.push(city); }
-  if (q) {
-    conds.push(`(LOWER(pr.name) LIKE $${i} OR LOWER(pr.bio) LIKE $${i} OR EXISTS (
-       SELECT 1 FROM provider_services ps WHERE ps.provider_id = pr.id
-         AND (LOWER(ps.service_label) LIKE $${i} OR LOWER(ps.service_key) LIKE $${i})))`);
-    vals.push('%' + String(q).toLowerCase() + '%'); i++;
-  }
+  // نفسُ المطابِق. وكان الحرفيُّ أبعدَ الثلاثةِ عن مَن يطلبه: من كتب
+  // «بلومبي» لا يجد سبّاكًا ولو كان مسجَّلًا — المرادفاتُ تصل ولا تُقرأ.
+  const svc = (n) => `EXISTS (SELECT 1 FROM provider_services ps WHERE ps.provider_id = pr.id
+       AND (${AR_SQL('ps.service_label')} LIKE $${n} OR ${AR_SQL('ps.service_key')} LIKE $${n}))`;
+  const clause = matchClause({ q, terms }, ['pr.name', 'pr.bio'], vals, i, svc);
+  if (clause) { conds.push(clause.sql); i = clause.next; }
   vals.push(Math.min(+limit || 24, 60));
   const { rows } = await pool.query(
     `SELECT pr.id, pr.user_id, pr.name, pr.bio, pr.city, pr.avatar_url, pr.is_verified,

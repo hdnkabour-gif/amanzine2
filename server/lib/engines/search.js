@@ -103,8 +103,17 @@ async function execute({ q, terms, city, lat, lng, type, radiusKm, limit = 24, w
   const ranked = ranking.rank(businesses, { maxDistanceKm: radiusKm || 25 }, weights);
   ranked.forEach(b => { delete b.__relevance; });
 
-  // المنتجات (تنتمي لنشاط) — تُعرض عندما لا تكون النيّة خدمة صرفة
-  let products = intent.kind === 'service' ? [] : await business.searchProducts({ city, q, terms: expanded, limit });
+  // ── **المنتجاتُ لا تُحذَف بحَدْس** ──────────────────────────────
+  //   كان الشرطُ: إن بدت النيّةُ «خدمة» فلا منتجاتِ أصلًا. والنيّةُ تُقرأ من
+  //   **المرادفات الموسَّعة** أيضًا — فمن كتب «بغيت جلابة» وسّعنا له المفهومَ
+  //   فجاء ضمنَه «خياطة بالمقاس»، فصار الطلبُ «خدمة»، **فاختفت الجلابة**.
+  //   التوسيعُ الذي بُني ليزيد ما يُوجَد صار يحذفه.
+  //
+  //   القاعدة: التضييقُ لمن **قال** لا لمن **خُمِّن عنه**. `type` يأتي من
+  //   الطالب صراحةً؛ و`intent.kind` حدسٌ يُرتِّب ولا يحذف.
+  let products = await business.searchProducts({ city, q, terms: expanded, limit });
+  if (type === 'service') products = products.filter(p => p.type === 'service');
+  else if (type === 'store') products = products.filter(p => p.type !== 'service');
   if (userFilters.priceMax != null) products = products.filter(p => +p.price <= +userFilters.priceMax);
   if (userFilters.priceMin != null) products = products.filter(p => +p.price >= +userFilters.priceMin);
 

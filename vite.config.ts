@@ -34,4 +34,13 @@ export default defineConfig({
       "/ws": { target: "ws://localhost:3001", ws: true },
     },
   },
+  // والمعاينةُ تحتاج وسيطَها هي: `server.proxy` لا يسري على `vite preview`.
+  // وهي الصورةُ التي تُقاس بها الرحلةُ في متصفّحٍ حقيقيّ — فإن لم يُوسَّط
+  // هنا، قِسنا تطبيقًا بلا خادمٍ وسمّيناه عطبًا في الواجهة.
+  preview: {
+    proxy: {
+      "/api": "http://localhost:3001",
+      "/ws": { target: "ws://localhost:3001", ws: true },
+    },
+  },
 });

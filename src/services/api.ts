@@ -2,16 +2,23 @@
 // API Client — يتصل بالـ backend عند توفره، وإلا يعمل offline
 // ================================================================
 
-const BASE_URL = (() => {
-  if (typeof window !== 'undefined') {
-    // Auto-detect: same origin or localhost:3001
-    if (window.location.port === '5173' || window.location.port === '4173') {
-      return 'http://localhost:3001/api';
-    }
-    return `${window.location.origin}/api`;
-  }
-  return 'http://localhost:3001/api';
-})();
+// ── **نفسُ الأصل دائمًا — لا قفزٌ فوق الوسيط** ────────────────────
+//   كان المتصفّحُ على 5173/4173 يُنادي `http://localhost:3001` مباشرةً،
+//   فيقفز فوق وسيط Vite (`server.proxy` و`preview.proxy`) ويصير كلُّ نداءٍ
+//   عابرًا للأصل. وقِيس في متصفّحٍ حقيقيّ على `127.0.0.1:4173`:
+//
+//       Access to fetch at 'http://localhost:3001/api/search' from origin
+//       'http://127.0.0.1:4173' has been blocked by CORS policy
+//
+//   فسقط البحثُ **والفحصُ الصحّيُّ معه**، وظهر للإنسان «ما لقّيناش» —
+//   والخادمُ يجيب تمامًا على بُعد سطرٍ واحد. `127.0.0.1` و`localhost`
+//   أصلان مختلفان عند المتصفّح ولو كانا الجهازَ نفسَه.
+//
+//   والوسيطُ قائمٌ في `vite.config` لهذا الغرض بالذات. فيكفي المسارُ
+//   النسبيّ: يعمل في التطوير والمعاينة والإنتاج بلا استثناءٍ ولا CORS.
+const BASE_URL = typeof window !== 'undefined'
+  ? `${window.location.origin}/api`
+  : 'http://localhost:3001/api';
 
 // C-3: التوكنات الحقيقية لم تعد تُخزَّن في localStorage (حماية من XSS).
 // المصادر: ذاكرة الجلسة (هذا التبويب) + كوكي HttpOnly (يستعيد الجلسة بعد التحديث).
@@ -551,6 +558,15 @@ export interface SearchFilters {
   verified?: boolean; ratingMin?: number; delivery?: boolean; booking?: boolean;
   offers?: boolean; openNow?: boolean; availableToday?: boolean; priceMin?: number; priceMax?: number;
   lat?: number; lng?: number; radiusKm?: number; view?: 'list' | 'map'; limit?: number;
+  // **المرادفاتُ جزءٌ من عقد البحث، لا زيادةٌ على هامشه.**
+  //   طبقةُ الفهم في المتصفّح تعرف أنّ «بلومبي» و«سباك» و«Plombier» شيءٌ
+  //   واحد؛ الخادمُ لا يعرف ولا يجب أن يعرف. فإن لم تُحمَل المرادفاتُ في
+  //   العقد نفسِه، حملها بابٌ ونسيها بابان — وهذا ما وقع فعلًا.
+  //   مفصولةٌ بـ«|» لأنّ هذا ما يقرأه `/api/search` و`/api/discover`.
+  terms?: string;
+  // حالُ السلعة: «فران يكون جديد» — يقرأه `parseFilters` في الخادم منذ
+  // كُتب، ولم يكن في العقد فلم يصله من الواجهة إلّا من بابٍ واحد.
+  condition?: 'new' | 'used';
 }
 export interface SearchResult {
   intent: { kind: string; nearby: boolean; cleaned: string; matched: string[] };
@@ -614,17 +630,14 @@ export const trackAPI = {
 // المحرّك الموحّد على الخادم (/api/search) — يفهم النيّة، يبحث، ويُسجّل
 // الاستعلام/الـ miss (Experience Graph: المعرفة التي تبني نفسها). يُستدعى من
 // تدفّق «شنو محتاج اليوم؟» فيتعلّم الخادم من كل طلب حقيقيّ عبر كل المستخدمين.
+// ── **مُسلسِلٌ واحدٌ لا اثنان** ──────────────────────────────────
+//   كان هنا قائمةٌ بيضاءُ مكتوبةٌ بأصابعَ: `city · type · lat · lng · limit`.
+//   وكلُّ ما ليس فيها يسقط **صامتًا**. فالمرادفاتُ التي حسبتها طبقةُ الفهم
+//   كانت تُمرَّر ولا تصل، والنداءُ ينجح، والنتيجةُ صفر. عطبٌ بلا رسالة.
+//   الآن يُفوَّض إلى `businessAPI.search` فيسري عقدٌ واحد (`SearchFilters`)
+//   على كلّ الأبواب — ومن يضيف حقلًا إلى العقد يصل بلا لمس هذا السطر.
 export const searchAPI = {
-  query: (q: string, opts?: { city?: string; type?: string; lat?: number; lng?: number; limit?: number }) => {
-    const p = new URLSearchParams();
-    if (q) p.set('q', q);
-    if (opts?.city) p.set('city', opts.city);
-    if (opts?.type) p.set('type', opts.type);
-    if (opts?.lat != null) p.set('lat', String(opts.lat));
-    if (opts?.lng != null) p.set('lng', String(opts.lng));
-    if (opts?.limit) p.set('limit', String(opts.limit));
-    return request<any>('GET', `/search?${p.toString()}`);
-  },
+  query: (q: string, opts: SearchFilters = {}) => businessAPI.search({ ...opts, q }),
 };
 
 // AI Engine — بحث بلغة طبيعية → نيّة + نتائج

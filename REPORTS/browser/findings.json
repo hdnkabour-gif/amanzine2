@@ -1,5 +1,5 @@
 {
- "at": "2026-08-08T21:00:22.073Z",
+ "at": "2026-08-08T23:29:36.283Z",
  "base": "http://127.0.0.1:4173",
  "viewport": {
   "width": 390,
@@ -7,7 +7,7 @@
  },
  "counts": {
   "crit": 0,
-  "warn": 52
+  "warn": 26
  },
  "findings": [
   {
@@ -23,42 +23,12 @@
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/needs/trending' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Acces"
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
   },
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/listings/public/stats' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/listings/public/catalog' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: "
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/health' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Contro"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
   },
   {
    "level": "warn",
@@ -73,42 +43,12 @@
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/needs/trending' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Acces"
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
   },
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/listings/public/stats' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/listings/public/catalog' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: "
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/health' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Contro"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
   },
   {
    "level": "warn",
@@ -123,12 +63,12 @@
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/health' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Contro"
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_CONNECTION_RESET"
   },
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_CONNECTION_RESET"
   },
   {
    "level": "warn",
@@ -143,12 +83,12 @@
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/health' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Contro"
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_CONNECTION_RESET"
   },
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_CONNECTION_RESET"
   },
   {
    "level": "warn",
@@ -163,12 +103,12 @@
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/health' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Contro"
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_CONNECTION_RESET"
   },
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_CONNECTION_RESET"
   },
   {
    "level": "warn",
@@ -183,32 +123,7 @@
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/health' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Contro"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
-  },
-  {
-   "level": "warn",
-   "where": "console",
    "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_CONNECTION_RESET"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_CONNECTION_RESET"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/health' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Contro"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
   },
   {
    "level": "warn",
@@ -223,52 +138,7 @@
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/health' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Contro"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
-  },
-  {
-   "level": "warn",
-   "where": "console",
    "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_CONNECTION_RESET"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_CONNECTION_RESET"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/health' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Contro"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_CONNECTION_RESET"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_CONNECTION_RESET"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Access to fetch at 'http://localhost:3001/api/health' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Contro"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: net::ERR_FAILED"
   }
  ]
 }

@@ -178,26 +178,43 @@ async function scan(page, where) {
   //   أوّلُ شوطٍ أعلن ثمانَ صفحاتٍ «لا تفتح» — وكلُّها كانت تُعيد إلى `/login`،
   //   وهو **الصوابُ** لزائرٍ لم يدخل. فالماشي بلا حسابٍ يقيس بابًا مغلقًا
   //   ويظنّه عطبًا. وهذا نفسُ الخطأ الذي وقعتُ فيه حين قرأتُ الكودَ واستنتجت.
-  const API = process.env.WALK_API || 'http://127.0.0.1:3001';
   const EMAIL = `walk-${Date.now()}@test.ma`;
   let signedIn = false;
   try {
-    const r = await fetch(API + '/api/auth/register', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'عبدو', email: EMAIL, password: 'walk-pass-123', storeName: 'حانوت المشي' }),
-    });
-    const b = await r.json().catch(() => ({}));
+    // ── **يُسجَّل من داخل المتصفّح لا من هنا** ────────────────────
+    //   التطبيقُ يمحو الرمزَ من التخزين عمدًا بعد قراءته (حمايةٌ من XSS)
+    //   ويعتمد على كوكي HttpOnly لاستعادة الجلسة بعد كلّ تحديث. فرمزٌ
+    //   نحقنه من node يعيش صفحةً واحدةً ثمّ يموت، فتُعيد كلُّ صفحةٍ تالية
+    //   إلى `/login` ونظنّها مقفلة. الطلبُ يُرسَل من الصفحة نفسِها كي
+    //   يستقرّ الكوكي حيث يستقرّ للإنسان.
+    await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+    const b = await page.evaluate(async ([email]) => {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'عبدو', email, password: 'walk-pass-123', storeName: 'حانوت المشي' }),
+      });
+      return { status: res.status, ...(await res.json().catch(() => ({}))) };
+    }, [EMAIL]);
+    const r = { status: b.status };
     const token = b.token || b.accessToken;
     if (token) {
-      await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+      // **حيث يقرأ التطبيقُ فعلًا، لا حيث ظننت.** كان الرمزُ يُكتَب في
+      // `sessionStorage` — و`services/api` لا يقرؤه من هناك أبدًا. فتُعلَن
+      // «دخل بحساب» ولم يدخل، ثمّ تُتَّهم ثمانُ صفحاتٍ بأنّها لا تفتح وهي
+      // تصدق: تُعيد زائرًا إلى الدخول. أداةُ القياس كانت هي الكاذبة.
       await page.evaluate(([t, u]) => {
         try {
-          sessionStorage.setItem('ai_commerce_token', t);
+          localStorage.setItem('ai_commerce_token', t);
           localStorage.setItem('ai_commerce_user', JSON.stringify(u));
         } catch { /* noop */ }
       }, [token, b.user || { name: 'عبدو', email: EMAIL }]);
-      signedIn = true;
-      console.log('   ↳ دخل بحسابٍ جديد: عبدو\n');
+      // والتحقّقُ من الدخول لا يُفترَض: تُفتَح صفحةٌ محميّةٌ ويُنظَر أين انتهت.
+      await page.goto(BASE + '/dashboard', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1200);
+      signedIn = !/\/login/.test(page.url());
+      if (signedIn) console.log('   ↳ دخل بحسابٍ جديد: عبدو\n');
+      else note('crit', 'auth', 'الرمزُ كُتب والصفحةُ المحميّةُ ردّت للدخول',
+        `انتهى إلى ${page.url()}`);
     } else note('crit', 'auth', `التسجيلُ ما رجّعش رمزًا (${r.status})`, JSON.stringify(b).slice(0, 120));
   } catch (e) {
     note('warn', 'auth', 'تعذّر التسجيلُ — المِشيةُ غادي تبقى ديال زائر', String(e).slice(0, 100));

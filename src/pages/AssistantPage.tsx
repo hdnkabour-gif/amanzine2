@@ -5,6 +5,7 @@ import { type NeedResult, type NeedOption } from '../lib/needEngine';
 import { understandHybrid } from '../lib/understanding';
 import { resolveConcept, conceptGraph, stanceOf, type ConceptNode } from '../lib/akg/kb';
 import { shrinkImage } from '../lib/imageFile';
+import { expandQuery, toSearchParams } from '../lib/searchIntent';
 import { buildContext } from '../lib/core/context';
 import { playGate } from '../lib/gateTransition';
 import { useNavigate } from 'react-router-dom';
@@ -24,13 +25,16 @@ const GREET = 'السلام 👋 أنا مساعد أمانزين. قول ليا
 const SUGGEST = ['بغيت سبّاك مستعجل', 'فين نلقى طبيب أسنان', 'بغيت نبيع تلفون', 'شقة للكراء فالرباط'];
 
 // يحمل الحاجة المفهومة إلى السوق حتى يُرتّبها محرّك البحث/الترتيب (/api/search) —
-// وإلّا هبط المستخدم على سوقٍ عامّ وضاع الفهم. نُلحق q (الحاجة) + city إن وُجدا.
-function withNeed(url: string | undefined, q: string, city?: string): string {
-  let u = url || '/market';
+// وإلّا هبط المستخدم على سوقٍ عامّ وضاع الفهم.
+//
+//   وكان يُلحق `q` و`city` **وحدَهما**: لا مرادفاتٍ ولا فئةً ولا سقفَ ثمنٍ
+//   ولا حالَ سلعة. فمن سأل المساعدَ عن «بلومبي» ساقه إلى سوقٍ يبحث عن
+//   كلمةٍ لا يعرفها أحد. العقدُ الآن هو نفسُه في كلّ الأبواب.
+function withNeed(url: string | undefined, q: string, city?: string, concept?: string): string {
+  const u = url || '/market';
   if (!u.startsWith('/market')) return u;
-  if (!/[?&]q=/.test(u) && q.trim()) { u += (u.includes('?') ? '&' : '?') + 'q=' + encodeURIComponent(q.trim()); }
-  if (city && !/[?&]city=/.test(u)) { u += '&city=' + encodeURIComponent(city); }
-  return u;
+  if (/[?&]q=/.test(u) || !q.trim()) return u;
+  return u + (u.includes('?') ? '&' : '?') + toSearchParams(expandQuery(q, concept), city).toString();
 }
 
 export default function AssistantPage() {
@@ -89,7 +93,8 @@ export default function AssistantPage() {
     // الاتّجاه يختار الأسئلة: مَن قال «أنا حدّاد» لا يُسأل «شحال الميزانية؟».
     const node = svc ? conceptGraph(svc, stanceOf(query, svc)) : null;
     // احمل الحاجة إلى السوق (إلّا حين تكون الوجهة صفحةً داخليّة) — لا يضيع الفهم.
-    const rr: NeedResult = (!r.page && r.url) ? { ...r, url: withNeed(r.url, query, uctx.place.city || undefined) } : r;
+    // المفهومُ مقروءٌ للتوّ في `svc` — يُمرَّر ولا يُقرأ ثانيةً (القاعدةُ ㉒).
+    const rr: NeedResult = (!r.page && r.url) ? { ...r, url: withNeed(r.url, query, uctx.place.city || undefined, svc) } : r;
     lastRef.current = { raw: query, intent: r.intent, journey: String(jrn), uctx };
     setMsgs(m => [...m, { who: 'user', text: query }, { who: 'ai', text: reply, result: rr, node }]);
     setText('');

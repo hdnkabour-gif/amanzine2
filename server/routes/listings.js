@@ -106,6 +106,9 @@ router.get('/public/catalog', async (req, res) => {
       city: req.query.city || undefined,
       type: t === 'service' ? 'service' : t === 'product' ? 'product' : undefined,
       q: String(req.query.q || '').trim().slice(0, 80) || undefined,
+      // المرادفاتُ تدخل من هنا أيضًا: هذا بابٌ عامٌّ يُنادى من خارج الواجهة،
+      // ولا يجوز أن يكون مطابِقُه أضعفَ من مطابِق `/api/search`.
+      terms: String(req.query.terms || '').split('|').map(t => t.trim()).filter(Boolean).slice(0, 24),
     });
     res.json({ listings });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }

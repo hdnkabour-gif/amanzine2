@@ -93,3 +93,5 @@ import './evidence.test';
 import './doors.test';
 // جسدُ الكلام الحيّ: ١٠٦ عباراتٍ من مستخدمين حقيقيّين — الشارعُ كتبها لا أنا.
 import './liveCorpus.test';
+// عقدُ البحث: أربعةُ أبوابٍ لسؤالٍ واحد، وثلاثةٌ تُسقط الفهمَ صامتةً.
+import './searchContract.test';

@@ -17,6 +17,25 @@ const CARD: React.CSSProperties = { background: 'rgba(255,255,255,0.04)', border
 const MUTED = 'rgba(255,255,255,0.5)';
 const PURPLE = '#8b5cf6';
 
+/**
+ * **ما فُهم، بالاتّجاه لا بالاسم وحدَه.**
+ *
+ *   كان يُقال «فهمنا: ملابس الأطفال» — الشيءُ بلا ما يُراد به. والشاشةُ
+ *   الأولى تقول «كتقلّب على…» ثمّ تنقل الإنسانَ إلى السوق فيسقط الاتّجاهُ
+ *   في الطريق. وقُيست الرحلةُ في متصفّحٍ حقيقيّ: الإنسانُ يكتب «بغيت شي
+ *   كسوة لبنتي» فيُنقَل إلى صفحةٍ **لا تقول له لماذا جاءته هذه النتائج**.
+ *
+ *   والكلمةُ تتبع نوعَ الفئة: «تشري جلابة» كلامٌ، و«تشري سبّاك» ليس كلامًا.
+ *   ولا مُعرِّفَ داخليٌّ يظهر — القانون العاشر.
+ */
+function sayUnderstood(i: ReturnType<typeof expandQuery>): string | null {
+  const what = i.label && i.label !== i.raw ? i.label : null;
+  if (!what) return null;
+  if (i.stance === 'offer') return `باغي تعرض ${what}`;
+  if (i.stance === 'seek') return i.kind === 'service' ? `كتقلّب على ${what}` : `باغي تشري ${what}`;
+  return what;
+}
+
 export default function DiscoverSections({ city, q }: { city: string; q: string }) {
   const [data, setData] = useState<{ products: DProduct[]; providers: DProvider[]; stores: DStore[] } | null>(null);
   const [understood, setUnderstood] = useState<string | null>(null);
@@ -29,7 +48,7 @@ export default function DiscoverSections({ city, q }: { city: string; q: string 
     // هنا — في المتصفّح، حيث يسكن الفهم (ADR ③) — ويُرسَل موسَّعًا.
     const intent = expandQuery(q);
     const qs = toSearchParams(intent, city);
-    setUnderstood(intent.label && intent.label !== intent.raw ? intent.label : null);
+    setUnderstood(sayUnderstood(intent));
     const t = setTimeout(() => {
       fetch(`/api/discover?${qs}`).then(r => r.json())
         .then(d => setData({ products: d.products || [], providers: d.providers || [], stores: d.stores || [] }))

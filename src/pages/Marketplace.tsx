@@ -4,6 +4,8 @@ import NeedCapture from '../components/NeedCapture';
 import DiscoverSections from '../components/DiscoverSections'; // Super App — الاكتشاف الموحد
 import { type Lang, LANGS, isRtlLang } from '../i18n';
 import { pt } from '../i18n/public';
+import { businessAPI, type SearchResult } from '../services/api';
+import { expandQuery, toSearchFilters } from '../lib/searchIntent';
 
 // ════════════════════════════════════════════════════════════
 // السوق المغربي الموحّد (Marketplace) — صفحة عامة (بلا حساب):
@@ -26,8 +28,51 @@ interface Listing {
   category: string; city: string; images: string[]; duration?: string; workArea?: string;
   sellerName: string; sellerPhone: string; ratingAvg?: number; ratingCount?: number;
   details?: ServiceDetails;
+  /**
+   * من أين جاء هذا المعروض.
+   *
+   *   السوقُ كان يقرأ جدولَ الإعلانات وحدَه بينما يبحث المحرّكُ الموحّد في
+   *   ثلاثةِ مصادر. فمن كتب «بغيت شي كسوة لبنتي» وأرسلته الشاشةُ الأولى
+   *   إلى السوق، كان يُقال له «ما لقّيناش» **وسلعتُه معروضةٌ في متجرٍ
+   *   مسجَّل** — لأنّ السوقَ ينظر في جدولٍ آخر. الصفحةُ الآن تسأل نفسَ
+   *   المحرّك، والمصدرُ يُحفَظ لأنّ التقييمَ يخصّ الإعلاناتِ وحدَها.
+   */
+  source: 'listing' | 'product' | 'store' | 'provider';
+  /** وجهةُ فتح المعروض حين لا يكون إعلانًا (صفحةُ النشاط). */
+  href?: string;
 }
 interface ServiceDetails { specialties?: string[]; serviceModes?: string[]; pricingModel?: string; customFields?: { label: string; value: string }[]; }
+
+/**
+ * نتيجةُ المحرّك الموحّد ← ما تعرضه هذه الصفحة.
+ * ترجمةٌ فقط: لا بحثَ هنا ولا مرشِّح — المحرّكُ فعلهما.
+ */
+function toListings(r: SearchResult): Listing[] {
+  const out: Listing[] = [];
+  for (const b of r.businesses || []) {
+    out.push({
+      id: b.id, type: b.type === 'service' ? 'service' : 'product',
+      name: b.name, description: b.description || '', price: +(b.price || 0),
+      category: (b.categories || [])[0] || '', city: b.city || '',
+      images: b.gallery?.length ? b.gallery : (b.image ? [b.image] : []),
+      sellerName: b.name, sellerPhone: b.contact?.whatsapp || b.contact?.phone || '',
+      ratingAvg: b.rating?.avg || 0, ratingCount: b.rating?.count || 0,
+      source: b.source === 'listing' ? 'listing' : b.source === 'provider' ? 'provider' : 'store',
+      href: b.href,
+    });
+  }
+  for (const p of r.products || []) {
+    out.push({
+      id: String(p.id), type: p.type === 'service' ? 'service' : 'product',
+      name: p.name, description: '', price: +(p.price || 0),
+      category: p.category || '', city: p.city || p.storeCity || '',
+      images: p.imageUrl ? [p.imageUrl] : [],
+      sellerName: p.storeName || '', sellerPhone: '',
+      source: 'product', href: p.storeId ? `/business/store/${p.storeId}` : undefined,
+    });
+  }
+  return out;
+}
 interface Review { id: string; rating: number; comment: string; reviewerName: string; createdAt: string; }
 
 // اقتراحات تخصّصات شائعة (قابلة للإضافة) — للنموذج الذكي للخدمة
@@ -101,15 +146,17 @@ export default function Marketplace() {
   const [showSell, setShowSell] = useState(false);
   const [detail, setDetail] = useState<Listing | null>(null);
 
+  // ── **السوقُ يسأل المحرّكَ الموحّد، لا جدولًا واحدًا** ──────────────
+  //   العقدُ هو `toSearchFilters(expandQuery(...))`: نفسُ ما يُرسله
+  //   `DiscoverSections` والشاشةُ الأولى والمساعد. فتصل المرادفاتُ والفئةُ
+  //   وسقفُ الثمن وحالُ السلعة من غير أن تُكتَب هنا مرّةً ثانية.
   const load = () => {
     setLoading(true);
-    const qs = new URLSearchParams();
-    if (type !== 'all') qs.set('type', type);
-    if (city) qs.set('city', city);
-    if (q.trim()) qs.set('q', q.trim());
-    fetch(`/api/listings/public/catalog?${qs.toString()}`)
-      .then(r => r.json())
-      .then(d => setListings(Array.isArray(d.listings) ? d.listings : []))
+    const filters = toSearchFilters(expandQuery(q.trim()), city || undefined);
+    if (type !== 'all') filters.type = type === 'product' ? 'store' : 'service';
+    filters.limit = 40;
+    businessAPI.search(filters)
+      .then(r => setListings(toListings(r)))
       .catch(() => setListings([]))
       .finally(() => setLoading(false));
   };
@@ -237,7 +284,11 @@ function DetailModal({ l, lang, rtl, onClose }: { l: Listing; lang: Lang; rtl: b
   const [err, setErr] = useState('');
   const [thanks, setThanks] = useState(false);
 
+  // التقييمُ يخصّ الإعلاناتِ وحدَها: `/api/listings/:id/reviews` لا يعرف
+  // منتجَ متجرٍ ولا مزوّدًا. فلا نطلبه لهم ولا نعرض نموذجًا يُرسل إلى ٤٠٤.
+  const canReview = l.source === 'listing';
   const loadReviews = () => {
+    if (!canReview) { setLoading(false); return; }
     setLoading(true);
     fetch(`/api/listings/${l.id}/reviews`)
       .then(r => r.json())
@@ -245,7 +296,7 @@ function DetailModal({ l, lang, rtl, onClose }: { l: Listing; lang: Lang; rtl: b
       .catch(() => {})
       .finally(() => setLoading(false));
   };
-  useEffect(loadReviews, [l.id]);
+  useEffect(loadReviews, [l.id, canReview]);
 
   const submit = async () => {
     if (reviewerName.trim().length < 2) { setErr(pt(lang, 'mk.errName')); return; }
@@ -321,7 +372,13 @@ function DetailModal({ l, lang, rtl, onClose }: { l: Listing; lang: Lang; rtl: b
           )}
           {wa && <a href={`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, background: '#25D366', color: '#fff', fontSize: 14, fontWeight: 800, textDecoration: 'none', marginBottom: 8 }}>{pt(lang, 'mk.contactWith', { name: l.sellerName || pt(lang, 'mk.seller') })}</a>}
 
-          {/* قسم التقييمات */}
+          {/* المعروضُ من متجرٍ مسجَّل: بابُه صفحةُ نشاطه، لا نافذةُ إعلان. */}
+          {!canReview && l.href && (
+            <a href={l.href} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, background: C.input, border: `1px solid ${C.border}`, color: C.ink1, fontSize: 13.5, fontWeight: 800, textDecoration: 'none' }}>{pt(lang, 'mk.details')} ←</a>
+          )}
+
+          {/* قسم التقييمات — للإعلانات وحدَها (انظر `canReview`) */}
+          {canReview && <>
           <div style={{ height: 1, background: C.border, margin: '16px 0 14px' }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <h3 style={{ fontSize: 15, fontWeight: 900, margin: 0 }}>{pt(lang, 'mk.reviewsTitle', { count: String(rating.count) })}</h3>
@@ -363,6 +420,7 @@ function DetailModal({ l, lang, rtl, onClose }: { l: Listing; lang: Lang; rtl: b
               ))}
             </div>
           )}
+          </>}
         </div>
       </div>
     </div>

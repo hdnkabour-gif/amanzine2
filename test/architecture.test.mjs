@@ -1668,10 +1668,14 @@ test('المفهومُ المقروءُ يُرسَل إلى بحث السوق �
   const code = lh.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
   const blk = (code.match(/if \(url\.startsWith\('\/market'\)[\s\S]*?\n      \}/) || [''])[0];
   assert.ok(blk, 'اختفت كتلةُ الانتقال للسوق');
-  assert.match(blk, /conceptTerms\(/, 'المرادفاتُ ما كتتبعثش — السوقُ كيبحث بجملةٍ خامّة');
-  assert.match(blk, /terms=\$\{encodeURIComponent/, 'ما كتوصلش فـ`terms`');
-  // **والجملةُ الخامّةُ تبقى**: هي ما كتبه الإنسان وقد تحمل ما لم يُقرأ.
-  assert.match(blk, /q=\$\{encodeURIComponent\(raw\)\}/, 'ضاعت جملةُ الإنسان — المرادفاتُ تُضيف ولا تحلّ محلّها');
+  // ── ولا تُبنى السلسلةُ بيدٍ بعد اليوم ──────────────────────────
+  //   كانت `q` و`terms` تُخاطان هنا حرفًا حرفًا، فسقفُ الثمن وحالُ السلعة
+  //   والفئةُ — مقروءةٌ كلُّها ولا تركب. العقدُ الواحد (`toSearchParams`
+  //   فوق `expandQuery`) يحملها جميعًا، **وما يحمله مُثبَتٌ سلوكًا** في
+  //   `test/brain/searchContract.test.ts` لا بمطابقة نصٍّ هنا.
+  assert.match(blk, /toSearchParams\(expandQuery\(/,
+    'رجع بناءُ السلسلة بيدٍ — كلُّ بابٍ ينسى حقلًا غيرَ الذي ينساه الآخر');
+  assert.doesNotMatch(blk, /terms=/, 'كُتبت «terms» بيدٍ — نسختان من العقد تتباعدان');
   // ولا تحليلَ ثانٍ للنصّ هنا (القاعدة ㉒): يُقرأ من التحليل المحفوظ.
   assert.doesNotMatch(blk, /understand\(/, 'تحليلٌ ثانٍ للجملة — قرارٌ على فهمٍ وبحثٌ على فهمٍ آخر');
   assert.match(blk, /lastU\?\.service/, 'المفهومُ ما كيتقراش من التحليل المحفوظ');
