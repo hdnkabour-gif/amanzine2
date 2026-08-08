@@ -465,8 +465,10 @@ export default function NeedFirst() {
           </div>
         )}
 
-        {/* زرٌّ واحد — ولا يظهر قبل أن يكون له معنى */}
-        {!ask && text.trim().length >= 2 && (
+        {/* زرٌّ واحد — ولا يظهر قبل أن يكون له معنى.
+            **ويسكت تحت العتبة**: نداءان في مشهدٍ واحدٍ يُربكان، والعتبةُ
+            لها زرُّها. رآه صاحبُ المشروع: «متابعة» تحت «كمّل». */}
+        {!ask && !gate && text.trim().length >= 2 && (
           <button onClick={() => go()} className="nfFact"
             style={{ width: '100%', marginTop: 14, padding: '15px 20px', borderRadius: 15, border: 'none', background: C.orange, color: '#fff', fontSize: 15.5, fontWeight: 900, fontFamily: 'inherit', cursor: 'pointer', boxShadow: C.shadow }}>
             متابعة

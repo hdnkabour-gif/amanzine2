@@ -56,7 +56,28 @@ const PLATFORM_PAGES = new Set(['knowledge', 'moderation', 'field-visit']);
 function PageContent() {
   const { currentPage, user } = useStore();
   const isPlatformAdmin = !!(user as any)?.isPlatformAdmin;
-  if (PLATFORM_PAGES.has(currentPage as string) && !isPlatformAdmin) return <DashboardPage />;
+  // ── **والمنعُ يُقال، لا يُصمَت عنه** ────────────────────────────
+  //   قال صاحبُ المشروع: «صفحةُ الزيارة الميدانيّة لا تفتح». والصفحةُ
+  //   تعمل — لكنّها محجوبةٌ عمّن ليس أدمنَ منصّةٍ، وكان الحجبُ يُظهر
+  //   **لوحةَ التحكّم** مكانَها. فيضغط الإنسانُ ويرى شيئًا آخر، ولا يعرف
+  //   أوقع عطبٌ أم مُنِع. وصمتٌ كهذا يُضيّع ساعةً في البحث عن عطبٍ لا وجودَ له.
+  //
+  //   وأدمنُ المنصّة يُحدَّد **بالبريد على الخادم** (`ADMIN_EMAILS`) لا
+  //   بدورٍ في الحساب — فكلُّ مشتركٍ يأخذ `role: 'admin'` بمعنى «مالكُ متجره».
+  if (PLATFORM_PAGES.has(currentPage as string) && !isPlatformAdmin) {
+    return (
+      <div style={{ maxWidth: 560, margin: '48px auto', padding: '20px 22px', borderRadius: 16, border: '1px solid var(--border)', background: 'var(--panel,rgba(255,255,255,.04))', textAlign: 'center', direction: 'rtl' }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink1)', marginBottom: 8 }}>
+          هاد الصفحة ديال أدمن المنصّة
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.9 }}>
+          الحسابُ ديالك ماشي مسجّل أدمن. باش تفتحها، زيد البريد ديالك ف
+          <code style={{ margin: '0 5px', padding: '2px 6px', borderRadius: 6, background: 'var(--panel2,rgba(255,255,255,.06))' }}>ADMIN_EMAILS</code>
+          ف إعدادات الخادم، ثمّ خرج ودخل من جديد.
+        </div>
+      </div>
+    );
+  }
   switch (currentPage) {
     case 'home':          return <LivingHome />;
     case 'dashboard':     return <DashboardPage />;

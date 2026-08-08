@@ -1302,3 +1302,40 @@ test('العتبةُ شكلٌ لبابٍ قائم — لا بابَ ثانٍ ل�
   assert.doesNotMatch(code, /fetch\(|authAPI|localStorage\.setItem/,
     'العتبةُ تنادي الخادمَ أو تخزّن سرًّا بنفسها — بابٌ ثانٍ للدخول');
 });
+
+// **والعتبةُ تحمل ألوانَها — لا تستعير سِمةَ صفحة.**
+//
+//   رآه صاحبُ المشروع: نصُّ العتبة **باهتٌ لا يُقرأ**. وسببُه أنّها كُتبت
+//   بـ`var(--ink1)` وهو **أبيضُ** (`#F0F4FF`) في سِمة التطبيق، بينما صفحةُ
+//   الهبوط **فاتحة** (`#FAF8F2`). فأبيضُ على فاتحٍ يختفي.
+//
+//   وهي تظهر في صفحتَين بسِمتَين متعاكستَين، فألوانٌ مستعارةٌ تعني أنّها
+//   تُقرأ في واحدةٍ وتختفي في الأخرى.
+test('العتبةُ لا تستعير ألوانَ سِمةٍ متغيّرة', () => {
+  const src = readFileSync(join(ROOT, 'src/components/Threshold.tsx'), 'utf8');
+  const code = src.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  const borrowed = [...code.matchAll(/var\(--[a-z0-9-]+\)/g)].map(m => m[0]);
+  assert.deepEqual(borrowed, [],
+    `ألوانٌ مستعارةٌ بلا بديل: ${borrowed.join(' · ')} — تُقرأ في سِمةٍ وتختفي في الأخرى`);
+});
+
+// **ولا نداءان في مشهدٍ واحد.** «متابعة» تحت «كمّل» تُربك: أيُّهما يُضغَط؟
+test('زرُّ «متابعة» يسكت تحت العتبة', () => {
+  const nf = readFileSync(join(ROOT, 'src/pages/Landing/sections/NeedFirst.tsx'), 'utf8');
+  const code = nf.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.match(code, /\{!ask && !gate && text\.trim\(\)\.length >= 2 &&/,
+    'يُعرَض نداءان في مشهدٍ واحد — «متابعة» تحت زرّ العتبة');
+});
+
+// **والمنعُ يُقال لا يُصمَت عنه.** صفحاتُ أدمن المنصّة كانت تُظهر لوحةَ
+//   التحكّم مكانَها، فيظنّ صاحبُها أنّ الصفحة «لا تفتح» ويبحث عن عطبٍ
+//   لا وجودَ له.
+test('صفحةُ أدمن المنصّة تقول لماذا مُنعت', () => {
+  const ml = readFileSync(join(ROOT, 'src/pages/MainLayout.tsx'), 'utf8');
+  const code = ml.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  const block = (code.match(/if \(PLATFORM_PAGES\.has[\s\S]{0,900}?\n  \}/) || [''])[0];
+  assert.ok(block, 'اختفى حارسُ صفحات المنصّة');
+  assert.doesNotMatch(block, /return <DashboardPage \/>/,
+    'المنعُ يُظهر لوحةَ التحكّم بصمت — فيبدو أنّ الصفحة معطّلة');
+  assert.match(block, /ADMIN_EMAILS/, 'لا يُقال كيف يُفتَح البابُ — منعٌ بلا مخرج');
+});
