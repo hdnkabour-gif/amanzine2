@@ -87,3 +87,5 @@ import './regression.test';
 import './liveSentence.test';
 // الزيارةُ الميدانيّة: الصنفُ يُشتقّ ولا يُسأل — لأنّ وقتَ التاجر يُدفَع ثمنًا.
 import './visitKind.test';
+// الدليل: التطبيقُ يعرف متى لم يفهم — والمصرفُ يكفّ عن ابتلاع الإخفاق صامتًا.
+import './evidence.test';

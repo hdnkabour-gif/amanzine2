@@ -29,6 +29,9 @@ import { readPersonFacts, rememberFacts, forgetFact, describeFacts } from '../li
 import { decideExecution } from '../lib/executionPolicy';
 import { reportMisread } from '../lib/journey';
 import { understand, type Understanding } from '../lib/akg/kb';
+// أرضيّةُ الفهم: هل عندنا دليلٌ، أم رجعت النيّةُ من المصرف؟
+import { readGround, type Reading } from '../lib/evidence';
+import Mirror from '../components/Mirror';
 // الجملةُ الحيّة: طبقةُ عرضٍ تُعيد كلامَه ومعه الفراغُ — لا نافذةَ ولا صفحة.
 import { liveSentenceFor, type LiveSentence as LS, type Slot } from '../lib/liveSentence';
 import LiveSentenceView from '../components/LiveSentence';
@@ -126,6 +129,12 @@ export default function LivingHome() {
   const [focusField, setFocusField] = useState<FocusField | null>(null);
   // ما تعلّمناه عن الشخص من جملته — يُعرَض ليراجعه، لا ليُخفى.
   const [learned, setLearned] = useState('');
+  // ما نقف عليه في هذا الدور — تُقرأ مرّةً في `submit` وتُعرَض هنا.
+  const [ground, setGround] = useState<Reading | null>(null);
+  // **ما فُهم عند الإرسال** — يُحفَظ من التحليل الواحد ولا يُعاد حسابُه.
+  //   القاعدة ㉒: تحليلٌ واحدٌ للجملة. ومَن أعاد `understand(q)` للعرض بنى
+  //   القرارَ على فهمٍ والعرضَ على فهمٍ آخرَ بلا أن يظهر ذلك في سطر.
+  const [lastU, setLastU] = useState<Understanding | null>(null);
 
   /**
    * يُنهي التصحيح: يبلّغ الأدمنَ عدًّا، ويُطبّق التصحيحَ **لهذا الشخص وحدَه**.
@@ -387,7 +396,18 @@ export default function LivingHome() {
     //   فمن باع سيّارتَه مرّةً ليس بائعَ سيّارات. وما يُحفَظ يُعرَض فورًا
     //   ليراجعه صاحبُه، لأنّ حقيقةً خاطئةً تدوم أسوأُ من صفرِ حقائق.
     setLearned(describeFacts(rememberFacts(readPersonFacts(q))));
-    recordDecision(dec.mode, r.intent, dec.reason, q);       // قياس: القرار + السبب + التقاط جملة «ما لم نفهمه»
+    // ── **أرضيّةُ الفهم — التطبيقُ يعرف متى لم يفهم** ──────────────
+    //   `needEngine` تُرجع `find_pro` حين لا تجد شيئًا، و`recordDecision`
+    //   كانت تسجّل «ما لم نفهمه» بشرط `intent === 'unknown'` — التي لا تقع
+    //   أبدًا لأنّ المصرفَ يسبقها. فمن اثنتَي عشرة جملةً كتبها صاحبُ المشروع
+    //   سقطت سبعٌ **وبلغ الخادمَ صفر**.
+    //
+    //   وهي تُقرأ هنا لا داخل `journey`: **حيث تُقرأ الجملةُ مرّةً واحدة**.
+    //   حسابُها هناك يعني قراءةً ثانيةً تفترق عن هذه بلا صوت (القاعدة ㉒).
+    const ground = readGround(q, u, r.intent);
+    recordDecision(dec.mode, r.intent, dec.reason, q, ground.ground);   // قياس: القرار + السبب + أرضيّتُه
+    setGround(ground);
+    setLastU(u);
     setJourney(j);
     // عقدُ الطلب يُفتح هنا ويرافقه حتى النهاية — بدل أن يُعيد كلُّ جزءٍ من
     // النظام تفسيرَ الحوار من الصفر (HU-4).
@@ -491,6 +511,18 @@ export default function LivingHome() {
     }
     setPending(opt);
   };
+  // **ما نُريه لمن قال «مافهمتش»** — من التحليل المحفوظ لا من تحليلٍ ثانٍ.
+  //   ولا يُخترَع شيء: ما لم يُقرأ لا يظهر، فالفراغُ أصدقُ من قطعةٍ فارغة.
+  const mirrorFacts = useMemo(() => {
+    const out: { label: string; value: string }[] = [];
+    if (!lastU) return out;
+    if (lastU.profession?.label) out.push({ label: 'الحرفة', value: lastU.profession.label });
+    if (lastU.problem?.name) out.push({ label: 'المشكل', value: lastU.problem.name });
+    if (lastU.city) out.push({ label: 'المدينة', value: lastU.city });
+    if (lastU.service) out.push({ label: 'الخدمة', value: lastU.service });
+    return out;
+  }, [lastU]);
+
   const activeStep = result?.steps?.[stepIdx];
 
   // يُسجَّل السؤالُ مرّةً واحدةً حين يُعرَض فعلًا — لا عند كلّ إعادة رسم،
@@ -646,6 +678,19 @@ export default function LivingHome() {
           موجَّهٌ عن نفس الشيء تحته. ── */}
       {live && !correcting && (
         <LiveSentenceView ls={live} busy={saving} onFill={fillSlot} />
+      )}
+      {/* ── **المرآة** — سؤالٌ عن التطبيق نفسِه، أو إنسانٌ واقف ────────
+          «شكون نتا» و«شنو أمانزين» و«فاش تعاوني» كانت الثلاثةُ تُجاب
+          بـ«شنو محتاج بالضبط؟» — أوّلُ ثلاثِ لحظاتٍ في حياة المستخدم
+          الجديد، ثلاثةٌ من ثلاثةٍ إخفاق.
+          وتسبق كلَّ شيءٍ آخرَ لأنّها **جوابُ الدور**، لا حاشيةً عليه. ── */}
+      {ground && (ground.ground === 'about_self' || ground.ground === 'stuck') && !correcting && (
+        <Mirror
+          ground={ground.ground}
+          understood={mirrorFacts}
+          onPick={say => { setText(say); }}
+          onWrong={() => setCorrecting(true)}
+        />
       )}
       {said && (decision?.mode === 'explain' || decision?.mode === 'refuse' || decision?.mode === 'clarify') && !correcting && (
         <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', padding: '11px 15px', borderRadius: 13, border: '1px solid rgba(245,158,11,.28)', background: 'rgba(245,158,11,.07)', fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>

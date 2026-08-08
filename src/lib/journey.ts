@@ -178,8 +178,13 @@ interface DecisionLog {
   // مع أنّه أخطر: الصامتُ يُسأل فيُصحَّح، والواثقُ المخطئُ يمضي بالإنسان إلى
   // بابٍ ليس بابَه. فأشدُّ أخطائنا كان وحدَه بلا قياس.
   misreads: { text: string; said: string; field: string; confidence: number; count: number }[];
+  /** أسئلةٌ معروفةٌ بلا باب: `about_self` · `stuck` — تُعَدّ ولا تُخلَط بالمجهول. */
+  grounds?: Record<string, number>;
 }
 function emptyLog(): DecisionLog { return { modes: {}, intents: {}, reasons: {}, unknown: 0, confirmYes: 0, confirmNo: 0, conf: { low: { y: 0, n: 0 }, mid: { y: 0, n: 0 }, high: { y: 0, n: 0 } }, unknownTexts: {}, clarify: {}, misreads: [] }; }
+// أرضيّةُ الفهم — تُقرأ في `LivingHome` وتُمرَّر هنا، فلا تُحسَب مرّتَين.
+import { isUnread, type Ground } from './evidence';
+
 const bucketOf = (c: number): Bucket => c < 0.5 ? 'low' : c < 0.7 ? 'mid' : 'high';
 
 function dload(): DecisionLog { try { const v = JSON.parse(localStorage.getItem(DKEY) || 'null'); if (v && v.modes && v.conf) return v; } catch { /* noop */ } return emptyLog(); }
@@ -228,16 +233,63 @@ export function reportMisread(m: { text: string; said: string; field: string; co
   } catch { /* noop */ }
 }
 
-export function recordDecision(mode: string, intent: string, reason?: string, raw?: string) {
+/**
+ * يسجّل حكمًا واحدًا — وهذا هو الموضعُ الذي كانت تموت فيه قناةُ التعلّم.
+ *
+ *   ── العطبُ، مقيسًا ──
+ *   الشرطُ كان `intent === 'unknown'` وحدَه. و`needEngine` تُرجع `find_pro`
+ *   **حين لا تجد شيئًا** (سطر ٦٨٤) — مصرفًا افتراضيًّا يسبق `unknown` دائمًا.
+ *   فمن اثنتَي عشرة جملةً كتبها صاحبُ المشروع سقطت سبعٌ، **وبلغ الخادمَ صفر**.
+ *   القناةُ مبنيّةٌ من طرفَيها (`/api/ai/report-unknown` ⇐ `learning_unknowns`)
+ *   ولا يمرّ فيها شيء.
+ *
+ *   ── ولماذا هذا أخطرُ من عطبِ واجهة ──
+ *   لأنّ الإخفاقَ يُسجَّل **نجاحًا**: يزيد `d.intents.find_pro`. فصاحبُ
+ *   المشروع الذي يجمع «أين يتوقّف وأين يخطئ» يقرأ جدولًا يقول إنّ كلَّ شيءٍ
+ *   بخير — **وأسوأُ من بياناتٍ ناقصةٍ بياناتٌ تكذب**.
+ *
+ *   ── والإصلاحُ لا يلمس التوجيه ──
+ *   `readGround` تقرأ ما أعادته `parseNeed` وتسأل: على أيّ دليل؟ فما كان
+ *   صدًى يُسجَّل مجهولًا ويبلغ الخادم. والوجهةُ التي يذهب إليها الإنسانُ
+ *   **لا تتغيّر بحرف** — تسقط الصراحةُ وحدَها لو حُذف هذا.
+ */
+export function recordDecision(mode: string, intent: string, reason?: string, raw?: string, ground?: Ground) {
   const d = dload();
   d.modes[mode] = (d.modes[mode] || 0) + 1;
-  if (intent === 'unknown') {
+  // **الصدى مجهولٌ ولو لبس اسمَ نيّة.** و`isUnread` هي الحَكَم، فلا تُكتَب
+  //   القاعدةُ هنا مرّةً ثانيةً وتفترق عن أصلها بلا صوت.
+  const unread = intent === 'unknown' || (ground ? isUnread(ground) : false);
+  if (unread) {
     d.unknown++;
     const t = (raw || '').trim().slice(0, 80);
     if (t) { if (!d.unknownTexts) d.unknownTexts = {}; d.unknownTexts[t] = (d.unknownTexts[t] || 0) + 1; reportUnknown(t); }
   } else d.intents[intent] = (d.intents[intent] || 0) + 1;
+  // **والمعروفُ يُسجَّل في بابه لا في المجهول.** «شكون نتا» و«مافهمتش»
+  //   سؤالان نعرفهما تمامًا؛ خلطُهما بالمجهول يملأ العدّادَ بما نعرف
+  //   فيضيع فيه ما لا نعرف — وهو كلُّ قيمة العدّاد.
+  if (ground && ground !== 'grounded' && !unread) {
+    d.grounds = d.grounds || {};
+    d.grounds[ground] = (d.grounds[ground] || 0) + 1;
+    reportGround(ground, raw || '');
+  }
   if (reason) d.reasons[reason] = (d.reasons[reason] || 0) + 1;
   dsave(d);
+}
+
+/**
+ * يبلّغ الخادمَ بسؤالٍ **معروفٍ ولا بابَ له** — قناةُ `capability_demand`.
+ *
+ *   «شكون نتا» و«فاش تعاوني» ليست جهلًا منّا بلغته، بل **نقصًا في التطبيق**.
+ *   والفرقُ بين القناتَين هو الفرقُ بين «زيدوا كلمةً للمعرفة» و«ابنوا شاشة».
+ */
+function reportGround(kind: Ground, text: string) {
+  try {
+    if (typeof fetch === 'undefined') return;
+    fetch('/api/ai/uncovered', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ kind, text: text.slice(0, 200), understood: true }),
+    }).catch(() => { /* بلا شبكة ⇒ يبقى محليًّا في grounds */ });
+  } catch { /* noop */ }
 }
 
 // ── أثرُ الاستيضاح (HU-2) ────────────────────────────────────────────────────

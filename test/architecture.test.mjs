@@ -1457,3 +1457,75 @@ test('ربطُ الكلمة المجهولة يتمّ بالعربيّة لا ب
   assert.match(code, /suggest=\{read\.services\}/,
     'الاقتراحاتُ ما كتجيش من جملة التاجر — فالزائرُ كيقلّب من الصفر');
 });
+
+// ============================================================
+// **الدليل يصل الشاشةَ والقناة** — وإلّا فهو طبقةٌ سادسةٌ صامتة.
+//
+//   `learning_unknowns` مبنيّةٌ من طرفَيها منذ زمن: جدولٌ في `migrate.js`،
+//   ومسارٌ `/api/ai/report-unknown`، ودالّةٌ `bumpUnknownText`. وشرطُ العبور
+//   كان `intent === 'unknown'` — و`needEngine` تُرجع `find_pro` حين لا تجد
+//   شيئًا، فلا تقع `unknown` أبدًا. **قناةٌ كاملةٌ لا يمرّ فيها شيء.**
+//
+//   والأخطرُ أنّ الإخفاق كان يُسجَّل **نجاحًا** (`d.intents.find_pro`)، فمن
+//   يقرأ الجدولَ ليقرّر يرى أنّ كلَّ شيءٍ بخير. وأسوأُ من بياناتٍ ناقصةٍ
+//   بياناتٌ تكذب.
+// ============================================================
+
+test('الصدى يبلغ قناةَ «ما لم نفهمه» — لا يُسجَّل نجاحًا', () => {
+  const j = readFileSync(join(ROOT, 'src/lib/journey.ts'), 'utf8');
+  const code = j.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  const fn = (code.match(/export function recordDecision\([\s\S]*?\n\}/) || [''])[0];
+  assert.ok(fn, 'اختفت `recordDecision`');
+  assert.match(fn, /isUnread\(/,
+    'الشرطُ رجع لـ`unknown` وحدَها — والمصرفُ يسبقها دائمًا فالقناةُ تموت');
+  assert.match(fn, /reportUnknown\(t\)/, 'ما كيبلغش الخادمَ — يبقى محليًّا وحدَه');
+  // **والقاعدةُ لا تُكتَب مرّتَين.** لو نُسخ شرطُ الصدى هنا لافترق عن أصله
+  //   في `evidence.ts` بلا صوت — نمطُ «قائمتان لشيءٍ واحد».
+  assert.doesNotMatch(fn, /=== 'echo'/,
+    'شرطُ الصدى مكتوبٌ هنا ثانيةً — قائمتان لقاعدةٍ واحدة');
+  // والمعروفُ في بابه: `about_self` و`stuck` تُبلَّغ كطلبِ قدرةٍ لا كمجهول.
+  assert.match(code, /\/api\/ai\/uncovered/,
+    'السؤالُ المعروفُ بلا باب ما كيتسجّلش — ولا نعرف شنو خاصّنا نبنيو');
+});
+
+test('الأرضيّةُ تُقرأ مرّةً واحدةً في الشاشة وتصل الحَكَم', () => {
+  const lh = readFileSync(join(ROOT, 'src/pages/LivingHome.tsx'), 'utf8');
+  const code = lh.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.match(code, /readGround\(q, u, r\.intent\)/,
+    'الأرضيّةُ ما كتتقراش فـ`submit` — أو كتتقرا من تحليلٍ ثانٍ');
+  // **تحليلٌ واحدٌ للجملة** (القاعدة ㉒): تُقرأ من `u` المحسوبة سلفًا.
+  assert.equal((code.match(/readGround\(/g) || []).length, 1,
+    'الأرضيّةُ كتتقرا مرّتين — قرارٌ على فهمٍ وعرضٌ على فهمٍ آخر');
+  assert.match(code, /recordDecision\([^)]*ground\.ground\)/,
+    'الأرضيّةُ ما كتوصلش `recordDecision` — القناةُ كتبقا ميّتة');
+});
+
+// **والمرآةُ تُعرَض فعلًا.** ثلاثةُ أسئلةٍ يسألها كلُّ مغربيٍّ يفتح التطبيق
+//   لأوّل مرّة، وثلاثتُها كانت تُجاب بـ«شنو محتاج بالضبط؟».
+test('المرآةُ مركّبةٌ في الشاشة الرئيسيّة', () => {
+  const lh = readFileSync(join(ROOT, 'src/pages/LivingHome.tsx'), 'utf8');
+  const code = lh.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.match(code, /<Mirror[\s/>]/, 'المرآةُ مبنيّةٌ وما تركّباتش');
+  assert.match(code, /ground\.ground === 'about_self'/, 'السؤالُ عن التطبيق ما كيوصلهاش');
+  assert.match(code, /ground\.ground === 'stuck'/, '«مافهمتش» ما كيوصلهاش');
+});
+
+// **ولا رقمَ يُخترَع.** شرطُ صاحب المشروع حرفيًّا: «لا أريد الكذب أريد
+//   الحقيقة… أعرف أنّ عدّة أشياء ستكون فارغة». فالصفرُ يُقال صفرًا، والأرقامُ
+//   تأتي من الخادم أو لا تأتي.
+test('أرقامُ المرآة حقيقيّةٌ — والصفرُ يُقال صفرًا', () => {
+  const m = readFileSync(join(ROOT, 'src/components/Mirror.tsx'), 'utf8');
+  const code = m.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.match(code, /fetch\('\/api\/listings\/public\/stats'\)/,
+    'الأرقامُ ما كتجيش من الخادم — يعني مكتوبةٌ بيد');
+  // ولا رقمَ مكتوبٌ في الكود يُعرَض كإحصاء: `<Num n={…}>` من الحالة وحدَها.
+  const hardNum = [...code.matchAll(/<Num n=\{(\d+)\}/g)].map(x => x[1]);
+  assert.deepEqual(hardNum, [], `رقمٌ مكتوبٌ بيدٍ يُعرَض كإحصاء: ${hardNum.join(' · ')}`);
+  // والصفرُ له نصٌّ يقوله — لا شاشةٌ خاويةٌ تبدو عطبًا.
+  assert.match(code, /s\.merchants === 0/, 'الصفرُ ما كيتقالش — الشاشةُ كتبان خاوية');
+  // وحين تسقط الشبكةُ لا يُخترَع بديل.
+  assert.match(code, /failed &&/, 'فشلُ الشبكة ما كيتقالش');
+  // والقدراتُ تُقرأ من مصدرها لا تُكتَب هنا.
+  assert.match(code, /ABILITIES\s*\n?\s*\.filter/, 'القدراتُ مكتوبةٌ بيد — قائمةٌ ثانية');
+  assert.match(code, /a\.page &&/, 'قدرةٌ بلا بابٍ تُعرَض — وعدٌ ما كاينش');
+});
