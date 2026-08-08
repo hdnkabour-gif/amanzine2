@@ -1,0 +1,83 @@
+# جردُ المستودع الكامل
+
+> **مولَّدٌ آليًّا** — `node scripts/audit.mjs`. لا تُحرَّر بيد؛ البياناتُ الخامُّ في `REPORTS/audit.json`.
+
+مسحٌ لكلّ ملفٍّ يتتبّعه git — لا ما هو موصولٌ وحدَه. الوصولُ يُحسَب **من المداخل الحقيقيّة**
+(`src/main.tsx` · `server/index.js` · الاختبارات · النصوص) ويمشي عبر الاستيراد — الساكنِ
+والكسولِ (`import()`) و`require`. فملفٌّ يستورده ملفٌّ ميّتٌ ليس موصولًا.
+
+## الأرقام
+
+| القياس | العدد |
+|---|--:|
+| ملفّاتٌ متتبَّعة | 650 |
+| ملفّاتُ كود | 441 |
+| أسطرُ كود | 82,496 |
+| **يتيمة** (لا يبلغها مدخل) | **2** |
+| صادراتٌ ميتةٌ بيقين | 214 |
+| صادراتٌ يُنظَر فيها | 71 |
+| ملفّاتٌ بلا اختبار | 140 |
+
+## التغطية بالمنطقة
+
+| المنطقة | ملفّ | سطر | يبلغه اختبار |
+|---|--:|--:|--:|
+| عقلُ التطبيق | 91 | 14,983 | 89٪ |
+| الصفحات | 51 | 19,865 | 10٪ |
+| المكوّنات | 51 | 7,910 | 8٪ |
+| مسارات الخادم | 33 | 5,801 | 18٪ |
+| مكتباتُ الخادم | 43 | 3,922 | 88٪ |
+| خدماتُ الخادم | 10 | 1,731 | 50٪ |
+| الاختبارات | 83 | 11,601 | 100٪ |
+| النصوص | 11 | 1,574 | 9٪ |
+
+**الاختلالُ المركزيّ:** العقلُ مغطًّى بـ٨٩٪ والسطحُ بـ٩٪. وكلُّ عطبٍ رآه صاحبُ المشروع
+بعينه كان في السطح — المخُّ يعرف والشاشةُ لا تُظهر ما يعرفه.
+
+## اليتيمة
+
+| الملفّ | أسطر | آخرُ لمسة |
+|---|--:|--:|
+| `build-package.js` | 183 | منذ 10 يومًا |
+| `sw.js` | 70 | منذ 10 يومًا |
+
+وما يُحمَّل بمجلَّدٍ (`readdirSync`) **موصولٌ** ولا يُعَدّ يتيمًا: مزوّدو التوصيل ومحوّلاتُهم
+وقنواتُ التحقّق. وهو عقدٌ معماريٌّ مقصودٌ يحرسه اختبار.
+
+## أكثرُ الملفّات صادراتٍ ميتة
+
+| الملفّ | ميتة | الأسماء |
+|---|--:|---|
+| `src/components/icons.tsx` | 21 | IconAmana, IconJibli, IconDress, IconShoes, IconBag … |
+| `src/services/api.ts` | 19 | healthCheck, CustomerPage, couponsAPI, mediaAPI, AvailabilityTemplate … |
+| `src/types.ts` | 16 | ProductType, OrderItem, SalesGoal, BrandSettings, SocialConnection … |
+| `src/lib/abilities.ts` | 10 | AbilityVerb, AbilityEntity, AbilityRisk, abilitiesFor, abilitiesByVerb … |
+| `src/utils/sounds.ts` | 7 | playNewOrder, playApproved, playShipped, playDelivered, playMessage … |
+| `src/utils/importSchema.ts` | 6 | ProductSchema, CustomerSchema, OrderSchema, ImportFileSchema, ImportFile … |
+| `test/corpus.mjs` | 6 | CARWASH, CLOTHING, MUST_NOT_ACT, KNOWN_SPLITS, JUDGED_ONLY … |
+| `src/lib/understanding.ts` | 5 | UnderLang, UnderstandingContext, UnderstandingProvider, GPTProvider, ClaudeProvider |
+| `src/lib/akg/kb/capabilities.ts` | 4 | CapCategory, registerCapability, getCapability, capabilitiesOfProfession |
+| `src/lib/akg/kb/geo.ts` | 4 | citiesOf, regionOfCity, districtsOf, postalOf |
+| `src/lib/akg/kb/tools.ts` | 4 | registerTool, getTool, allTools, toolsForProfession |
+| `src/lib/akg/userGraph.ts` | 4 | getUserProfile, pushUserAttr, userInferencesFrom, userGraphSize |
+
+## أكبرُ الملفّات بلا اختبار
+
+| الملفّ | أسطر |
+|---|--:|
+| `src/pages/ProductsPage.tsx` | 2,363 |
+| `src/pages/SettingsPage.tsx` | 1,458 |
+| `src/pages/DeliveryPage.tsx` | 1,393 |
+| `src/pages/Storefront.tsx` | 1,030 |
+| `src/pages/LivingHome.tsx` | 1,007 |
+| `server/migrate.js` | 944 |
+| `src/pages/MessagesPage.tsx` | 840 |
+| `src/pages/OrdersPage.tsx` | 825 |
+| `src/pages/GuidePage.tsx` | 742 |
+| `src/pages/NavBar.tsx` | 716 |
+| `src/pages/CouponsPage.tsx` | 705 |
+| `src/pages/ConnectionsPage.tsx` | 647 |
+
+---
+
+هذا الملفُّ **قياسٌ لا حُكم**. الخلاصةُ وخطّةُ العمل في تقرير الجلسة.

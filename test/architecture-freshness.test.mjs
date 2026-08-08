@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import cp from 'node:child_process';
 
 // ============================================================
 // طزاجةُ قاعدة المعرفة المعماريّة (REPORTS/).
@@ -181,4 +182,33 @@ test('الذاكرةُ لا تُعاند صاحبَها — المبدأ ٤ مح
   const kc = read(path.join(ROOT, 'src', 'lib', 'knownContext.ts'));
   assert.ok(/if \(!out\.place && known\.city\)/.test(kc),
     'الذاكرةُ صارت تغلب الجملةَ الحاضرة — يسقط المبدأ ٤');
+});
+
+// ============================================================
+// **جردُ المستودع لا يتقادم** — وإلّا صار هو الوثيقةَ التي كشفها.
+//
+//   كشف الجردُ نفسُه ١١٢ وثيقةً متجمّدةً عند تاريخٍ مضى، و١٥ منها تذكر ٢٥
+//   ملفًّا لا وجودَ له. فتقريرٌ عن الوثائق القديمة **يصير قديمًا** بلا حارس،
+//   وذاك أسوأُ من ألّا يُكتَب: مَن يقرؤه يظنّ أنّه يقرأ الحاضر.
+// ============================================================
+test('جردُ المستودع يطابق الواقعَ الآن — لا لقطةً قديمة', () => {
+  const p = path.join(ROOT, 'REPORTS', 'audit.json');
+  assert.ok(fs.existsSync(p), 'اختفى `REPORTS/audit.json` — شغّل `node scripts/audit.mjs`');
+  const a = JSON.parse(read(p));
+
+  // ① العددُ المُعلَنُ هو عددُ ملفّات git الآن.
+  const tracked = cp.execSync('git ls-files', { cwd: ROOT, encoding: 'utf8', maxBuffer: 64e6 })
+    .trim().split('\n').filter(Boolean);
+  assert.equal(a.totals.tracked, tracked.length,
+    `الجردُ يقول ${a.totals.tracked} ملفًّا والمستودعُ فيه ${tracked.length} — أعِد التوليد`);
+
+  // ② وكلُّ ملفٍّ يذكره موجودٌ فعلًا. الجردُ الذي يُسمّي أشباحًا هو العطبُ
+  //    الذي وُلد ليكشفه.
+  const ghosts = a.files.map(f => f.file).filter(f => !fs.existsSync(path.join(ROOT, f)));
+  assert.deepEqual(ghosts, [], `الجردُ يذكر ملفّاتٍ لا وجودَ لها: ${ghosts.slice(0, 5).join(' · ')}`);
+
+  // ③ والتقريرُ المقروءُ مشتقٌّ من نفس البيانات — لا رقمَ يُكتَب بيد.
+  const md = read(path.join(ROOT, 'REPORTS', 'REPO_AUDIT.md'));
+  assert.ok(md.includes(String(a.totals.code)), 'REPO_AUDIT.md ما بقاش مطابقًا لـaudit.json');
+  assert.ok(md.includes('مولَّدٌ آليًّا'), 'سقط تحذيرُ «لا تُحرَّر بيد» — فستُحرَّر');
 });
