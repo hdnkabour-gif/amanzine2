@@ -1,0 +1,118 @@
+{
+ "at": "2026-08-08T21:33:38.454Z",
+ "said": "بغيت شي كسوة لبنتي أنا فكازة",
+ "pass": 9,
+ "total": 11,
+ "stages": [
+  {
+   "n": 1,
+   "name": "Understanding — الخانةُ موجودةٌ ويُكتَب فيها",
+   "pass": true,
+   "seen": "كُتبت «بغيت شي كسوة لبنتي أنا فكازة»",
+   "expected": "خانةٌ واحدةٌ ظاهرةٌ يكتب فيها الإنسانُ حاجتَه",
+   "why": "",
+   "where": "src/pages/Landing",
+   "kind": "Frontend"
+  },
+  {
+   "n": 2,
+   "name": "Intent — قال إنّه فهم شراءً",
+   "pass": false,
+   "seen": "AMANZINE · البوابة المغربية · كلشي اللي بغيتي… فبلاصة وحدة · تخطّي ✕ · 🏪 · السوق المغربي 🇲🇦 · منتجات وخدمات من بائعين محليين · 🇸🇦",
+   "expected": "«شراء» أو ما يدلّ عليه معروضًا للإنسان",
+   "why": "النيّةُ ما تعرضاتش",
+   "where": "src/pages/LivingHome.tsx",
+   "kind": "Frontend"
+  },
+  {
+   "n": 3,
+   "name": "Entity — المفهومُ معروضٌ بالعربيّة لا بمُعرِّف",
+   "pass": true,
+   "seen": "عُرض المفهومُ بالعربيّة",
+   "expected": "اسمُ المفهوم بالعربيّة («ملابس الأطفال»)",
+   "why": "",
+   "where": "src/pages/LivingHome.tsx",
+   "kind": "Frontend"
+  },
+  {
+   "n": 4,
+   "name": "Search — البحثُ يجد المنتجَ الموجودَ فعلًا",
+   "pass": true,
+   "seen": "بالجملة الخامّة: 0 · بالمرادفات: 2",
+   "expected": "نتيجةٌ واحدةٌ على الأقلّ — المنتجُ موجودٌ في القاعدة",
+   "why": "الجملةُ الخامّةُ وحدَها لا تكفي (وهذا سببُ ما رآه صاحبُ المشروع)",
+   "where": "server/lib/engines/search.js",
+   "kind": "Contract"
+  },
+  {
+   "n": 5,
+   "name": "Results relevance — النتائجُ هي ما طُلب، لا شيءٌ آخر",
+   "pass": true,
+   "seen": "حوايج دراري صغار · حوايج دراري صغار",
+   "expected": "منتجاتُ ملابس أطفال",
+   "why": "",
+   "where": "server/lib/engines/search.js",
+   "kind": "Data"
+  },
+  {
+   "n": 6,
+   "name": "Product selection — السوقُ يعرض المنتجَ للإنسان",
+   "pass": false,
+   "seen": "«ما لقّيناش» — والمنتجُ في القاعدة",
+   "expected": "بطاقةُ «حوايج دراري صغار» ٦٥ درهمًا",
+   "why": "**الرسالةُ تكذب**: يستنتج الإنسانُ أنّ السوقَ خاوٍ لا أنّ البحثَ أخطأ",
+   "where": "src/pages/Marketplace.tsx",
+   "kind": "Frontend"
+  },
+  {
+   "n": 7,
+   "name": "Cart / Checkout — الطلبُ يُقبَل من الباب العامّ",
+   "pass": true,
+   "seen": "رجع 201: {\"order\":{\"id\":\"07bc863b-5eed-4e4a-a7e7-e6fa2254621b\",\"userId\":\"ab0cecb7-ef56-470d-9672-6e11cb830a38",
+   "expected": "قبولُ الطلب (٢٠٠) أو طلبُ تحقّقٍ (٤٢٨) — لا خطأٌ عامّ",
+   "why": "",
+   "where": "server/routes/orders.js",
+   "kind": "Backend"
+  },
+  {
+   "n": 8,
+   "name": "Security — التحقّقُ لا يكون حائطًا بلا مفتاح",
+   "pass": true,
+   "seen": "مرّ بلا حائط",
+   "expected": "إمّا يمرّ، أو يُطلَب تحقّقٌ **قابلٌ للتسليم**",
+   "why": "",
+   "where": "server/lib/orderVerification.js",
+   "kind": "Backend"
+  },
+  {
+   "n": 9,
+   "name": "Order creation — الطلبُ يُكتَب بمُعرِّف",
+   "pass": true,
+   "seen": "المُعرِّف 07bc863b-5eed-4e4a-a7e7-e6fa2254621b",
+   "expected": "صفٌّ في `orders` بمُعرِّفٍ ومجموعٍ حسبه الخادم",
+   "why": "",
+   "where": "server/routes/orders.js",
+   "kind": "Backend"
+  },
+  {
+   "n": 10,
+   "name": "Outcome evidence — التاجرُ يرى الطلبَ في قائمته",
+   "pass": true,
+   "seen": "ظهر في قائمة التاجر",
+   "expected": "الطلبُ في `GET /orders` للتاجر صاحبِ المنتج",
+   "why": "",
+   "where": "server/routes/orders.js",
+   "kind": "Backend"
+  },
+  {
+   "n": 11,
+   "name": "No native dialog — الرسائلُ في التطبيق لا في المتصفّح",
+   "pass": true,
+   "seen": "ولا نافذة",
+   "expected": "كلُّ رسالةٍ تُعرَض داخل التطبيق",
+   "why": "",
+   "where": "src/pages/Storefront.tsx",
+   "kind": "Frontend"
+  }
+ ]
+}

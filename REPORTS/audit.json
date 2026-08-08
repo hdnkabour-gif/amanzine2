@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-08T21:22:29.055Z",
+ "generatedAt": "2026-08-08T21:36:11.338Z",
  "totals": {
-  "tracked": 659,
-  "code": 445,
+  "tracked": 661,
+  "code": 446,
   "orphans": 2,
   "appOnly": 107,
-  "testOnly": 134,
+  "testOnly": 135,
   "untested": 135,
   "deadExports": 214,
   "looseExports": 71,
   "todos": 8,
-  "lines": 83903
+  "lines": 84143
  },
  "files": [
   {
@@ -316,8 +316,8 @@
   },
   {
    "file": "server/database.js",
-   "lines": 2575,
-   "bytes": 114957,
+   "lines": 2592,
+   "bytes": 115892,
    "imports": [
     "server/db.js",
     "server/lib/secrets.js",
@@ -5716,7 +5716,7 @@
     "resolveTerm"
    ],
    "reach": "app+script+test",
-   "touched": 1786127062,
+   "touched": 1786224285,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -5725,7 +5725,7 @@
     "Stance",
     "CITIES"
    ],
-   "ageDays": 1
+   "ageDays": 0
   },
   {
    "file": "src/lib/akg/kb/knowledge.ts",
@@ -7237,7 +7237,7 @@
    ],
    "deadExports": [],
    "reach": "app+test",
-   "touched": 1786195425,
+   "touched": 1786224285,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -11010,7 +11010,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786197298,
+   "touched": 1786224285,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -11202,12 +11202,12 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 0,
+   "touched": 1786224285,
    "todos": 0,
    "anys": 5,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 20674
+   "ageDays": 0
   },
   {
    "file": "test/brain/liveSentence.test.ts",
@@ -11886,6 +11886,22 @@
    "logs": 0,
    "emptyCatch": 0,
    "ageDays": 3
+  },
+  {
+   "file": "test/browser/journey.mjs",
+   "lines": 223,
+   "bytes": 11503,
+   "imports": [],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 0,
+   "todos": 0,
+   "anys": 0,
+   "logs": 10,
+   "emptyCatch": 0,
+   "ageDays": 20674
   },
   {
    "file": "test/browser/walk.mjs",

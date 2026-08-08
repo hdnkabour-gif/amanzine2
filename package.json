@@ -27,7 +27,8 @@
     "report:disconnected": "node scripts/disconnected.mjs",
     "report:ask-kind": "node scripts/run-askKind.mjs",
     "audit:repo": "node scripts/audit.mjs",
-    "walk": "node test/browser/walk.mjs"
+    "walk": "node test/browser/walk.mjs",
+    "journey": "node test/browser/journey.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.0",
