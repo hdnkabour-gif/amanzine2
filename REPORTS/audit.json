@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-08T19:25:19.190Z",
+ "generatedAt": "2026-08-08T19:41:42.930Z",
  "totals": {
   "tracked": 655,
   "code": 443,
@@ -10,7 +10,7 @@
   "deadExports": 214,
   "looseExports": 71,
   "todos": 8,
-  "lines": 83352
+  "lines": 83446
  },
  "files": [
   {
@@ -2971,7 +2971,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/test/misread-channel.test.js",
@@ -3456,13 +3456,13 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1786024187,
+   "touched": 1786217182,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 0
   },
   {
    "file": "src/components/ActivityTimeline.tsx",
@@ -5728,8 +5728,8 @@
   },
   {
    "file": "src/lib/akg/kb/knowledge.ts",
-   "lines": 538,
-   "bytes": 29296,
+   "lines": 552,
+   "bytes": 30119,
    "imports": [
     "src/lib/akg/kb/knowledgeData.ts",
     "src/lib/akg/kb/concepts.ts",
@@ -5851,8 +5851,8 @@
   },
   {
    "file": "src/lib/akg/kb/knowledgeExtra.ts",
-   "lines": 706,
-   "bytes": 53094,
+   "lines": 712,
+   "bytes": 53508,
    "imports": [
     "src/lib/akg/kb/knowledgeData.ts"
    ],
@@ -7915,8 +7915,8 @@
   },
   {
    "file": "src/lib/normalize.ts",
-   "lines": 168,
-   "bytes": 7287,
+   "lines": 186,
+   "bytes": 8306,
    "imports": [],
    "importers": [
     "scripts/pulse.ts",
@@ -8393,13 +8393,13 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1785751412,
+   "touched": 1786217182,
    "todos": 0,
    "anys": 4,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 0
   },
   {
    "file": "src/pages/BannerStudioPage.tsx",
@@ -9974,7 +9974,7 @@
     "useRole"
    ],
    "reach": "app+test",
-   "touched": 1786211879,
+   "touched": 1786217182,
    "todos": 0,
    "anys": 37,
    "logs": 0,
@@ -10088,13 +10088,13 @@
     "hasPermission"
    ],
    "reach": "app+script+test",
-   "touched": 1786023277,
+   "touched": 1786217182,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 0
   },
   {
    "file": "src/utils/importSchema.ts",
@@ -10225,7 +10225,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786211879,
+   "touched": 1786217182,
    "todos": 0,
    "anys": 1,
    "logs": 0,
@@ -10673,8 +10673,8 @@
   },
   {
    "file": "test/brain/doors.test.ts",
-   "lines": 89,
-   "bytes": 4599,
+   "lines": 145,
+   "bytes": 8014,
    "imports": [
     "src/lib/akg/kb/index.ts",
     "src/lib/akg/kb/knowledge.ts",
@@ -11049,7 +11049,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/brain/knowledge.test.ts",

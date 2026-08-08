@@ -10,7 +10,7 @@
 | ما هو | العدد |
 |---|---|
 | مفهومًا يفهمه التطبيق | **٢٠٨** |
-| مصطلحًا مميَّزًا (كلَّ اللغات) | **٣٠١٦** |
+| مصطلحًا مميَّزًا (كلَّ اللغات) | **٣٠١٩** |
 | قدرةً يستطيع تنفيذها | **٩١** |
 | زوجَ فعلٍ×هدفٍ مقروءًا | **١١٢** |
 | غايةَ حياةٍ تُقرأ | **٧** |
@@ -298,7 +298,7 @@
 |---|---|---|
 | (بلا فئة) | ١٠٣ | ١٥٢٨ |
 | fashion | ٢٠ | ٧٢٠ |
-| automotive | ١١ | ٣٧٨ |
+| automotive | ١١ | ٣٨١ |
 | electronics | ٧ | ٢١٨ |
 | تجارة / غذاء | ٣ | ٤٦ |
 | digital | ٣ | ٧٥ |
@@ -389,7 +389,7 @@
 | `beauty_salon` | صالون تجميل | صالون تجميل · صالون تجميل · Institut de beauté · Beauty Salon · صالون تجميل · soins visage · إستيتيسيان · épilation · تنظيف البشرة · صالون تجميل · خبيرة تجميل · institut de beauté · esthéticienne · beauty salon … (+١) |
 | `bedding_and_home_textiles_store` | بياع الفرش | بائع أفرشة ومنسوجات منزلية · بياع الفرش · Magasin de linge de maison · Bedding and home textiles store · بياع الفرش · مول الفرش · أفرشة · درابيه · مفروشات · linge de maison · فراش · الفراش · فرش · مطرح … (+٢٥) |
 | `beekeeper` | بياع العسل | بائع عسل · بياع العسل · Apiculteur · Beekeeper · بياع العسل · مول العسل · عسل طبيعي · نحال · عسل حر · بائع عسل · نحال · منتجات الخلية · apiculteur · vendeur de miel … (+٢) |
-| `bicycle` | بيكالا | درّاجة هوائيّة · بيكالا · Vélo · Bicycle · بيكالا · البيكالا · بيكالات · بشكليطة · البشكليطة · بشكليط · دراجة هوائية · الدراجة الهوائية · تروتينيت · التروتينيت … (+١٥) |
+| `bicycle` | بيكالا | درّاجة هوائيّة · بيكالا · Vélo · Bicycle · بيكالا · البيكالا · بيكالات · بيكالة · البيكالة · بيكالي · بشكليطة · البشكليطة · بشكليط · دراجة هوائية … (+١٨) |
 | `bicycle_repairer` | كيصلح البيكالات | تصليح الدراجات الهوائية · كيصلح البيكالات · Réparateur de vélos · Bicycle Repairer · كيصلح البيكالات · مصلح الدراجات · réparateur vélo · ميكانيك بيكالات · تصليح الدراجات الهوائية · réparateur de vélos · bicycle repairer |
 | `blacksmith` | حداد | حداد · حداد · Ferronnier · Blacksmith · حداد · حداد · ferronnier · forgeron · blacksmith · metal worker |
 | `blacksmith_welder` | حداد | حداد / لحام معادن · حداد · Ferronnier / Soudeur · Blacksmith / Welder · حداد · لحام · حديد · soudeur · ferronnier · حداد / لحام معادن · ferronnier / soudeur · blacksmith / welder |
