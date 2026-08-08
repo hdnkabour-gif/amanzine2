@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { t } from '../../../i18n/translations';
 import { Section, Reveal } from '../components';
 import { useLanding } from '../context';
@@ -13,9 +14,9 @@ export default function FinalCTA() {
           <h2 style={{ position: 'relative', fontSize: 'clamp(24px,4.5vw,40px)', fontWeight: 900, margin: '0 0 12px', letterSpacing: '-0.02em', color: '#fff' }}>{tx('ctaTitle')}</h2>
           <p style={{ position: 'relative', fontSize: 'clamp(13px,1.8vw,16px)', color: 'rgba(255,255,255,0.92)', maxWidth: 520, margin: '0 auto 26px', lineHeight: 1.7 }}>{tx('ctaSub')}</p>
           <div style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-            <a href={isAuthed ? '/dashboard' : '/login'} className="lpbtn" style={{ position: 'relative', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', gap: 9, padding: '15px 34px', borderRadius: 14, background: '#fff', color: C.orangeD, fontSize: 15.5, fontWeight: 800, textDecoration: 'none', boxShadow: '0 12px 30px rgba(0,0,0,0.18)' }}><span className="sh" />{isAuthed ? t(lang, 'landing.merchant.ctaExisting') : t(lang, 'landing.merchant.ctaNew')} <Arrow size={18} /></a>
+            <Link to={isAuthed ? '/dashboard' : '/login'} className="lpbtn" style={{ position: 'relative', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', gap: 9, padding: '15px 34px', borderRadius: 14, background: '#fff', color: C.orangeD, fontSize: 15.5, fontWeight: 800, textDecoration: 'none', boxShadow: '0 12px 30px rgba(0,0,0,0.18)' }}><span className="sh" />{isAuthed ? t(lang, 'landing.merchant.ctaExisting') : t(lang, 'landing.merchant.ctaNew')} <Arrow size={18} /></Link>
             <button onClick={startDemo} style={{ padding: '15px 28px', borderRadius: 14, background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff', fontSize: 14.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{t(lang, 'landing.demo')}</button>
-            <a href="/market" style={{ padding: '15px 24px', borderRadius: 14, background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff', fontSize: 14.5, fontWeight: 800, textDecoration: 'none' }}>{tx('browseMarket')}</a>
+            <Link to="/market" style={{ padding: '15px 24px', borderRadius: 14, background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff', fontSize: 14.5, fontWeight: 800, textDecoration: 'none' }}>{tx('browseMarket')}</Link>
           </div>
         </div>
       </Reveal>

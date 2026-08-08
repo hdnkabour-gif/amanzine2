@@ -4,6 +4,9 @@ import { understand, stanceOf } from '../../../lib/akg/kb';
 import { parseNeed, signalsFrom, clarificationStep } from '../../../lib/needEngine';
 import { clarify, applyAnswer, type Signals } from '../../../lib/clarify';
 import { C, apiBase } from '../theme';
+import { useLanding } from '../context';
+// العتبة: التسجيلُ سطرٌ في المحادثة لا صفحةٌ تُقتَحم — وصفرُ إعادةِ تحميل.
+import Threshold from '../../../components/Threshold';
 
 // ============================================================
 // NeedFirst — الشاشة الأولى. ليست قسمًا تسويقيًّا بل أوّلَ حوارٍ بين
@@ -106,6 +109,10 @@ export function understandingScore(text: string, precomputed?: Fact[]): number {
 
 export default function NeedFirst() {
   const navigate = useNavigate();
+  const { isAuthed } = useLanding();
+  // العتبةُ المعلَّقة: ما كان الإنسانُ ذاهبًا إليه حين طُلب منه الحساب.
+  //   يُحفَظ كي **يُكمل ما كان يفعله** بعد العبور، لا ليعود إلى الصفر.
+  const [gate, setGate] = useState<{ need: string; page: string } | null>(null);
   const [text, setText] = useState('');
   const [exIdx, setExIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -212,7 +219,15 @@ export default function NeedFirst() {
     const city = u.city ? `&city=${encodeURIComponent(u.city)}` : '';
     if (page) {
       try { sessionStorage.setItem('amanzine_need_stance', page === 'publish' ? 'offer' : 'seek'); } catch { /* noop */ }
-      navigate(`/auth?next=${page}&q=${encodeURIComponent(need)}`);
+      // ── **العتبةُ تظهر حيث يقف، لا في صفحةٍ أخرى** ──────────────
+      //   كان هنا `navigate('/auth')`: يُنقَل الإنسانُ إلى استمارةٍ في ٥٤٩
+      //   سطرًا، وتُسلَّم حاجتُه عبر `sessionStorage` — أي أنّ الحوارَ يُقطَع
+      //   ويُعاد وصلُه بخيط. والآن يبقى مكانَه: العتبةُ سطرٌ تحت جملته،
+      //   وحين يعبرها **يُكمل ما كان يفعله**.
+      //
+      //   ومَن دخل سلفًا لا يُسأل: المصادقةُ ليست طقسًا يُؤدّى بل شرطٌ يُفحَص.
+      if (!isAuthed) { setGate({ need, page }); return; }
+      navigate(`/${page}?q=${encodeURIComponent(need)}`);
       return;
     }
     const target = url || '/market';
@@ -394,6 +409,21 @@ export default function NeedFirst() {
               </div>
             )}
           </div>
+        )}
+
+        {/* ── **العتبة** — التسجيلُ سطرٌ هنا، لا صفحةٌ يُنقَل إليها ────
+            كان الضغطُ على «متابعة» ينقله إلى `/auth`، وتُسلَّم حاجتُه عبر
+            `sessionStorage` — حوارٌ يُقطَع ويُعاد وصلُه بخيط. والآن يبقى
+            مكانَه، وحين يعبر **يُكمل ما كان يفعله**. ── */}
+        {gate && (
+          <Threshold
+            why={`باش نحتافظو بهادشي ونوصّلوك، خاصّنا غير البريد ديالك.`}
+            onCancel={() => setGate(null)}
+            onDone={() => {
+              const g = gate; setGate(null);
+              if (g) navigate(`/${g.page}?q=${encodeURIComponent(g.need)}`);
+            }}
+          />
         )}
 
         {/* ── السؤالُ قبل الوجهة ────────────────────────────────────

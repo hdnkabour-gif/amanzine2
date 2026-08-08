@@ -1248,3 +1248,57 @@ test('الوسومُ التقنيّةُ مطويّةٌ لا معروضة', () =>
   assert.doesNotMatch(code, /go\([^)]*result\.tags\[0\]/,
     'الذاكرةُ تحفظ الوسمَ التقنيَّ — فتُعرَض «فعل → update/price» للتاجر');
 });
+
+// ============================================================
+// **شاشةٌ واحدةٌ — والرابطُ الداخليُّ تنقّلٌ لا إعادةُ بناء.**
+//
+//   قِيست الرحلةُ الأولى فوُجدت ثلاثَ شاشاتٍ وإعادتَي تحميل:
+//
+//       /       يكتب حاجتَه ويُفهَم
+//         ↓  «دخول» = <a href="/login">   ← **إعادةُ تحميلٍ كاملة**
+//       /login  استمارةٌ في ٥٤٩ سطرًا
+//         ↓  window.location.assign('/home')
+//       /home   المحادثة
+//
+//   و`<a href>` في تطبيق React Router ليس تنقّلًا بل **هدمُ التطبيق
+//   وإعادةُ بنائه**: ما كتبه الإنسانُ وما فُهم منه يُمحى في اللحظة التي
+//   يضغط فيها «دخول». وهو لا يرى عطبًا — يرى **عملَه يختفي**.
+// ============================================================
+test('لا رابطَ داخليٍّ يُعيد بناءَ التطبيق في صفحة الهبوط', () => {
+  const dir = join(ROOT, 'src/pages/Landing/sections');
+  const bad = [];
+  for (const f of readdirSync(dir).filter(x => x.endsWith('.tsx'))) {
+    const src = readFileSync(join(dir, f), 'utf8');
+    // روابطُ `http(s)` خارجيّةٌ ولها حقٌّ في `<a>` — الداخليُّ وحدَه يُحرَس.
+    for (const m of src.matchAll(/<a\s+href=(["{])(\/[^"}\s]*)/g)) bad.push(`${f}: ${m[2]}`);
+    if (/window\.location\.assign\(\s*['"`]\//.test(src)) bad.push(`${f}: window.location.assign`);
+  }
+  assert.deepEqual(bad, [],
+    `روابطُ تهدم التطبيقَ وتُعيد بناءَه — يضيع ما كتبه الإنسان:\n  ${bad.join('\n  ')}`);
+});
+
+// **والعتبةُ تظهر حيث يقف الإنسان، ولا تنقله.**
+test('العتبةُ داخل المحادثة — لا قفزَ إلى صفحة تسجيل', () => {
+  const nf = readFileSync(join(ROOT, 'src/pages/Landing/sections/NeedFirst.tsx'), 'utf8');
+  const code = nf.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.doesNotMatch(code, /navigate\(`?\/auth/,
+    'ما زال يُنقَل إلى صفحةِ تسجيلٍ — والحوارُ يُقطَع ويُعاد وصلُه بخيط');
+  assert.match(code, /<Threshold/, 'سقطت العتبةُ من المحادثة');
+  // ومَن دخل سلفًا لا يُسأل: المصادقةُ شرطٌ يُفحَص لا طقسٌ يُؤدّى.
+  assert.match(code, /if \(!isAuthed\) \{ setGate/,
+    'تُعرَض العتبةُ لمن دخل سلفًا — أو لا تُعرَض لمن لم يدخل');
+  // ويُكمل ما كان يفعله بعد العبور — لا يعود إلى الصفر.
+  assert.match(code, /onDone=\{[\s\S]{0,200}navigate\(/,
+    'بعد العبور لا يُكمل الإنسانُ ما كان يفعله');
+});
+
+// **والعتبةُ لا تخترع مصادقة.** شكلٌ جديدٌ لبابٍ قائم: تنادي `login`/
+//   `register` من المخزن كما تناديهما `AuthPage`. ولو خزّنت سرًّا أو نادت
+//   مسارًا بنفسها لصار للتطبيق بابان للدخول — وذاك أخطرُ ما يُضاف بصمت.
+test('العتبةُ شكلٌ لبابٍ قائم — لا بابَ ثانٍ للمصادقة', () => {
+  const src = readFileSync(join(ROOT, 'src/components/Threshold.tsx'), 'utf8');
+  const code = src.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.match(code, /useStore\(\)/, 'العتبةُ لا تمرّ بالمخزن');
+  assert.doesNotMatch(code, /fetch\(|authAPI|localStorage\.setItem/,
+    'العتبةُ تنادي الخادمَ أو تخزّن سرًّا بنفسها — بابٌ ثانٍ للدخول');
+});

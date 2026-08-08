@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Section, SecHead, Reveal, ProductCard } from '../components';
 import { useLanding } from '../context';
 import { SAMPLES } from '../data';
@@ -19,7 +20,7 @@ export default function LiveMarketplace() {
         {gridItems.map((it, i) => <Reveal key={it.id} delay={(i % 4) * 70}><ProductCard it={it} big /></Reveal>)}
       </div>
       <div style={{ textAlign: 'center', marginTop: 26 }}>
-        <a href="/market" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '13px 26px', borderRadius: 14, background: C.surface, color: C.ink, fontSize: 15, fontWeight: 800, textDecoration: 'none', border: `1px solid ${C.borderH}` }}>{tx('liveViewAll')} <Arrow size={16} /></a>
+        <Link to="/market" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '13px 26px', borderRadius: 14, background: C.surface, color: C.ink, fontSize: 15, fontWeight: 800, textDecoration: 'none', border: `1px solid ${C.borderH}` }}>{tx('liveViewAll')} <Arrow size={16} /></Link>
       </div>
     </Section>
   );

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { LANGS } from '../../../i18n/translations';
@@ -40,10 +41,10 @@ export default function Header() {
             </div>
           )}
         </div>
-        <a href="/market" className="hide-xs" style={{ padding: '9px 14px', borderRadius: 10, background: `${C.orange}12`, border: `1px solid ${C.orange}33`, color: C.orangeD, fontSize: 12.5, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap' }}>{tx('market')}</a>
+        <Link to="/market" className="hide-xs" style={{ padding: '9px 14px', borderRadius: 10, background: `${C.orange}12`, border: `1px solid ${C.orange}33`, color: C.orangeD, fontSize: 12.5, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap' }}>{tx('market')}</Link>
         {isAuthed
-          ? <a href="/dashboard" style={{ padding: '9px 16px', borderRadius: 10, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeD})`, color: '#fff', fontSize: 12.5, fontWeight: 800, textDecoration: 'none' }}>{tx('dashboard')}</a>
-          : <a href="/login" style={{ padding: '9px 16px', borderRadius: 10, background: C.ink, color: '#fff', fontSize: 12.5, fontWeight: 800, textDecoration: 'none' }}>{tx('login')}</a>}
+          ? <Link to="/dashboard" style={{ padding: '9px 16px', borderRadius: 10, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeD})`, color: '#fff', fontSize: 12.5, fontWeight: 800, textDecoration: 'none' }}>{tx('dashboard')}</Link>
+          : <Link to="/login" style={{ padding: '9px 16px', borderRadius: 10, background: C.ink, color: '#fff', fontSize: 12.5, fontWeight: 800, textDecoration: 'none' }}>{tx('login')}</Link>}
       </div>
     </header>
   );
