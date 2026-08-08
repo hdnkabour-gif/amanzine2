@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-08T21:36:11.338Z",
+ "generatedAt": "2026-08-08T23:47:04.264Z",
  "totals": {
-  "tracked": 661,
-  "code": 446,
+  "tracked": 666,
+  "code": 450,
   "orphans": 2,
   "appOnly": 107,
-  "testOnly": 135,
+  "testOnly": 139,
   "untested": 135,
   "deadExports": 214,
-  "looseExports": 71,
+  "looseExports": 70,
   "todos": 8,
-  "lines": 84143
+  "lines": 84882
  },
  "files": [
   {
@@ -227,7 +227,7 @@
    "anys": 0,
    "logs": 1,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "scripts/pulse.ts",
@@ -316,8 +316,8 @@
   },
   {
    "file": "server/database.js",
-   "lines": 2592,
-   "bytes": 115892,
+   "lines": 2641,
+   "bytes": 118334,
    "imports": [
     "server/db.js",
     "server/lib/secrets.js",
@@ -361,6 +361,7 @@
     "server/routes/wallet.js",
     "server/routes/webhooks.js",
     "server/test/concept-core.test.js",
+    "server/test/db-exports.test.js",
     "server/test/demand-channel.test.js",
     "server/test/engines.test.js",
     "server/test/field-visit.test.js",
@@ -373,6 +374,7 @@
     "server/test/order-verification.test.js",
     "server/test/payment-door.test.js",
     "server/test/readiness.test.js",
+    "server/test/search-contract.test.js",
     "server/test/search-terms.test.js",
     "server/test/shipment-retry.test.js",
     "server/test/verify.test.js"
@@ -380,12 +382,12 @@
    "exports": [],
    "deadExports": [],
    "reach": "server+test",
-   "touched": 1786136450,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 0
   },
   {
    "file": "server/db.js",
@@ -440,8 +442,8 @@
   },
   {
    "file": "server/index.js",
-   "lines": 619,
-   "bytes": 31455,
+   "lines": 631,
+   "bytes": 32299,
    "imports": [
     "server/lib/readiness.js",
     "server/routes/ai.js",
@@ -498,12 +500,12 @@
    "exports": [],
    "deadExports": [],
    "reach": "server",
-   "touched": 1786020711,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 0,
    "logs": 19,
    "emptyCatch": 3,
-   "ageDays": 2
+   "ageDays": 0
   },
   {
    "file": "server/lib/ai-engine.js",
@@ -890,7 +892,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "server/lib/engines/presentation.js",
@@ -975,8 +977,8 @@
   },
   {
    "file": "server/lib/engines/search.js",
-   "lines": 129,
-   "bytes": 6974,
+   "lines": 138,
+   "bytes": 7534,
    "imports": [
     "server/lib/business.js",
     "server/lib/engines/ranking.js",
@@ -995,12 +997,12 @@
    "exports": [],
    "deadExports": [],
    "reach": "server+test",
-   "touched": 1786113849,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 0
   },
   {
    "file": "server/lib/engines/status.js",
@@ -1028,7 +1030,8 @@
    "imports": [],
    "importers": [
     "server/index.js",
-    "server/middleware/auth.js"
+    "server/middleware/auth.js",
+    "server/routes/orders.js"
    ],
    "exports": [],
    "deadExports": [],
@@ -1320,7 +1323,7 @@
    "anys": 1,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "server/lib/verify/channels/email.channel.js",
@@ -1857,7 +1860,7 @@
    "anys": 0,
    "logs": 1,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "server/routes/discover.js",
@@ -1954,8 +1957,8 @@
   },
   {
    "file": "server/routes/listings.js",
-   "lines": 252,
-   "bytes": 12883,
+   "lines": 255,
+   "bytes": 13130,
    "imports": [
     "server/middleware/auth.js",
     "server/database.js",
@@ -1969,12 +1972,12 @@
    "exports": [],
    "deadExports": [],
    "reach": "server",
-   "touched": 1785677753,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 1,
-   "ageDays": 6
+   "ageDays": 0
   },
   {
    "file": "server/routes/loyalty.js",
@@ -1995,7 +1998,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "server/routes/media.js",
@@ -2039,7 +2042,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "server/routes/needs.js",
@@ -2066,8 +2069,8 @@
   },
   {
    "file": "server/routes/orders.js",
-   "lines": 556,
-   "bytes": 30780,
+   "lines": 630,
+   "bytes": 34409,
    "imports": [
     "server/middleware/validate.js",
     "server/middleware/auth.js",
@@ -2079,6 +2082,7 @@
     "server/lib/deliveryPricing.js",
     "server/lib/shipmentAttempt.js",
     "server/lib/orderCosting.js",
+    "server/lib/logger.js",
     "server/routes/push.js",
     "server/lib/engines/activity.js"
    ],
@@ -2671,6 +2675,24 @@
    "ageDays": 5
   },
   {
+   "file": "server/test/db-exports.test.js",
+   "lines": 34,
+   "bytes": 1654,
+   "imports": [
+    "server/database.js"
+   ],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1786232058,
+   "todos": 0,
+   "anys": 0,
+   "logs": 0,
+   "emptyCatch": 0,
+   "ageDays": 0
+  },
+  {
    "file": "server/test/delivery-credentials.test.js",
    "lines": 107,
    "bytes": 4770,
@@ -2934,7 +2956,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "server/test/memory-sync.test.js",
@@ -2955,7 +2977,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "server/test/migrate-runnable.test.js",
@@ -3127,7 +3149,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "server/test/pricing-engine.test.js",
@@ -3220,6 +3242,24 @@
    "logs": 0,
    "emptyCatch": 0,
    "ageDays": 7
+  },
+  {
+   "file": "server/test/search-contract.test.js",
+   "lines": 74,
+   "bytes": 3419,
+   "imports": [
+    "server/database.js"
+   ],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1786232058,
+   "todos": 0,
+   "anys": 0,
+   "logs": 0,
+   "emptyCatch": 0,
+   "ageDays": 0
   },
   {
    "file": "server/test/search-filters.test.js",
@@ -3348,7 +3388,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "server/test/validate.test.js",
@@ -3382,7 +3422,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "server/test/verify.test.js",
@@ -3560,7 +3600,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/components/CapabilityBar.tsx",
@@ -3585,7 +3625,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/components/CityPicker.tsx",
@@ -3776,8 +3816,8 @@
   },
   {
    "file": "src/components/DiscoverSections.tsx",
-   "lines": 140,
-   "bytes": 9074,
+   "lines": 159,
+   "bytes": 9847,
    "imports": [
     "src/lib/searchIntent.ts"
    ],
@@ -3790,13 +3830,13 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1785774994,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 0
   },
   {
    "file": "src/components/ErrorBoundary.tsx",
@@ -3902,7 +3942,7 @@
    "looseExports": [
     "FOCUSABLE"
    ],
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "src/components/GlobalSearch.tsx",
@@ -4125,7 +4165,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/components/MapView.tsx",
@@ -4224,7 +4264,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/components/MySpaceSections.tsx",
@@ -4638,7 +4678,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/components/TourGuide.tsx",
@@ -5655,6 +5695,7 @@
     "src/lib/needEngine.ts",
     "src/lib/personFacts.ts",
     "src/lib/refine.ts",
+    "src/lib/searchIntent.ts",
     "src/lib/understanding.ts",
     "src/pages/AssistantPage.tsx",
     "src/pages/FieldVisit.tsx",
@@ -5722,7 +5763,6 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [
-    "Stance",
     "CITIES"
    ],
    "ageDays": 0
@@ -5753,7 +5793,6 @@
     "src/lib/refine.ts",
     "src/lib/searchIntent.ts",
     "src/lib/understanding.ts",
-    "src/pages/LivingHome.tsx",
     "src/pages/ProductsPage.tsx",
     "src/store.tsx",
     "test/brain/catalog.test.ts",
@@ -5854,8 +5893,8 @@
   },
   {
    "file": "src/lib/akg/kb/knowledgeExtra.ts",
-   "lines": 712,
-   "bytes": 53508,
+   "lines": 730,
+   "bytes": 54750,
    "imports": [
     "src/lib/akg/kb/knowledgeData.ts"
    ],
@@ -5869,7 +5908,7 @@
    ],
    "deadExports": [],
    "reach": "app+script+test",
-   "touched": 1786218269,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -7045,13 +7084,14 @@
   },
   {
    "file": "src/lib/core/orchestrator.ts",
-   "lines": 51,
-   "bytes": 2589,
+   "lines": 54,
+   "bytes": 2830,
    "imports": [
     "src/lib/needEngine.ts",
     "src/services/api.ts",
     "src/lib/experienceLog.ts",
     "src/lib/core/plugins.ts",
+    "src/lib/searchIntent.ts",
     "src/lib/core/context.ts"
    ],
    "importers": [
@@ -7068,13 +7108,13 @@
     "Orchestrated"
    ],
    "reach": "app",
-   "touched": 1785302659,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 11
+   "ageDays": 0
   },
   {
    "file": "src/lib/core/plugins.ts",
@@ -7823,7 +7863,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/needEngine.ts",
@@ -8131,39 +8171,47 @@
   },
   {
    "file": "src/lib/searchIntent.ts",
-   "lines": 145,
-   "bytes": 5329,
+   "lines": 209,
+   "bytes": 8152,
    "imports": [
     "src/lib/akg/kb/knowledge.ts",
+    "src/lib/akg/kb/index.ts",
     "src/lib/catalog.ts",
     "src/lib/money.ts",
-    "src/lib/condition.ts"
+    "src/lib/condition.ts",
+    "src/services/api.ts"
    ],
    "importers": [
     "src/components/DiscoverSections.tsx",
+    "src/lib/core/orchestrator.ts",
+    "src/pages/AssistantPage.tsx",
+    "src/pages/LivingHome.tsx",
+    "src/pages/Marketplace.tsx",
     "test/brain/condition.test.ts",
     "test/brain/fashion.test.ts",
     "test/brain/ownerSentences.test.ts",
     "test/brain/priceSearch.test.ts",
+    "test/brain/searchContract.test.ts",
     "test/brain/searchIntent.test.ts"
    ],
    "exports": [
     "SearchIntent",
     "expandQuery",
     "expandAll",
+    "toSearchFilters",
     "toSearchParams"
    ],
    "deadExports": [
     "SearchIntent"
    ],
    "reach": "app+test",
-   "touched": 1786113849,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 1
+   "ageDays": 0
   },
   {
    "file": "src/lib/understanding.ts",
@@ -8240,7 +8288,7 @@
    "looseExports": [
     "SYNCED_KEYS"
    ],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/lib/visitKind.ts",
@@ -8348,14 +8396,15 @@
   },
   {
    "file": "src/pages/AssistantPage.tsx",
-   "lines": 240,
-   "bytes": 15092,
+   "lines": 245,
+   "bytes": 15383,
    "imports": [
     "src/store.tsx",
     "src/lib/needEngine.ts",
     "src/lib/understanding.ts",
     "src/lib/akg/kb/index.ts",
     "src/lib/imageFile.ts",
+    "src/lib/searchIntent.ts",
     "src/lib/core/context.ts",
     "src/lib/gateTransition.ts",
     "src/lib/journey.ts",
@@ -8372,13 +8421,13 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1785302659,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 1,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 11
+   "ageDays": 0
   },
   {
    "file": "src/pages/AuthPage.tsx",
@@ -8615,7 +8664,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/pages/DashboardPage.tsx",
@@ -9199,7 +9248,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/pages/Landing/sections/PromoBanner.tsx",
@@ -9283,8 +9332,8 @@
   },
   {
    "file": "src/pages/LivingHome.tsx",
-   "lines": 1028,
-   "bytes": 66090,
+   "lines": 1026,
+   "bytes": 66137,
    "imports": [
     "src/store.tsx",
     "src/lib/needEngine.ts",
@@ -9308,7 +9357,7 @@
     "src/lib/executionPolicy.ts",
     "src/lib/akg/kb/index.ts",
     "src/lib/evidence.ts",
-    "src/lib/akg/kb/knowledge.ts",
+    "src/lib/searchIntent.ts",
     "src/components/Mirror.tsx",
     "src/lib/liveSentence.ts",
     "src/components/LiveSentence.tsx",
@@ -9327,7 +9376,7 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1786219806,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 3,
    "logs": 0,
@@ -9388,17 +9437,19 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/pages/Marketplace.tsx",
-   "lines": 608,
-   "bytes": 44051,
+   "lines": 666,
+   "bytes": 47024,
    "imports": [
     "src/components/NeedCapture.tsx",
     "src/components/DiscoverSections.tsx",
     "src/i18n/index.ts",
-    "src/i18n/public.ts"
+    "src/i18n/public.ts",
+    "src/services/api.ts",
+    "src/lib/searchIntent.ts"
    ],
    "importers": [
     "src/App.tsx"
@@ -9409,13 +9460,13 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1785302659,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 4,
    "logs": 0,
    "emptyCatch": 2,
    "looseExports": [],
-   "ageDays": 11
+   "ageDays": 0
   },
   {
    "file": "src/pages/MessagesPage.tsx",
@@ -9494,7 +9545,7 @@
    "logs": 0,
    "emptyCatch": 1,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/pages/NotificationsPage.tsx",
@@ -9627,7 +9678,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/pages/SettingsPage.tsx",
@@ -9661,8 +9712,8 @@
   },
   {
    "file": "src/pages/Storefront.tsx",
-   "lines": 1061,
-   "bytes": 120791,
+   "lines": 1067,
+   "bytes": 121261,
    "imports": [
     "src/components/VerifyCode.tsx",
     "src/i18n/index.ts",
@@ -9759,8 +9810,8 @@
   },
   {
    "file": "src/services/api.ts",
-   "lines": 818,
-   "bytes": 41898,
+   "lines": 831,
+   "bytes": 43011,
    "imports": [],
    "importers": [
     "src/components/AddConceptPanel.tsx",
@@ -9778,6 +9829,7 @@
     "src/components/VerifyCode.tsx",
     "src/lib/core/orchestrator.ts",
     "src/lib/mes.ts",
+    "src/lib/searchIntent.ts",
     "src/lib/userMemory.ts",
     "src/pages/ActivityFeed.tsx",
     "src/pages/AnalyticsPage.tsx",
@@ -9791,6 +9843,7 @@
     "src/pages/Explore.tsx",
     "src/pages/FieldVisit.tsx",
     "src/pages/KnowledgeStudio.tsx",
+    "src/pages/Marketplace.tsx",
     "src/pages/MessagesPage.tsx",
     "src/pages/ModerationPage.tsx",
     "src/pages/NotificationsPage.tsx",
@@ -9902,7 +9955,7 @@
     "VerifyStart"
    ],
    "reach": "app+test",
-   "touched": 1786191582,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 51,
    "logs": 0,
@@ -10222,8 +10275,8 @@
   },
   {
    "file": "test/architecture.test.mjs",
-   "lines": 1689,
-   "bytes": 86966,
+   "lines": 1693,
+   "bytes": 87180,
    "imports": [
     "scripts/emit-cities.mjs"
    ],
@@ -10231,7 +10284,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786219806,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 1,
    "logs": 0,
@@ -10537,7 +10590,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/brain/conversation.test.ts",
@@ -10785,7 +10838,7 @@
    "anys": 8,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "test/brain/fashion.test.ts",
@@ -10860,7 +10913,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "test/brain/food.test.ts",
@@ -10907,7 +10960,7 @@
    "anys": 2,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/brain/humanIntent.test.ts",
@@ -10932,8 +10985,8 @@
   },
   {
    "file": "test/brain/index.ts",
-   "lines": 96,
-   "bytes": 3793,
+   "lines": 98,
+   "bytes": 3896,
    "imports": [
     "test/brain/setup.ts",
     "test/brain/understand.test.ts",
@@ -11004,13 +11057,14 @@
     "test/brain/visitKind.test.ts",
     "test/brain/evidence.test.ts",
     "test/brain/doors.test.ts",
-    "test/brain/liveCorpus.test.ts"
+    "test/brain/liveCorpus.test.ts",
+    "test/brain/searchContract.test.ts"
    ],
    "importers": [],
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786224285,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -11275,7 +11329,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/brain/merchantSuccess.test.ts",
@@ -11339,7 +11393,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "test/brain/normalize.test.ts",
@@ -11453,7 +11507,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "test/brain/persona.test.ts",
@@ -11651,6 +11705,26 @@
    "logs": 0,
    "emptyCatch": 0,
    "ageDays": 1
+  },
+  {
+   "file": "test/brain/searchContract.test.ts",
+   "lines": 110,
+   "bytes": 5135,
+   "imports": [
+    "src/lib/searchIntent.ts"
+   ],
+   "importers": [
+    "test/brain/index.ts"
+   ],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1786232058,
+   "todos": 0,
+   "anys": 0,
+   "logs": 0,
+   "emptyCatch": 0,
+   "ageDays": 0
   },
   {
    "file": "test/brain/searchIntent.test.ts",
@@ -11896,23 +11970,39 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 0,
+   "touched": 1786225034,
    "todos": 0,
    "anys": 0,
    "logs": 10,
    "emptyCatch": 0,
-   "ageDays": 20674
+   "ageDays": 0
   },
   {
-   "file": "test/browser/walk.mjs",
-   "lines": 228,
-   "bytes": 10384,
+   "file": "test/browser/pipeline.mjs",
+   "lines": 158,
+   "bytes": 7993,
    "imports": [],
    "importers": [],
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786222866,
+   "touched": 1786232058,
+   "todos": 0,
+   "anys": 0,
+   "logs": 13,
+   "emptyCatch": 0,
+   "ageDays": 0
+  },
+  {
+   "file": "test/browser/walk.mjs",
+   "lines": 245,
+   "bytes": 11523,
+   "imports": [],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1786232058,
    "todos": 0,
    "anys": 0,
    "logs": 6,
@@ -11983,7 +12073,7 @@
    "looseExports": [
     "OWNER"
    ],
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/disconnected.test.mjs",
@@ -12063,7 +12153,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "test/pulse.test.mjs",
@@ -12101,8 +12191,8 @@
   },
   {
    "file": "vite.config.ts",
-   "lines": 38,
-   "bytes": 987,
+   "lines": 47,
+   "bytes": 1335,
    "imports": [],
    "importers": [],
    "exports": [
@@ -12110,14 +12200,14 @@
    ],
    "deadExports": [],
    "reach": "tool",
-   "touched": 1785302659,
+   "touched": 1786232058,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
    "why": "يقرؤه Vite عند البناء",
    "looseExports": [],
-   "ageDays": 11
+   "ageDays": 0
   }
  ]
 }

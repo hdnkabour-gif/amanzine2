@@ -12,6 +12,7 @@ const fetch  = require('node-fetch');
 const { resolveDeliveryFee } = require('../lib/deliveryPricing');
 const { runShipment } = require('../lib/shipmentAttempt');
 const { attachCosts } = require('../lib/orderCosting');
+const logger = require('../lib/logger');
 
 let pushNotify;
 try { pushNotify = require('../routes/push').notifyUser; } catch { pushNotify = () => Promise.resolve(); }
@@ -75,14 +76,52 @@ const _sendBrevoEmail = (apiKey, toEmail, toName, subject, html) =>
   mailer.send({ apiKey, to: toEmail, toName, subject, html }).then(r => r.sent);
 
 
+// ── **لماذا فشل، لا أنّه فشل** ──────────────────────────────────
+//
+//   كان الجوابُ يُختصَر إلى `true/false` ويُرمى `error-codes`. فمفتاحٌ سرّيٌّ
+//   خاطئ، ومفتاحان من حسابَين مختلفَين، ورمزٌ منتهٍ، وانقطاعُ شبكةٍ عنّا، وآلةٌ
+//   حقيقيّة — **كلُّها تبدو شيئًا واحدًا**. فيُقال للزبون «فشل التحقق الأمني»
+//   وهو إنسانٌ ضغط المربّعَ ورآه أخضر، ولا أحدَ يعرف السبب: لا هو ولا التاجر
+//   ولا نحن.
+//
+//   والتصنيفُ يغيّر القرار، لا العبارةَ فقط:
+//     · `ours`  — عطبٌ عندنا أو في إعداد التاجر ⇒ **لا يدفع ثمنَه الزبون**
+//     · `stale` — الرمزُ استُهلك أو انتهت مدّتُه ⇒ يُطلَب مربّعٌ جديد
+//     · `bot`   — رفضٌ حقيقيّ ⇒ يُمنع
+const CAPTCHA_OURS = new Set([
+  'invalid-input-secret',      // التاجرُ لصق سرًّا خاطئًا
+  'sitekey-secret-mismatch',   // المفتاحان من حسابَين مختلفَين — والمربّعُ يخضرّ رغم ذلك
+  'not-using-dummy-secret',    // نفسُ المعنى في وضع الاختبار (مقيسٌ من ردّ hCaptcha)
+  'bad-request', 'missing-input-secret',
+]);
+const CAPTCHA_STALE = new Set([
+  'invalid-input-response', 'timeout-or-duplicate', 'missing-input-response',
+  'expired-input-response',
+]);
+
 function _verifyHCaptcha(secret, token) {
   return new Promise(resolve => {
     const httpsH = require('https');
     const form = `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(token || '')}`;
+    const done = (ok, codes, kind) => resolve({ ok, codes: codes || [], kind: kind || null });
     const r = httpsH.request({ hostname: 'api.hcaptcha.com', path: '/siteverify', method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(form) } },
-      rs => { let d = ''; rs.on('data', c => d += c); rs.on('end', () => { try { resolve(!!JSON.parse(d).success); } catch { resolve(false); } }); });
-    r.on('error', () => resolve(false)); r.setTimeout(8000, () => { r.destroy(); resolve(false); });
+      rs => {
+        let d = '';
+        rs.on('data', c => d += c);
+        rs.on('end', () => {
+          let body;
+          try { body = JSON.parse(d); } catch { return done(false, ['unreadable-response'], 'ours'); }
+          if (body.success) return done(true);
+          const codes = Array.isArray(body['error-codes']) ? body['error-codes'] : [];
+          const kind = codes.some(c => CAPTCHA_OURS.has(c)) ? 'ours'
+            : codes.some(c => CAPTCHA_STALE.has(c)) ? 'stale' : 'bot';
+          done(false, codes, kind);
+        });
+      });
+    // الشبكةُ عطبُنا لا عطبُ الزبون — ولا يجوز أن يُقفَل الطلبُ لأنّنا لم نصل.
+    r.on('error', (e) => done(false, [`network:${e.code || 'error'}`], 'ours'));
+    r.setTimeout(8000, () => { r.destroy(); done(false, ['network:timeout'], 'ours'); });
     r.write(form); r.end();
   });
 }
@@ -342,10 +381,6 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     return res.status(400).json({ error: 'userId, items, name, phone required' });
   try {
     const preSettings = await db.getSettings(userId) || {};
-    if (preSettings.security?.hcaptchaSecret) {
-      const human = await _verifyHCaptcha(preSettings.security.hcaptchaSecret, captchaToken);
-      if (!human) return res.status(400).json({ error: 'فشل التحقق الأمني — حدّث الصفحة وأعد المحاولة' });
-    }
 
     // ── تأكيدُ النمرة: أوّلَ مرّةٍ فقط ────────────────────────────
     //   hCaptcha يمنع الآلة، ولا يمنع إنسانًا يكتب نمرةً ليست له. والدفعُ
@@ -377,6 +412,45 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
           error: 'خاصّنا نتأكّدو من النمرة ديالك قبل ما نسجّلو الطلب',
           needsVerification: true, purpose: 'order_confirm',
           identifier: customerPhone, reason: vp.reason,
+        });
+      }
+    }
+
+    // ── **المربّعُ يُستهلَك مرّةً، فلا يُطلَب مرّتَين** ──────────────
+    //
+    //   كان الفحصُ **قبل** بوّابة تأكيد النمرة. ورمزُ hCaptcha يُستهلَك عند
+    //   أوّل تحقّق: تسأل عنه ثانيةً فيردّ `timeout-or-duplicate`.
+    //
+    //   فكانت رحلةُ كلّ زبونٍ جديد (وهم كلُّ الزبائن في البداية):
+    //       ① يضغط المربّع ✓ ⇒ نستهلك رمزَه ⇒ 428 «خاصّنا نتأكّدو من النمرة»
+    //       ② يكتب الكود ⇒ **تُعاد المحاولةُ تلقائيًّا بنفس الرمز المستهلَك**
+    //       ③ «فشل التحقق الأمني» — إلى الأبد. الطلبُ لا يمرّ أبدًا.
+    //
+    //   والمربّعُ أخضرُ أمام عينَيه. هذا هو ما رآه صاحبُ المشروع.
+    //
+    //   والحلُّ ليس رمزًا ثانيًا بل **ألّا نحرقه في طلبٍ لن يُنشئ شيئًا**:
+    //   يُفحَص هنا، بعد اجتياز البوّابة وقبل الكتابة مباشرةً. مرّةً واحدة.
+    if (preSettings.security?.hcaptchaSecret) {
+      const cap = await _verifyHCaptcha(preSettings.security.hcaptchaSecret, captchaToken);
+      if (!cap.ok && cap.kind === 'ours') {
+        // ── **عطبُنا لا يدفع ثمنَه الزبون** ────────────────────────
+        //   مفتاحٌ خاطئ أو شبكةٌ لم تصل: الحمايةُ **لم تعمل**، وليست قد رفضت.
+        //   وحائطٌ سببُه إعدادُنا يقتل كلَّ طلبٍ في المتجر بلا أن يعرف أحد.
+        //   نفسُ قاعدة تأكيد النمرة: ما لا يعمل يُعلَّق ويُقال، لا يُقلَب جدارًا.
+        logger.error('hCaptcha unusable — order allowed through', { userId, codes: cap.codes });
+        db.addLog({
+          userId, user: 'System', type: 'security', severity: 'warning',
+          action: '⚠️ الحمايةُ من الروبوتات (hCaptcha) ما خدماتش',
+          details: `تحقّق من المفتاح السرّيّ ومفتاح الموقع — خاصّهم يكونو من نفس الحساب. (${cap.codes.join(', ') || 'ما وصلناش لـhCaptcha'})`,
+        }).catch(() => {});
+      } else if (!cap.ok) {
+        // الرمزُ منتهٍ أو مستهلَك ⇒ الواجهةُ تمسح المربّعَ وتطلب واحدًا جديدًا.
+        const stale = cap.kind === 'stale';
+        return res.status(400).json({
+          error: stale
+            ? 'التحقّقُ الأمنيّ صلاحيتُه سالات — عاود اضغط على المربّع وصيفط'
+            : 'ما قدرناش نتأكّدو أنّك ماشي روبوت — عاود اضغط على المربّع',
+          captchaStale: true,
         });
       }
     }
