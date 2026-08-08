@@ -452,6 +452,45 @@ export function resolveConcept(text: string): ConceptResolution | null {
 //
 // المطابقةُ **غيرُ متداخلة**: كلُّ مقطعٍ من النصّ يُستهلَك مرّةً واحدة، وإلّا
 // أرجعت «غسل السيارات» مفهومَي الغسل والسيّارة معًا فتضخّم الضجيج.
+/**
+ * **مرادفاتُ مفهومٍ — ما يُرسَل إلى بحث الخادم.**
+ *
+ *   ── الطبقةُ التي بُنيت من طرفَيها ولم يمرّ فيها شيء ──
+ *   `GET /api/search` يقبل `terms` ومكتوبٌ فوقه: «مرادفاتُ المفهوم كما
+ *   **وسّعتها الواجهة**». و`engines/search.js` يقرؤها ويوسّع بها الاستعلام.
+ *   وقِيس أنّ **صفرَ مُرسِلين** في `src` كلِّه: البابُ مبنيٌّ من طرفَيه.
+ *
+ *   ── والثمنُ رآه صاحبُ المشروع في لقطتَين متتاليتَين ──
+ *   كتب «بغيت شي كسوة لبنتي أنا فكازة». فقرأ التطبيقُ **`ملابس الأطفال`
+ *   بيقين ٨٠٪** و**«الدار البيضاء»**، وعرضهما على الشاشة، ثمّ ساقه إلى
+ *   السوق **بالجملة الخامّة** `q=بغيت شي كسوة لبنتي أنا فكازة`.
+ *
+ *   فقال السوقُ «ما لقّيناش» — **وفي المتجر «حوايج دراري صغار» بـ٦٥ درهمًا**.
+ *   أي أنّ التطبيقَ فهم تمامًا، ثمّ **رمى فهمَه على عتبة السوق** وبحث بجملةٍ
+ *   لا يطابقها اسمُ منتجٍ في الأرض.
+ *
+ *   وهذا أسوأُ من ألّا يفهم: الفهمُ ظهر على الشاشة فوثق به الإنسان، ثمّ
+ *   جاءت النتيجةُ فارغةً — فيستنتج أنّ **السوقَ خاوٍ** لا أنّ البحثَ أخطأ.
+ */
+export function conceptTerms(conceptId: string, max = 20): string[] {
+  const c = (CONCEPTS as any[]).find(x => x.id === conceptId);
+  if (!c) return [];
+  const v = c.variants || {};
+  const all = [
+    c.concept?.ar, c.concept?.darija, c.concept?.fr, c.concept?.en,
+    ...(v.ar || []), ...(v.darija || []), ...(v.fr || []), ...(v.en || []),
+  ].filter(Boolean).map((t: string) => String(t).trim()).filter(Boolean);
+  // الأقصرُ أوّلًا: «كسوة» تطابق أكثرَ ممّا تطابق «ملابس أطفال حديثي الولادة».
+  const seen = new Set<string>(), out: string[] = [];
+  for (const t of all.sort((a, b) => a.length - b.length)) {
+    const k = t.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k); out.push(t);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
 export function resolveConcepts(text: string, max = 8): ConceptResolution[] {
   if (!text) return [];
   const out: ConceptResolution[] = [];

@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-08T19:41:42.930Z",
+ "generatedAt": "2026-08-08T20:07:43.890Z",
  "totals": {
   "tracked": 655,
   "code": 443,
@@ -10,7 +10,7 @@
   "deadExports": 214,
   "looseExports": 71,
   "todos": 8,
-  "lines": 83446
+  "lines": 83546
  },
  "files": [
   {
@@ -1278,7 +1278,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/lib/trackingSync.js",
@@ -2743,7 +2743,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/test/demand-channel.test.js",
@@ -3295,7 +3295,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/test/shop-hours.test.js",
@@ -5728,8 +5728,8 @@
   },
   {
    "file": "src/lib/akg/kb/knowledge.ts",
-   "lines": 552,
-   "bytes": 30119,
+   "lines": 591,
+   "bytes": 31844,
    "imports": [
     "src/lib/akg/kb/knowledgeData.ts",
     "src/lib/akg/kb/concepts.ts",
@@ -5752,6 +5752,7 @@
     "src/lib/refine.ts",
     "src/lib/searchIntent.ts",
     "src/lib/understanding.ts",
+    "src/pages/LivingHome.tsx",
     "src/pages/ProductsPage.tsx",
     "src/store.tsx",
     "test/brain/catalog.test.ts",
@@ -5776,6 +5777,7 @@
     "ConceptResolution",
     "categoryFor",
     "resolveConcept",
+    "conceptTerms",
     "resolveConcepts",
     "CityResolution",
     "resolveCity",
@@ -5787,7 +5789,7 @@
     "CityResolution"
    ],
    "reach": "app+script+test",
-   "touched": 1786197298,
+   "touched": 1786218269,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -5866,7 +5868,7 @@
    ],
    "deadExports": [],
    "reach": "app+script+test",
-   "touched": 1786197298,
+   "touched": 1786218269,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -7959,7 +7961,7 @@
    ],
    "deadExports": [],
    "reach": "app+script+test",
-   "touched": 1786197298,
+   "touched": 1786218269,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -9278,8 +9280,8 @@
   },
   {
    "file": "src/pages/LivingHome.tsx",
-   "lines": 1007,
-   "bytes": 64894,
+   "lines": 1028,
+   "bytes": 66090,
    "imports": [
     "src/store.tsx",
     "src/lib/needEngine.ts",
@@ -9303,6 +9305,7 @@
     "src/lib/executionPolicy.ts",
     "src/lib/akg/kb/index.ts",
     "src/lib/evidence.ts",
+    "src/lib/akg/kb/knowledge.ts",
     "src/components/Mirror.tsx",
     "src/lib/liveSentence.ts",
     "src/components/LiveSentence.tsx",
@@ -10216,8 +10219,8 @@
   },
   {
    "file": "test/architecture.test.mjs",
-   "lines": 1649,
-   "bytes": 84454,
+   "lines": 1689,
+   "bytes": 86966,
    "imports": [
     "scripts/emit-cities.mjs"
    ],
@@ -10686,7 +10689,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786197298,
+   "touched": 1786218269,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -11938,7 +11941,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/knowledge-health.test.mjs",

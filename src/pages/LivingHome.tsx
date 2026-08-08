@@ -31,6 +31,8 @@ import { reportMisread } from '../lib/journey';
 import { understand, type Understanding } from '../lib/akg/kb';
 // أرضيّةُ الفهم: هل عندنا دليلٌ، أم رجعت النيّةُ من المصرف؟
 import { readGround, type Reading } from '../lib/evidence';
+// مرادفاتُ المفهوم — تعبر مع الإنسان إلى السوق فلا يُبحَث بجملةٍ خامّة.
+import { conceptTerms } from '../lib/akg/kb/knowledge';
 import Mirror from '../components/Mirror';
 // الجملةُ الحيّة: طبقةُ عرضٍ تُعيد كلامَه ومعه الفراغُ — لا نافذةَ ولا صفحة.
 import { liveSentenceFor, type LiveSentence as LS, type Slot } from '../lib/liveSentence';
@@ -247,6 +249,25 @@ export default function LivingHome() {
         url += `${sep}q=${encodeURIComponent(raw)}`;
         const city = result?.object?.location;
         if (city) url += `&city=${encodeURIComponent(city)}`;
+        // ── **والفهمُ يعبر معه إلى السوق** ────────────────────────
+        //   رآه صاحبُ المشروع في لقطتَين متتاليتَين: كتب «بغيت شي كسوة لبنتي
+        //   أنا فكازة»، فقرأ التطبيقُ `ملابس الأطفال` بيقين ٨٠٪ وعرضه، ثمّ
+        //   ساقه إلى السوق **بالجملة الخامّة**. فقال السوقُ «ما لقّيناش» —
+        //   **وفي المتجر «حوايج دراري صغار» بـ٦٥ درهمًا**.
+        //
+        //   و`GET /api/search` يقبل `terms` منذ زمنٍ ومكتوبٌ فوقه «وسّعتها
+        //   الواجهة»، و`engines/search` يقرؤها — و**صفرُ مُرسِلين**. طبقةٌ
+        //   مبنيّةٌ من طرفَيها لا يمرّ فيها شيء، للمرّة الرابعة هنا.
+        //
+        //   والجملةُ الخامّةُ تبقى في `q`: هي ما كتبه الإنسان، وقد يحمل ما
+        //   لم يُقرأ. والمرادفاتُ تُضاف ولا تحلّ محلّها.
+        //   والمفهومُ يُقرأ من التحليل المحفوظ عند الإرسال (`lastU`) — لا
+        //   بتحليلٍ ثانٍ للنصّ هنا: القاعدةُ ㉒، تحليلٌ واحدٌ للجملة.
+        const cid = lastU?.service;
+        if (cid) {
+          const t = conceptTerms(cid, 16);
+          if (t.length) url += `&terms=${encodeURIComponent(t.join('|'))}`;
+        }
       }
       const target = url;
       // تنقّلٌ داخل الراوتر لا إعادةُ تحميل: كانت location.assign تهدم الحالة
