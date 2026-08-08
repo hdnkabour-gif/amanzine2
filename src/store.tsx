@@ -6,7 +6,7 @@ import {
   type Conversation, type ConvMessage, type AuditLog, type AppNotification, type Template,
   type Page, type UserRole, type LogType, type LogSeverity, type NotifType, type OrderStatus,
   type DeliveryProviderConfig,
-  PAGE_IDS,
+  PAGE_IDS, URL_TO_PAGE,
 } from './types';
 import * as api from './services/api';
 import { registerRuntimeConcepts } from './lib/akg/kb/knowledge';
@@ -133,15 +133,7 @@ const nowStr = () => {
 
 
 // URL → Page mapping for initial load
-const URL_TO_PAGE: Record<string, string> = {
-  '/home': 'home',
-  '/dashboard': 'dashboard', '/products': 'products', '/orders': 'orders',
-  '/messages': 'conversations', '/customers': 'customers', '/analytics': 'analytics',
-  '/connections': 'connections', '/delivery': 'delivery', '/notifications': 'notifications',
-  '/settings': 'settings', '/studio': 'banner', '/editor': 'editor',
-  '/knowledge-studio': 'knowledge',
-  '/wallet': 'wallet', '/profile': 'profile', '/assistant': 'assistant', '/publish': 'publish',
-};
+// الخريطةُ تعيش في `types.ts` — مصدرٌ واحدٌ يقرؤه التطبيقُ والمخزن.
 
 function getInitialPage(): Page {
   // ?page=… يسمح بالوصول المباشر إلى صفحةٍ داخليّة بعد الدخول. تستعمله صفحةُ

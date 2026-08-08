@@ -17,41 +17,12 @@ import NextStepHint          from './components/NextStepHint';
 import ErrorBoundary         from './components/ErrorBoundary';
 import { isRtlLang } from './i18n';
 
-const PAGE_URLS: Record<string, string> = {
-  home:          '/home',
-  dashboard:     '/dashboard',
-  products:      '/products',
-  services:      '/services',
-  orders:        '/orders',
-  conversations: '/messages',
-  customers:     '/customers',
-  analytics:     '/analytics',
-  insights:      '/insights',
-  connections:   '/connections',
-  delivery:      '/delivery',
-  notifications: '/notifications',
-  settings:      '/settings',
-  banner:        '/studio',
-  editor:        '/editor',
-  import:        '/import',
-  coupons:       '/coupons',
-  guide:         '/guide',
-  moderation:    '/moderation',
-  bookings:      '/bookings',
-  knowledge:     '/knowledge-studio',
-  // روابط كانت ناقصة — بلا مدخلٍ هنا لا يتزامن العنوان ولا يعمل الرابط المباشر (deep-link)
-  wallet:        '/wallet',
-  profile:       '/profile',
-  assistant:     '/assistant',
-  publish:       '/publish',
-  // كانت ناقصة: بلا مدخلٍ هنا لا يتغيّر العنوانُ عند فتح الصفحة، فتظهر
-  // **صفحتان مختلفتان على نفس الرابط** (/moderation) — وهو ما رآه المالك.
-  'field-visit': '/field-visit',
-};
+import { PAGE_URLS, URL_TO_PAGE } from './types';
 
-const URL_PAGES: Record<string, string> = Object.fromEntries(
-  Object.entries(PAGE_URLS).map(([k, v]) => [v, k])
-);
+// الخريطةُ تعيش في `types.ts` — يقرؤها هذا الملفُّ والمخزنُ معًا.
+
+// والعكسُ مُشتقٌّ هناك كذلك؛ يُعاد تصديرُه باسمه المحلّيّ.
+const URL_PAGES = URL_TO_PAGE;
 
 // رسائل تحميل سياقية — كل صفحة تشرح ماذا يجري فعلاً أثناء جلب بياناتها
 const LOADING_MSGS: Record<string, [string, string]> = {

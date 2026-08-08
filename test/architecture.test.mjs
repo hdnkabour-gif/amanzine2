@@ -270,15 +270,18 @@ test('كلُّ صفحةٍ تملك رابطًا خاصًّا بها — لا ص�
   // يعمل الرابطُ المباشر ولا زرُّ الرجوع. الحارسُ القديم فحص «هل تُستورَد؟»
   // ولم يفحص «هل لها عنوان؟» — وصلٌ ناقصٌ يمرّ من فحصٍ ناقص.
   const ROOT_DIR = new URL('..', import.meta.url).pathname;
+  // **والخريطةُ انتقلت إلى `types.ts`** لأنّها كانت مكتوبةً مرّتَين — هنا
+  //   وفي `store.tsx` — فافترقتا وسقطت ثمانُ صفحاتٍ إلى الرئيسيّة. وهذا
+  //   الحارسُ كان يقرؤها من `App.tsx`، فتُقرأ الآن من مصدرها الواحد.
   const types = readFileSync(join(ROOT_DIR, 'src/types.ts'), 'utf8');
-  const app   = readFileSync(join(ROOT_DIR, 'src/App.tsx'), 'utf8');
+  const app   = types;
 
   const idsBlock = types.match(/export const PAGE_IDS = \[([\s\S]*?)\] as const/);
   assert.ok(idsBlock, 'تعذّر قراءة PAGE_IDS');
   const ids = [...idsBlock[1].matchAll(/'([a-z-]+)'/g)].map(m => m[1]);
   assert.ok(ids.length >= 20, `صفحاتٌ قليلةٌ قُرئت (${ids.length})`);
 
-  const urlsBlock = app.match(/const PAGE_URLS[^=]*=\s*\{([\s\S]*?)\n\};/);
+  const urlsBlock = app.match(/PAGE_URLS[^=]*=\s*\{([\s\S]*?)\n\};/);
   assert.ok(urlsBlock, 'تعذّر قراءة PAGE_URLS');
   const entries = [...urlsBlock[1].matchAll(/'?([a-z-]+)'?:\s*'([^']+)'/g)];
   const urlOf = Object.fromEntries(entries.map(m => [m[1], m[2]]));
@@ -1582,4 +1585,64 @@ test('تتبّعُ الطلب يفرّق بين الغياب والعجز', () =
   // ولا تُعرَض الرسالتان معًا: «ما لقيناش» تحت «ما قدرناش» تُناقضها.
   assert.match(code, /\{!err&&searched&&!singleOrder/,
     '«ما لقيناش» كتبان حتّى مع رسالةِ العجز — رسالتان متناقضتان');
+});
+
+// ============================================================
+// **خريطةُ الروابط مصدرٌ واحد** — وإلّا عادت ثمانُ صفحاتٍ لا تفتح.
+//
+//   قِيس من شاشة صاحب المشروع مرّتَين: «صفحةُ الزيارة الميدانيّة لا تفتح،
+//   يأخذك التطبيقُ إلى الصفحة الرئيسيّة». والسببُ خريطتان لشيءٍ واحد:
+//   `PAGE_URLS` في `App.tsx` لكتابة العنوان، و`URL_TO_PAGE` في `store.tsx`
+//   لقراءته عند الإقلاع. افترقتا — ٢٦ مدخلًا هناك و١٨ هنا.
+//
+//   فثمانُ صفحاتٍ يتغيّر عنوانُها ولا يعرفه المخزنُ فيسقط إلى `'home'`:
+//   field-visit · moderation · bookings · services · insights · import ·
+//   coupons · guide. **ثمانٍ، لا واحدة** — والعطبُ ظهر مرّةً واحدةً لأنّ
+//   صاحبَ المشروع ضغط زرًّا واحدًا.
+// ============================================================
+test('خريطةُ الروابط تُكتَب مرّةً واحدةً ويقرؤها الاثنان', () => {
+  const types = readFileSync(join(ROOT, 'src/types.ts'), 'utf8');
+  assert.match(types, /export const PAGE_URLS: Record<Page, string>/,
+    'الخريطةُ خرجت من `types.ts` — أو فقدت النوعَ الذي يفرض رابطًا لكلّ صفحة');
+  assert.match(types, /export const URL_TO_PAGE[\s\S]{0,200}Object\.fromEntries/,
+    'العكسُ صار مكتوبًا بيدٍ بدل أن يُشتقّ — نسختان تتباعدان');
+
+  // **ولا خريطةَ ثانيةً في أيّ مكان.** النوعُ يمنع صفحةً بلا رابط، ولا يمنع
+  //   أحدًا أن يكتب خريطةً موازيةً غدًا — وذاك ما وقع بالضبط.
+  for (const f of ['src/App.tsx', 'src/store.tsx']) {
+    const src = readFileSync(join(ROOT, f), 'utf8');
+    const code = src.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+    assert.doesNotMatch(code, /(const|let)\s+(PAGE_URLS|URL_TO_PAGE|URL_PAGES)\s*(:[^=]*)?=\s*\{/,
+      `${f}: رجعت خريطةٌ مكتوبةٌ بيد — ثمانُ صفحاتٍ غادي تكفّ عن الفتح`);
+    assert.match(code, /from '\.\/types'/, `${f}: ما كيقراش الخريطةَ من مصدرها`);
+  }
+
+  // وكلُّ صفحةٍ مُعلَنةٍ لها رابط — يُقاس لا يُفترَض.
+  const ids = (types.match(/export const PAGE_IDS = \[[\s\S]*?\] as const;/) || [''])[0];
+  const urls = (types.match(/export const PAGE_URLS: Record<Page, string> = \{[\s\S]*?\n\};/) || [''])[0];
+  const listed = [...ids.matchAll(/'([a-z-]+)'/g)].map(m => m[1]);
+  assert.ok(listed.length >= 20, `ما تقرّاتش الصفحاتُ (${listed.length})`);
+  const missing = listed.filter(p => !new RegExp(`'?${p}'?:\\s*'/`).test(urls));
+  assert.deepEqual(missing, [], `صفحاتٌ بلا رابطٍ — كتسقط للرئيسيّة: ${missing.join(' · ')}`);
+});
+
+// **ولا يُعرَض مُعرِّفٌ لاتينيٌّ لإنسان** — القانون العاشر.
+//
+//   رآه صاحبُ المشروع في أوّل شاشةٍ يراها مغربيّ: «فهمت أنّك بغيتي
+//   **restaurant**». والاسمُ العربيُّ («مطعم») مكتوبٌ في قاعدة المعرفة منذ
+//   زمن؛ لم يُقرأ فحسب. ومُعرِّفٌ لاتينيٌّ في وجه من يكتب بالدارجة ليس عطبَ
+//   ترجمة — هو إعلانٌ أنّ التطبيق لم يُبنَ له.
+test('صفحةُ الدخول تقول اسمَ المفهوم بالعربيّة لا مُعرِّفَه', () => {
+  const src = readFileSync(join(ROOT, 'src/pages/AuthPage.tsx'), 'utf8');
+  const code = src.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.doesNotMatch(code, /\{need\.service \|\| need\.text\}/,
+    'رجع عرضُ المُعرِّف الخامّ — «restaurant» فوجه مغربيّ');
+  assert.match(code, /\{sayNeed\(need\)\}/, 'ما كيمرّش على مترجم الاسم');
+  const fn = (code.match(/function sayNeed\([\s\S]*?\n\}/) || [''])[0];
+  assert.ok(fn, 'اختفت `sayNeed`');
+  assert.match(fn, /CONCEPTS as any\[\]\)\.find/, 'الاسمُ ما كيتقراش من المعرفة');
+  assert.match(fn, /concept\?\.ar/, 'ما كياخدش الاسمَ العربيّ');
+  // ومُعرِّفٌ غيرُ معروفٍ لا يُعرَض: كلامُ الإنسان أصدقُ من رمزٍ لا يفهمه.
+  assert.match(fn, /\/\^\[a-z0-9_\]\+\$\/i\.test\(id\)/,
+    'مُعرِّفٌ مجهولٌ كيتعرض كما هو — نفسُ العطب بشكلٍ آخر');
 });

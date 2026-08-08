@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { playGate } from '../lib/gateTransition';
 import { useStore } from '../store';
 import { Eye, EyeOff, User, Mail, Lock, ArrowLeft } from 'lucide-react';
+// أسماءُ المفاهيم بالعربيّة — لا يُعرَض مُعرِّفٌ لاتينيٌّ لإنسان.
+import { CONCEPTS } from '../lib/akg/kb/concepts';
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -33,6 +35,33 @@ const DS = {
   radiusSm: 12,
   radiusFull: 9999,
 };
+
+
+/**
+ * **ما يُقال للإنسان — لا ما يُخزَّن في القاعدة.**
+ *
+ *   رآه صاحبُ المشروع على شاشته: «فهمت أنّك بغيتي **restaurant**». والسببُ
+ *   أنّ `need.service` مُعرِّفٌ داخليٌّ لاتينيّ (`restaurant` · `car_wash` ·
+ *   `home_appliance_repair`)، عُرض كما هو في أوّل شاشةٍ يراها مغربيّ.
+ *
+ *   والقانونُ العاشر يقول: لا مصطلحاتٍ تقنيّة. ومُعرِّفٌ لاتينيٌّ في وجه
+ *   إنسانٍ يكتب بالدارجة ليس عطبَ ترجمةٍ — هو **إعلانٌ أنّ التطبيق لم يُبنَ
+ *   له**. والاسمُ العربيُّ مكتوبٌ في قاعدة المعرفة سلفًا؛ لم يُقرأ فحسب.
+ *
+ *   وإن لم يُعرَف المفهومُ رجعنا إلى **كلامه هو** — وهو أصدقُ من مُعرِّف.
+ */
+function sayNeed(n: { service?: string; text?: string }): string {
+  const id = n?.service;
+  if (id) {
+    const c = (CONCEPTS as any[]).find(x => x.id === id);
+    const ar = c?.concept?.ar || c?.concept?.darija;
+    if (ar) return ar;
+    // مُعرِّفٌ غيرُ معروفٍ لا يُعرَض: كلامُ الإنسان أولى من رمزٍ لا يفهمه.
+    if (/^[a-z0-9_]+$/i.test(id)) return (n.text || '').trim() || id.replace(/_/g, ' ');
+    return id;
+  }
+  return (n.text || '').trim();
+}
 
 export default function AuthPage() {
   const { login, register } = useStore();
@@ -335,7 +364,7 @@ export default function AuthPage() {
             }}>
               <span style={{ fontSize: 11.5, color: DS.text2, fontWeight: 700, flexShrink: 0 }}>فهمت أنّك بغيتي</span>
               <span style={{ fontSize: 13, color: DS.emeraldLight, fontWeight: 900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {need.service || need.text}{need.city ? ` · ${need.city}` : ''}
+                {sayNeed(need)}{need.city ? ` · ${need.city}` : ''}
               </span>
             </div>
           )}

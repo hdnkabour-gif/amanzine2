@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-08T17:55:31.620Z",
+ "generatedAt": "2026-08-08T19:25:19.190Z",
  "totals": {
-  "tracked": 654,
-  "code": 442,
+  "tracked": 655,
+  "code": 443,
   "orphans": 2,
   "appOnly": 107,
-  "testOnly": 131,
-  "untested": 140,
+  "testOnly": 132,
+  "untested": 135,
   "deadExports": 214,
   "looseExports": 71,
   "todos": 8,
-  "lines": 82964
+  "lines": 83352
  },
  "files": [
   {
@@ -364,6 +364,7 @@
     "server/test/demand-channel.test.js",
     "server/test/engines.test.js",
     "server/test/field-visit.test.js",
+    "server/test/full-walk.test.js",
     "server/test/learning-loop.test.js",
     "server/test/loyalty.test.js",
     "server/test/memory-sync.test.js",
@@ -397,6 +398,7 @@
     "server/test/concept-core.test.js",
     "server/test/demand-channel.test.js",
     "server/test/field-visit.test.js",
+    "server/test/full-walk.test.js",
     "server/test/learning-loop.test.js",
     "server/test/memory-sync.test.js",
     "server/test/misread-channel.test.js",
@@ -1110,17 +1112,18 @@
    ],
    "importers": [
     "server/routes/orders.js",
+    "server/test/full-walk.test.js",
     "server/test/order-verification.test.js"
    ],
    "exports": [],
    "deadExports": [],
    "reach": "server+test",
-   "touched": 1786023277,
+   "touched": 1786211879,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 0
   },
   {
    "file": "server/lib/otp.js",
@@ -1135,7 +1138,7 @@
    ],
    "exports": [],
    "deadExports": [],
-   "reach": "server",
+   "reach": "server+test",
    "touched": 1785677753,
    "todos": 0,
    "anys": 0,
@@ -1384,6 +1387,7 @@
    "importers": [
     "server/lib/verify/index.js",
     "server/routes/verify.js",
+    "server/test/full-walk.test.js",
     "server/test/verify.test.js"
    ],
    "exports": [],
@@ -1409,6 +1413,7 @@
     "server/routes/auth.js",
     "server/routes/orders.js",
     "server/routes/verify.js",
+    "server/test/full-walk.test.js",
     "server/test/order-verification.test.js",
     "server/test/verify.test.js"
    ],
@@ -1546,12 +1551,12 @@
    "exports": [],
    "deadExports": [],
    "reach": "server+test",
-   "touched": 1785302659,
+   "touched": 1786211879,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 11
+   "ageDays": 0
   },
   {
    "file": "server/migrate.js",
@@ -1661,11 +1666,12 @@
     "server/middleware/platformAdmin.js"
    ],
    "importers": [
-    "server/index.js"
+    "server/index.js",
+    "server/test/full-walk.test.js"
    ],
    "exports": [],
    "deadExports": [],
-   "reach": "server",
+   "reach": "server+test",
    "touched": 1786020711,
    "todos": 0,
    "anys": 0,
@@ -1840,11 +1846,12 @@
     "server/lib/shipmentAttempt.js"
    ],
    "importers": [
-    "server/index.js"
+    "server/index.js",
+    "server/test/full-walk.test.js"
    ],
    "exports": [],
    "deadExports": [],
-   "reach": "server",
+   "reach": "server+test",
    "touched": 1786103147,
    "todos": 0,
    "anys": 0,
@@ -2077,17 +2084,18 @@
    ],
    "importers": [
     "server/index.js",
+    "server/test/full-walk.test.js",
     "server/test/order-events.test.js"
    ],
    "exports": [],
    "deadExports": [],
    "reach": "server+test",
-   "touched": 1786024964,
+   "touched": 1786211879,
    "todos": 0,
    "anys": 0,
    "logs": 2,
    "emptyCatch": 6,
-   "ageDays": 2
+   "ageDays": 0
   },
   {
    "file": "server/routes/payment.js",
@@ -2121,11 +2129,12 @@
     "server/database.js"
    ],
    "importers": [
-    "server/index.js"
+    "server/index.js",
+    "server/test/full-walk.test.js"
    ],
    "exports": [],
    "deadExports": [],
-   "reach": "server",
+   "reach": "server+test",
    "touched": 1785302659,
    "todos": 0,
    "anys": 0,
@@ -2282,11 +2291,12 @@
     "server/lib/verify/contract.js"
    ],
    "importers": [
-    "server/index.js"
+    "server/index.js",
+    "server/test/full-walk.test.js"
    ],
    "exports": [],
    "deadExports": [],
-   "reach": "server",
+   "reach": "server+test",
    "touched": 1786020711,
    "todos": 0,
    "anys": 0,
@@ -2825,6 +2835,33 @@
    "ageDays": 8
   },
   {
+   "file": "server/test/full-walk.test.js",
+   "lines": 277,
+   "bytes": 14001,
+   "imports": [
+    "server/database.js",
+    "server/db.js",
+    "server/lib/verify/index.js",
+    "server/lib/orderVerification.js",
+    "server/lib/verify/contract.js",
+    "server/routes/auth.js",
+    "server/routes/products.js",
+    "server/routes/orders.js",
+    "server/routes/verify.js",
+    "server/routes/delivery.js"
+   ],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1786214979,
+   "todos": 0,
+   "anys": 0,
+   "logs": 0,
+   "emptyCatch": 0,
+   "ageDays": 0
+  },
+  {
    "file": "server/test/funnel-wiring.test.js",
    "lines": 100,
    "bytes": 4641,
@@ -3048,12 +3085,12 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786023277,
+   "touched": 1786211879,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 0
   },
   {
    "file": "server/test/payment-door.test.js",
@@ -3389,8 +3426,8 @@
   },
   {
    "file": "src/App.tsx",
-   "lines": 376,
-   "bytes": 17900,
+   "lines": 347,
+   "bytes": 16921,
    "imports": [
     "src/store.tsx",
     "src/pages/AuthPage.tsx",
@@ -3407,7 +3444,8 @@
     "src/components/TourGuide.tsx",
     "src/components/NextStepHint.tsx",
     "src/components/ErrorBoundary.tsx",
-    "src/i18n/index.ts"
+    "src/i18n/index.ts",
+    "src/types.ts"
    ],
    "importers": [
     "src/main.tsx"
@@ -5412,6 +5450,7 @@
     "src/lib/catalog.ts",
     "src/lib/personFacts.ts",
     "src/lib/visitKind.ts",
+    "src/pages/AuthPage.tsx",
     "test/brain/domains.test.ts",
     "test/brain/fashion.test.ts",
     "test/brain/firstFiveMinutes.test.ts",
@@ -8338,11 +8377,12 @@
   },
   {
    "file": "src/pages/AuthPage.tsx",
-   "lines": 550,
-   "bytes": 26994,
+   "lines": 579,
+   "bytes": 28152,
    "imports": [
     "src/lib/gateTransition.ts",
-    "src/store.tsx"
+    "src/store.tsx",
+    "src/lib/akg/kb/concepts.ts"
    ],
    "importers": [
     "src/App.tsx"
@@ -9632,13 +9672,13 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1786023277,
+   "touched": 1786211879,
    "todos": 0,
    "anys": 12,
    "logs": 0,
    "emptyCatch": 10,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 0
   },
   {
    "file": "src/pages/TrackOrder.tsx",
@@ -9869,8 +9909,8 @@
   },
   {
    "file": "src/store.tsx",
-   "lines": 1036,
-   "bytes": 50963,
+   "lines": 1028,
+   "bytes": 50522,
    "imports": [
     "src/types.ts",
     "src/services/api.ts",
@@ -9934,20 +9974,21 @@
     "useRole"
    ],
    "reach": "app+test",
-   "touched": 1786002930,
+   "touched": 1786211879,
    "todos": 0,
    "anys": 37,
    "logs": 0,
    "emptyCatch": 19,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 0
   },
   {
    "file": "src/types.ts",
-   "lines": 498,
-   "bytes": 21836,
+   "lines": 554,
+   "bytes": 23912,
    "imports": [],
    "importers": [
+    "src/App.tsx",
     "src/components/ActivityTimeline.tsx",
     "src/components/CapabilityBar.tsx",
     "src/components/CommandCenter.tsx",
@@ -9984,6 +10025,8 @@
    "exports": [
     "PAGE_IDS",
     "Page",
+    "PAGE_URLS",
+    "URL_TO_PAGE",
     "UserRole",
     "OrderStatus",
     "ProductStatus",
@@ -10173,8 +10216,8 @@
   },
   {
    "file": "test/architecture.test.mjs",
-   "lines": 1586,
-   "bytes": 80727,
+   "lines": 1649,
+   "bytes": 84454,
    "imports": [
     "scripts/emit-cities.mjs"
    ],
@@ -10182,7 +10225,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786195425,
+   "touched": 1786211879,
    "todos": 0,
    "anys": 1,
    "logs": 0,
@@ -11813,7 +11856,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/constitution.test.mjs",
@@ -11911,7 +11954,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/lexicon.test.mjs",
@@ -11993,7 +12036,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 4
+   "ageDays": 5
   },
   {
    "file": "vite.config.ts",

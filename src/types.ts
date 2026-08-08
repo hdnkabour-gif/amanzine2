@@ -15,6 +15,62 @@ export const PAGE_IDS = [
 
 export type Page = typeof PAGE_IDS[number];
 
+/**
+ * **رابطُ كلّ صفحة — مصدرٌ واحدٌ يقرؤه التطبيقُ والمخزنُ معًا.**
+ *
+ *   ── العطبُ الذي وُلدت منه، وقد رآه صاحبُ المشروع مرّتَين ──
+ *   كانت الخريطةُ مكتوبةً **مرّتَين**: `PAGE_URLS` في `App.tsx` لتغيير
+ *   العنوان، و`URL_TO_PAGE` في `store.tsx` لقراءته عند الإقلاع. فافترقتا:
+ *   ٢٦ مدخلًا هناك و١٨ هنا.
+ *
+ *   والنتيجةُ المقيسة: **ثمانُ صفحاتٍ لا تفتح** — `field-visit` ·
+ *   `moderation` · `bookings` · `services` · `insights` · `import` ·
+ *   `coupons` · `guide`. يضغط الإنسانُ فيتغيّر العنوان، ثمّ يقرأ المخزنُ
+ *   عنوانًا لا يعرفه فيسقط إلى `'home'` — فيبدو أنّ الزرَّ **يأخذه إلى
+ *   الصفحة الرئيسيّة**، وهو بالضبط ما وصفه صاحبُ المشروع.
+ *
+ *   ── ولماذا هنا بالذات ──
+ *   `store.tsx` لا يستطيع الاستيرادَ من `App.tsx` (حلقةٌ دائريّة)، فبقيت
+ *   نسختان. وهذا الملفُّ يعرفه الاثنان، وفيه `PAGE_IDS` أصلًا.
+ *
+ *   ── والنوعُ هو الحارس ──
+ *   `Record<Page, string>` يجعل **المترجِمَ نفسَه** يرفض صفحةً بلا رابط.
+ *   فلا يعود ممكنًا أن تُضاف صفحةٌ فتُولَد مقطوعةً كما وقع ثمانَ مرّات.
+ */
+export const PAGE_URLS: Record<Page, string> = {
+  home:          '/home',
+  dashboard:     '/dashboard',
+  products:      '/products',
+  services:      '/services',
+  orders:        '/orders',
+  conversations: '/messages',
+  customers:     '/customers',
+  analytics:     '/analytics',
+  insights:      '/insights',
+  connections:   '/connections',
+  delivery:      '/delivery',
+  notifications: '/notifications',
+  settings:      '/settings',
+  banner:        '/studio',
+  editor:        '/editor',
+  import:        '/import',
+  coupons:       '/coupons',
+  guide:         '/guide',
+  moderation:    '/moderation',
+  bookings:      '/bookings',
+  knowledge:     '/knowledge-studio',
+  wallet:        '/wallet',
+  profile:       '/profile',
+  assistant:     '/assistant',
+  publish:       '/publish',
+  'field-visit': '/field-visit',
+};
+
+/** العكسُ يُشتقّ ولا يُكتَب — نسختان تتباعدان بصمت. */
+export const URL_TO_PAGE: Record<string, Page> = Object.fromEntries(
+  (Object.entries(PAGE_URLS) as [Page, string][]).map(([p, u]) => [u, p])
+) as Record<string, Page>;
+
 export type UserRole = 'admin' | 'seller' | 'support' | 'delivery';
 export type OrderStatus = 'pending' | 'pending_confirmation' | 'approved' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 export type ProductStatus = 'draft' | 'published' | 'archived';
