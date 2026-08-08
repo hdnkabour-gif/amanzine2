@@ -427,6 +427,12 @@ export interface FieldVisitInput {
   notes?: string;
   // الزيارةُ كيانٌ يُعاد ويُقارَن: الإحداثيّاتُ والمدّةُ تجعلها قابلةً للمراجعة.
   gpsLat?: number; gpsLng?: number; durationSec?: number;
+  /**
+   * ما يخصّ صنفَ النشاط — يُكتَب في أعمدة المحلّ القائمة لا في عمودٍ جديد.
+   * `kind` للتوثيق، و`hours`/`delivers` تذهبان إلى `opening_hours` و
+   * `delivery_modes` — وهما مقروءتان في صفحة المحلّ سلفًا.
+   */
+  profile?: { kind?: string; hours?: string; delivers?: boolean; answers?: Record<string, unknown> };
 }
 export interface FieldVisitResult {
   provider: { id: string; name: string; status?: 'verified' | 'vouched'; vouchedBy?: string | null };

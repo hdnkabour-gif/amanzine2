@@ -179,6 +179,22 @@ router.post('/field-visit', auth, async (req, res) => {
       latitude: shop.latitude ?? null, longitude: shop.longitude ?? null, status: 'active',
     });
 
+    // ── **ما يُقرّر الشراءَ يُكتَب حيث يُقرأ** ────────────────────────
+    //   أجوبةُ الزيارة تختلف بالصنف (محلٌّ · حرفيّ · خدمة)، وأعمدةُ المحلّ
+    //   تحمل ما يُقرّر منها سلفًا: الأوقاتُ ووسائلُ التوصيل. فلا يُخترَع لها
+    //   عمودٌ ثانٍ — كتبتُ `profile JSONB` أوّلًا ثمّ حذفتُه لمّا وجدتُ
+    //   `opening_hours` و`delivery_modes` قائمَين: مصدران لشيءٍ واحدٍ
+    //   يتباعدان، ويُقرأ أحدُهما ويُكتَب الآخر.
+    const prof = b.profile || {};
+    const patch = {};
+    if (prof.hours) patch.openingHours = { text: String(prof.hours).slice(0, 120) };
+    if (prof.delivers === true) patch.deliveryModes = ['self'];
+    if (prof.delivers === false) patch.deliveryModes = ['pickup'];
+    if (Object.keys(patch).length) {
+      await db.updateProvider(user.id, provider.id, patch).catch(e =>
+        console.error('[field-visit] profile:', e.message));
+    }
+
     // ②·٥ سلسلةُ التزكية. الاعتمادُ **لا يُورَث**: ما زرتُه بنفسي معتمَدٌ من
     //     يومه، وما زكّاه محلٌّ يبقى «مُزكًّى» حتّى يراه إنسانٌ من المنصّة.
     //     وبلا هذا التمييز يصير الجميعُ معتمَدين بعد شهر، فلا يعني الوسمُ شيئًا.

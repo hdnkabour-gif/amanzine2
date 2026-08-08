@@ -1339,3 +1339,121 @@ test('صفحةُ أدمن المنصّة تقول لماذا مُنعت', () => 
     'المنعُ يُظهر لوحةَ التحكّم بصمت — فيبدو أنّ الصفحة معطّلة');
   assert.match(block, /ADMIN_EMAILS/, 'لا يُقال كيف يُفتَح البابُ — منعٌ بلا مخرج');
 });
+
+// ============================================================
+// **الزيارةُ الميدانيّة** — طبقةٌ بُنيت ولم تُنادَ هي طبقةٌ لم تُبنَ.
+//
+//   نمطُ عطبٍ تكرّر في هذا المستودع أكثرَ من غيره: `understandHybrid` بُني
+//   كاملًا وما بلغته إلّا `AssistantPage`، والمرشّحاتُ قُرئت وما وصلت
+//   البحثَ. فبناءُ `VisitFlow` بلا ندائها من `FieldVisit` يعيد النمطَ نفسَه
+//   — ويبقى صاحبُ المحلّ أمام الاستمارةِ الطويلةِ التي قال إنّه لا يملك لها
+//   نصفَ ساعة.
+// ============================================================
+
+test('التدفّقُ الجديدُ يُنادى من الصفحة — لا طبقةَ تُبنى وتُترَك', () => {
+  const fv = readFileSync(join(ROOT, 'src/pages/FieldVisit.tsx'), 'utf8');
+  const code = fv.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  // `<VisitFlow` بلا حدٍّ تلتقط `<VisitFlowX` — الحارسُ نفسُه وقع في نمط
+  //   «العامُّ يبتلع الخاصّ» الذي يُطارَد في هذا المستودع منذ «شق» في «شقة».
+  assert.match(code, /<VisitFlow[\s/>]/, 'التدفّقُ مبنيٌّ وما تنادى — الصفحةُ مازالت استمارة');
+  // والاستمارةُ القديمةُ لا تعود بجانبه: مدخلان لشيءٍ واحدٍ يفترقان بلا صوت.
+  assert.doesNotMatch(code, /placeholder="اسم المحلّ/,
+    'رجعت خاناتُ الاستمارة القديمة بجانب التدفّق — مدخلان لزيارةٍ واحدة');
+});
+
+// **والصنفُ يُشتقّ ولا يُسأل** — «واش نتا محلّ ولا حرفيّ؟» جوابُه مقروءٌ
+//   سلفًا من جملته، وطرحُه ثمنٌ يُدفَع من وقت رجلٍ واقفٍ ووراءه زبون.
+test('الزيارةُ تشتقّ الصنفَ من المعرفة قبل أن تسأل عنه', () => {
+  const vf = readFileSync(join(ROOT, 'src/components/VisitFlow.tsx'), 'utf8');
+  const code = vf.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.match(code, /kindOfConcept\(/, 'الصنفُ ما كيتشتقّش — كيتسأل');
+  // والسؤالُ عنه لا يُطرَح إلّا حين يعجز الاشتقاق.
+  assert.match(code, /const kind = draft\.kind \|\| derived/,
+    'الصنفُ المسؤولُ عنه يسبق المشتقَّ — أو انفصل أحدُهما عن الآخر');
+  assert.match(code, /\{kind \?[\s\S]{0,600}?KIND_SAY\[kind\]/,
+    'لا يُعرَض الصنفُ المشتقُّ للزائر — فلا يقدر يصحّحه');
+});
+
+// **والقطعةُ ترث سِمةَ بيتها حين يكون لها بيتٌ واحد.**
+//
+//   `Threshold` تحمل ألوانَها لأنّها تظهر في صفحتَين متعاكستَين. و`VisitFlow`
+//   عكسُها: لا تُستدعى إلّا من `FieldVisit`، ولا تُبلَغ `FieldVisit` إلّا من
+//   `MainLayout` — والتطبيقُ داكن. فلوحٌ أبيضُ فيها **ورقةٌ مُقحَمة**.
+//
+//   والحارسُ يقيس الشرطَ الذي وُلدت منه القاعدة — بيتًا واحدًا — لا الذوقَ:
+//   لو صارت تُعرَض في صفحةٍ فاتحةٍ يومًا، سقط الحارسُ وحدَه ووجب التفكير.
+test('تدفّقُ الزيارة يرث سِمةَ التطبيق — بيتُه واحدٌ وداكن', () => {
+  // `walk` أعلاه يجمع `.js` وحدَها (حارسُ التوصيل يقرأ الخادم)، فلا تُنابُ
+  //   عن هذه القراءة — نيابةُ دالّةٍ عن أخرى هي بعينُها العطبُ الذي وُلد منه
+  //   ملفُّ `visitKind`: دالّةٌ تُستعمَل لسؤالٍ ليس سؤالَها فتصمت حين تخطئ.
+  const src = [];
+  (function ts(dir) {
+    for (const e of readdirSync(dir)) {
+      const p = join(dir, e);
+      if (statSync(p).isDirectory()) ts(p);
+      else if (/\.tsx?$/.test(p)) src.push(p);
+    }
+  })(join(ROOT, 'src'));
+  const homes = src.filter(f => !f.endsWith('VisitFlow.tsx')
+    && /from '[^']*VisitFlow'/.test(readFileSync(f, 'utf8')));
+  assert.deepEqual(homes.map(f => f.split('/src/')[1]), ['pages/FieldVisit.tsx'],
+    'صار للتدفّق بيتٌ ثانٍ — فالوراثةُ ما بقاتش صحيحة، راجع الألوان');
+
+  const vf = readFileSync(join(ROOT, 'src/components/VisitFlow.tsx'), 'utf8');
+  const code = vf.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  const white = [...code.matchAll(/(?:background|color): '#(?:fff|FFF|ffffff|FFFFFF)'/g)].map(m => m[0]);
+  assert.deepEqual(white, [],
+    `أرضيّةٌ بيضاءُ وسطَ تطبيقٍ داكن: ${white.join(' · ')}`);
+  assert.match(code, /var\(--ink1|var\(--panel/, 'ما كيورّتش سِمةَ التطبيق أصلًا');
+
+  // **ولا لونَ يُركَّب بالجمع.** `${K.green}12` يشتغل على `#00D2B3` ويُنتج
+  //   `var(--mint,…)12` على متغيّر — قيمةً يُسقطها المتصفّحُ صامتًا.
+  const glued = [...code.matchAll(/\$\{[A-Za-z][\w.]*\}[0-9a-fA-F]{2}/g)]
+    .map(m => m[0]).filter(s => !/K\.red/.test(s));
+  assert.deepEqual(glued, [],
+    `لونٌ مركَّبٌ بالجمع فوق متغيّر: ${glued.join(' · ')} — يسقط بلا رسالة`);
+});
+
+// **وما يُجمَع في الزيارة يصل قاعدةَ البيانات.** ساعاتُ العمل والتوصيلُ
+//   يُسألان في الميدان — فإن بقيا في الواجهة كانا سؤالًا بلا مقابل، وهو
+//   بالضبط ما يمنعه قيدُ «لا نصفَ ساعةٍ من وقته».
+test('أجوبةُ الصنف تبلغ أعمدةً قائمةً في الخادم', () => {
+  const api = readFileSync(join(ROOT, 'src/services/api.ts'), 'utf8');
+  assert.match(api, /profile\?: \{[^}]*hours\?: string/,
+    'حقلُ الملفّ ما كاينش فـ`FieldVisitInput` — الأجوبةُ ما كتوصلش');
+
+  const fv = readFileSync(join(ROOT, 'src/pages/FieldVisit.tsx'), 'utf8');
+  assert.match(fv, /profile: \{[\s\S]{0,400}?hours:/, 'الصفحةُ ما كتبعتش الساعات');
+
+  const rt = readFileSync(join(ROOT, 'server/routes/providers.js'), 'utf8');
+  const code = rt.split('\n').filter(l => !/^\s*(\/\/|\*)/.test(l)).join('\n');
+  // **الكتلةُ وحدَها تُقرأ، لا الملفُّ كلُّه.** `updateProvider(` تقع في هذا
+  //   الملفّ مراتٍ أخرى مشروعة، فالبحثُ عنها في الملفِّ كلِّه يمرّ حتّى لو
+  //   حُذف الحفظُ من هنا — حارسٌ ينجح بينما العطبُ حاضر. قِيس فأُصلح.
+  const block = (code.match(/const prof = b\.profile[\s\S]{0,700}?\n    \}\n/) || [''])[0];
+  assert.ok(block, 'الخادمُ ما كيقراش `profile` — الجوابُ كيتحيّد');
+  assert.match(block, /patch\.openingHours/, 'الساعاتُ ما كتتكتبش');
+  assert.match(block, /patch\.deliveryModes/, 'التوصيلُ ما كيتكتبش');
+  assert.match(block, /db\.updateProvider\(user\.id, provider\.id, patch\)/,
+    'ما كيتحفظش — الأعمدةُ كتبقا خاوية');
+});
+
+// **وقناةُ التعلّم تُفتَح بالعربيّة.** كانت تطلب `car_wash` مكتوبةً بيد
+//   الزائر — أي أن يحفظ مئتَي مُعرِّفٍ لاتينيٍّ وهو واقفٌ وصاحبُ المحلّ
+//   ينتظر. فقناةٌ بُنيت ليتعلّم منها التطبيقُ صارت قناةً لا يمرّ فيها شيء:
+//   لا عطبَ يظهر، ولا سطرَ يصل `learning_unknowns`.
+test('ربطُ الكلمة المجهولة يتمّ بالعربيّة لا بمُعرِّفٍ يُكتَب بيد', () => {
+  const vf = readFileSync(join(ROOT, 'src/components/VisitFlow.tsx'), 'utf8');
+  const code = vf.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.match(code, /<WordLink[\s/>]/, 'سقط رابطُ الكلمات — القناةُ مسدودة');
+  assert.doesNotMatch(code, /placeholder="مُعرِّفُ المفهوم/,
+    'رجع طلبُ المُعرِّف اللاتينيّ بيد الزائر');
+  const link = (code.match(/function WordLink\([\s\S]*?\n\}\n/) || [''])[0];
+  assert.ok(link, 'اختفت دالّةُ الربط');
+  assert.match(link, /normLoose\(/, 'البحثُ بلا تطبيع — «صباغه» ما كتلقاش «صباغة»');
+  assert.match(link, /CONCEPTS as any\[\]\)\s*\n?\s*\.filter/,
+    'ما كيقلّبش فالمعرفة — القائمةُ مكتوبةٌ بيد');
+  // والاقتراحُ الأوّلُ من جملته: الكلمةُ المجهولةُ غالبًا مرادفةُ ما قاله للتوّ.
+  assert.match(code, /suggest=\{read\.services\}/,
+    'الاقتراحاتُ ما كتجيش من جملة التاجر — فالزائرُ كيقلّب من الصفر');
+});

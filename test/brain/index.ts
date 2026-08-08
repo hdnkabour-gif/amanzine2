@@ -85,3 +85,5 @@ import './boundary.test';
 import './regression.test';
 // الجملةُ الحيّة: كلامُ الإنسان نفسُه هو الواجهة — لا نافذةَ ولا صفحة.
 import './liveSentence.test';
+// الزيارةُ الميدانيّة: الصنفُ يُشتقّ ولا يُسأل — لأنّ وقتَ التاجر يُدفَع ثمنًا.
+import './visitKind.test';
