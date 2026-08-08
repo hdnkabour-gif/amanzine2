@@ -92,6 +92,8 @@ export default function LivingHome() {
   // الجملةُ الحيّةُ للدور الحاليّ — `null` في أغلب الجمل، وذاك صوابٌ لا نقص.
   const [live, setLive] = useState<LS | null>(null);
   const [saving, setSaving] = useState(false);
+  // الأثرُ التقنيُّ مطويٌّ افتراضيًّا، ويُطوى ثانيةً مع كلّ جملةٍ جديدة.
+  const [showTrace, setShowTrace] = useState(false);
   // قراءةُ الدور الأخيرة — يُملأ فراغُها بلا إعادةِ تحليل (الحارس ㉒).
   const lastRead = useRef<{ u: Understanding; r: NeedResult; raw: string } | null>(null);
   const [wrong, setWrong] = useState<CorrectionOption | null>(null);
@@ -401,7 +403,7 @@ export default function LivingHome() {
     setSignals(enriched);
     setKnownWhy(explainFilled(filled));
     setEscalated(false);
-    setText(q); setResult(r); setStepIdx(0); setPending(null); setConfirmed(false);
+    setText(q); setResult(r); setStepIdx(0); setPending(null); setConfirmed(false); setShowTrace(false);
     setTurns([{ who: 'user', text: q }, ...(r.open ? [{ who: 'sys' as const, text: r.open }] : [])]);
   };
   /**
@@ -437,7 +439,7 @@ export default function LivingHome() {
     } finally { setSaving(false); }
   };
 
-  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); setSaid(''); setLearned(''); setLive(null); setDecision(null); };
+  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); setSaid(''); setLearned(''); setLive(null); setShowTrace(false); setDecision(null); };
 
   const pickOption = (opt: NeedOption) => {
     receptionTurn(opt.label, 'button');                      // قياس: دورٌ بالأزرار
@@ -689,21 +691,35 @@ export default function LivingHome() {
         <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', display: 'flex', flexDirection: 'column', gap: 11 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11, fontWeight: 800, color: result.color, border: `1px solid ${result.color}`, borderRadius: 99, padding: '4px 11px' }}>{result.label}</span>
-            {result.confidence != null && (
+            {/* ── **الأثرُ التقنيُّ خلف كشفٍ هادئ** ──────────────────────
+                رأى صاحبُ المشروع الشاشةَ «ممتلئة»: «يقين ٩٠٪» و«فعل →
+                update/price» و«المهنة → إصلاح الهواتف» — وكلُّها لغةُ من
+                يبني لا لغةُ من يبيع. والقانونُ العاشر يقول: ما يُعرَض
+                للإنسان يُقال بالدارجة. فتبقى على السطح **صفةُ ما فُهم**
+                وزرُّ «من جديد»، ويُطوى ما عداهما تحت «كيفاش فهمت» — لمن
+                أراد أن يتحقّق، لا لمن أراد أن يبيع. ── */}
+            {showTrace && result.confidence != null && (
               <span title="درجة يقين الفهم" style={{ fontSize: 10.5, fontWeight: 800, borderRadius: 99, padding: '4px 9px', color: result.confidence >= 0.85 ? 'var(--mint,#12A150)' : result.confidence >= 0.5 ? 'var(--warn,#F59E0B)' : 'var(--ink3,#7E877F)', background: 'var(--panel,rgba(255,255,255,.04))', border: '1px solid var(--border,rgba(255,255,255,.08))' }}>
                 يقين {Math.round(result.confidence * 100)}٪
               </span>
             )}
             {/* لماذا لم نسأل: «ما سولتكش على المدينة — قلتيها من قبل». الصمتُ
                 بلا تفسيرٍ يبدو تخمينًا، والتفسيرُ يجعله ذاكرة. */}
-            {knownWhy && (
+            {showTrace && knownWhy && (
               <span title="عرفناها من قبل" style={{ fontSize: 10.5, fontWeight: 700, borderRadius: 99, padding: '4px 9px', color: 'var(--ink3,#7E877F)', background: 'var(--panel,rgba(255,255,255,.04))', border: '1px solid var(--border,rgba(255,255,255,.08))' }}>
                 🧠 {knownWhy}
               </span>
             )}
-            {result.tags.map(tg => (
+            {showTrace && result.tags.map(tg => (
               <span key={tg} style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink2)', background: 'var(--panel,rgba(255,255,255,.04))', border: '1px solid var(--border,rgba(255,255,255,.08))', borderRadius: 99, padding: '4px 11px' }}>{tg}</span>
             ))}
+            <button
+              onClick={() => setShowTrace(v => !v)}
+              aria-expanded={showTrace}
+              style={{ background: 'none', border: 'none', color: 'var(--ink3)', fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', padding: '4px 6px' }}
+            >
+              كيفاش فهمت {showTrace ? '▴' : '▾'}
+            </button>
             <button onClick={reset} style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', color: 'var(--ink3)', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
               <RotateCcw size={13} /> من جديد
             </button>
@@ -729,7 +745,12 @@ export default function LivingHome() {
           ))}
           {/* والخطواتُ تسكت تحت الحدّ الصادق: سؤالٌ موجَّهٌ تحت «مازال ما
               كايناش» هو عينُ الحلقةِ التي بُني الحدُّ ليقطعها. */}
-          {activeStep && !pending && decision?.mode !== 'soon' && (
+          {/* ── **ولا سؤالَ تحت جملةٍ حيّة** ────────────────────────
+              رآه صاحبُ المشروع على شاشته: الجملةُ الحيّةُ تعرض المنتوجَ
+              والفراغَ، وتحتها «أيّ منتوج؟» — أي أنّ السؤالَ الذي بُنيت
+              لتُلغيه بقي معروضًا. والوعدُ كلُّه أن يكون **الفراغُ هو
+              السؤال**، فسؤالٌ ثانٍ تحته يُبطله ويُربك. ── */}
+          {activeStep && !pending && !live && decision?.mode !== 'soon' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, alignSelf: 'flex-start', maxWidth: '92%' }}>
               {/* **كم بقي؟** الحوارُ بلا أفقٍ استجواب. المستخدمُ لا يعرف إن كان
                   أمامه سؤالٌ أم عشرة، فينسحب عند الثاني. جملةٌ واحدةٌ تُبدّل
@@ -762,7 +783,7 @@ export default function LivingHome() {
             <div style={{ marginTop: 2, border: '1.5px solid var(--warn,#F59E0B)', borderRadius: 15, padding: 15, background: 'color-mix(in srgb, var(--warn,#F59E0B) 8%, transparent)', display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink1)', lineHeight: 1.6 }}>{confirmPrompt(confirmText)}</div>
               <div style={{ display: 'flex', gap: 9 }}>
-                <button onClick={() => { recordConfirm(true, result.confidence ?? 0); setSnap(sn => sn && withDestination(confirmSnapshot(sn, true), liveDest(actionDest, result))); setConfirmed(true); go(liveDest(actionDest, result), result.tags[0] || result.label, result.intent, 'type'); }}
+                <button onClick={() => { recordConfirm(true, result.confidence ?? 0); setSnap(sn => sn && withDestination(confirmSnapshot(sn, true), liveDest(actionDest, result))); setConfirmed(true); go(liveDest(actionDest, result), result.label, result.intent, 'type'); }}
                   style={{ flex: 1, padding: '11px 16px', borderRadius: 12, border: 'none', background: 'var(--mint,#12A150)', color: '#fff', fontSize: 14, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>✅ إيه، صحيح</button>
                 <button onClick={() => { recordConfirm(false, result.confidence ?? 0); setSnap(sn => sn && confirmSnapshot(sn, false)); reset(); }}
                   style={{ padding: '11px 16px', borderRadius: 12, border: '1px solid var(--border2,rgba(255,255,255,.16))', background: 'transparent', color: 'var(--ink2)', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>❌ لا، نبدّل</button>
@@ -791,7 +812,7 @@ export default function LivingHome() {
               intent={result.intent}
               onGo={() => {
                 const dest: Dest = pending ? { page: pending.page, url: pending.url } : liveDest(actionDest, result);
-                go(dest, pending?.label || result.tags[0] || result.label, result.intent, pending ? 'guided' : 'type');
+                go(dest, pending?.label || result.label, result.intent, pending ? 'guided' : 'type');
               }} />
           )}
 

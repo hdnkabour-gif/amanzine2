@@ -74,7 +74,20 @@ const UNIT: Partial<Record<NeedKey, string>> = { price: 'درهم', amount: 'د�
  *   طويلٌ يُحرَّر). تلك بطاقةٌ أو صفحة — و«الجملةُ للإدخال، الكيانُ للعرض،
  *   والصفحةُ للعالَم».
  */
-export const INLINE_NEEDS: NeedKey[] = ['price', 'amount', 'stock' as NeedKey, 'phone', 'address'];
+export const INLINE_NEEDS: NeedKey[] = ['price', 'amount'];
+
+/**
+ * **الحقولُ التي تخصّ منتوجًا** — ولها وحدَها يُعرَض منتوجٌ في الجملة.
+ *
+ *   عطبٌ رآه صاحبُ المشروع على شاشته: «نبدل رقم الهاتف» ظهرت ومعها
+ *   **📦 حلاق · الثمن دابا ٠ درهم**. أي أنّ تبديلَ نمرةِ الإنسان عُرض عليه
+ *   ومعه منتوجٌ لا علاقةَ له به — لأنّ الموضوعَ كان يُرفَق بأيّ حقل.
+ *
+ *   والنمرةُ والعنوانُ لهما بابٌ مبنيٌّ سلفًا (`FocusedEdit`)، فلا يُفتَح
+ *   لهما بابٌ ثانٍ هنا: **بابان لشيءٍ واحدٍ يتباعدان**، وقد أُخرجا من
+ *   `INLINE_NEEDS` لذلك — لا لأنّهما لا يصلحان.
+ */
+export const PRODUCT_FIELDS = ['price', 'stock', 'photo', 'content'];
 
 /**
  * يبني الجملةَ الحيّة — أو `null` حين لا تصلح.
@@ -128,7 +141,12 @@ export function liveSentenceFor(
   //   أو وصفًا لَما نفعت الجملةُ — تلك بطاقة.
   if (!slots.length) return null;
 
-  return { raw, field: FIELD_SAY[field] || field, subject: ctx?.subject, slots };
+  // والموضوعُ يُرفَق **بحقلٍ يخصّه** لا بكلّ حقل.
+  const subject = PRODUCT_FIELDS.includes(field) ? ctx?.subject : undefined;
+  // ولا جملةَ حيّةً لحقلِ منتوجٍ بلا منتوجٍ معلوم: الفراغُ يُملأ، والموضوعُ
+  //   يُعرَض كي لا يُسأل عنه — فبلا موضوعٍ يعود السؤالُ ولا نفعَ في الجملة.
+  if (PRODUCT_FIELDS.includes(field) && !subject) return null;
+  return { raw, field: FIELD_SAY[field] || field, subject, slots };
 }
 
 /**
