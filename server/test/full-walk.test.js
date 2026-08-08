@@ -93,6 +93,7 @@ before(async () => {
   app.use('/api/products', require('../routes/products'));
   app.use('/api/orders', require('../routes/orders'));
   app.use('/api/verify', require('../routes/verify'));
+  app.use('/api/delivery', require('../routes/delivery'));
   await new Promise(r => { server = app.listen(0, r); });
   base = `http://127.0.0.1:${server.address().port}/api`;
 });
@@ -114,6 +115,23 @@ test('① يفتح تاجرٌ حسابًا — ويخرج منه برمزٍ يع
   assert.ok(TOKEN, 'ما رجعش رمزٌ — فالتاجرُ يسجّل ثمّ لا يقدر يدخل');
   MERCHANT = await db.getUserByEmail(EMAIL);
   assert.ok(MERCHANT?.id, 'الحسابُ ما تكتبش فقاعدة البيانات');
+});
+
+// ── ①ب الدخول — الحلقةُ التي لا يمرّ منها إلّا العائد ─────────
+test('①ب ويرجع بعد يوم فيدخل بنفس ما سجّل به', async () => {
+  // **حلقةٌ لا تُختبَر عادةً لأنّها تبدو بديهيّة** — والتسجيلُ يُرجع رمزًا
+  //   فيُظَنّ البابُ مفتوحًا. لكنّ الإنسانَ يُغلق المتصفّحَ ويعود غدًا:
+  //   إن لم يعمل الدخولُ فكلُّ ما بناه محبوسٌ خلف بابٍ فتحه مرّةً واحدة.
+  const r = await req('POST', '/auth/login',
+    { email: EMAIL, password: 'walk-pass-123' }, false);
+  assert.ok(r.status === 200 || r.status === 201, `الدخولُ رجع ${r.status}: ${JSON.stringify(r.body)}`);
+  const t = r.body.token || r.body.accessToken || '';
+  assert.ok(t, 'دخل بلا رمز — فما يقدر يدير والو من بعد');
+  // والرمزُ الجديدُ يفتح بابًا محميًّا فعلًا، لا يُصدَّق لأنّه رجع.
+  const prev = TOKEN; TOKEN = t;
+  const mine = await req('GET', '/orders');
+  assert.equal(mine.status, 200, `رمزُ الدخول ما فتحش بابًا محميًّا (${mine.status})`);
+  TOKEN = prev || t;
 });
 
 // ── ② منتج ──────────────────────────────────────────────────
@@ -229,4 +247,30 @@ test('⑦ والتاجرُ **يَعلم** — وإلّا فالطلبُ ورقة
   const reached = notifs.length + events.length + logs.length;
   assert.ok(reached > 0,
     'الطلبُ تسجّل وما وصل التاجرَ بأيّ قناة — لا إشعارٌ ولا حدثٌ ولا سجلّ');
+});
+
+// ── ⑧ الشحن — آخرُ حلقةٍ في الطريق ──────────────────────────
+//
+//   الطلبُ الذي لا يُشحَن ورقةٌ ثانية. والحلقةُ هنا **حدُّها صادقٌ عمدًا**:
+//   لا شركةَ توصيلٍ مربوطةٌ في حسابٍ جديد، فلا شحنةَ تُنشَأ. والمطلوبُ أن
+//   يُقال ذلك بوضوحٍ لا أن يسقط الخادمُ بـ٥٠٠ أو يصمت.
+//
+//   ومَن اختبر الشحنَ بشركةٍ وهميّةٍ اختبر شيئًا لا يقع؛ والقيمةُ هنا في
+//   **جوابِ العجز**: أوّلُ ما سيصطدم به تاجرٌ حقيقيٌّ يوم يوافق على طلب.
+test('⑧ بلا شركةِ توصيلٍ: العجزُ يُقال ولا يسقط الخادم', async () => {
+  const r = await req('POST', `/delivery/create/${ORDER.id}`, {});
+  assert.notEqual(r.status, 500, `الخادمُ سقط بدل ما يقول العجز: ${JSON.stringify(r.body)}`);
+  assert.ok(r.status >= 400 && r.status < 500,
+    `رجع ${r.status} — ولا شركةَ مربوطة، فالجوابُ خاصّو يكون رفضًا مفهومًا`);
+  const msg = String(r.body?.error || r.body?.message || '');
+  assert.ok(msg.length > 3, 'رفضٌ بلا سبب — التاجرُ ما كيعرفش شنو خاصّو يدير');
+});
+
+test('⑨ والطلبُ يبقى سليمًا بعد محاولةِ شحنٍ فاشلة', async () => {
+  // **فشلٌ لا يُفسد ما قبله.** محاولةٌ ساقطةٌ تترك الطلبَ كما كان — وإلّا
+  //   خسر التاجرُ الطلبَ لأنّه حاول شحنَه قبل أن يربط شركة.
+  const saved = await db.getOrder(ORDER.id);
+  assert.ok(saved, 'الطلبُ اختفى بعد محاولةِ الشحن');
+  assert.equal(saved.userId, MERCHANT.id, 'الطلبُ تبدّلت نسبتُه');
+  assert.ok(+saved.total >= 680, 'المجموعُ تبدّل بعد محاولةٍ فاشلة');
 });
