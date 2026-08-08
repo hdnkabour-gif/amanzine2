@@ -83,3 +83,5 @@ import './escalation.test';
 import './boundary.test';
 // مدوّنةُ الانحدار: كلُّ سطرٍ عطبٌ وقع فعلًا — من شاشةٍ حيّةٍ أو من جملِ صاحب المشروع.
 import './regression.test';
+// الجملةُ الحيّة: كلامُ الإنسان نفسُه هو الواجهة — لا نافذةَ ولا صفحة.
+import './liveSentence.test';

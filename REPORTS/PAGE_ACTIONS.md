@@ -3,7 +3,7 @@
 > **مُولَّدٌ آليًّا** بـ`npm run report:page-actions` — لا يُحرَّر بيد.
 > يُقرأ من `store.tsx` و`MainLayout.tsx` و`abilities.ts` — نفسِ ما يقرؤه التطبيق.
 
-آخرُ توليد: 2026-08-07
+آخرُ توليد: 2026-08-08
 
 ## ① الخلاصة
 
@@ -25,7 +25,7 @@
 | `register` | — | **لا صفحة** | — |
 | `updateSettings` | update | home · connections · delivery · notifications · settings · coupons | ✅ تبدّل معلومات المحلّ |
 | `addProduct` | create | dashboard · products · services | ✅ تزيد منتوج |
-| `updateProduct` | update | products · services | ✅ تبدّل منتوج (الثمن، الستوك، التصويرة) |
+| `updateProduct` | update | home · products · services | ✅ تبدّل منتوج (الثمن، الستوك، التصويرة) |
 | `deleteProduct` | delete | products · services | ✅ تحيّد منتوج |
 | `adjustStock` | update | products · services | ✅ تبدّل منتوج (الثمن، الستوك، التصويرة) |
 | `addCustomer` | create | customers · import | ✅ تجيب المنتوجات من محادثة ولا ملفّ |

@@ -29,6 +29,9 @@ import { readPersonFacts, rememberFacts, forgetFact, describeFacts } from '../li
 import { decideExecution } from '../lib/executionPolicy';
 import { reportMisread } from '../lib/journey';
 import { understand, type Understanding } from '../lib/akg/kb';
+// الجملةُ الحيّة: طبقةُ عرضٍ تُعيد كلامَه ومعه الفراغُ — لا نافذةَ ولا صفحة.
+import { liveSentenceFor, type LiveSentence as LS, type Slot } from '../lib/liveSentence';
+import LiveSentenceView from '../components/LiveSentence';
 import { understandRules, shouldEscalate, RemoteProvider } from '../lib/understanding';
 import { refine } from '../lib/refine';
 import { recordDemand } from '../lib/boundary';
@@ -70,7 +73,7 @@ const liveDest = (actionPage: Page | null, r: { page?: Page; url?: string }): De
 const strToDest = (s: string): Dest => s.startsWith('page:') ? { page: s.slice(5) as Page } : s.startsWith('url:') ? { url: s.slice(4) } : {};
 
 export default function LivingHome() {
-  const { settings, products, orders, customers, conversations, setPage, user } = useStore();
+  const { settings, products, orders, customers, conversations, setPage, user, updateProduct, notify } = useStore();
   const navigate = useNavigate();
   const [text, setText] = useState('');
   const [result, setResult] = useState<NeedResult | null>(null);
@@ -86,6 +89,11 @@ export default function LivingHome() {
   const [xpLog] = useState<Interaction[]>(getInteractions); // تفاعلات الجلسات السابقة (تُقرأ مرّة)
   // التصحيحُ الفوريّ: الحقلُ المردود، ثمّ ما يكتبه الإنسانُ بدلًا عمّا قلناه.
   const [correcting, setCorrecting] = useState(false);
+  // الجملةُ الحيّةُ للدور الحاليّ — `null` في أغلب الجمل، وذاك صوابٌ لا نقص.
+  const [live, setLive] = useState<LS | null>(null);
+  const [saving, setSaving] = useState(false);
+  // قراءةُ الدور الأخيرة — يُملأ فراغُها بلا إعادةِ تحليل (الحارس ㉒).
+  const lastRead = useRef<{ u: Understanding; r: NeedResult; raw: string } | null>(null);
   const [wrong, setWrong] = useState<CorrectionOption | null>(null);
   const [fixText, setFixText] = useState('');
   const [thanks, setThanks] = useState('');
@@ -241,6 +249,9 @@ export default function LivingHome() {
   //   واستخراجُه في دالّةٍ ليس ترتيبًا: لو نُسِخ المنطقُ للمسار غير المتزامن
   //   لصار حَكَمان يفترقان مع أوّل تعديلٍ يمسّ أحدَهما.
   const applyVerdict = (u: Understanding, r: NeedResult, raw: string) => {
+    // قراءةُ الدور تُحفَظ ليُملأ فراغُها لاحقًا **بلا إعادةِ قراءة**: من ملأ
+    //   الفراغَ لم يكتب جملةً جديدة، فلا يُعاد تحليلُ شيء.
+    lastRead.current = { u, r, raw };
     // ── الحَكَمُ الواحد ───────────────────────────────────────────
     //   `decideExecution` يقول «نفّذ أم أكّد أم اسأل أم اشرح»، و
     //   `decideInterface` يترجم حكمَه إلى شكلِ واجهة. كانت الثانيةُ تحكم
@@ -276,6 +287,24 @@ export default function LivingHome() {
     //   كذبةً ألطفَ من السؤال العاجز ولا فرقَ. وهذه هي القناةُ الثالثة:
     //   ما فُهم تمامًا ولا بابَ له — خارطةُ الطريق يكتبها الناسُ بأنفسهم.
     if (verdict.verdict === 'soon' && verdict.boundary) recordDemand(raw, verdict.boundary, u.city);
+
+    // ── **الجملةُ الحيّة** — لا نافذةَ ولا صفحة ────────────────────
+    //
+    //   حين يسمّي الإنسانُ حقلًا (الثمن) وينقصه **قيمةٌ وحدَها**، لا يُساق
+    //   إلى صفحةٍ ولا يُسأل سؤالًا منفصلًا: تُعاد إليه جملتُه ومعها المنتوجُ
+    //   مرئيًّا والفراغُ في السطر. والمنتوجُ من سياق المحادثة (`lastProduct`)
+    //   لا من سؤالٍ جديد — «لا تسأل عمّا تعرف».
+    //
+    //   وحدُّه: `liveSentenceFor` تصمت في أغلب الجمل، ولا تُبنى إلّا على
+    //   قراءةٍ يُوثَق بها وفراغٍ يُملأ بسطرٍ واحد. وما عداه يبقى كما كان.
+    const lp = uctx.state.lastProduct;
+    const prod = lp ? products.find(p => p.id === lp.id) : undefined;
+    setLive(liveSentenceFor(raw, u, match, prod ? {
+      subject: {
+        id: prod.id, name: prod.name, icon: '📦',
+        note: prod.price != null ? `الثمن دابا ${prod.price} درهم` : undefined,
+      },
+    } : undefined));
     const dec = decideInterface({ ...r, hasInput: true }, verdict.verdict);
     // `explain` و`refuse` يُقالان ولا يُفعَلان. وما عداهما له شكلٌ في الواجهة،
     // فلا يُطبَع نصُّه فوقها — نصٌّ ورسمٌ يقولان الشيءَ نفسَه ازدواجٌ لا تأكيد.
@@ -375,7 +404,40 @@ export default function LivingHome() {
     setText(q); setResult(r); setStepIdx(0); setPending(null); setConfirmed(false);
     setTurns([{ who: 'user', text: q }, ...(r.open ? [{ who: 'sys' as const, text: r.open }] : [])]);
   };
-  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); setSaid(''); setLearned(''); setDecision(null); };
+  /**
+   * **ملءُ الفراغ ⇒ حفظ** — بنفس الحَكَم، ومرّةً واحدة.
+   *
+   *   كتبتُها أوّلًا تُركّب جملةً («بدّل الثمن ل ١٧٩ درهم») وتُعيد قراءتَها،
+   *   فأسقطني الحارسُ ㉒: «حَكَمان في مشهدٍ واحد». وهو محقّ — والنداءُ الثاني
+   *   يفترق عن الأوّل مع أوّل تعديلٍ يمسّ أحدَهما، وقد وقع ذلك في هذا الملفّ
+   *   من قبل.
+   *
+   *   والصوابُ أنّ **مَن ملأ فراغًا لم يكتب جملةً جديدة**: تُؤخَذ قراءةُ
+   *   الدور كما هي ويُملأ فيها الحقلُ الناقصُ وحدَه، ثمّ يُنادى `applyVerdict`
+   *   — وهو نفسُه موضعُ النداء الوحيد. نفسُ قاعدة `refine`: ملءُ فراغٍ لا
+   *   استبدال.
+   */
+  const fillSlot = async (slot: Slot, value: string) => {
+    const prev = lastRead.current;
+    if (!prev || !live?.subject) return;
+    setSaving(true);
+    try {
+      const filled: Understanding = { ...prev.u, amount: Number(value) };
+      const dec = applyVerdict(filled, prev.r, prev.raw);
+      // الحَكَمُ يقرّر: ما لم يُنفَّذ لا يُحفَظ — ولو ملأ الإنسانُ الفراغَ.
+      if (dec.mode !== 'direct' && dec.mode !== 'confirm') return;
+      const patch = slot.need === 'price' ? { price: Number(value) } : { stock: Number(value) };
+      await updateProduct(live.subject.id, patch);
+      setLive(null);
+      setTurns(t => [...t, { who: 'user', text: `${value} ${slot.unit || ''}`.trim() },
+        { who: 'sys', text: `✅ تبدّل ${live.subject!.name} — ${slot.unit === 'درهم' ? 'الثمن' : 'الستوك'} دابا ${value}.` }]);
+      notify('success', 'تسجّل التبديل');
+    } catch {
+      setSaid('ما قدرتش نحفظ دابا — عاود من بعد.');
+    } finally { setSaving(false); }
+  };
+
+  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); setSaid(''); setLearned(''); setLive(null); setDecision(null); };
 
   const pickOption = (opt: NeedOption) => {
     receptionTurn(opt.label, 'button');                      // قياس: دورٌ بالأزرار
@@ -576,6 +638,12 @@ export default function LivingHome() {
         <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', padding: '13px 16px', borderRadius: 14, border: '1px solid rgba(10,143,111,.3)', background: 'linear-gradient(180deg,rgba(10,143,111,.10),rgba(10,143,111,.05))', fontSize: 13.5, lineHeight: 1.75, fontWeight: 650, color: 'var(--ink1)' }}>
           {said}
         </div>
+      )}
+      {/* ── **الجملةُ الحيّة** — كلامُه ومعه الفراغ، بلا نافذةٍ ولا صفحة ──
+          تسبق كلَّ شيءٍ آخر: من رأى الفراغَ أمامه لا يُعرَض عليه سؤالٌ
+          موجَّهٌ عن نفس الشيء تحته. ── */}
+      {live && !correcting && (
+        <LiveSentenceView ls={live} busy={saving} onFill={fillSlot} />
       )}
       {said && (decision?.mode === 'explain' || decision?.mode === 'refuse' || decision?.mode === 'clarify') && !correcting && (
         <div style={{ maxWidth: 620, width: '100%', margin: '2px auto 0', padding: '11px 15px', borderRadius: 13, border: '1px solid rgba(245,158,11,.28)', background: 'rgba(245,158,11,.07)', fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>
