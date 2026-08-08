@@ -296,7 +296,7 @@
 
 | الفئة | المفاهيم | مصطلحات |
 |---|---|---|
-| (بلا فئة) | ١٠٣ | ١٥٢٩ |
+| (بلا فئة) | ١٠٣ | ١٥٢٨ |
 | fashion | ٢٠ | ٧٢٠ |
 | automotive | ١١ | ٣٧٨ |
 | electronics | ٧ | ٢١٨ |
@@ -497,7 +497,7 @@
 | `luxury_car_rental` | كراء طوموبيلات فخمة | تأجير السيارات الفاخرة · كراء طوموبيلات فخمة · Location de voitures de luxe · Luxury car rental · كراء طوموبيلات فخمة · location voiture de luxe · سيارات فاخرة · تأجير السيارات الفاخرة · location de voitures de luxe · luxury car rental |
 | `makeup_artist` | ماكييرة | خبيرة مكياج · ماكييرة · Maquilleuse · Makeup Artist · ماكييرة · مكياج · ميكاب · makeup · maquilleuse · خبيرة مكياج · maquilleuse · makeup artist |
 | `marble_granite_worker` | رخامي | عامل رخام وجرانيت · رخامي · Marbrier · Marble & Granite Worker · رخامي · مرمري · رخام · گرانيت · marbre · عامل رخام وجرانيت · marbrier · marble & granite worker |
-| `mason` | معلم | بناء · معلم · Maçon · Mason · معلم · بناء · مول البني · ماكون · شيخ البناء · معلم ديال البني · كيبني الديور · معلم البني · maçon · m3allem … (+١٦) |
+| `mason` | معلم | بناء · معلم · Maçon · Mason · بناء · مول البني · ماكون · شيخ البناء · معلم ديال البني · كيبني الديور · معلم البني · maçon · m3allem · bana … (+١٥) |
 | `mechanic` | ميكانيك | ميكانيكي سيارات · ميكانيك · Mécanicien · Mechanic · ميكانيك · ميكانيسيان · مصلح طوموبيلات · مول ميكانيك · گاراج · كراج · مصلح سيارات · mecanik · mikanik · mekanik … (+٢٢) |
 | `medical_laboratory` | لابو | مختبر تحاليل طبية · لابو · Laboratoire d’analyses médicales · Medical Laboratory · لابو · تحاليل · analyses · laboratoire · تحليل الدم · مختبر تحاليل طبية · laboratoire d’analyses médicales · medical laboratory |
 | `mens_clothing` | حوايج ديال الرجال | ملابس رجالية · حوايج ديال الرجال · Vêtements homme · Menswear · حوايج ديال الرجال · كسوة ديال الرجال · حوايج رجالية · حوايج الرجال · كسوة الرجال · لباس رجال · rjal · ملابس رجالية · ملابس للرجال · أزياء رجالية … (+٩) |

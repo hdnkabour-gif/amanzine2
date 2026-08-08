@@ -11,7 +11,7 @@
 import { CITIES, type ConceptData } from './knowledgeData';
 import { CONCEPTS } from './concepts';
 import { deArabizi } from './arabizi';
-import { normArabic, normLatin } from '../../normalize';
+import { normArabic, normLatin, matchWord } from '../../normalize';
 import { resolvePlace } from './places';
 import { isContainerWithContents, resolveMerchandise } from './merchandise';
 
@@ -452,9 +452,13 @@ export function resolveConcepts(text: string, max = 8): ConceptResolution[] {
     for (const { term, c } of arIndex) {
       if (out.length >= max) break;
       if (seen.has(c.id)) continue;
-      const at = src.indexOf(term);
-      if (at < 0 || !free(at, term.length)) continue;
-      taken.push([at, at + term.length]);
+      // **حدُّ الكلمة، لا الاحتواء.** كان `src.indexOf(term)`، فطابقت «الطوب»
+      //   (القماش) داخل «اللاب**طوب**» — وصار من عنده مشكلٌ في حاسوبه يُرسَل
+      //   إلى بائع أقمشة. والحدُّ مبنيٌّ في `normalize` منذ زمنٍ ولم يبلغ هنا.
+      const hit = matchWord(term, src);
+      if (!hit || !free(hit.at, hit.len)) continue;
+      const at = hit.at;
+      taken.push([at, at + hit.len]);
       seen.add(c.id);
       out.push({ id: c.id, category: categoryFor(c.id, c.category), concept: c.concept,
         language: 'darija', services: c.services, fields: c.fields, examples: c.examples,

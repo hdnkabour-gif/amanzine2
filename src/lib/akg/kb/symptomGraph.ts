@@ -64,6 +64,20 @@ export const SYMPTOM_GRAPH: SymptomNode[] = [
   { pattern: 'ثلاجة', context: 'منزل', problemId: 'fridge_not_cooling', confidence: 0.8 },
   { pattern: 'الفريكو', context: 'منزل', problemId: 'fridge_not_cooling', confidence: 0.8 },
   { pattern: 'الكليما ما كتبردش', context: 'منزل', problemId: 'ac_broken', confidence: 0.9 },
+  { pattern: 'المكيف', context: 'منزل', problemId: 'ac_broken', confidence: 0.8 },
+  { pattern: 'الكليماتيزور', context: 'منزل', problemId: 'ac_broken', confidence: 0.8 },
+  // ── **الغسّالة** — قِيس أنّها بلا بابٍ بالكامل ────────────────────
+  //   «ماكينة الغسيل واقفة» كانت تُرجع لا مشكلةً ولا مهنةً ولا مفهومًا:
+  //   صمتٌ تامّ. و`appliance_repair` مبنيّةٌ وتُصلح الغسّالات — الحرفةُ
+  //   موجودةٌ والاسمُ الذي ينطقه الناسُ ليس مكتوبًا في أيّ سطر.
+  //
+  //   والأسماءُ أربعة، وكلُّها تُقال: «الطياشة» أشيعُها في الدار البيضاء،
+  //   و«لاماشين» بالفرنسيّة المعرَّبة، و«ماكينة الغسيل» بالفصحى، و«الغسالة».
+  { pattern: 'الطياشة', context: 'منزل', problemId: 'washer_broken', confidence: 0.85 },
+  { pattern: 'لاماشين', context: 'منزل', problemId: 'washer_broken', confidence: 0.8 },
+  { pattern: 'ماكينة الغسيل', context: 'منزل', problemId: 'washer_broken', confidence: 0.9 },
+  { pattern: 'الغسالة', context: 'منزل', problemId: 'washer_broken', confidence: 0.85 },
+  { pattern: 'الغسالة ما كتخدمش', context: 'منزل', problemId: 'washer_broken', confidence: 0.95 },
   // نجارة
   { pattern: 'الباب ما كيتحلش', context: 'منزل', problemId: 'door_broken', confidence: 0.9 },
   { pattern: 'الباب ما كيسدّش', context: 'منزل', problemId: 'door_broken', confidence: 0.9 },

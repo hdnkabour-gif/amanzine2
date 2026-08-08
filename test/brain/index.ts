@@ -89,3 +89,5 @@ import './liveSentence.test';
 import './visitKind.test';
 // الدليل: التطبيقُ يعرف متى لم يفهم — والمصرفُ يكفّ عن ابتلاع الإخفاق صامتًا.
 import './evidence.test';
+// أبوابُ الكلمات: المعرفةُ مبنيّةٌ والاسمُ الذي ينطقه الناسُ ليس مكتوبًا.
+import './doors.test';

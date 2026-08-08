@@ -87,6 +87,14 @@ export const PROBLEMS: Record<string, Problem> = {
     solutions: [{ profession: 'appliance_repair', capabilities: ['diagnose_cooling', 'recharge_gas'], tools: ['multimeter'], estimatedDuration: '2-4 ساعات', difficulty: 'hard' }],
     causes: ['نقص الغاز', 'عطل الضاغط', 'ثرموستات'], related: ['ac_broken'], category: 'الأجهزة المنزلية', subcategory: 'التبريد', requiredExperience: 'expert',
   },
+  washer_broken: {
+    id: 'washer_broken', name: 'الغسّالة لا تشتغل',
+    symptoms: { darija: ['الطياشة واقفة', 'لاماشين ما كتخدمش', 'الغسالة ما كتدورش', 'الطياشة كتسرّب الما', 'ماكينة الغسيل خربات'], arabic: ['الغسالة لا تعمل'], french: ['machine à laver en panne'], english: ['washing machine broken'] },
+    severity: 'medium', emergency: false,
+    solutions: [{ profession: 'appliance_repair', capabilities: ['diagnose_cooling'], tools: ['multimeter'], estimatedDuration: '1-3 ساعات', difficulty: 'medium' }],
+    causes: ['البومب', 'الكوروا', 'الرزيسطونس', 'التصريف مسدود'],
+    related: ['fridge_not_cooling'], category: 'الأجهزة المنزلية', subcategory: 'الغسيل', requiredExperience: 'expert',
+  },
   ac_broken: {
     id: 'ac_broken', name: 'مكيّف لا يبرّد', symptoms: { darija: ['الكليما ما كتبردش', 'المكيف خربان', 'كليماتيزور ما خدامش'], arabic: ['المكيف لا يبرد'] },
     severity: 'medium', emergency: false,
