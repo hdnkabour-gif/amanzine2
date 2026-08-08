@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-08T20:07:43.890Z",
+ "generatedAt": "2026-08-08T21:22:29.055Z",
  "totals": {
-  "tracked": 655,
-  "code": 443,
+  "tracked": 659,
+  "code": 445,
   "orphans": 2,
   "appOnly": 107,
-  "testOnly": 132,
+  "testOnly": 134,
   "untested": 135,
   "deadExports": 214,
   "looseExports": 71,
   "todos": 8,
-  "lines": 83546
+  "lines": 83903
  },
  "files": [
   {
@@ -5611,8 +5611,8 @@
   },
   {
    "file": "src/lib/akg/kb/index.ts",
-   "lines": 661,
-   "bytes": 33565,
+   "lines": 672,
+   "bytes": 34193,
    "imports": [
     "src/lib/akg/kb/concepts.ts",
     "src/lib/akg/kb/vocabulary.ts",
@@ -5682,6 +5682,7 @@
     "test/brain/knowledge.test.ts",
     "test/brain/knowledgeGraph.test.ts",
     "test/brain/landingMirror.test.ts",
+    "test/brain/liveCorpus.test.ts",
     "test/brain/liveSentence.test.ts",
     "test/brain/memory.test.ts",
     "test/brain/merchandise.test.ts",
@@ -5789,7 +5790,7 @@
     "CityResolution"
    ],
    "reach": "app+script+test",
-   "touched": 1786218269,
+   "touched": 1786219806,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -6129,7 +6130,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "src/lib/akg/kb/symptomGraph.ts",
@@ -7215,8 +7216,8 @@
   },
   {
    "file": "src/lib/evidence.ts",
-   "lines": 162,
-   "bytes": 6706,
+   "lines": 182,
+   "bytes": 7899,
    "imports": [
     "src/lib/normalize.ts",
     "src/lib/akg/kb/index.ts"
@@ -7225,7 +7226,8 @@
     "src/components/Mirror.tsx",
     "src/lib/journey.ts",
     "src/pages/LivingHome.tsx",
-    "test/brain/evidence.test.ts"
+    "test/brain/evidence.test.ts",
+    "test/brain/liveCorpus.test.ts"
    ],
    "exports": [
     "Ground",
@@ -7870,6 +7872,7 @@
     "test/brain/goals.test.ts",
     "test/brain/humanIntent.test.ts",
     "test/brain/lifeNeeds.test.ts",
+    "test/brain/liveCorpus.test.ts",
     "test/brain/liveSentence.test.ts",
     "test/brain/normalize.test.ts",
     "test/brain/ownerGaps.test.ts",
@@ -9324,7 +9327,7 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1786195425,
+   "touched": 1786219806,
    "todos": 0,
    "anys": 3,
    "logs": 0,
@@ -10228,7 +10231,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786217182,
+   "touched": 1786219806,
    "todos": 0,
    "anys": 1,
    "logs": 0,
@@ -10672,7 +10675,7 @@
    "anys": 3,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/brain/doors.test.ts",
@@ -10929,8 +10932,8 @@
   },
   {
    "file": "test/brain/index.ts",
-   "lines": 94,
-   "bytes": 3686,
+   "lines": 96,
+   "bytes": 3793,
    "imports": [
     "test/brain/setup.ts",
     "test/brain/understand.test.ts",
@@ -11000,7 +11003,8 @@
     "test/brain/liveSentence.test.ts",
     "test/brain/visitKind.test.ts",
     "test/brain/evidence.test.ts",
-    "test/brain/doors.test.ts"
+    "test/brain/doors.test.ts",
+    "test/brain/liveCorpus.test.ts"
    ],
    "importers": [],
    "exports": [],
@@ -11182,6 +11186,28 @@
    "logs": 0,
    "emptyCatch": 0,
    "ageDays": 5
+  },
+  {
+   "file": "test/brain/liveCorpus.test.ts",
+   "lines": 96,
+   "bytes": 4539,
+   "imports": [
+    "src/lib/akg/kb/index.ts",
+    "src/lib/needEngine.ts",
+    "src/lib/evidence.ts"
+   ],
+   "importers": [
+    "test/brain/index.ts"
+   ],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 0,
+   "todos": 0,
+   "anys": 5,
+   "logs": 0,
+   "emptyCatch": 0,
+   "ageDays": 20674
   },
   {
    "file": "test/brain/liveSentence.test.ts",
@@ -11860,6 +11886,22 @@
    "logs": 0,
    "emptyCatch": 0,
    "ageDays": 3
+  },
+  {
+   "file": "test/browser/walk.mjs",
+   "lines": 228,
+   "bytes": 10384,
+   "imports": [],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1786222866,
+   "todos": 0,
+   "anys": 0,
+   "logs": 6,
+   "emptyCatch": 0,
+   "ageDays": 0
   },
   {
    "file": "test/constitution.test.mjs",
