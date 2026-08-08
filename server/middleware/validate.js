@@ -52,14 +52,35 @@ function sanitizeBody(req, res, next) {
   next();
 }
 
-// Middleware: validate order creation
+/**
+ * تحقّقُ طلبٍ قادمٍ من واجهة المتجر — `POST /api/orders/public` وحدَه.
+ *
+ *   ── **و`total` لا يُشترَط، لأنّه لا يُصدَّق** ──
+ *   كان الشرطُ `isNaN(parseFloat(total))` ⇒ «المجموع غير صحيح». والمسارُ
+ *   الذي خلفَه **يعيد حسابَ المجموع من الصفر** — من أثمانِ المنتجات في
+ *   القاعدة، والباقاتِ، والكوبون، وثمنِ التوصيل — ويكتب في مكتوبٌ في أعلاه:
+ *   «القادمُ من العميل يُتجاهَل عمدًا».
+ *
+ *   فكان البابُ **يشترط حقلًا يرميه**. والثمنُ الذي دُفع مقيسٌ: أوّلُ مرّةٍ
+ *   مُشيَ فيها الطريقُ كاملًا — حسابٌ ⟵ منتج ⟵ طلبُ زبون — انكسر هنا،
+ *   بجوابٍ يقول «المجموع غير صحيح» عن مجموعٍ **لم يكن مطلوبًا أصلًا**.
+ *
+ *   وأثرُه على منتَجٍ حقيقيّ: أيُّ عميلٍ ثانٍ — تطبيقُ هاتفٍ، بوتُ واتساب،
+ *   شريكٌ يطلب برمجيًّا — يُردّ بجملةٍ **كاذبة**: المجموعُ ليس خاطئًا، هو
+ *   غيرُ لازم. ورسالةٌ خاطئةٌ توقِف المطوّرَ ساعةً على بابٍ مفتوح.
+ *
+ *   وحين يُرسَل — كما ترسله واجهةُ المتجر اليومَ — **يُفحَص شكلُه ويُهمَل
+ *   أثرُه**: رقمٌ سالبٌ يُردّ لأنّه علامةُ عميلٍ معطوبٍ أو عابث، لا لأنّ
+ *   الخادمَ يعتمد عليه.
+ */
 function validateOrder(req, res, next) {
   const { customerName, customerPhone, items, total } = req.body;
   const errors = [];
   if (!customerName || customerName.length < 2) errors.push('الاسم مطلوب (2 أحرف على الأقل)');
   if (!customerPhone) errors.push('رقم الهاتف مطلوب');
   if (!Array.isArray(items) || items.length === 0) errors.push('يجب إضافة منتج واحد على الأقل');
-  if (isNaN(parseFloat(total)) || parseFloat(total) < 0) errors.push('المجموع غير صحيح');
+  if (total !== undefined && total !== null && total !== ''
+    && (isNaN(parseFloat(total)) || parseFloat(total) < 0)) errors.push('المجموع غير صحيح');
   if (items && items.length > 50) errors.push('الحد الأقصى 50 منتج في الطلب');
   if (errors.length) return res.status(400).json({ error: errors[0], errors });
   next();

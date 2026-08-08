@@ -855,14 +855,47 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return conv.id;
   };
 
+  // ── **المحادثةُ تُحفَظ فعلًا، والفشلُ يُقال** ─────────────────────
+  //
+  //   عطبان قِيسا في جردِ المستودع، وكلاهما يقع على مستخدمٍ حقيقيٍّ في أوّل
+  //   جلسة — وكلاهما **صامت**، وهو أسوأُ أنواع العطب:
+  //
+  //   ① `updateConversation` كانت تُبدّل الحالةَ المحلّيّةَ **ولا تنادي
+  //      الخادمَ أصلًا**. و`conversationsAPI.update` مبنيّةٌ والمسارُ
+  //      `PUT /conversations/:id` مبنيٌّ — طبقةٌ كاملةٌ لا يبلغها أحد. فمن
+  //      أرشف محادثةً أو علّمها مقروءةً وجدها كما كانت بعد أوّل تحديث.
+  //
+  //   ② `deleteConversation` تنادي الخادمَ ثمّ تبتلع فشلَه في `catch {}`
+  //      فارغ. تختفي المحادثةُ من الشاشة، ويفشل الحذفُ، وتعود عند التحديث.
+  //
+  //   والأثرُ الإنسانيُّ واحدٌ في الحالتَين: **الإنسانُ يظنّ التطبيقَ كاذبًا.**
+  //   ولا يبحث عن سببٍ ولا يبلّغ عن عطب — يكفّ عن الثقة ويخرج.
+  //
+  //   ── والعلاجُ نمطٌ قائمٌ في هذا الملفّ لا اختراعٌ جديد ──
+  //   المنتجاتُ والزبناءُ يفعلونه منذ زمن: تفاؤلٌ في الشاشة · نداءٌ للخادم ·
+  //   **رجوعٌ عن التفاؤل إن فشل** · ورسالةٌ تقول ما جرى. والمحادثاتُ وحدَها
+  //   كانت خارجه.
   const updateConversation = async (id: string, u: Partial<Conversation>) => {
+    const before = state.conversations.find(c => c.id === id);
     setState(s => ({ ...s, conversations: s.conversations.map(c => c.id === id ? { ...c, ...u } : c) }));
+    if (!state.isOnline || !api.getToken()) return;
+    try { await api.conversationsAPI.update(id, u); }
+    catch (e: any) {
+      // الرجوعُ شرطُ الصدق: رسالةُ خطأٍ فوق شاشةٍ تعرض التغييرَ محفوظًا
+      //   تناقضُ نفسِها، ويصدّق الإنسانُ عينَه لا الرسالة.
+      if (before) setState(s => ({ ...s, conversations: s.conversations.map(c => c.id === id ? before : c) }));
+      notify('error', `❌ لم يُحفظ التعديل على المحادثة: ${e?.message || 'تحقق من الاتصال'}`);
+    }
   };
 
   const deleteConversation = async (id: string) => {
+    const before = state.conversations;
     setState(s => ({ ...s, conversations: s.conversations.filter(c => c.id !== id) }));
-    if (state.isOnline && api.getToken()) {
-      try { await api.conversationsAPI.remove(id); } catch {}
+    if (!state.isOnline || !api.getToken()) return;
+    try { await api.conversationsAPI.remove(id); }
+    catch (e: any) {
+      setState(s => ({ ...s, conversations: before }));
+      notify('error', `❌ لم تُحذف المحادثة من الخادم: ${e?.message || 'تحقق من الاتصال'}`);
     }
   };
 

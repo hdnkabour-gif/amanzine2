@@ -878,12 +878,42 @@ function TrackingModal({userId,storeInfo,onClose}:{userId:string;storeInfo:Store
   const [singleOrder,setSingleOrder]=useState<any>(null);
   const [loading,setLoading]=useState(false);
   const [searched,setSearched]=useState(false);
+  /** سببُ تعذّرِ البحث — يُميَّز عن «ما لقيناهش». */
+  const [err,setErr]=useState<string|null>(null);
   const cur=storeInfo.brand.currency||'MAD';
   useBackToClose(true,onClose);
   const STATUS_AR:Record<string,string>={pending:T('tr.stPending'),approved:T('tr.stApproved'),processing:T('tr.stProcessing'),shipped:T('tr.stShipped'),delivered:T('tr.stDelivered'),cancelled:T('tr.stCancelled')};
   const STATUS_COLOR:Record<string,string>={pending:'#F59E0B',approved:'#10B981',processing:'#F59E0B',shipped:'#10B981',delivered:'#10B981',cancelled:'#EF4444'};
 
-  const search=async()=>{if(!query.trim())return;setLoading(true);setSingleOrder(null);setOrders([]);try{if(mode==='code'){const r=await fetch(`/api/orders/track-code/${encodeURIComponent(query.trim().toUpperCase())}?userId=${userId}`);const d=await r.json();if(r.ok)setSingleOrder(d);}else{const r=await fetch(`/api/orders/track/${encodeURIComponent(query.trim())}?userId=${userId}`);const d=await r.json();setOrders(Array.isArray(d)?d:[]);}}catch{}setSearched(true);setLoading(false);};
+  // ── **«ما لقيناهش» و«ما قدرناش نشوفو» ليسا الشيءَ نفسَه** ────────
+  //
+  //   كان الفشلُ يُبتلَع في `catch{}` فارغ، ثمّ تُعرَض «ما لقيناش الطلب».
+  //   وهذه **كذبة**: الشبكةُ سقطت أو الخادمُ أخطأ، والطلبُ قد يكون موجودًا
+  //   تمامًا. والزبونُ الذي يسمع «ما كاينش» يظنّ أنّ طلبَه ضاع — فيتّصل
+  //   بالتاجر غاضبًا، أو لا يعود أبدًا.
+  //
+  //   والفرقُ في ما يفعله بعدها: من سمع «ما كاينش» يتوقّف؛ ومن سمع «عاود
+  //   دابا» يعيد. فالرسالةُ الخاطئةُ لا تُضلّل فحسب — **تُوقِف الإنسان**.
+  //
+  //   و٤٠٤ تبقى «ما لقيناهش» حقًّا: هي جوابُ الخادم لا سقوطَه.
+  const search=async()=>{
+    if(!query.trim())return;
+    setLoading(true);setSingleOrder(null);setOrders([]);setErr(null);
+    try{
+      if(mode==='code'){
+        const r=await fetch(`/api/orders/track-code/${encodeURIComponent(query.trim().toUpperCase())}?userId=${userId}`);
+        if(r.ok) setSingleOrder(await r.json());
+        else if(r.status!==404) setErr('ما قدرناش نتحقّقو دابا — عاود من بعد.');
+      }else{
+        const r=await fetch(`/api/orders/track/${encodeURIComponent(query.trim())}?userId=${userId}`);
+        if(r.ok){const d=await r.json();setOrders(Array.isArray(d)?d:[]);}
+        else if(r.status!==404) setErr('ما قدرناش نتحقّقو دابا — عاود من بعد.');
+      }
+    }catch{
+      setErr('ما وصلناش للخادم — تحقّق من الأنترنت وعاود.');
+    }
+    setSearched(true);setLoading(false);
+  };
 
   return (
     <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',backdropFilter:'blur(8px)',zIndex:350,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
@@ -891,7 +921,8 @@ function TrackingModal({userId,storeInfo,onClose}:{userId:string;storeInfo:Store
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}><h2 style={{fontSize:18,fontWeight:900}}>{T('tr.title')}</h2><button onClick={onClose} style={{width:34,height:34,borderRadius:'50%',background:DS.glassBg,border:DS.glassBorder,color:DS.textSecondary,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={14}/></button></div>
         <div style={{display:'flex',gap:8,marginBottom:14}}>{[['code',T('tr.byCode')],['phone',T('tr.byPhone')]].map(([m,l])=><button key={m} onClick={()=>{setMode(m as any);setQuery('');setSearched(false);setSingleOrder(null);setOrders([]);}} style={{flex:1,padding:'10px',borderRadius:DS.radiusSm,border:`1px solid ${mode===m?DS.purpleLight:DS.border}`,background:mode===m?DS.purpleSoft:'transparent',color:mode===m?DS.purpleLight:DS.textSecondary,fontSize:12,fontWeight:600,cursor:'pointer',transition:DS.transitionFast}}>{l}</button>)}</div>
         <div style={{display:'flex',gap:8,marginBottom:18}}><input placeholder={mode==='code'?T('tr.enterCode'):T('tr.enterPhone')} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()} dir="ltr" style={{flex:1,padding:'12px 15px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:13,outline:'none',textTransform:mode==='code'?'uppercase':'none',fontFamily:'Tajawal,sans-serif'}}/><button onClick={search} disabled={loading} style={{padding:'8px 20px',borderRadius:DS.radiusSm,background:`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`,border:'none',color:'#fff',fontWeight:700,cursor:'pointer',fontSize:14}}>{loading?'⟳':T('tr.search')}</button></div>
-        {searched&&!singleOrder&&orders.length===0&&<p style={{color:DS.textTertiary,textAlign:'center',fontSize:13,padding:'16px 0'}}>{T('tr.notFound')}</p>}
+        {err&&<p role="alert" style={{color:'#F59E0B',textAlign:'center',fontSize:13,fontWeight:700,padding:'14px 0',lineHeight:1.8}}>{err}</p>}
+        {!err&&searched&&!singleOrder&&orders.length===0&&<p style={{color:DS.textTertiary,textAlign:'center',fontSize:13,padding:'16px 0'}}>{T('tr.notFound')}</p>}
         {singleOrder&&<div style={{background:'rgba(16,185,129,0.06)',border:'1px solid rgba(16,185,129,0.2)',borderRadius:DS.radiusMd,padding:'16px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>{T('tr.yourOrder')}</span><span style={{fontSize:12,fontWeight:700,color:STATUS_COLOR[singleOrder.status]||DS.textSecondary}}>{STATUS_AR[singleOrder.status]||singleOrder.status}</span></div>{(singleOrder.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:12,color:DS.textSecondary,marginBottom:3}}>• {item.productName} × {item.quantity}</div>)}{singleOrder.deliveryStatus&&<div style={{fontSize:11,color:DS.textTertiary,marginTop:2}}>🚚 {singleOrder.deliveryStatus}</div>}<div style={{display:'flex',justifyContent:'space-between',marginTop:10,paddingTop:10,borderTop:'1px solid rgba(16,185,129,0.15)'}}><span style={{fontSize:11,color:DS.textTertiary}}>{singleOrder.city}</span><span style={{fontSize:14,fontWeight:700}}>{singleOrder.total} {cur}</span></div></div>}
         {orders.map((o:any)=><div key={o.id} style={{background:DS.glassBg,borderRadius:DS.radiusMd,padding:'14px',marginBottom:8,border:DS.glassBorder}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><span style={{fontSize:10,color:DS.textTertiary,fontFamily:'monospace'}}>{o.id}</span><span style={{fontSize:11,fontWeight:600,color:STATUS_COLOR[o.status]||DS.textSecondary}}>{STATUS_AR[o.status]||o.status}</span></div>{(o.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:11,color:DS.textSecondary,marginBottom:2}}>• {item.productName} x{item.quantity}</div>)}{o.deliveryStatus&&<div style={{fontSize:10.5,color:DS.textTertiary,marginTop:2}}>🚚 {o.deliveryStatus}</div>}<div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:11}}><span style={{color:DS.textTertiary}}>{new Date(o.createdAt).toLocaleDateString('ar-MA')}</span><span style={{fontWeight:700}}>{o.total} {cur}</span></div></div>)}
       </div>

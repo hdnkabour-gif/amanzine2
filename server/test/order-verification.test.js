@@ -23,6 +23,19 @@ const test = (name, fn) => rawTest(name, { skip: SKIP && 'لا DATABASE_URL' }, 
 
 const ov = require('../lib/orderVerification');
 
+// ── **قناةٌ مربوطة — شرطُ أن تكون السياسةُ هي المُختبَرة** ────────────
+//
+//   قِيس بأوّل مشيٍ كاملٍ للطريق أنّ التأكيدَ كان **بوّابةً بلا مفتاح**:
+//   يُطلَب من كلّ زبونٍ لكلّ تاجرٍ جديد، ولا قناةَ تُسلّم الرمزَ، فلا طلبَ
+//   واحدًا يمرّ. فصار `needsVerification` يفحص إمكانَ التسليم أوّلًا.
+//
+//   ولذلك تُمرَّر هنا قناةٌ مربوطة: بدونها يُقاس **الشرطُ** لا **السياسة**،
+//   ويصير كلُّ اختبارٍ أدناه يُثبت الشيءَ نفسَه ولا يميّز `off` من `always`.
+//   والشرطُ نفسُه له اختبارُه الخاصُّ في آخر الملفّ.
+const CH = { social: { whatsapp: { accessToken: 'tok-test', pageId: '1234567890' } } };
+/** يدمج القناةَ مع إعدادِ سياسةٍ — فلا تُنسى في نداءٍ فيفترق معناه. */
+const withCh = (extra = {}) => ({ ...CH, ...extra });
+
 // ── السياسةُ نفسُها، بلا قاعدة ──────────────────────────────────
 rawTest('الأوضاعُ الثلاثةُ مُعلَنةٌ والافتراضيُّ «أوّلَ مرّة»', () => {
   assert.deepEqual(ov.MODES, ['off', 'first', 'always']);
@@ -56,25 +69,25 @@ before(async () => {
 after(async () => { if (SKIP) return; await pool.end?.(); });
 
 test('أوّلُ طلبٍ من نمرةٍ مجهولة ⇒ يُطلَب التأكيد', async () => {
-  const r = await ov.needsVerification({ userId: USER_ID, phone: NEW_PHONE, settings: {} });
+  const r = await ov.needsVerification({ userId: USER_ID, phone: NEW_PHONE, settings: withCh() });
   assert.equal(r.required, true);
   assert.match(r.reason, /أوّل/, 'قرارٌ بلا سببٍ ظاهرٍ يبدو تعسّفًا');
 });
 
 test('**زبونٌ وصلَه طردٌ لا يُسأل** — يعرف ثمّ يسأل هو موتُ السحر', async () => {
-  const r = await ov.needsVerification({ userId: USER_ID, phone: KNOWN_PHONE, settings: {} });
+  const r = await ov.needsVerification({ userId: USER_ID, phone: KNOWN_PHONE, settings: withCh() });
   assert.equal(r.required, false, 'سُئل زبونٌ عائدٌ أثبت نمرتَه بالتسليم نفسِه');
 });
 
 test('والنمرةُ تُطابَق بآخر تسع خانات — «0655…» و«+212655…» واحدة', async () => {
-  const r = await ov.needsVerification({ userId: USER_ID, phone: '+212 655 000 222', settings: {} });
+  const r = await ov.needsVerification({ userId: USER_ID, phone: '+212 655 000 222', settings: withCh() });
   assert.equal(r.required, false, 'نفسُ الزبون بصيغةٍ دوليّةٍ عُومل مجهولًا');
 });
 
 test('«ديما» تسأل حتّى العائد · و«بلا تأكيد» لا تسأل أحدًا', async () => {
-  const always = await ov.needsVerification({ userId: USER_ID, phone: KNOWN_PHONE, settings: { security: { verifyOrders: 'always' } } });
+  const always = await ov.needsVerification({ userId: USER_ID, phone: KNOWN_PHONE, settings: withCh({ security: { verifyOrders: 'always' } }) });
   assert.equal(always.required, true);
-  const off = await ov.needsVerification({ userId: USER_ID, phone: NEW_PHONE, settings: { security: { verifyOrders: 'off' } } });
+  const off = await ov.needsVerification({ userId: USER_ID, phone: NEW_PHONE, settings: withCh({ security: { verifyOrders: 'off' } }) });
   assert.equal(off.required, false);
 });
 
@@ -85,7 +98,7 @@ test('قيمةٌ مجهولةٌ للإعداد تسلك مسلكَ الافتر�
   //   ويلزم **الاتّجاهان معًا** كي يُثبَّت الوضعُ على `first` وحدَه:
   //   العائدُ لا يُسأل (⇒ ليست `always`)، والمجهولُ يُسأل (⇒ ليست `off`).
   //   قياسُ أحدهما وحدَه لا يميّز — وسبرٌ مرّ لهذا السبب بالذات.
-  const cfg = { security: { verifyOrders: 'nonsense' } };
+  const cfg = withCh({ security: { verifyOrders: 'nonsense' } });
   return Promise.all([
     ov.needsVerification({ userId: USER_ID, phone: KNOWN_PHONE, settings: cfg }),
     ov.needsVerification({ userId: USER_ID, phone: NEW_PHONE, settings: cfg }),
@@ -99,7 +112,7 @@ test('والفشلُ يُغلَق آمنًا — عطبُ قاعدةٍ لا يف
   const real = db.hasDeliveredOrderFromPhone;
   db.hasDeliveredOrderFromPhone = async () => { throw new Error('قاعدةٌ ساقطة'); };
   try {
-    const r = await ov.needsVerification({ userId: USER_ID, phone: KNOWN_PHONE, settings: {} });
+    const r = await ov.needsVerification({ userId: USER_ID, phone: KNOWN_PHONE, settings: withCh() });
     assert.equal(r.required, true,
       '**تعذّرت القراءةُ فمرّ الطلبُ بلا تأكيد** — عطبٌ عندنا يصير بابًا للمهاجم');
   } finally { db.hasDeliveredOrderFromPhone = real; }
@@ -153,4 +166,36 @@ rawTest('مسارُ الطلب العامّ يستشير السياسةَ ويق
   // ولا يُقرأ حقلٌ من الجسم اسمُه verified: ذاك تصديقٌ للعميل.
   assert.ok(!/req\.body[^\n]*\bverified\b/.test(src),
     'المسارُ يقرأ «تأكّدتُ» من جسم الطلب — بابٌ مفتوحٌ لمن يشاء');
+});
+
+// ── **والبوّابةُ التي لا مفتاحَ لها ليست بوّابة، هي حائط** ────────────
+//
+//   قِيس بأوّل مشيٍ كاملٍ للطريق — حسابٌ جديد ⟵ منتج ⟵ طلبُ زبون:
+//   النمرةُ لها قناتان لا غير (SMS بمفتاحِ منصّةٍ · واتساب بتوكنِ التاجر)،
+//   وحسابٌ جديدٌ لا يملك أيًّا منهما. فيُطلَب التأكيدُ ويُطلَب الرمزُ فيرجع
+//   `no-channel` — **ولا زبونَ واحدٍ يقدر يتمّم طلبًا عند أيّ تاجرٍ جديد**.
+//
+//   ولم يظهر هذا في اختبارِ وحدةٍ واحد، لأنّ كلَّ طرفٍ صحيحٌ وحدَه: السياسةُ
+//   تقرّر صوابًا، والقناةُ تُعلن عجزَها صدقًا، والسلسلةُ مقطوعة.
+test('بلا قناةٍ لا يُطلَب تأكيدٌ — والتخفيفُ يُعلَن ولا يُصمَت عنه', async () => {
+  const r = await ov.needsVerification({ userId: USER_ID, phone: NEW_PHONE, settings: {} });
+  assert.equal(r.required, false,
+    'يُطلَب تأكيدٌ لا سبيلَ لتسليمه — كلُّ زبناء التاجر الجديد يُوقَفون بلا مخرج');
+  assert.equal(r.undeliverable, true,
+    'سقطت الحمايةُ بصمت — التاجرُ يظنّ نفسَه محميًّا وهو مكشوف');
+  assert.match(r.reason, /قناة/, 'السببُ ما كيقولش شنو خاصّو يدير باش ترجع');
+});
+
+test('و«ديما» نفسُها لا تتجاوز غيابَ القناة — لا استثناءَ يفتح الحائط', async () => {
+  const r = await ov.needsVerification({
+    userId: USER_ID, phone: NEW_PHONE, settings: { security: { verifyOrders: 'always' } },
+  });
+  assert.equal(r.required, false, '«ديما» سبقت فحصَ القناة — فرجع الحائطُ لمن اختارها');
+  assert.equal(r.undeliverable, true);
+});
+
+test('وربطُ القناةِ وحدَه يُرجع الحمايةَ — بلا أيّ خطوةٍ أخرى', async () => {
+  const r = await ov.needsVerification({ userId: USER_ID, phone: NEW_PHONE, settings: CH });
+  assert.equal(r.required, true, 'رُبطت قناةٌ وما رجعتش الحماية — التخفيفُ صار دائمًا');
+  assert.ok(!r.undeliverable, 'أُعلن العجزُ وفيه قناة');
 });

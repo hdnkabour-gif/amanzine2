@@ -357,6 +357,17 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     const vp = await orderVerification.needsVerification({
       userId, phone: customerPhone, settings: preSettings,
     });
+    // **والتخفيفُ يُقال لصاحبه.** حين تسقط الحمايةُ لأنّ لا قناةَ تُسلّم
+    //   الرمز، يجب أن يعرف التاجرُ — وإلّا ظنّ نفسَه محميًّا وهو مكشوف.
+    //   ويُكتَب مرّةً في السجلّ لا مع كلّ طلب: تحذيرٌ يتكرّر ألفَ مرّةٍ يُقرأ
+    //   صفرَ مرّات.
+    if (vp.undeliverable) {
+      db.addLog({
+        userId, user: 'System', type: 'security', severity: 'warning',
+        action: '⚠️ تأكيدُ نمرة الزبون موقوف — ما كايناش قناة',
+        details: 'ربط واتساب باش يرجع التأكيد يخدم ويحميك من الطلبات الوهمية',
+      }).catch(() => {});
+    }
     if (vp.required) {
       const ok = await verify.isVerified({ identifier: customerPhone, purpose: 'order_confirm' });
       if (!ok) {
