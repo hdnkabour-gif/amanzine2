@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-08-09T13:21:59.008Z",
+ "generatedAt": "2026-08-09T13:49:24.403Z",
  "totals": {
-  "tracked": 719,
+  "tracked": 720,
   "code": 457,
   "orphans": 2,
   "appOnly": 107,
@@ -3643,7 +3643,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/components/CapabilityBar.tsx",
@@ -5302,7 +5302,7 @@
    "looseExports": [
     "classifyEntity"
    ],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/lib/akg/index.ts",
@@ -5392,7 +5392,7 @@
    "looseExports": [
     "ActionVerb"
    ],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/lib/akg/kb/ambiguity.ts",
@@ -8007,7 +8007,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/lib/normalize.ts",
@@ -8311,7 +8311,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/lib/userMemory.ts",
@@ -8393,7 +8393,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 7
+   "ageDays": 8
   },
   {
    "file": "src/pages/ActivityFeed.tsx",
@@ -8800,7 +8800,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/pages/FieldVisit.tsx",
@@ -8851,7 +8851,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 7
+   "ageDays": 8
   },
   {
    "file": "src/pages/ImageEditorPage.tsx",
@@ -9185,7 +9185,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 7
+   "ageDays": 8
   },
   {
    "file": "src/pages/Landing/sections/Header.tsx",
@@ -11076,7 +11076,7 @@
    "anys": 1,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "test/brain/index.ts",
