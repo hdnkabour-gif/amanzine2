@@ -121,6 +121,26 @@ const DESTRUCTIVE = new Set(['delete']);
 const READ_ENOUGH = 0.5;
 
 /**
+ * **القائمتان تُقرآن معًا، أو تكذب إحداهما.**
+ *
+ *   النقصُ مُعلَنٌ في مكانَين: قائمةٌ **مُصنَّفة** (`unmetNeeds` بمفاتيح
+ *   `price`/`product`…) وقائمةٌ **نصٌّ حرّ** (`u.action.needs` = `['بشحال؟']`).
+ *   والمصنَّفةُ تحترم `u.amount` عبر `price: said` — **والحرّةُ لا تعرفه**.
+ *
+ *   فقيس في المتصفّح: «بدّل الثمن ديال هاد المنتوج» ⇒ تظهر خانةُ «بشحال؟»،
+ *   يكتب الإنسانُ **179**، فيصير `amount = 179` — والحَكَمُ ما زال يقول
+ *   «ينقص من الفعل: بشحال؟» ⇒ `ask` ⇒ `clarify` ⇒ `fillSlot` يخرج صامتًا.
+ *   **الثمنُ لا يتبدّل، ولا رسالةَ فشلٍ تُقال.** طلبنا معلومةً، أعطاها، فاختفت.
+ *
+ *   والطرحُ هنا نفسُ الطرح القائم فوقه سطرًا: كما تُطرَح حاجةُ «أيّ منتج؟»
+ *   حين حلّتها الإشارةُ، تُطرَح حاجةُ «بشحال؟» حين حلّها رقمٌ مقروء.
+ *   ولا تُبنى قائمةٌ ثالثة — القائمتان هما العطب، وثالثةٌ تزيده.
+ */
+function amountAnswers(need: string, u: Understanding): boolean {
+  return u.amount != null && /شحال|ثمن|كمي|عدد|بكم/.test(need);
+}
+
+/**
  * الحكمُ الواحد.
  *
  * @param u ما فهمته الطبقات
@@ -302,7 +322,7 @@ export function decideExecution(
     //   قال حرفتَه سؤالًا وُلد من سوء قراءة. ونفسُ الحدّ (٠٫٥) الذي يمنع
     //   القراءةَ الضعيفة أن تُنتج «ما نقدرش» يمنعها أن تُنتج سؤالًا.
     const heard = (u.action?.confidence ?? 0) >= READ_ENOUGH ? (u.action?.needs || []) : [];
-    const extra = heard.find(n => !/^تأكيد/.test(n) && !(pointed && /منتج|منتوج/.test(n)));
+    const extra = heard.find(n => !/^تأكيد/.test(n) && !(pointed && /منتج|منتوج/.test(n)) && !amountAnswers(n, u));
     if (extra) {
       trace.push(`ينقص من الفعل: ${extra}`);
       return { verdict: 'ask', say: extra, trace, dest };
@@ -310,7 +330,7 @@ export function decideExecution(
   } else if (u.action?.needs?.length) {
     // ونقصُ الفعل يُطرَح منه ما حلّته الإشارةُ كذلك: «صايب تصويرة لهاد
     // المنتوج» تُعلن `أيّ منتج؟` وقد أشار إليه في الجملة نفسِها.
-    const need = u.action.needs.find(n => !/^تأكيد/.test(n) && !(pointed && /منتج|منتوج/.test(n)));
+    const need = u.action.needs.find(n => !/^تأكيد/.test(n) && !(pointed && /منتج|منتوج/.test(n)) && !amountAnswers(n, u));
     if (need) {
       trace.push(`ينقص: ${need}`);
       return { verdict: 'ask', say: need, trace, dest };

@@ -83,6 +83,28 @@ export default function LivingHome() {
   const [text, setText] = useState('');
   const [result, setResult] = useState<NeedResult | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
+  /**
+   * **البابُ الوحيدُ إلى سجلّ المحادثة.**
+   *
+   *   كان `setTurns` يُنادى من أربعة مواضعَ متفرّقةٍ في ملفٍّ من ألفِ سطر،
+   *   فكلُّ مسارٍ جديدٍ عليه أن **يتذكّر** أن يكتب. ومن يعتمد على التذكّر
+   *   ينسى — وقد نسي مرّتَين، مقيستَين في المتصفّح:
+   *
+   *     `fixNow`      كتب الإنسانُ «خضّار» تصحيحًا ⇒ لا أثرَ في السجلّ ولا
+   *                   في `recentMessages`، فالذاكرةُ تحمل ما صُحِّح ولا التصحيح.
+   *     `FocusedEdit` حُفظ «حانوت النخلة» ⇒ لا أثرَ إطلاقًا.
+   *
+   *   فهذا بابٌ واحدٌ يحرسه اختبارُ المعمارية: **لا `setTurns` خارجَه**
+   *   (عدا التصفير في «من جديد»). ليس محرّكًا ولا طبقة — منعُ تكرارِ صنفٍ
+   *   من الخطأ وقع مرّتَين، بنفس شكلِ «عقدُ بحثٍ واحد» و«مطابِقٌ واحد».
+   *
+   *   والإضافةُ دالّيّةٌ لا بالقيمة: نداءان متقاربان يخسران دورًا مع الإسناد.
+   */
+  const record = (...entries: Turn[]) => {
+    const clean = entries.filter(e => e && typeof e.text === 'string' && e.text.trim());
+    if (!clean.length) return;
+    setTurns(t => [...t, ...clean]);
+  };
   const [stepIdx, setStepIdx] = useState(0);
   const [pending, setPending] = useState<NeedOption | null>(null);
   const [confirmed, setConfirmed] = useState(false); // وضع confirm: أكّد المستخدم الفهم؟
@@ -159,7 +181,24 @@ export default function LivingHome() {
     if (wrong.field === 'city') forgetFact('city');
     if (wrong.field === 'all') { forgetFact('activity'); forgetFact('city'); }
     setLearned('');
-    setThanks(thankFor(wrong.field));
+    const thanks = thankFor(wrong.field);
+    // ── **والتصحيحُ يدخل المحادثة** ──────────────────────────────
+    //   قيس في المتصفّح: «خاصني سبّاك» ⇢ «ماشي هاكّا» ⇢ «ماشي سبّاك» ⇢
+    //   كتب الإنسانُ «خضّار». والسياقُ الذاهبُ إلى الفهم بقي
+    //   `["خاصني سبّاك", …]` — **الذاكرةُ تحمل ما صُحِّح ولا تحمل التصحيح.**
+    //   وهو موصولٌ إلى `applyCorrection`/`forgetFact` (مخزنُ الحقائق)، لكنّه
+    //   لا يبلغ سجلَّ المحادثة ولا `recentMessages`.
+    //
+    //   **ولا يُنفَّذ به شيء**: يُسجَّل قولًا فقط، فلا `submit` ولا حَكَم ولا
+    //   وجهة. الذاكرةُ تعين على الفهم وليست إذنًا — والقاعدةُ محفوظةٌ هنا
+    //   حرفيًّا: من صحّح لم يطلب تنفيذًا جديدًا.
+    //
+    //   و«كلشي غالط» لا يُسجَّل: لا نصَّ فيه — زرٌّ يقول «ابدأ من جديد»،
+    //   وتسجيلُه كلامًا للإنسان يلوّث السياقَ بما لم يقله.
+    if (wrong.field !== 'all' && fixText.trim()) {
+      record({ who: 'user', text: fixText.trim() }, { who: 'sys', text: thanks });
+    }
+    setThanks(thanks);
     setCorrecting(false);
     setWrong(null);
     setFixText('');
@@ -466,8 +505,7 @@ export default function LivingHome() {
     //   كلَّها. فالسجلُّ موجودٌ ومعروضٌ للإنسان على الشاشة (السطر ٨٠٥) —
     //   **ويُمحى قبل أن يُقرأ**. والتحديثُ دالّيٌّ لا بالقيمة: نداءان
     //   متقاربان يخسران دورًا مع الإسناد المباشر.
-    setTurns(t => [...t, { who: 'user' as const, text: q },
-      ...(r.open ? [{ who: 'sys' as const, text: r.open }] : [])]);
+    record({ who: 'user', text: q }, ...(r.open ? [{ who: 'sys' as const, text: r.open }] : []));
   };
   /**
    * **ملءُ الفراغ ⇒ حفظ** — بنفس الحَكَم، ومرّةً واحدة.
@@ -494,8 +532,8 @@ export default function LivingHome() {
       const patch = slot.need === 'price' ? { price: Number(value) } : { stock: Number(value) };
       await updateProduct(live.subject.id, patch);
       setLive(null);
-      setTurns(t => [...t, { who: 'user', text: `${value} ${slot.unit || ''}`.trim() },
-        { who: 'sys', text: `✅ تبدّل ${live.subject!.name} — ${slot.unit === 'درهم' ? 'الثمن' : 'الستوك'} دابا ${value}.` }]);
+      record({ who: 'user', text: `${value} ${slot.unit || ''}`.trim() },
+        { who: 'sys', text: `✅ تبدّل ${live.subject!.name} — ${slot.unit === 'درهم' ? 'الثمن' : 'الستوك'} دابا ${value}.` });
       notify('success', 'تسجّل التبديل');
     } catch {
       setSaid('ما قدرتش نحفظ دابا — عاود من بعد.');
@@ -522,7 +560,7 @@ export default function LivingHome() {
         signals: { target: opt.id as any },
       }));
     }
-    setTurns(t => [...t, { who: 'user', text: opt.label }]);
+    record({ who: 'user', text: opt.label });
 
     // ── الحلقةُ المقطوعة، مُغلَقة ──────────────────────────────
     // كان الجوابُ يُقاس ثمّ يُرمى: `applyAnswer` مبنيّةٌ ومُختبَرةٌ ولا تُستدعى.
