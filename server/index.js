@@ -151,8 +151,20 @@ app.get('/api/health', (req, res) => {
   // نُبقي 200 (وإلّا أسقطت المنصّةُ النشرَ فلا يُقرأ السبب) لكن نقول الحقيقة.
   const noDb = !process.env.DATABASE_URL;
   const migrationFailed = migrationState.ran && migrationState.ok === false;
-  res.json({
-    status: (noDb || migrationFailed) ? 'degraded' : 'ok',
+  const degraded = noDb || migrationFailed;
+  // ── **والرمزُ يقول ما يقوله المتن** ────────────────────────────
+  //   كان يخرج 200 دائمًا، **حتّى وهو يقول `degraded` في متنه**. ومنصّةُ
+  //   النشر تقرأ الرمزَ لا المتن — فقاعدةُ بياناتٍ ساقطةٌ أو ترحيلٌ فاشلٌ
+  //   يبدوان **سليمَين تمامًا**، وتُوجَّه إليهما حركةُ الزبائن.
+  //   أسوأُ الأعطاب: خدمةٌ تُعلن صحّتَها وهي لا تقدر أن تحفظ طلبًا.
+  //
+  //   وسببُ 200 القديم مكتوبٌ في الكود: خشيةَ أن يُسقط عطبٌ عابرٌ النشرَ
+  //   خمسَ دقائق. وهذه خشيةٌ في محلّها — **فلم يُكتفَ بقلب الرمز**:
+  //   الترحيلُ صار يُعاد في الخلفيّة (أدناه)، فالعطبُ العابرُ يشفى وحدَه
+  //   خلال مهلة الفحص (٣٠٠ ثانية)، والعطبُ الدائمُ يُسقط النشرَ **كما يجب**
+  //   بدل أن يمرّ صامتًا إلى الإنتاج.
+  res.status(degraded ? 503 : 200).json({
+    status: degraded ? 'degraded' : 'ok',
     ...(noDb ? { degraded: 'DATABASE_URL غير مضبوط — لا تسجيلَ دخولٍ ولا حفظَ بيانات' } : {}),
     ...(migrationFailed ? { degraded: `فشل ترحيلُ قاعدة البيانات — المخطّط قديم: ${migrationState.error}` } : {}),
     migration: migrationState.ran
@@ -326,6 +338,40 @@ app.use((err, req, res, _next) => {
 // ── Start ────────────────────────────────────────────────────
 const migrate = require('./migrate');
 
+/**
+ * **الترحيلُ يُعاد، فالعطبُ العابرُ لا يُقفل النشر.**
+ *
+ *   منذ صار `/api/health` يخرج بـ503 وهو معطوب، صار عطبٌ عابرٌ في قاعدة
+ *   البيانات لحظةَ الإقلاع قادرًا على إسقاط النشر. وهذا ما خشيه من كتب
+ *   السطرَ الأصليّ — وكان محقًّا.
+ *
+ *   فيُعاد المحاولةُ في الخلفيّة بتباعدٍ متزايد داخل مهلة الفحص (٣٠٠ث).
+ *   قاعدةٌ تأخّرت ثوانيَ ⇒ تُلحَق وتصير الخدمةُ سليمة. قاعدةٌ معطوبةٌ فعلًا
+ *   ⇒ تبقى 503 ويسقط النشرُ **وهذا هو الصواب**: خدمةٌ لا تحفظ طلبًا لا
+ *   يجوز أن تستقبل زبونًا.
+ */
+let _retrying = false;
+function retryMigration(attempt = 1) {
+  if (_retrying && attempt === 1) return;
+  _retrying = true;
+  const wait = Math.min(2000 * attempt, 20000);   // 2s · 4s · 6s … بحدّ 20s
+  setTimeout(async () => {
+    try {
+      await migrate();
+      migrationState.ok = true;
+      migrationState.error = undefined;
+      migrationState.at = new Date().toISOString();
+      logger.info('DB migration recovered on retry', { attempt });
+      _retrying = false;
+    } catch (e) {
+      migrationState.error = e.message;
+      if (attempt < 12) return retryMigration(attempt + 1);  // ~٢ دقيقة داخل المهلة
+      logger.error('DB migration still failing after retries — service stays degraded', { error: e.message });
+      _retrying = false;
+    }
+  }, wait).unref?.();
+}
+
 async function startServer() {
   try {
     if (process.env.DATABASE_URL) {
@@ -342,6 +388,7 @@ async function startServer() {
         migrationState.error = e.message;
         logger.error('DB migration failed — starting in degraded mode (check DATABASE_URL / DB connectivity)', { error: e.message });
         logger.capture(e);
+        retryMigration();   // العابرُ يشفى وحدَه؛ الدائمُ يبقى معلَنًا
       }
     } else {
       logger.warn('DATABASE_URL not set — running without persistence (no-database mode)');

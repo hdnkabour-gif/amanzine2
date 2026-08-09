@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-08-09T02:30:49.776Z",
+ "generatedAt": "2026-08-09T02:37:43.487Z",
  "totals": {
-  "tracked": 682,
+  "tracked": 684,
   "code": 453,
   "orphans": 2,
   "appOnly": 107,
@@ -10,7 +10,7 @@
   "deadExports": 214,
   "looseExports": 70,
   "todos": 8,
-  "lines": 85446
+  "lines": 85493
  },
  "files": [
   {
@@ -444,8 +444,8 @@
   },
   {
    "file": "server/index.js",
-   "lines": 631,
-   "bytes": 32299,
+   "lines": 678,
+   "bytes": 34403,
    "imports": [
     "server/lib/readiness.js",
     "server/routes/ai.js",

@@ -1,13 +1,13 @@
 {
- "at": "2026-08-09T02:15:08.858Z",
+ "at": "2026-08-09T02:54:05.389Z",
  "base": "http://127.0.0.1:4173",
  "viewport": {
   "width": 390,
   "height": 844
  },
  "counts": {
-  "crit": 0,
-  "warn": 7
+  "crit": 28,
+  "warn": 220
  },
  "findings": [
   {
@@ -18,12 +18,7 @@
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
-  },
-  {
-   "level": "warn",
-   "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
   },
   {
    "level": "warn",
@@ -33,18 +28,1229 @@
   {
    "level": "warn",
    "where": "console",
-   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "auth",
+   "what": "التسجيلُ ما رجّعش رمزًا (429)",
+   "detail": "{\"status\":429,\"error\":\"طلبات كثيرة — انتظر قليلاً\"}"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "session",
+   "what": "الجلسةُ ما كتعيشش تحميلًا كاملًا للصفحة",
+   "detail": "أوّلُ سقوطٍ عند /home — كلُّ صفحةٍ بعدها كتردّ للدخول. من كيحدّث الصفحةَ كيتطرد."
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-home",
+   "what": "الصفحةُ ما تفتحش: طُلب /home وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-dashboard",
+   "what": "الصفحةُ ما تفتحش: طُلب /dashboard وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-products",
+   "what": "الصفحةُ ما تفتحش: طُلب /products وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-services",
+   "what": "الصفحةُ ما تفتحش: طُلب /services وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-orders",
+   "what": "الصفحةُ ما تفتحش: طُلب /orders وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-messages",
+   "what": "الصفحةُ ما تفتحش: طُلب /messages وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-customers",
+   "what": "الصفحةُ ما تفتحش: طُلب /customers وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-analytics",
+   "what": "الصفحةُ ما تفتحش: طُلب /analytics وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-insights",
+   "what": "الصفحةُ ما تفتحش: طُلب /insights وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-connections",
+   "what": "الصفحةُ ما تفتحش: طُلب /connections وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-delivery",
+   "what": "الصفحةُ ما تفتحش: طُلب /delivery وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-notifications",
+   "what": "الصفحةُ ما تفتحش: طُلب /notifications وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-settings",
+   "what": "الصفحةُ ما تفتحش: طُلب /settings وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-studio",
+   "what": "الصفحةُ ما تفتحش: طُلب /studio وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-editor",
+   "what": "الصفحةُ ما تفتحش: طُلب /editor وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-import",
+   "what": "الصفحةُ ما تفتحش: طُلب /import وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-coupons",
+   "what": "الصفحةُ ما تفتحش: طُلب /coupons وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-guide",
+   "what": "الصفحةُ ما تفتحش: طُلب /guide وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-moderation",
+   "what": "الصفحةُ ما تفتحش: طُلب /moderation وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-bookings",
+   "what": "الصفحةُ ما تفتحش: طُلب /bookings وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-knowledge-studio",
+   "what": "الصفحةُ ما تفتحش: طُلب /knowledge-studio وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-wallet",
+   "what": "الصفحةُ ما تفتحش: طُلب /wallet وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-profile",
+   "what": "الصفحةُ ما تفتحش: طُلب /profile وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-assistant",
+   "what": "الصفحةُ ما تفتحش: طُلب /assistant وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-publish",
+   "what": "الصفحةُ ما تفتحش: طُلب /publish وانتهى إلى /login"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "warn",
+   "where": "console",
+   "what": "خطأٌ في الطرفيّة: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  },
+  {
+   "level": "crit",
+   "where": "page-field-visit",
+   "what": "الصفحةُ ما تفتحش: طُلب /field-visit وانتهى إلى /login"
   },
   {
    "level": "warn",
    "where": "external",
    "what": "اعتمادٌ على نطاقٍ خارجيّ: fonts.googleapis.com",
-   "detail": "أوّلُ رسمٍ ينتظره — على شبكةٍ بطيئةٍ يُترجَم إلى شاشةٍ بيضاء"
-  },
-  {
-   "level": "warn",
-   "where": "external",
-   "what": "اعتمادٌ على نطاقٍ خارجيّ: api.qrserver.com",
    "detail": "أوّلُ رسمٍ ينتظره — على شبكةٍ بطيئةٍ يُترجَم إلى شاشةٍ بيضاء"
   }
  ]
