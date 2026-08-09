@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-08-09T14:17:19.408Z",
+ "generatedAt": "2026-08-09T14:52:30.701Z",
  "totals": {
-  "tracked": 721,
+  "tracked": 723,
   "code": 457,
   "orphans": 2,
   "appOnly": 107,
@@ -3806,7 +3806,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/components/DeferredAuthBanner.tsx",
@@ -4184,7 +4184,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "src/components/LoyaltyPanel.tsx",
@@ -4625,7 +4625,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/components/Sparkline.tsx",
@@ -4911,7 +4911,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/i18n/index.ts",
@@ -6945,7 +6945,7 @@
    "looseExports": [
     "completeness"
    ],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/boundary.ts",
@@ -7538,7 +7538,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/intentSnapshot.ts",
@@ -7792,7 +7792,7 @@
     "INLINE_NEEDS",
     "PRODUCT_FIELDS"
    ],
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "src/lib/merchantSuccess.ts",
@@ -7821,7 +7821,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/mes.ts",
@@ -8747,7 +8747,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/pages/DeliveryPage.tsx",
@@ -10963,7 +10963,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "test/brain/focusedEdit.test.ts",
@@ -11383,7 +11383,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "test/brain/memory.test.ts",
@@ -11448,7 +11448,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "test/brain/mood.test.ts",
