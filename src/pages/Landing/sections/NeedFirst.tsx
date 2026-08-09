@@ -306,7 +306,21 @@ export default function NeedFirst() {
           width={96} height={96}
           style={{ width: 'clamp(64px,17vw,96px)', height: 'auto', objectFit: 'contain', display: 'block', margin: '0 auto' }}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-        <div style={{ marginTop: 12, fontSize: 'clamp(1.05rem,3.6vw,1.4rem)', fontWeight: 800, color: C.ink2, letterSpacing: '-.01em' }}>
+        {/* ── **السؤالُ هو عنوانُ الصفحة، لا شعارٌ فوقه** ──────────────
+            قِيس في Chromium على أربعة مقاسات: عناوينُ هذه الصفحة كانت
+            **كلُّها تسويقيّة** («كيف يعمل؟» · «متاجر في كل المغرب»)،
+            وسؤالُ الحاجة **لم يكن عنوانًا أصلًا** — بل شعارًا في `div`.
+
+            فالصفحةُ — لقارئِ الشاشة ولمحرّك البحث وللعين — كانت **عن
+            كيفيّة عمل التطبيق**، لا عن حاجة الإنسان. والمحادثةُ هي طبقةُ
+            التشغيل، فيجب أن يقرأ الداخلُ سؤالَها أوّلَ شيء.
+
+            والشعارُ لا يُحذَف — يُخفَّض سطرًا تحت السؤال: صوتُ العلامة
+            يبقى، والصدارةُ تصير للحاجة. */}
+        <h1 style={{ marginTop: 12, fontSize: 'clamp(1.25rem,5vw,1.75rem)', fontWeight: 900, color: C.ink, letterSpacing: '-.02em', lineHeight: 1.25 }}>
+          شنو كتقلّب عليه اليوم؟
+        </h1>
+        <div style={{ marginTop: 6, fontSize: 'clamp(.85rem,2.9vw,1rem)', fontWeight: 700, color: C.ink3, letterSpacing: '-.01em' }}>
           كلّ كلمة عندها طريق
         </div>
       </div>

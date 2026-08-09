@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-08-09T03:00:23.791Z",
+ "generatedAt": "2026-08-09T03:22:33.033Z",
  "totals": {
-  "tracked": 685,
+  "tracked": 686,
   "code": 454,
   "orphans": 2,
   "appOnly": 107,
@@ -10,7 +10,7 @@
   "deadExports": 214,
   "looseExports": 70,
   "todos": 8,
-  "lines": 85570
+  "lines": 85584
  },
  "files": [
   {
@@ -9271,8 +9271,8 @@
   },
   {
    "file": "src/pages/Landing/sections/NeedFirst.tsx",
-   "lines": 481,
-   "bytes": 25666,
+   "lines": 495,
+   "bytes": 26474,
    "imports": [
     "src/lib/akg/kb/index.ts",
     "src/lib/needEngine.ts",
@@ -11928,7 +11928,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "test/brain/understand.test.ts",
