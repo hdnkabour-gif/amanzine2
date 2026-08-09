@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-08-09T13:06:57.327Z",
+ "generatedAt": "2026-08-09T13:21:59.008Z",
  "totals": {
-  "tracked": 718,
+  "tracked": 719,
   "code": 457,
   "orphans": 2,
   "appOnly": 107,
@@ -5516,7 +5516,7 @@
     "Category",
     "getCategory"
    ],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/akg/kb/concepts.ts",
@@ -7374,7 +7374,7 @@
    ],
    "deadExports": [],
    "reach": "app+script+test",
-   "touched": 1786136450,
+   "touched": 1786280817,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -7382,7 +7382,7 @@
    "looseExports": [
     "Decision"
    ],
-   "ageDays": 2
+   "ageDays": 0
   },
   {
    "file": "src/lib/experienceLog.ts",
@@ -9429,7 +9429,7 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1786251488,
+   "touched": 1786280817,
    "todos": 0,
    "anys": 3,
    "logs": 0,
@@ -10338,7 +10338,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786251488,
+   "touched": 1786280817,
    "todos": 0,
    "anys": 1,
    "logs": 0,
@@ -11010,7 +11010,7 @@
    "anys": 1,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "test/brain/goals.test.ts",
@@ -11666,7 +11666,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "test/brain/priceSearch.test.ts",
