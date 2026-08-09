@@ -1,3 +1,4 @@
+import { describeIntent } from '../lib/akg/kb/actions';
 import { useState } from 'react';
 import { Timer, MessageSquare, MousePointerClick, Repeat, LogOut, Rocket, Cpu, CheckCircle2, HelpCircle } from 'lucide-react';
 import { receptionStats, journeyStats, decisionStats, clarifyStats, snapshotDaily, trend } from '../lib/journey';
@@ -25,7 +26,8 @@ function Stat({ icon: Icon, label, value, hint, color = GREEN }: { icon: typeof 
 }
 
 const MODE_AR: Record<string, string> = { direct: 'مباشر', guided: 'موجّه', confirm: 'تأكيد', welcome: 'ترحيب' };
-const INTENT_AR: Record<string, string> = { sell: 'بيع', buy: 'شراء', find_pro: 'مختصّ', urgent: 'عاجل', rent: 'كراء', book: 'حجز', create_service: 'خدمة', create_store: 'متجر' };
+// خريطةُ النيّات نُقلت إلى `akg/kb/actions` — خريطةٌ محبوسةٌ في لوحةٍ
+// واحدةٍ تترك بقيّةَ الشاشات تعرض `find_pro` خامًّا.
 
 export default function BetaMonitorPanel() {
   const [r] = useState(receptionStats);
@@ -109,7 +111,7 @@ export default function BetaMonitorPanel() {
             )}
             {d.topIntents.length > 0 && (
               <div style={{ fontSize: 12, color: INK3, marginBottom: d.topUnknown.length ? 10 : 0 }}>
-                أكثر الطلبات: {d.topIntents.map(t => `${INTENT_AR[t.intent] || t.intent} (${t.count})`).join(' · ')}
+                أكثر الطلبات: {d.topIntents.map(t => `${describeIntent(t.intent)} (${t.count})`).join(' · ')}
               </div>
             )}
             {/* أكثر ما لم نفهم — كنز تطوير المعرفة (لا التخمين) */}

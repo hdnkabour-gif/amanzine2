@@ -671,7 +671,15 @@ function coreParse(raw: string): NeedResult {
     const say = abilityFor({ action: adminAct })?.say;
     return {
       intent: 'manage', label: say || describeAction(adminAct), color: 'var(--ember,#FF6A00)',
-      tags: [`فعل → ${adminAct.verb}/${adminAct.object}`],
+      // ── **والوسمُ يُقال بالعربيّة كما يُقال العنوان** ────────────────
+      //   السطرُ أعلاه يقرأ الاسمَ الإنسانيَّ من الكتالوج، والسطرُ الذي
+      //   كان هنا يركّب `${verb}/${object}` من المُعرِّفات الخامّة. فطبقةُ
+      //   التسمية تُنادى لحقلٍ وتُتجاوَز للحقل الملاصق له.
+      //   والنتيجةُ على شاشة صاحب المشروع: **«فعل → update/phone»** و
+      //   **«فعل → view/orders»** — لاتينيّةٌ في وجه من يكتب بالدارجة،
+      //   وخرقٌ صريحٌ للقانون العاشر. و`describeAction` تعرف الاسمَين منذ
+      //   كُتبت: «نبدّل رقم الهاتف» · «نوريك الطلبات».
+      tags: [`فعل → ${describeAction(adminAct)}`],
       next: 'نمشيو مباشرةً للمكان اللي كيتدار فيه هادشي.',
     };
   }

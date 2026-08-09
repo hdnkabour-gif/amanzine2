@@ -10,6 +10,7 @@ import { parseNeed, type Intent } from '../needEngine';
 import { classifyEntity, resolveBlueprint, type Entity, type BField } from '../blueprints';
 import { moduleForEntity, moduleForIntent, type AppModule } from './modules';
 import { getServices, type AppService } from './services';
+import { describeIntent } from './kb/actions';
 import { relatedTo, followUps, type Relation } from './relations';
 import { pageForIntent, pagesForEntity, getPageCapability, type PageCapability, type PageField, type PageAction } from './registry';
 import { resolveConcept } from './kb/knowledge';
@@ -81,7 +82,7 @@ export function traceDna(raw: string): string[] {
   const d = resolveDna(raw);
   return [
     `الحاجة: ${d.need}`,
-    `النيّة: ${d.intent}`,
+    `النيّة: ${describeIntent(d.intent)}`,
     `الكيان: ${d.entity}`,
     `الوحدة: ${d.module?.label ?? '—'}`,
     `الصفحة: ${d.page?.title ?? '—'}`,

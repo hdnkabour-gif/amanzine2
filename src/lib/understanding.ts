@@ -15,6 +15,7 @@
 
 import { understand } from './akg/kb';
 import { resolveCity } from './akg/kb/knowledge';
+import { describeAction } from './akg/kb/actions';
 import { readHuman, type HumanIntent } from './humanIntent';
 
 // ── العقد الموحّد (نفس شكل مخرجاتنا الحاليّة + reasoning + المصدر) ──
@@ -90,7 +91,9 @@ export function understandRules(text: string, _ctx?: UnderstandingContext): Unde
     u.goal ? 0.7 : 0,
   );
   if (u.action && (u.action.confidence ?? 0) >= ACTION_READ) {
-    reasoning.push(`⚙️ فعلٌ داخل التطبيق: ${u.action.verb}/${u.action.object}`);
+    // القانونُ العاشر: `update/phone` لا تُعرَض. و`describeAction` تقول
+    // «نبدّل رقم الهاتف» — وهذا سطرُ شرحٍ يقرؤه الإنسانُ ليفهم لماذا فُهم.
+    reasoning.push(`⚙️ فعلٌ داخل التطبيق: ${describeAction(u.action)}`);
   }
   return {
     intent,

@@ -478,6 +478,32 @@ function readRef(t: string): 'this' | 'last' | undefined {
 }
 
 /** نصٌّ دارجيٌّ لما سيحدث — تعرضه الواجهةُ قبل التنفيذ ليؤكّد الإنسان. */
+/**
+ * **اسمُ النيّة بالعربيّة — مكانٌ واحدٌ لا خريطةٌ في كلّ لوحة.**
+ *
+ *   القانونُ العاشر: لا مُعرِّفَ داخليٌّ في وجه إنسان. و`describeAction`
+ *   تفعل هذا للأفعال منذ كُتبت — أمّا النيّاتُ فكانت خريطتُها مكتوبةً
+ *   **داخل لوحةٍ واحدة** (`BetaMonitorPanel`)، فبقيت بقيّةُ الشاشات تعرض
+ *   `find_pro` و`create_store` خامّةً. خريطةٌ محبوسةٌ في مكانٍ واحدٍ هي
+ *   نصفُ طبقةٍ: تصلح لمن يعرفها ولا يعرفها أحد.
+ *
+ *   والأسماءُ هي نفسُها التي يعرضها `needEngine` في `label` — لا تسميةٌ
+ *   جديدة، بل جمعُ ما هو مبعثرٌ في موضعٍ يُنادى.
+ */
+const INTENTS: Record<string, string> = {
+  buy: 'شراء', sell: 'بيع', rent: 'كراء', book: 'حجز',
+  find_pro: 'مختصّ', urgent: 'مستعجل', manage: 'تدبير',
+  create_service: 'عرض خدمة', create_store: 'فتح متجر',
+  compare: 'مقارنة', track: 'تتبّع طلب', support: 'مساعدة',
+  unknown: 'ما زال غامضًا',
+};
+export function describeIntent(intent: string | undefined | null): string {
+  if (!intent) return 'ما زال غامضًا';
+  // بلا اسمٍ معروف: لا يُعرَض المُعرِّفُ الخامّ. الصمتُ أصدقُ من لاتينيّةٍ
+  // لا تعني شيئًا لمن يقرأ — والنقصُ يُقاس في «مركز المعرفة» لا في وجهه.
+  return INTENTS[intent] || 'حاجةٌ أخرى';
+}
+
 export function describeAction(a: ActionRead): string {
   const V: Record<ActionVerb, string> = {
     view: 'نوريك', create: 'نزيد', update: 'نبدّل',

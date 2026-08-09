@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { businessAPI, feedAPI, recommendAPI, trackAPI, aiSearchAPI, type Business, type SearchFilters, type SearchResult } from '../services/api';
 const MapView = lazy(() => import('../components/MapView')); // Leaflet يُحمَّل فقط عند فتح الخريطة
+import { getCategory } from '../lib/catalog';
 import { Search, MapPin, Star, BadgeCheck, SlidersHorizontal, X, Store, List, Map as MapIcon, Mic } from 'lucide-react';
 
 // ============================================================
@@ -82,7 +83,7 @@ export default function Explore() {
       // طبّق ما فهمه المحرّك على الفلاتر (فتتحدّث النتائج عبر نفس المسار)
       setFilters(f => ({ ...f, city: r.filters.city || f.city, type: r.filters.type, openNow: r.filters.openNow, availableToday: r.filters.availableToday, verified: r.filters.verified, ratingMin: r.filters.ratingMin }));
       if (r.filters.q) setQ(r.filters.q);
-      const parts = [u.category && `الفئة: ${u.category}`, u.city && `المدينة: ${u.city}`, u.availableToday && 'متاح اليوم', u.wantTrust && 'الأعلى تقييماً'].filter(Boolean);
+      const parts = [u.category && `الفئة: ${getCategory(u.category)?.label || u.category}`, u.city && `المدينة: ${u.city}`, u.availableToday && 'متاح اليوم', u.wantTrust && 'الأعلى تقييماً'].filter(Boolean);
       setAiNote(parts.length ? `✨ فهمت — ${parts.join(' · ')}` : '');
       setSuggestions(r.suggestions || []); // Next Best Action (يبقى يساعد حتى بلا نتيجة)
     } catch { setAiNote(''); setSuggestions([]); }

@@ -95,3 +95,5 @@ import './doors.test';
 import './liveCorpus.test';
 // عقدُ البحث: أربعةُ أبوابٍ لسؤالٍ واحد، وثلاثةٌ تُسقط الفهمَ صامتةً.
 import './searchContract.test';
+// القانونُ العاشر: «فعل → update/phone» فوجه من يكتب بالدارجة.
+import './humanLabels.test';
