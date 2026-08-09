@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-08-09T13:49:24.403Z",
+ "generatedAt": "2026-08-09T14:17:19.408Z",
  "totals": {
-  "tracked": 720,
+  "tracked": 721,
   "code": 457,
   "orphans": 2,
   "appOnly": 107,
@@ -3394,7 +3394,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "server/test/tracking-sync.test.js",
@@ -4820,7 +4820,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/components/VerifyCode.tsx",
@@ -7722,7 +7722,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/knownContext.ts",
@@ -8505,7 +8505,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/pages/BannerStudioPage.tsx",
@@ -8906,7 +8906,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/pages/Landing/api.ts",
@@ -11249,7 +11249,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "test/brain/knowledgeReach.test.ts",
@@ -11336,7 +11336,7 @@
    "anys": 1,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "test/brain/liveCorpus.test.ts",
@@ -12136,7 +12136,7 @@
    "anys": 0,
    "logs": 13,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "test/browser/walk.mjs",
