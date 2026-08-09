@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-09T02:37:43.487Z",
+ "generatedAt": "2026-08-09T03:00:23.791Z",
  "totals": {
-  "tracked": 684,
-  "code": 453,
+  "tracked": 685,
+  "code": 454,
   "orphans": 2,
   "appOnly": 107,
-  "testOnly": 142,
+  "testOnly": 143,
   "untested": 135,
   "deadExports": 214,
   "looseExports": 70,
   "todos": 8,
-  "lines": 85493
+  "lines": 85570
  },
  "files": [
   {
@@ -502,7 +502,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "server",
-   "touched": 1786232058,
+   "touched": 1786244095,
    "todos": 0,
    "anys": 0,
    "logs": 19,
@@ -1238,7 +1238,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "server/lib/secrets.js",
@@ -2683,7 +2683,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "server/test/csp-allowlist.test.js",
@@ -2927,6 +2927,22 @@
    "logs": 0,
    "emptyCatch": 0,
    "ageDays": 7
+  },
+  {
+   "file": "server/test/health-truth.test.js",
+   "lines": 77,
+   "bytes": 3655,
+   "imports": [],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1786244095,
+   "todos": 0,
+   "anys": 0,
+   "logs": 0,
+   "emptyCatch": 1,
+   "ageDays": 0
   },
   {
    "file": "server/test/learning-loop.test.js",
@@ -7087,7 +7103,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "src/lib/core/context.ts",
@@ -9688,7 +9704,7 @@
    "logs": 0,
    "emptyCatch": 1,
    "looseExports": [],
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "src/pages/ProfilePage.tsx",
@@ -10605,7 +10621,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "test/brain/confidence.test.ts",
