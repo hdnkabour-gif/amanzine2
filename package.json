@@ -30,7 +30,8 @@
     "walk": "node test/browser/walk.mjs",
     "journey": "node test/browser/journey.mjs",
     "pipeline": "node test/browser/pipeline.mjs",
-    "screens": "node test/browser/screens.mjs"
+    "screens": "node test/browser/screens.mjs",
+    "film": "node test/browser/film.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.0",

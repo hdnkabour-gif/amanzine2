@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-08-09T03:50:27.488Z",
+ "generatedAt": "2026-08-09T04:04:18.749Z",
  "totals": {
-  "tracked": 697,
+  "tracked": 704,
   "code": 455,
   "orphans": 2,
   "appOnly": 107,
@@ -7073,7 +7073,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "src/lib/condition.ts",
@@ -7580,7 +7580,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "src/lib/interfaceDecision.ts",
@@ -11166,7 +11166,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "test/brain/interfaceDecision.test.ts",
@@ -11755,7 +11755,7 @@
    "anys": 8,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "test/brain/screens.test.ts",
@@ -12046,7 +12046,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786246517,
+   "touched": 1786247528,
    "todos": 0,
    "anys": 0,
    "logs": 8,
