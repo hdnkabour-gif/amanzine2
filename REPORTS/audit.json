@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-08T23:47:04.264Z",
+ "generatedAt": "2026-08-09T00:52:54.914Z",
  "totals": {
-  "tracked": 666,
-  "code": 450,
+  "tracked": 667,
+  "code": 451,
   "orphans": 2,
   "appOnly": 107,
-  "testOnly": 139,
+  "testOnly": 140,
   "untested": 135,
   "deadExports": 214,
   "looseExports": 70,
   "todos": 8,
-  "lines": 84882
+  "lines": 85173
  },
  "files": [
   {
@@ -104,7 +104,7 @@
    "anys": 0,
    "logs": 2,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "scripts/emit-cities.mjs",
@@ -360,6 +360,7 @@
     "server/routes/verify.js",
     "server/routes/wallet.js",
     "server/routes/webhooks.js",
+    "server/test/captcha-wall.test.js",
     "server/test/concept-core.test.js",
     "server/test/db-exports.test.js",
     "server/test/demand-channel.test.js",
@@ -397,6 +398,7 @@
    "importers": [
     "server/database.js",
     "server/migrate.js",
+    "server/test/captcha-wall.test.js",
     "server/test/concept-core.test.js",
     "server/test/demand-channel.test.js",
     "server/test/field-visit.test.js",
@@ -661,7 +663,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/lib/engines/activity.js",
@@ -1303,7 +1305,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/lib/userMemory.js",
@@ -1361,7 +1363,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/lib/verify/channels/whatsapp.channel.js",
@@ -1380,7 +1382,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "why": "سجلُّ قنوات التحقّق (readdirSync)",
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/lib/verify/contract.js",
@@ -1401,7 +1403,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/lib/verify/index.js",
@@ -1670,6 +1672,7 @@
    ],
    "importers": [
     "server/index.js",
+    "server/test/captcha-wall.test.js",
     "server/test/full-walk.test.js"
    ],
    "exports": [],
@@ -1680,7 +1683,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 1,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/routes/bookings.js",
@@ -2088,13 +2091,14 @@
    ],
    "importers": [
     "server/index.js",
+    "server/test/captcha-wall.test.js",
     "server/test/full-walk.test.js",
     "server/test/order-events.test.js"
    ],
    "exports": [],
    "deadExports": [],
    "reach": "server+test",
-   "touched": 1786211879,
+   "touched": 1786233138,
    "todos": 0,
    "anys": 0,
    "logs": 2,
@@ -2134,6 +2138,7 @@
    ],
    "importers": [
     "server/index.js",
+    "server/test/captcha-wall.test.js",
     "server/test/full-walk.test.js"
    ],
    "exports": [],
@@ -2171,7 +2176,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 1,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/routes/push.js",
@@ -2306,7 +2311,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/routes/wallet.js",
@@ -2349,7 +2354,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/services/delivery/adapters/browser.adapter.js",
@@ -2457,7 +2462,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "why": "سجلُّ المزوّدين (readdirSync)",
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/services/delivery/providers/jibli.provider.js",
@@ -2515,7 +2520,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "why": "سجلُّ المزوّدين (readdirSync)",
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/services/delivery/providers/promo_livraison.provider.js",
@@ -2562,7 +2567,7 @@
    "anys": 1,
    "logs": 1,
    "emptyCatch": 0,
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "server/sync.js",
@@ -2598,7 +2603,29 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
+  },
+  {
+   "file": "server/test/captcha-wall.test.js",
+   "lines": 180,
+   "bytes": 8561,
+   "imports": [
+    "server/database.js",
+    "server/db.js",
+    "server/routes/auth.js",
+    "server/routes/products.js",
+    "server/routes/orders.js"
+   ],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1786233138,
+   "todos": 0,
+   "anys": 0,
+   "logs": 0,
+   "emptyCatch": 0,
+   "ageDays": 0
   },
   {
    "file": "server/test/city-engine.test.js",
@@ -3370,7 +3397,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/test/user-memory.test.js",
@@ -3466,8 +3493,8 @@
   },
   {
    "file": "src/App.tsx",
-   "lines": 347,
-   "bytes": 16921,
+   "lines": 359,
+   "bytes": 17428,
    "imports": [
     "src/store.tsx",
     "src/pages/AuthPage.tsx",
@@ -3812,7 +3839,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "src/components/DiscoverSections.tsx",
@@ -4835,7 +4862,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/data/categoryFields.ts",
@@ -4908,8 +4935,8 @@
   },
   {
    "file": "src/i18n/public.ts",
-   "lines": 426,
-   "bytes": 50233,
+   "lines": 433,
+   "bytes": 50717,
    "imports": [
     "src/i18n/translations.ts"
    ],
@@ -4933,8 +4960,8 @@
   },
   {
    "file": "src/i18n/translations.ts",
-   "lines": 964,
-   "bytes": 66537,
+   "lines": 968,
+   "bytes": 66838,
    "imports": [],
    "importers": [
     "src/i18n/index.ts",
@@ -7704,7 +7731,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/lib/liveSentence.ts",
@@ -8321,7 +8348,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/main.tsx",
@@ -8774,7 +8801,7 @@
    "logs": 0,
    "emptyCatch": 2,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/pages/GuidePage.tsx",
@@ -9729,7 +9756,7 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1786211879,
+   "touched": 1786233138,
    "todos": 0,
    "anys": 12,
    "logs": 0,
@@ -10275,8 +10302,8 @@
   },
   {
    "file": "test/architecture.test.mjs",
-   "lines": 1693,
-   "bytes": 87180,
+   "lines": 1713,
+   "bytes": 88337,
    "imports": [
     "scripts/emit-cities.mjs"
    ],
@@ -10350,7 +10377,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "test/brain/aiAvailability.test.ts",
@@ -11196,7 +11223,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "test/brain/landingMirror.test.ts",
@@ -11372,7 +11399,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "test/brain/navProgression.test.ts",
@@ -11416,7 +11443,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/brain/orderCosting.test.ts",
@@ -11914,7 +11941,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "test/brain/vocabGaps.test.ts",
@@ -11995,8 +12022,8 @@
   },
   {
    "file": "test/browser/walk.mjs",
-   "lines": 245,
-   "bytes": 11523,
+   "lines": 313,
+   "bytes": 15075,
    "imports": [],
    "importers": [],
    "exports": [],

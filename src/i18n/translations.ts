@@ -3,7 +3,11 @@ type T = Record<string, string>;
 
 // ── Single source of truth for the available UI languages ──────
 export const LANGS: { code: Lang; flag: string; label: string; rtl: boolean }[] = [
-  { code: 'ar',     flag: '🇸🇦', label: 'العربية',  rtl: true  },
+  // ── **العربيّةُ الفصحى ليست عَلَمَ دولة** ────────────────────────
+  //   كان هنا 🇸🇦 — عَلَمُ السعوديّة على «العربية» في تطبيقٍ مغربيّ، بينما
+  //   🇲🇦 معطًى للدارجة. فيرى المغربيُّ عَلَمَ بلدٍ آخرَ فوق لغته المكتوبة.
+  //   والفصحى لغةٌ لا وطنَ لها بعينه، فتُعلَّم بحرفها لا برايةٍ لا تخصّها.
+  { code: 'ar',     flag: 'ع',   label: 'العربية',  rtl: true  },
   { code: 'darija', flag: '🇲🇦', label: 'الدارجة',  rtl: true  },
   { code: 'fr',     flag: '🇫🇷', label: 'Français', rtl: false },
   { code: 'en',     flag: '🇬🇧', label: 'English',  rtl: false },

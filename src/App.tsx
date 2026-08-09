@@ -310,11 +310,23 @@ function AppShell() {
         <Route path="/login"   element={isAuthed ? <Navigate to="/home" replace /> : <AuthPage />} />
         <Route path="/register"element={isAuthed ? <Navigate to="/home" replace /> : <AuthPage />} />
 
-        {/* ── PROTECTED: Merchant dashboard ── */}
-        {['/home','/dashboard','/products','/services','/orders','/messages','/customers',
-          '/analytics','/insights','/connections','/delivery','/notifications',
-          '/settings','/studio','/editor','/import','/coupons','/guide','/moderation','/knowledge-studio',
-          '/bookings','/wallet','/profile','/assistant','/publish'].map(path => (
+        {/* ── PROTECTED: Merchant dashboard ──────────────────────
+            **المساراتُ تُشتقّ من `PAGE_URLS`، ولا تُكتَب ثانيةً.**
+
+            كانت هنا قائمةٌ مكتوبةٌ بأصابعَ، و`PAGE_URLS` قائمةٌ أخرى. فأضفتُ
+            سابقًا `'field-visit': '/field-visit'` إلى الأولى — **ونسيتُ
+            الثانية**. فصار للصفحة رابطٌ بلا مسار: يُنادى `setPage` فينتقل
+            الراوتر إلى `/field-visit`، فلا يطابق شيئًا، فيقع على `*`
+            ⇒ `Navigate to="/home"`.
+
+            وهذا بالضبط ما وصفه صاحبُ المشروع ثلاثَ مرّات: **«تظهر وتختفي
+            وتعيدني للرئيسيّة»**. الوميضُ هو الصفحةُ تُرسَم لحظةً قبل أن
+            يهبط التحويل.
+
+            «قائمتان لشيءٍ واحد» — نفسُ العطب الذي أصلحتُه في خرائط الطرق
+            وفي عقد البحث، وقد **أعدتُ أنا نفسي إنتاجَه هنا**. فالاشتقاقُ
+            وحدَه يمنعه: من يضيف صفحةً إلى `PAGE_URLS` يأخذ مسارَها معها. */}
+        {Object.values(PAGE_URLS).map(path => (
           <Route key={path} path={path}
             element={isAuthed ? <MainLayout /> : <Navigate to="/login" replace />} />
         ))}

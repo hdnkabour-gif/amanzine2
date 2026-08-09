@@ -25,7 +25,8 @@
 // ============================================================
 
 import { chromium } from 'playwright';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { build } from 'esbuild';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
@@ -142,6 +143,22 @@ async function scan(page, where) {
   });
   const page = await ctx.newPage();
 
+  // ── **الخطوطُ الخارجيّةُ تُقطَع عمدًا** ──────────────────────────
+  //   بيئةُ القياس تحجب `fonts.googleapis.com`، وورقةُ الأنماط **تحجب
+  //   الرسم**. فصفحةُ الإعدادات احتاجت ١٨٫٦ ثانيةً لتبلغ
+  //   `domcontentloaded` — والعطبُ ليس فيها، بل في انتظارِ نطاقٍ لن يجيب.
+  //   فلو قِست هكذا لَاتّهمتُ صفحةً بريئة (وهذا خطئي المتكرّر: أقيس بيئتي
+  //   وأسمّيها عطبَ التطبيق).
+  //
+  //   تُقطَع سريعًا ليُقاس التطبيقُ وحدَه — **والاعتمادُ نفسُه يُبلَّغ مرّةً**
+  //   أدناه، لأنّه خطرٌ حقيقيٌّ على شبكةٍ بطيئةٍ في المغرب لا حالةَ مختبر.
+  const externals = new Set();
+  await page.route('**/*', route => {
+    const u = route.request().url();
+    if (/^https?:\/\/(?!127\.0\.0\.1|localhost)/.test(u)) { externals.add(new URL(u).host); return route.abort(); }
+    return route.continue();
+  });
+
   page.on('console', m => {
     if (m.type() === 'error') note('warn', 'console', `خطأٌ في الطرفيّة: ${m.text().slice(0, 140)}`);
   });
@@ -156,12 +173,33 @@ async function scan(page, where) {
     await d.dismiss().catch(() => {});
   });
 
-  const go = async (path, where) => {
+  let sessionLost = false, LAST_TOKEN = '', restoreSession = async () => {};
+
+  const go = async (path, where, retried = false) => {
     try {
-      await page.goto(BASE + path, { waitUntil: 'networkidle', timeout: 20000 });
+      await page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
       await page.waitForTimeout(700);
       const url = new URL(page.url()).pathname;
       if (path !== '/' && url !== path) {
+        // ── **عطبٌ واحدٌ يُقال مرّةً، لا ستَّ مرّات** ──────────────
+        //   حين تموت الجلسةُ تسقط كلُّ صفحةٍ بعدها إلى `/login`، فيبدو
+        //   التقريرُ ستّةَ أعطاب. وهو **عطبٌ واحد**: الجلسةُ لا تعيش
+        //   تحميلًا كاملًا. وتقريرٌ يضخّم يُقرأ مرّةً ثمّ يُهمَل.
+        if (url === '/login') {
+          const alive = await page.evaluate(async () => {
+            try { return (await fetch('/api/auth/me', { credentials: 'include' })).status; } catch { return 0; }
+          });
+          if (alive !== 200) {
+            if (!sessionLost) {
+              sessionLost = true;
+              note('crit', 'session', 'الجلسةُ ما كتعيشش تحميلًا كاملًا للصفحة',
+                `أوّلُ سقوطٍ عند ${path} — كلُّ صفحةٍ بعدها كتردّ للدخول. من كيحدّث الصفحةَ كيتطرد.`);
+            }
+            // **مرّةً واحدةً لا دورةً**: إن لم تُستعَد الجلسةُ يُسجَّل ويُمضى.
+            if (!retried) { await restoreSession(); return go(path, where, true); }
+          }
+        }
         note('crit', where, `الصفحةُ ما تفتحش: طُلب ${path} وانتهى إلى ${url}`);
       }
       await scan(page, where);
@@ -212,6 +250,16 @@ async function scan(page, where) {
       await page.goto(BASE + '/dashboard', { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(1200);
       signedIn = !/\/login/.test(page.url());
+      // ── **وتُتخطّى شاشةُ الإعداد** ────────────────────────────
+      //   الحسابُ الجديد يهبط على معالج الإعداد، **فيُرسَم فوق كلّ صفحة**.
+      //   فمشى الشوطُ على المعالج وظنّ الصفحاتِ سليمةً — وهي التي أبلغ عنها
+      //   صاحبُ المشروع ثلاثَ مرّات. أداةٌ تقيس شاشةً واحدةً وتسمّيها الكلّ.
+      LAST_TOKEN = token;
+      restoreSession = async () => {
+        await page.evaluate(t => localStorage.setItem('ai_commerce_token', t), LAST_TOKEN);
+      };
+      const skip = page.getByText('تخطي والدخول مباشرة', { exact: false }).first();
+      if (await skip.count()) { await skip.click().catch(() => {}); await page.waitForTimeout(1500); }
       if (signedIn) console.log('   ↳ دخل بحسابٍ جديد: عبدو\n');
       else note('crit', 'auth', 'الرمزُ كُتب والصفحةُ المحميّةُ ردّت للدخول',
         `انتهى إلى ${page.url()}`);
@@ -221,11 +269,31 @@ async function scan(page, where) {
   }
   if (!signedIn) console.log('   ↳ **بلا حساب** — الصفحاتُ المحميّةُ غادي تعيد للدخول، وهذا صواب\n');
 
-  // **الصفحاتُ الثمانُ التي كانت تسقط إلى الرئيسيّة** — تُفحَص كلُّها لا
-  //   واحدةٌ منها. صاحبُ المشروع ضغط زرًّا واحدًا فظهرت واحدة.
-  for (const p of ['/field-visit', '/moderation', '/bookings', '/services',
-    '/insights', '/import', '/coupons', '/guide']) {
+  // ── **كلُّ صفحةٍ لها رابط، لا ثمانٍ اخترتُها بيدي** ──────────────
+  //
+  //   كانت هنا قائمةٌ من ثمانية مساراتٍ مكتوبةٍ بأصابع — **قائمةٌ ثانيةٌ
+  //   بجانب `PAGE_URLS`**، وهي نفسُ العطب الذي تمشي هذه الأداةُ لتكشفه.
+  //   وحين أضفتُ `/field-visit` إلى `PAGE_URLS` ونسيتُ مساره في الراوتر،
+  //   لم تكن الأداةُ لتراه لو لم يصادف وجودُه في الثمانية.
+  //
+  //   الآن تُقرأ الأسماءُ من المصدر نفسِه: من يضيف صفحةً تُمشى تلقائيًّا.
+  const CONTRACT = join(ROOT, '.walk-pages.mjs');
+  await build({
+    stdin: { contents: `export { PAGE_URLS } from './src/types';`, resolveDir: ROOT, loader: 'ts' },
+    bundle: true, format: 'esm', platform: 'node', outfile: CONTRACT, logLevel: 'silent',
+  });
+  const { PAGE_URLS } = await import(CONTRACT + `?t=${Date.now()}`);
+  rmSync(CONTRACT, { force: true });
+
+  for (const p of Object.values(PAGE_URLS)) {
     await go(p, 'page' + p.replace(/\//g, '-'));
+  }
+
+  // **والاعتمادُ الخارجيُّ يُقال**: ما يُحمَّل من نطاقٍ آخرَ يُبطئ أوّلَ رسمٍ
+  //   لمن شبكتُه ضعيفة — وهو أغلبُ من نريدهم أن يشتروا.
+  for (const host of externals) {
+    note('warn', 'external', `اعتمادٌ على نطاقٍ خارجيّ: ${host}`,
+      'أوّلُ رسمٍ ينتظره — على شبكةٍ بطيئةٍ يُترجَم إلى شاشةٍ بيضاء');
   }
 
   writeFileSync(join(OUT, 'findings.json'), JSON.stringify({

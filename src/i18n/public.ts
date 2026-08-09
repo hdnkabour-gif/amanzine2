@@ -418,7 +418,14 @@ export function initialPublicLang(): Lang {
   try {
     const saved = localStorage.getItem('amanzine_lang') as Lang | null;
     if (saved && all.includes(saved)) return saved;
-    const nav = (navigator.language || 'ar').slice(0, 2) as Lang;
+    const full = (navigator.language || 'ar').toLowerCase();
+    // ── **هاتفٌ مضبوطٌ على `ar-MA` صاحبُه يتكلّم الدارجة** ──────────
+    //   كان يُقتطَع أوّلُ حرفَين فقط، فيصير `ar-MA` ⇒ الفصحى — ويُستقبَل
+    //   المغربيُّ بلغةٍ ليست التي يتكلّمها في تطبيقٍ كُتب بلغته.
+    //   وبقيّةُ العربيّة (`ar-EG` · `ar-SA` …) تبقى على الفصحى، ومن اختار
+    //   لغةً بنفسه لا يُنقَض اختيارُه (السطرُ أعلاه يسبق هذا).
+    if (full.startsWith('ar-ma') || full === 'ary' || full.startsWith('ary-')) return 'darija';
+    const nav = full.slice(0, 2) as Lang;
     if (all.includes(nav)) return nav;
   } catch {}
   return 'ar';
