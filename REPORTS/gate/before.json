@@ -1,0 +1,51 @@
+{
+ "at": "2026-08-09T03:30:02.406Z",
+ "tag": "before",
+ "rows": [
+  {
+   "size": "390",
+   "tag": "before",
+   "videoBytes": 2758879,
+   "scriptBytes": 1288423,
+   "otherBytes": 1246320,
+   "videos": [
+    "amanzine-portal.mp4",
+    "amanzine-gate.mp4"
+   ],
+   "h1Ms": 17702,
+   "inputMs": 17702,
+   "skipMs": 12889,
+   "firstCoverer": "splash-logo"
+  },
+  {
+   "size": "412",
+   "tag": "before",
+   "videoBytes": 2758879,
+   "scriptBytes": 1288423,
+   "otherBytes": 1246093,
+   "videos": [
+    "amanzine-portal.mp4",
+    "amanzine-gate.mp4"
+   ],
+   "h1Ms": 17526,
+   "inputMs": 17526,
+   "skipMs": 12740,
+   "firstCoverer": "splash-logo"
+  },
+  {
+   "size": "desktop",
+   "tag": "before",
+   "videoBytes": 2772158,
+   "scriptBytes": 1288423,
+   "otherBytes": 1246093,
+   "videos": [
+    "amanzine-portal.mp4",
+    "amanzine-gate.mp4"
+   ],
+   "h1Ms": 17733,
+   "inputMs": 17733,
+   "skipMs": 12921,
+   "firstCoverer": "splash-logo"
+  }
+ ]
+}

@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-08-09T03:22:33.033Z",
+ "generatedAt": "2026-08-09T03:34:13.272Z",
  "totals": {
-  "tracked": 686,
+  "tracked": 688,
   "code": 454,
   "orphans": 2,
   "appOnly": 107,
@@ -148,7 +148,7 @@
    "looseExports": [
     "IMPORTED_CONCEPTS"
    ],
-   "ageDays": 8
+   "ageDays": 9
   },
   {
    "file": "scripts/knowledge-audit.mjs",
@@ -172,7 +172,7 @@
    "looseExports": [
     "audit"
    ],
-   "ageDays": 8
+   "ageDays": 9
   },
   {
    "file": "scripts/lexicon.mjs",
@@ -2963,7 +2963,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 8
+   "ageDays": 9
   },
   {
    "file": "server/test/livo-contract.test.js",
@@ -6001,7 +6001,7 @@
     "ConceptNode",
     "graphCoverage"
    ],
-   "ageDays": 8
+   "ageDays": 9
   },
   {
    "file": "src/lib/akg/kb/memory.ts",
@@ -9296,13 +9296,13 @@
     "Fact"
    ],
    "reach": "app+test",
-   "touched": 1786189067,
+   "touched": 1786245822,
    "todos": 0,
    "anys": 7,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 1
+   "ageDays": 0
   },
   {
    "file": "src/pages/Landing/sections/PromoBanner.tsx",
