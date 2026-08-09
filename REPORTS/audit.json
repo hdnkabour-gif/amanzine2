@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-09T02:10:47.858Z",
+ "generatedAt": "2026-08-09T02:30:49.776Z",
  "totals": {
-  "tracked": 668,
-  "code": 452,
+  "tracked": 682,
+  "code": 453,
   "orphans": 2,
   "appOnly": 107,
-  "testOnly": 141,
+  "testOnly": 142,
   "untested": 135,
   "deadExports": 214,
   "looseExports": 70,
   "todos": 8,
-  "lines": 85314
+  "lines": 85446
  },
  "files": [
   {
@@ -88,7 +88,7 @@
    "anys": 0,
    "logs": 6,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "scripts/disconnected.mjs",
@@ -2287,7 +2287,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "server/routes/verify.js",
@@ -8484,7 +8484,7 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1786217182,
+   "touched": 1786241757,
    "todos": 0,
    "anys": 4,
    "logs": 0,
@@ -10309,7 +10309,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "test/architecture.test.mjs",
@@ -10540,7 +10540,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "test/brain/clarifyLoop.test.ts",
@@ -12054,6 +12054,22 @@
    "ageDays": 0
   },
   {
+   "file": "test/browser/screens.mjs",
+   "lines": 132,
+   "bytes": 6079,
+   "imports": [],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1786241757,
+   "todos": 0,
+   "anys": 0,
+   "logs": 13,
+   "emptyCatch": 0,
+   "ageDays": 0
+  },
+  {
    "file": "test/browser/walk.mjs",
    "lines": 334,
    "bytes": 16310,
@@ -12062,7 +12078,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786237209,
+   "touched": 1786241757,
    "todos": 0,
    "anys": 0,
    "logs": 7,
