@@ -99,6 +99,16 @@ async function scan(page, where) {
   //   تدرّجٍ لا تمنع اللمس. وتقريرٌ يصرخ على الصواب يُقرأ مرّةً ثمّ يُهمَل —
   //   وهذا الدرسُ دُفع ثمنُه في ماسح الملفّات قبل ساعات.
   //   فالشرطُ: العنصرُ الغطّاءُ **يلتقط اللمس فعلًا** وله لونٌ يحجب.
+  //
+  //   ── **ونقطةٌ واحدةٌ لا تكفي** (وُسِّع بعد قياس) ────────────────
+  //     الشرطُ الذي قاله صاحبُ المشروع: «هل الاعتراضُ كاملٌ أم جزئيّ؟»
+  //     وزرٌّ مغطًّى في وسطه ومكشوفٌ في طرفه **يُنقَر** — فإعلانُه عطبًا
+  //     قاتلًا ضجيج. فتُجرَّب خمسُ نقاطٍ: الوسطُ وأربعةُ أركانٍ مُزاحة.
+  //     خمسٌ من خمسٍ = لا سبيلَ إليه · ما دونها = يُقال ولا يُصرَخ به.
+  //
+  //   ويُسجَّل **من يغطّي** بـ`z-index` و`position`، لأنّ العطبَ صنفٌ لا
+  //   حالة: خمسُ طبقاتٍ عائمةٍ عالميّةٍ في هذا التطبيق، وإصلاحُ واحدةٍ
+  //   بلا معرفةِ الأربع يعني العودةَ إليها.
   const covered = await page.evaluate(() => {
     const out = [];
     const opaque = (el) => {
@@ -111,21 +121,57 @@ async function scan(page, where) {
       const parts = m[1].split(',').map(x => parseFloat(x));
       return parts.length < 4 || parts[3] > 0.35;      // ليست شفّافة
     };
+    /** أعلى طبقةٍ عند نقطةٍ، إن كانت تحجب فعلًا وليست العنصرَ نفسَه. */
+    const blockerAt = (b, x, y) => {
+      const top = document.elementFromPoint(x, y);
+      if (!top || top === b || b.contains(top) || top.contains(b)) return null;
+      return opaque(top) ? top : null;
+    };
+    /** زرٌّ داخلَ درجٍ مغلقٍ ليس مغطًّى — هو **غيرُ معروضٍ أصلًا**.
+     *  قائمةُ `NavBar` تبقى في الشجرة و`pointerEvents:'none'` وهي مغلقة،
+     *  فكانت تُعَدّ ثلاثةَ أزرارٍ «مغطّاة» في كلّ صفحة. وتقريرٌ ثلثُه ضجيجٌ
+     *  يُقرأ مرّةً ثمّ يُهمَل — وهو ما حذّر منه كاتبُ هذا الفحص نفسُه. */
+    const reachable = (el) => {
+      for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+        const cs = getComputedStyle(n);
+        if (cs.pointerEvents === 'none' || cs.visibility === 'hidden' || cs.display === 'none') return false;
+        if (+cs.opacity < 0.2) return false;
+        if (n.getAttribute && (n.getAttribute('aria-hidden') === 'true' || n.hasAttribute('inert'))) return false;
+      }
+      return true;
+    };
     for (const b of document.querySelectorAll('button, a[href], [role="button"]')) {
       const r = b.getBoundingClientRect();
       if (r.width < 40 || r.height < 20 || r.top < 0 || r.bottom > innerHeight) continue;
-      if (getComputedStyle(b).visibility === 'hidden') continue;
-      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-      const top = document.elementFromPoint(cx, cy);
-      if (!top || top === b || b.contains(top) || top.contains(b)) continue;
-      if (!opaque(top)) continue;
+      if (!reachable(b)) continue;
+      const ix = Math.max(3, Math.min(8, r.width / 4)), iy = Math.max(3, Math.min(8, r.height / 4));
+      const pts = [
+        [r.left + r.width / 2, r.top + r.height / 2],
+        [r.left + ix, r.top + iy], [r.right - ix, r.top + iy],
+        [r.left + ix, r.bottom - iy], [r.right - ix, r.bottom - iy],
+      ].map(([x, y]) => [Math.min(Math.max(x, 1), innerWidth - 1), Math.min(Math.max(y, 1), innerHeight - 1)]);
+      const blockers = pts.map(([x, y]) => blockerAt(b, x, y));
+      const hit = blockers.filter(Boolean);
+      if (!hit.length) continue;
+      // **والوسطُ ليس نقطةً كباقي النقاط**: هو ما يقع عليه الإبهام. فزرٌّ
+      //   مكشوفُ الأركانِ مغطّى الوسطِ **مكسورٌ عمليًّا** ولو قال العدُّ ١/٥.
+      const top = blockers[0] || hit[0];
+      const cs = getComputedStyle(top);
       const label = (b.textContent || '').trim().slice(0, 40);
-      const over = ((top.textContent || '').trim() || top.tagName.toLowerCase()).slice(0, 40);
-      if (label) out.push({ label, over });
+      if (!label) continue;
+      out.push({
+        label, blocked: hit.length, of: pts.length, center: !!blockers[0],
+        over: ((top.textContent || '').trim() || top.tagName.toLowerCase()).slice(0, 40),
+        z: cs.zIndex, pos: cs.position,
+      });
     }
-    return out.slice(0, 6);
+    return out.slice(0, 12);
   });
-  for (const c of covered) note('crit', where, `زرٌّ مغطًّى: «${c.label}»`, `يغطّيه: «${c.over}»`);
+  for (const c of covered) {
+    const how = `${c.blocked}/${c.of} نقاط · z=${c.z} · ${c.pos}`;
+    if (c.center) note('crit', where, `وسطُ الزرّ مغطًّى: «${c.label}»`, `يغطّيه: «${c.over}» — ${how} · اللمسةُ توصل للغطاء`);
+    else note('warn', where, `طرفُ الزرّ مغطًّى: «${c.label}»`, `يغطّيه: «${c.over}» — ${how} · الوسطُ مكشوف`);
+  }
 
   // ④ اتّجاهُ الصفحة
   const dir = await page.evaluate(() => document.documentElement.dir || getComputedStyle(document.body).direction);
@@ -180,10 +226,36 @@ async function scan(page, where) {
 
   let sessionLost = false, LAST_TOKEN = '', restoreSession = async () => {};
 
+  // ── **ولا يُقاس شيءٌ وبوّابةُ الافتتاح فوقه** ────────────────────
+  //
+  //   كاشفُ الأزرار المغطّاة موجودٌ منذ زمنٍ وسليمُ المنطق — **وكان صامتًا
+  //   على ستٍّ وعشرين صفحة**. والسببُ قِيس: `walk` تفتح كلَّ صفحةٍ بتحميلٍ
+  //   كامل، فتُعاد البوّابةُ في كلّ مرّة، و`elementFromPoint` تُرجع `<video>`
+  //   البوّابة. والفيديو بلا لونِ خلفيّةٍ فيسقط من شرط «يحجب فعلًا»، فيُعلَن
+  //   كلُّ زرٍّ سليمًا. **حارسٌ يقيس شاشةً لا يراها الإنسانُ بعدُ.**
+  //
+  //   وهذا سادسُ مرّةٍ يخدعني فيها حارسي — فيُنتظَر ذهابُ البوّابة قبل أيّ
+  //   قياس، ويُقال صراحةً إن لم تذهب بدل أن يُقاس تحتها.
+  const gateGone = async () => {
+    for (let i = 0; i < 60; i++) {
+      const up = await page.evaluate(() => {
+        const s = document.getElementById('splash');
+        if (!s) return false;
+        const cs = getComputedStyle(s);
+        return cs.display !== 'none' && cs.visibility !== 'hidden' && +cs.opacity > 0.05;
+      }).catch(() => false);
+      if (!up) return true;
+      await page.waitForTimeout(300);
+    }
+    note('warn', 'gate', 'بوّابةُ الافتتاح ما مشاتش ف18ث — القياسُ تحتها ما كيصلحش');
+    return false;
+  };
+
   const go = async (path, where, retried = false) => {
     try {
       await page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 20000 });
       await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+      await gateGone();
       await page.waitForTimeout(700);
       const url = new URL(page.url()).pathname;
       if (path !== '/' && url !== path) {
@@ -306,8 +378,44 @@ async function scan(page, where) {
   const { PAGE_URLS } = await import(CONTRACT + `?t=${Date.now()}`);
   rmSync(CONTRACT, { force: true });
 
-  for (const p of Object.values(PAGE_URLS)) {
-    await go(p, 'page' + p.replace(/\//g, '-'));
+  // `WALK_STATES=1` يتخطّى جولةَ الصفحات ويقيس حالاتِ الاستعمال وحدَها.
+  //   شوطٌ كاملٌ يأخذ اثنتَي عشرة دقيقة، وحقنُ العطب يحتاج شوطَين — فحارسٌ
+  //   غاليُ الإثبات لا يُثبَت، ثمّ يُصدَّق بلا دليل.
+  if (!process.env.WALK_STATES) {
+    for (const p of Object.values(PAGE_URLS)) {
+      await go(p, 'page' + p.replace(/\//g, '-'));
+    }
+  }
+
+  // ── **والشاشةُ تُقاس وهي تُستعمَل، لا وهي ساكنة** ─────────────────
+  //
+  //   الفحصُ أعلاه موجودٌ منذ زمنٍ وسليم — **ولم يمسك زرَّي التأكيد**.
+  //   والسببُ ليس ضعفَه: **بطاقةُ «صح؟» لا توجد قبل أن يكتب الإنسانُ جملة**.
+  //   فالماشي يفتح ستًّا وعشرين صفحةً ساكنةً ويعلن السلامة، والعطبُ يسكن
+  //   حالةً لا تُبلَغ إلّا بالاستعمال.
+  //
+  //   وقيس فوُجد: «❌ لا، نبدّل» أسفلَه ثلاثُ طبقاتٍ عائمة، فمن يرفض
+  //   يفتح المساعد. حارسٌ لا يبلغ الحالةَ التي وُجد لأجلها حارسٌ فارغ —
+  //   وهو خطئي المتكرّر، مقلوبًا: أداةٌ صحيحةٌ في مكانٍ لا يقع فيه العطب.
+  const STATES = [
+    { id: 'confirm', say: 'حيد المنتوج ديال الطوموبيل', await: 'لا، نبدّل' },
+    { id: 'clarify', say: 'بغيت نبيع', await: 'سلعة' },
+  ];
+  for (const st of STATES) {
+    try {
+      await page.goto(BASE + '/home', { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await gateGone();
+      await page.waitForTimeout(900);
+      const box = page.locator('input[type="text"], input:not([type]), textarea').first();
+      await box.waitFor({ state: 'visible', timeout: 12000 });
+      await box.fill(st.say);
+      await box.press('Enter');
+      await page.getByText(st.await, { exact: false }).first().waitFor({ state: 'visible', timeout: 12000 });
+      await page.waitForTimeout(1200);
+      await scan(page, 'use-' + st.id);
+    } catch (e) {
+      note('warn', 'use-' + st.id, 'ما وصلناش لهاد الحالة', String(e).split('\n')[0].slice(0, 110));
+    }
   }
 
   // **والاعتمادُ الخارجيُّ يُقال**: ما يُحمَّل من نطاقٍ آخرَ يُبطئ أوّلَ رسمٍ

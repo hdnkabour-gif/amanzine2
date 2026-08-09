@@ -86,9 +86,22 @@ export default function NextStepHint() {
   const close = () => { markSeen(hint.id); setHint(null); };   // ③ لا يعود
 
   return (
+    // ── **التلميحُ يحجز مكانَه، ولا يطفو فوق فعلٍ** ─────────────────
+    //
+    //   كان `position:fixed · bottom:76 · zIndex:40`، فيحتلّ الشريطَ
+    //   ٦٨٤→٧٦٨ من الشاشة **فوق ما ترسمه الصفحة هناك**. وحجزُ `main`
+    //   ثمانون بكسلًا يحمي ٧٦٤→٨٤٤ وحدَها — أي أنّ ثمانين بكسلًا من
+    //   منطقةِ المحتوى كانت مغطّاةً على كلّ صفحةٍ لكلّ من دخل.
+    //
+    //   وقيس أثرُه: «❌ لا، نبدّل» عند ٧٠٨→٧٤٨، و`elementFromPoint` في
+    //   وسطه تُرجع زرَّ «افتح المساعد». **فمن يرفض التأكيدَ يفتح المساعد.**
+    //   وزيادةُ `paddingBottom` لا تُصلحه — قيست: المحتوى مرساةٌ من الأعلى،
+    //   فالحشوُ يُضاف بعده ولا يرفعه.
+    //
+    //   فيعود إلى مجرى الصفحة: لا يغطّي شيئًا أبدًا، ولا يحتاج أحدٌ أن
+    //   يتذكّر حجزَ مكانه في كلّ صفحةٍ تُضاف. ونصيحةٌ تحجب زرًّا ليست نصيحة.
     <div role="status" style={{
-      position: 'fixed', insetInlineStart: 16, insetInlineEnd: 16, bottom: 76, zIndex: 40,
-      maxWidth: 460, marginInline: 'auto',
+      maxWidth: 460, marginInline: 'auto', marginBlock: '0 16px',
       display: 'flex', alignItems: 'center', gap: 10,
       padding: '11px 14px', borderRadius: 14,
       background: 'color-mix(in srgb, #0a8f6f 14%, var(--void,#0B0D12))',

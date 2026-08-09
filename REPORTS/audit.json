@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-08-09T05:20:12.148Z",
+ "generatedAt": "2026-08-09T06:39:45.371Z",
  "totals": {
-  "tracked": 716,
+  "tracked": 717,
   "code": 457,
   "orphans": 2,
   "appOnly": 107,
@@ -10,7 +10,7 @@
   "deadExports": 213,
   "looseExports": 70,
   "todos": 8,
-  "lines": 85956
+  "lines": 86084
  },
  "files": [
   {
@@ -72,7 +72,7 @@
     "measure",
     "render"
    ],
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "scripts/audit.mjs",
@@ -264,7 +264,7 @@
     "measure",
     "render"
    ],
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "scripts/run-askKind.mjs",
@@ -280,7 +280,7 @@
    "anys": 0,
    "logs": 3,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "scripts/run-brain-tests.mjs",
@@ -1128,7 +1128,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/lib/otp.js",
@@ -1561,7 +1561,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/migrate.js",
@@ -2125,7 +2125,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/routes/products.js",
@@ -2772,7 +2772,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 7
+   "ageDays": 8
   },
   {
    "file": "server/test/delivery-registry.test.js",
@@ -3155,7 +3155,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/test/payment-door.test.js",
@@ -3174,7 +3174,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/test/payment.test.js",
@@ -3505,12 +3505,12 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "src/App.tsx",
    "lines": 359,
-   "bytes": 17428,
+   "bytes": 17472,
    "imports": [
     "src/store.tsx",
     "src/pages/AuthPage.tsx",
@@ -3525,7 +3525,6 @@
     "src/pages/Onboarding.tsx",
     "src/components/NotificationToast.tsx",
     "src/components/TourGuide.tsx",
-    "src/components/NextStepHint.tsx",
     "src/components/ErrorBoundary.tsx",
     "src/i18n/index.ts",
     "src/types.ts"
@@ -3776,7 +3775,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/components/CreateFlow.tsx",
@@ -4387,15 +4386,15 @@
   },
   {
    "file": "src/components/NextStepHint.tsx",
-   "lines": 115,
-   "bytes": 4496,
+   "lines": 128,
+   "bytes": 5208,
    "imports": [
     "src/store.tsx",
     "src/lib/experienceLog.ts",
     "src/types.ts"
    ],
    "importers": [
-    "src/App.tsx"
+    "src/pages/MainLayout.tsx"
    ],
    "exports": [
     "NextStepHint",
@@ -4797,7 +4796,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/components/UnknownReview.tsx",
@@ -5225,7 +5224,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/akg/describe.ts",
@@ -5423,7 +5422,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "src/lib/akg/kb/arabizi.ts",
@@ -5561,7 +5560,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/akg/kb/contexts.ts",
@@ -5594,7 +5593,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/lib/akg/kb/facts.ts",
@@ -5620,7 +5619,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/lib/akg/kb/geo.ts",
@@ -5697,7 +5696,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/lib/akg/kb/index.ts",
@@ -5916,7 +5915,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "src/lib/akg/kb/knowledgeExtra.generated.ts",
@@ -6060,7 +6059,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "src/lib/akg/kb/mood.ts",
@@ -6089,7 +6088,7 @@
    "looseExports": [
     "Mood"
    ],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/lib/akg/kb/places.data.ts",
@@ -6157,7 +6156,7 @@
     "normAr",
     "normLat"
    ],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/lib/akg/kb/problems.ts",
@@ -6742,7 +6741,7 @@
     "UIAssumption",
     "UIStep"
    ],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/akg/userGraph.ts",
@@ -7023,7 +7022,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/clarify.ts",
@@ -7485,7 +7484,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/lib/imageFile.ts",
@@ -8775,7 +8774,7 @@
    "logs": 0,
    "emptyCatch": 1,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "src/pages/Explore.tsx",
@@ -9440,8 +9439,8 @@
   },
   {
    "file": "src/pages/MainLayout.tsx",
-   "lines": 184,
-   "bytes": 8682,
+   "lines": 191,
+   "bytes": 9134,
    "imports": [
     "src/store.tsx",
     "src/pages/NavBar.tsx",
@@ -9451,6 +9450,7 @@
     "src/components/FeedbackButton.tsx",
     "src/components/DeferredAuthBanner.tsx",
     "src/components/ErrorBoundary.tsx",
+    "src/components/NextStepHint.tsx",
     "src/pages/LivingHome.tsx",
     "src/pages/FieldVisit.tsx",
     "src/pages/DashboardPage.tsx",
@@ -9674,7 +9674,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "src/pages/ProductsPage.tsx",
@@ -9860,7 +9860,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "src/services/api.ts",
@@ -10309,7 +10309,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/architecture-freshness.test.mjs",
@@ -10359,7 +10359,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "test/brain/actionConfidence.test.ts",
@@ -10383,7 +10383,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/brain/actions.test.ts",
@@ -10777,7 +10777,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "test/brain/domains.test.ts",
@@ -10937,7 +10937,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "test/brain/firstFiveMinutes.test.ts",
@@ -11580,7 +11580,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
   },
   {
    "file": "test/brain/ownerSentences.test.ts",
@@ -11905,7 +11905,7 @@
    "anys": 2,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/brain/systemMap.test.ts",
@@ -12140,8 +12140,8 @@
   },
   {
    "file": "test/browser/walk.mjs",
-   "lines": 334,
-   "bytes": 16310,
+   "lines": 442,
+   "bytes": 21660,
    "imports": [],
    "importers": [],
    "exports": [],
@@ -12282,7 +12282,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "test/pageActions.test.mjs",
@@ -12316,7 +12316,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/theme.test.mjs",

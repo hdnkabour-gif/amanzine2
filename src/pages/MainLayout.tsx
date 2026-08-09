@@ -9,6 +9,7 @@ import MasterBackground from '../components/MasterBackground';
 import FeedbackButton from '../components/FeedbackButton';
 import DeferredAuthBanner from '../components/DeferredAuthBanner';
 import ErrorBoundary from '../components/ErrorBoundary';
+import NextStepHint from '../components/NextStepHint';
 
 // ── Skeleton fallback ─────────────────────────────
 function PageSkeleton() {
@@ -169,6 +170,12 @@ export default function MainLayout() {
         {/* Main content */}
         <main className="main-with-sidebar" style={{ flex:1, paddingTop:56, paddingBottom:80, overflowX:'hidden', minHeight:'100dvh' }}>
           <div style={{ maxWidth:1100, margin:'0 auto', padding:'20px 16px' }}>
+            {/* ── **التلميحُ في المجرى، وفي الأعلى** ────────────────────
+                كان عائمًا `fixed · bottom:76` فغطّى «❌ لا، نبدّل».
+                وأوّلُ نقلةٍ وضعته آخرَ المحتوى — فقِيس فوقع في الشريط
+                السفليّ نفسِه الذي تحتلّه `TourGuide` و`NavBar`، فغُطِّي هو.
+                **أسفلُ الشاشة مزدحمٌ بثلاث طبقاتٍ عائمة؛ أعلاها فارغ.** */}
+            <NextStepHint />
             <ErrorBoundary>
               <Suspense fallback={<PageSkeleton />}>
                 <PageContent />

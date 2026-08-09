@@ -13,7 +13,6 @@ import BusinessProfile       from './pages/BusinessProfile';
 import Onboarding            from './pages/Onboarding';
 import NotificationToast     from './components/NotificationToast';
 import TourGuide             from './components/TourGuide';
-import NextStepHint          from './components/NextStepHint';
 import ErrorBoundary         from './components/ErrorBoundary';
 import { isRtlLang } from './i18n';
 
@@ -284,7 +283,8 @@ function AppShell() {
       {isAuthed && <RouterSync />}
       <NotificationToast />
       {isAuthed && <TourGuide />}
-      {isAuthed && <NextStepHint />}
+      {/* `NextStepHint` انتقل إلى داخل `main` — يحجز مكانَه في المجرى بدل
+          أن يطفو فوق أفعال الصفحة. السبب مقيسٌ في الملفّ نفسِه. */}
       {/* ambient background handled in CSS body */}
 
       {/* حاجزُ تعطُّلٍ يغطّي كلّ المسارات — العامّة منها (سوق/متجر/اكتشف) لم تكن محميّة */}
