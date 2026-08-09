@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-09T03:34:13.272Z",
+ "generatedAt": "2026-08-09T03:50:27.488Z",
  "totals": {
-  "tracked": 688,
-  "code": 454,
+  "tracked": 697,
+  "code": 455,
   "orphans": 2,
   "appOnly": 107,
-  "testOnly": 143,
+  "testOnly": 144,
   "untested": 135,
   "deadExports": 214,
   "looseExports": 70,
   "todos": 8,
-  "lines": 85584
+  "lines": 85703
  },
  "files": [
   {
@@ -12036,6 +12036,22 @@
    "logs": 0,
    "emptyCatch": 0,
    "ageDays": 3
+  },
+  {
+   "file": "test/browser/gate.mjs",
+   "lines": 119,
+   "bytes": 5480,
+   "imports": [],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1786246517,
+   "todos": 0,
+   "anys": 0,
+   "logs": 8,
+   "emptyCatch": 0,
+   "ageDays": 0
   },
   {
    "file": "test/browser/journey.mjs",

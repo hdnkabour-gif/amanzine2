@@ -72,8 +72,11 @@ const kb = (n) => Math.round(n / 1024) + 'KB';
           const top = document.elementFromPoint(x, y);
           return !!top && (top === el || el.contains(top) || top.contains(el));
         };
-        const h1 = document.querySelector('h1');
-        const input = document.querySelector('input[type="text"], input:not([type]), textarea');
+        // **السؤالُ أيًّا كان من يرسمه** — البوّابةُ الساكنةُ أو React.
+        //   ما يهمّ متى يقرؤه الإنسان، لا أيُّ طبقةٍ كتبته.
+        const h1 = document.getElementById('splash-need-q') || document.querySelector('h1');
+        const input = document.getElementById('splash-need-box')
+          || document.querySelector('input[type="text"], input:not([type]), textarea');
         // ما الذي يغطّي مركزَ الشاشة الآن؟
         const mid = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
         return {
