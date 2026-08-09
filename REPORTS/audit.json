@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-08-09T04:53:20.267Z",
+ "generatedAt": "2026-08-09T05:20:12.148Z",
  "totals": {
-  "tracked": 715,
+  "tracked": 716,
   "code": 457,
   "orphans": 2,
   "appOnly": 107,
@@ -9430,7 +9430,7 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1786232058,
+   "touched": 1786251488,
    "todos": 0,
    "anys": 3,
    "logs": 0,
@@ -10338,7 +10338,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786237209,
+   "touched": 1786251488,
    "todos": 0,
    "anys": 1,
    "logs": 0,
@@ -10683,12 +10683,12 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 0,
+   "touched": 1786251488,
    "todos": 0,
    "anys": 3,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 20674
+   "ageDays": 0
   },
   {
    "file": "test/brain/correction.test.ts",
@@ -11161,7 +11161,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786239266,
+   "touched": 1786251488,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -11880,7 +11880,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/brain/symptomBoundary.test.ts",
