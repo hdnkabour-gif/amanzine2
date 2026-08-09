@@ -378,7 +378,25 @@ export default function LivingHome() {
     if (!RemoteProvider.available()) return;
     RemoteProvider.understand(q, {
       city: uctx.place.city || undefined,
-      recentMessages: [q],
+      // ── **السياقُ الذي كان يُمحى قبل أن يُقرأ** ────────────────────
+      //   الأنبوبُ مبنيٌّ من طرفَيه منذ زمن:
+      //     understanding.ts:132  recentMessages.slice(-6)
+      //     server/routes/ai.js:846  history: _recentHistory(...)
+      //   وفوقه تعليقٌ مكتوبٌ سلفًا: «كان الحقل مُعرَّفًا ولا يملؤه أحد».
+      //   وكان يُمرَّر `[q]` — الجملةُ الحاليّةُ نفسُها — فيُقرأ كلُّ سؤالٍ
+      //   معزولًا عمّا قبله. ومحادثةٌ بلا سياقٍ ليست محادثة.
+      //
+      //   **وأدوارُ المستخدم وحدَها تُمرَّر.** `_recentHistory` يُسمّي كلَّ
+      //   عنصرٍ `role: 'user'`، فتمريرُ ردّ النظام يجعل الذكاءَ يحسبه كلامَ
+      //   الإنسان — سياقٌ ملوَّثٌ أسوأُ من غيابه.
+      //
+      //   والترتيبُ الأقدمُ فالأحدث لأنّ الطبقتَين تقصّان **الذيل**
+      //   (`slice(-6)`) — فالأحدثُ يجب أن يكون آخرًا. ولا يُنقَل القصُّ
+      //   إلى هنا: هو قائمٌ في موضعَيه، ونسخةٌ ثالثةٌ منه تتباعد يومًا.
+      //
+      //   و`turns` هنا هي **حالةُ ما قبل هذا الدور** (يُضاف الدورُ الحاليُّ
+      //   بعد هذا النداء)، فيُلحَق `q` آخرًا ولا يتكرّر.
+      recentMessages: [...turns.filter(t => t.who === 'user').map(t => t.text), q],
     }).then(ai => {
       if (seq !== askSeq.current) return;          // ③ سؤالٌ ماضٍ ⇒ يُرمى
       const { u: filled, filled: what } = refine(base, ai);
@@ -443,7 +461,13 @@ export default function LivingHome() {
     setKnownWhy(explainFilled(filled));
     setEscalated(false);
     setText(q); setResult(r); setStepIdx(0); setPending(null); setConfirmed(false); setShowTrace(false);
-    setTurns([{ who: 'user', text: q }, ...(r.open ? [{ who: 'sys' as const, text: r.open }] : [])]);
+    // ── **إضافةٌ لا إسناد** ──────────────────────────────────────
+    //   كان `setTurns([...])` يُسند، فيمحو كلُّ سؤالٍ جديدٍ المحادثةَ
+    //   كلَّها. فالسجلُّ موجودٌ ومعروضٌ للإنسان على الشاشة (السطر ٨٠٥) —
+    //   **ويُمحى قبل أن يُقرأ**. والتحديثُ دالّيٌّ لا بالقيمة: نداءان
+    //   متقاربان يخسران دورًا مع الإسناد المباشر.
+    setTurns(t => [...t, { who: 'user' as const, text: q },
+      ...(r.open ? [{ who: 'sys' as const, text: r.open }] : [])]);
   };
   /**
    * **ملءُ الفراغ ⇒ حفظ** — بنفس الحَكَم، ومرّةً واحدة.

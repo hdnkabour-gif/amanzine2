@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-09T04:04:18.749Z",
+ "generatedAt": "2026-08-09T04:53:20.267Z",
  "totals": {
-  "tracked": 704,
-  "code": 455,
+  "tracked": 715,
+  "code": 457,
   "orphans": 2,
   "appOnly": 107,
-  "testOnly": 144,
+  "testOnly": 146,
   "untested": 135,
-  "deadExports": 214,
+  "deadExports": 213,
   "looseExports": 70,
   "todos": 8,
-  "lines": 85703
+  "lines": 85956
  },
  "files": [
   {
@@ -572,7 +572,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "server/lib/cityEngine.js",
@@ -3057,7 +3057,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "server/test/notification.test.js",
@@ -3226,7 +3226,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "server/test/promo_livraison-contract.test.js",
@@ -3340,7 +3340,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "server/test/secrets.test.js",
@@ -6416,7 +6416,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/akg/planner.ts",
@@ -6443,7 +6443,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/akg/policies.ts",
@@ -6808,7 +6808,7 @@
    "looseExports": [
     "toFieldView"
    ],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/akg/widgets.ts",
@@ -6835,7 +6835,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/lib/akg/workflow.ts",
@@ -7234,7 +7234,7 @@
    "looseExports": [
     "Misread"
    ],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/lib/domain.ts",
@@ -8279,6 +8279,7 @@
     "src/lib/refine.ts",
     "src/pages/AssistantPage.tsx",
     "src/pages/LivingHome.tsx",
+    "test/brain/conversationMemory.test.ts",
     "test/brain/escalation.test.ts",
     "test/brain/understanding.test.ts"
    ],
@@ -8300,7 +8301,6 @@
    ],
    "deadExports": [
     "UnderLang",
-    "UnderstandingContext",
     "UnderstandingProvider",
     "GPTProvider",
     "ClaudeProvider"
@@ -9386,8 +9386,8 @@
   },
   {
    "file": "src/pages/LivingHome.tsx",
-   "lines": 1026,
-   "bytes": 66137,
+   "lines": 1050,
+   "bytes": 67598,
    "imports": [
     "src/store.tsx",
     "src/lib/needEngine.ts",
@@ -9649,7 +9649,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "src/pages/OrdersPage.tsx",
@@ -10329,8 +10329,8 @@
   },
   {
    "file": "test/architecture.test.mjs",
-   "lines": 1713,
-   "bytes": 88337,
+   "lines": 1751,
+   "bytes": 90509,
    "imports": [
     "scripts/emit-cities.mjs"
    ],
@@ -10668,7 +10668,27 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 1
+   "ageDays": 2
+  },
+  {
+   "file": "test/brain/conversationMemory.test.ts",
+   "lines": 66,
+   "bytes": 2962,
+   "imports": [
+    "src/lib/understanding.ts"
+   ],
+   "importers": [
+    "test/brain/index.ts"
+   ],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 0,
+   "todos": 0,
+   "anys": 3,
+   "logs": 0,
+   "emptyCatch": 0,
+   "ageDays": 20674
   },
   {
    "file": "test/brain/correction.test.ts",
@@ -10691,7 +10711,7 @@
    "anys": 3,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "test/brain/dataLoss.test.ts",
@@ -10714,7 +10734,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "test/brain/describe.test.ts",
@@ -11060,8 +11080,8 @@
   },
   {
    "file": "test/brain/index.ts",
-   "lines": 100,
-   "bytes": 3989,
+   "lines": 101,
+   "bytes": 4025,
    "imports": [
     "test/brain/setup.ts",
     "test/brain/understand.test.ts",
@@ -11122,6 +11142,7 @@
     "test/brain/tenSentences.test.ts",
     "test/brain/condition.test.ts",
     "test/brain/conversation.test.ts",
+    "test/brain/conversationMemory.test.ts",
     "test/brain/direction.test.ts",
     "test/brain/ownerJourney.test.ts",
     "test/brain/screens.test.ts",
@@ -11251,7 +11272,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "test/brain/knownContext.test.ts",
@@ -11820,7 +11841,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "test/brain/setup.ts",
@@ -12036,6 +12057,22 @@
    "logs": 0,
    "emptyCatch": 0,
    "ageDays": 3
+  },
+  {
+   "file": "test/browser/film.mjs",
+   "lines": 124,
+   "bytes": 5550,
+   "imports": [],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1786248324,
+   "todos": 0,
+   "anys": 0,
+   "logs": 6,
+   "emptyCatch": 1,
+   "ageDays": 0
   },
   {
    "file": "test/browser/gate.mjs",

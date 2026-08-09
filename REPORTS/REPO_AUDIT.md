@@ -10,11 +10,11 @@
 
 | القياس | العدد |
 |---|--:|
-| ملفّاتٌ متتبَّعة | 704 |
-| ملفّاتُ كود | 455 |
-| أسطرُ كود | 85,703 |
+| ملفّاتٌ متتبَّعة | 715 |
+| ملفّاتُ كود | 457 |
+| أسطرُ كود | 85,956 |
 | **يتيمة** (لا يبلغها مدخل) | **2** |
-| صادراتٌ ميتةٌ بيقين | 214 |
+| صادراتٌ ميتةٌ بيقين | 213 |
 | صادراتٌ يُنظَر فيها | 70 |
 | ملفّاتٌ بلا اختبار | 135 |
 
@@ -23,12 +23,12 @@
 | المنطقة | ملفّ | سطر | يبلغه اختبار |
 |---|--:|--:|--:|
 | عقلُ التطبيق | 91 | 15,214 | 89٪ |
-| الصفحات | 51 | 20,027 | 10٪ |
+| الصفحات | 51 | 20,051 | 10٪ |
 | المكوّنات | 51 | 7,931 | 8٪ |
 | مسارات الخادم | 33 | 5,889 | 30٪ |
 | مكتباتُ الخادم | 43 | 3,965 | 91٪ |
 | خدماتُ الخادم | 10 | 1,731 | 50٪ |
-| الاختبارات | 91 | 13,124 | 100٪ |
+| الاختبارات | 93 | 13,353 | 100٪ |
 | النصوص | 12 | 1,783 | 8٪ |
 
 **الاختلالُ المركزيّ:** العقلُ مغطًّى بـ٨٩٪ والسطحُ بـ٩٪. وكلُّ عطبٍ رآه صاحبُ المشروع
@@ -55,11 +55,11 @@
 | `src/utils/sounds.ts` | 7 | playNewOrder, playApproved, playShipped, playDelivered, playMessage … |
 | `src/utils/importSchema.ts` | 6 | ProductSchema, CustomerSchema, OrderSchema, ImportFileSchema, ImportFile … |
 | `test/corpus.mjs` | 6 | CARWASH, CLOTHING, MUST_NOT_ACT, KNOWN_SPLITS, JUDGED_ONLY … |
-| `src/lib/understanding.ts` | 5 | UnderLang, UnderstandingContext, UnderstandingProvider, GPTProvider, ClaudeProvider |
 | `src/lib/akg/kb/capabilities.ts` | 4 | CapCategory, registerCapability, getCapability, capabilitiesOfProfession |
 | `src/lib/akg/kb/geo.ts` | 4 | citiesOf, regionOfCity, districtsOf, postalOf |
 | `src/lib/akg/kb/tools.ts` | 4 | registerTool, getTool, allTools, toolsForProfession |
 | `src/lib/akg/userGraph.ts` | 4 | getUserProfile, pushUserAttr, userInferencesFrom, userGraphSize |
+| `src/lib/akg/workflow.ts` | 4 | WorkflowStage, PHASE_ORDER, registerWorkflow, allWorkflows |
 
 ## أكبرُ الملفّات بلا اختبار
 
@@ -69,7 +69,7 @@
 | `src/pages/SettingsPage.tsx` | 1,458 |
 | `src/pages/DeliveryPage.tsx` | 1,393 |
 | `src/pages/Storefront.tsx` | 1,067 |
-| `src/pages/LivingHome.tsx` | 1,026 |
+| `src/pages/LivingHome.tsx` | 1,050 |
 | `server/migrate.js` | 944 |
 | `src/pages/MessagesPage.tsx` | 840 |
 | `src/pages/OrdersPage.tsx` | 825 |

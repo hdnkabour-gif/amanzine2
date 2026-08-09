@@ -71,6 +71,7 @@ import './tenSentences.test';
 import './condition.test';
 // المحادثةُ كيانٌ يُدار: زرّان يُضغطان كلَّ يومٍ ولا كلمةَ تبلغهما.
 import './conversation.test';
+import './conversationMemory.test';
 // الطالبُ يُساق إلى النشر: «شق» داخل «شقة» · الضميرُ · والاتّجاهُ لا يبلغ القدرة.
 import './direction.test';
 // رحلةُ مستخدمٍ عبر أيّام — جملٌ كتبها صاحبُ المشروع لا نموذجٌ لغويّ.
