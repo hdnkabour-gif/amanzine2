@@ -65,10 +65,31 @@
     <!-- PWA -->
     <meta name="application-name" content="AMANZINE" />
 
-    <!-- Fonts -->
+    <!-- ════════════════════════════════════════════════════════
+         **الخطُّ زينةٌ لا شرطٌ للرسم.**
+
+         كانت ورقةُ أنماط Google تُحمَّل بـ`rel="stylesheet"` عاديّة —
+         و**هي تحجب الرسم**. فقِيس في متصفّحٍ حقيقيّ حين لم يُجب النطاق:
+         **١٨٫٦ ثانيةً** حتّى `domcontentloaded`. أي شاشةٌ بيضاءُ لثمانيَ
+         عشرةَ ثانية، والتطبيقُ كلُّه جاهزٌ خلفها.
+
+         وهذا ليس حالةَ مختبر: شبكاتُ الهاتف في المغرب تتقطّع، وGoogle
+         محجوبٌ أو بطيءٌ في حالاتٍ كثيرة. فيصير أوّلُ انطباعٍ عن التطبيق
+         **لا شيء** — لسببٍ لا علاقةَ له بالتطبيق.
+
+         الحلُّ لا حذفُ الخطّ: يُحمَّل **بلا حجب** (`media="print"` ثمّ
+         يُبدَّل عند الاكتمال)، ويُرسَم فورًا بخطوطِ النظام العربيّة
+         المتوفّرة في كلّ هاتف. فمن كانت شبكتُه سريعةً يرى Tajawal بعد
+         أجزاءٍ من الثانية، ومن انقطعت شبكتُه **يرى التطبيق** لا بياضًا.
+         ════════════════════════════════════════════════════════ -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap"
+      rel="stylesheet" media="print" onload="this.media='all';this.onload=null" />
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    </noscript>
 
     <style>
       /* ═══════════════════════════════════════════════════
@@ -83,7 +104,13 @@
       
       body { 
         background: #0A0A0F; 
-        font-family: 'Tajawal', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+        /* **الاحتياطُ عربيٌّ حقيقيّ، لا `sans-serif` مجرَّدة.**
+           حين لا يصل Tajawal، تُرسَم العربيّةُ بخطٍّ موجودٍ في الهاتف نفسِه:
+           Noto/Geeza على iOS · Noto Naskh على أندرويد · Segoe/Tahoma على
+           ويندوز. و`sans-serif` وحدَها تترك العربيّةَ لخطٍّ لاتينيٍّ افتراضيٍّ
+           يعرضها قبيحةً أو مكسورةَ التشكيل. */
+        font-family: 'Tajawal', 'IBM Plex Sans Arabic', 'Noto Sans Arabic',
+          'Noto Naskh Arabic', 'Geeza Pro', 'Segoe UI', Tahoma, system-ui, sans-serif;
         direction: rtl;
         min-height: 100dvh;
         overflow-x: hidden;
@@ -250,6 +277,13 @@
         animation: ringSpin 4s linear infinite;
         pointer-events: none;
       }
+
+      /* **دورانُ المُحمِّل — في الورقة لا داخل زرّ.**
+         كانت قاعدةُ الدوران مكتوبةً في وسم style **داخل زرّ الدخول** في
+         AuthPage، فقُرئ نصُّها ضمن نصِّ الزرّ وظهرت للإنسان حرفيًّا ملتصقةً
+         بكلمة «دخول». قِيس في متصفّحٍ حقيقيّ على أربعة مقاسات.
+         القواعدُ تسكن الورقةَ العامّة، ولا تُحشَر في عنصرٍ يقرأ الناسُ نصَّه. */
+      @keyframes spin { to { transform: rotate(360deg); } }
 
       @keyframes ringSpin {
         to { transform: rotate(360deg); }

@@ -491,7 +491,6 @@ export default function AuthPage() {
               ) : (
                 <>🚀 إنشاء الحساب</>
               )}
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </button>
 
             {/* Divider */}
@@ -570,7 +569,7 @@ export default function AuthPage() {
             }}
             onMouseEnter={e => (e.currentTarget.style.color = DS.emeraldLight)}
             onMouseLeave={e => (e.currentTarget.style.color = DS.text3)}>
-            <ArrowLeft size={13} /> الصففحة الرئيسية
+            <ArrowLeft size={13} /> الصفحة الرئيسية
           </a>
         </div>
       </div>

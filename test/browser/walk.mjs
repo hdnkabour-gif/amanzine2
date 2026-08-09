@@ -160,7 +160,12 @@ async function scan(page, where) {
   });
 
   page.on('console', m => {
-    if (m.type() === 'error') note('warn', 'console', `خطأٌ في الطرفيّة: ${m.text().slice(0, 140)}`);
+    if (m.type() !== 'error') return;
+    // **لا تُبلَّغ ضجّةٌ من صنعي.** أنا من يقطع الموارد الخارجيّة أعلاه،
+    //   فأخطاؤها ليست عطبَ التطبيق. ٦٤ من ٦٩ تحذيرًا كانت هذه — وتقريرٌ
+    //   يصرخ بما صنعتُه بيدي يُقرأ مرّةً ثمّ يُهمَل.
+    if (/ERR_FAILED|ERR_CONNECTION_RESET|ERR_BLOCKED/.test(m.text())) return;
+    note('warn', 'console', `خطأٌ في الطرفيّة: ${m.text().slice(0, 140)}`);
   });
   page.on('pageerror', e => note('crit', 'console', `استثناءٌ غيرُ مُلتقَط: ${String(e).slice(0, 140)}`));
   page.on('response', r => {
@@ -258,6 +263,22 @@ async function scan(page, where) {
       restoreSession = async () => {
         await page.evaluate(t => localStorage.setItem('ai_commerce_token', t), LAST_TOKEN);
       };
+      // ── **والجلسةُ تُختبَر صراحةً، لا تُفترَض ولا تُتَّهم** ──────────
+      //   أعلنتُ في شوطٍ سابق «الجلسةُ لا تعيش تحميلًا كاملًا» — **ولم يكن
+      //   ذلك صحيحًا**. مِسباري انتظر ٤٠٠ms بينما تُستعاد الجلسةُ من كوكي
+      //   HttpOnly عبر `/auth/me` ثمّ `/auth/refresh`. فاتّهمتُ التطبيقَ
+      //   بعطبٍ من صنع أداتي — وهو خطئي المتكرّر بالضبط، مقلوبًا.
+      //   فتُقاس الدعوى الآن مرّةً في كلّ شوط: تحديثٌ كاملٌ ثمّ أين انتهينا.
+      await page.goto(BASE + '/dashboard', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1200);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2000);
+      const after = new URL(page.url()).pathname;
+      if (after !== '/dashboard') {
+        note('crit', 'session', 'الجلسةُ ما عاشتش تحديثَ الصفحة',
+          `بعد التحديث انتهى إلى ${after} — من كيحدّث الصفحةَ كيتطرد`);
+      } else console.log('   ↳ الجلسةُ عاشت التحديث ✔');
+
       const skip = page.getByText('تخطي والدخول مباشرة', { exact: false }).first();
       if (await skip.count()) { await skip.click().catch(() => {}); await page.waitForTimeout(1500); }
       if (signedIn) console.log('   ↳ دخل بحسابٍ جديد: عبدو\n');

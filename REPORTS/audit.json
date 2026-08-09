@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-09T00:52:54.914Z",
+ "generatedAt": "2026-08-09T02:10:47.858Z",
  "totals": {
-  "tracked": 667,
-  "code": 451,
+  "tracked": 668,
+  "code": 452,
   "orphans": 2,
   "appOnly": 107,
-  "testOnly": 140,
+  "testOnly": 141,
   "untested": 135,
   "deadExports": 214,
   "looseExports": 70,
   "todos": 8,
-  "lines": 85173
+  "lines": 85314
  },
  "files": [
   {
@@ -44,7 +44,7 @@
    "logs": 0,
    "emptyCatch": 1,
    "why": "يسجّله المتصفّح عبر navigator.serviceWorker.register('/sw.js')",
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "scripts/askKind.ts",
@@ -1066,7 +1066,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/lib/orderCosting.js",
@@ -1149,7 +1149,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "server/lib/pricingEngine.js",
@@ -1345,7 +1345,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/lib/verify/channels/sms.channel.js",
@@ -1430,7 +1430,7 @@
    "anys": 0,
    "logs": 1,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/lib/whatsapp.js",
@@ -1450,7 +1450,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "server/middleware/ai-quota.js",
@@ -1835,7 +1835,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 2,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "server/routes/delivery.js",
@@ -2831,7 +2831,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "server/test/engines.test.js",
@@ -2926,7 +2926,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "server/test/learning-loop.test.js",
@@ -3061,7 +3061,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "server/test/order-costing.test.js",
@@ -3473,7 +3473,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "server/test/webhook-door.test.js",
@@ -3523,7 +3523,7 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1786217182,
+   "touched": 1786237209,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -3607,9 +3607,10 @@
   },
   {
    "file": "src/components/BetaMonitorPanel.tsx",
-   "lines": 187,
-   "bytes": 12246,
+   "lines": 189,
+   "bytes": 12240,
    "imports": [
+    "src/lib/akg/kb/actions.ts",
     "src/lib/journey.ts"
    ],
    "importers": [
@@ -3621,13 +3622,13 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1785751694,
+   "touched": 1786239266,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 6
+   "ageDays": 0
   },
   {
    "file": "src/components/CapabilityBar.tsx",
@@ -4266,7 +4267,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/components/MyActivities.tsx",
@@ -4587,7 +4588,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "src/components/ShareShop.tsx",
@@ -4830,7 +4831,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "src/components/VisitFlow.tsx",
@@ -4950,13 +4951,13 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1785302659,
+   "touched": 1786237209,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 1,
    "looseExports": [],
-   "ageDays": 11
+   "ageDays": 0
   },
   {
    "file": "src/i18n/translations.ts",
@@ -4981,13 +4982,13 @@
    ],
    "deadExports": [],
    "reach": "app+test",
-   "touched": 1785302659,
+   "touched": 1786237209,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 11
+   "ageDays": 0
   },
   {
    "file": "src/lib/abilities.ts",
@@ -5249,13 +5250,14 @@
   },
   {
    "file": "src/lib/akg/dna.ts",
-   "lines": 96,
-   "bytes": 4813,
+   "lines": 97,
+   "bytes": 4876,
    "imports": [
     "src/lib/needEngine.ts",
     "src/lib/blueprints.ts",
     "src/lib/akg/modules.ts",
     "src/lib/akg/services.ts",
+    "src/lib/akg/kb/actions.ts",
     "src/lib/akg/relations.ts",
     "src/lib/akg/registry.ts",
     "src/lib/akg/kb/knowledge.ts"
@@ -5277,7 +5279,7 @@
     "traceDna"
    ],
    "reach": "app+test",
-   "touched": 1785764847,
+   "touched": 1786239266,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -5285,7 +5287,7 @@
    "looseExports": [
     "classifyEntity"
    ],
-   "ageDays": 5
+   "ageDays": 0
   },
   {
    "file": "src/lib/akg/index.ts",
@@ -5333,8 +5335,8 @@
   },
   {
    "file": "src/lib/akg/kb/actions.ts",
-   "lines": 501,
-   "bytes": 27379,
+   "lines": 527,
+   "bytes": 28533,
    "imports": [
     "src/lib/akg/kb/arabizi.ts",
     "src/lib/normalize.ts",
@@ -5342,12 +5344,16 @@
    ],
    "importers": [
     "scripts/pulse.ts",
+    "src/components/BetaMonitorPanel.tsx",
     "src/components/FocusedEdit.tsx",
+    "src/lib/akg/dna.ts",
     "src/lib/akg/kb/index.ts",
     "src/lib/executionPolicy.ts",
     "src/lib/needEngine.ts",
+    "src/lib/understanding.ts",
     "test/brain/actions.test.ts",
     "test/brain/conversation.test.ts",
+    "test/brain/humanLabels.test.ts",
     "test/brain/tenSentences.test.ts"
    ],
    "exports": [
@@ -5356,13 +5362,14 @@
     "ActionScope",
     "ActionRead",
     "readAction",
+    "describeIntent",
     "describeAction"
    ],
    "deadExports": [
     "ActionScope"
    ],
    "reach": "app+script+test",
-   "touched": 1786137684,
+   "touched": 1786239266,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -5370,7 +5377,7 @@
    "looseExports": [
     "ActionVerb"
    ],
-   "ageDays": 1
+   "ageDays": 0
   },
   {
    "file": "src/lib/akg/kb/ambiguity.ts",
@@ -6165,7 +6172,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/lib/akg/kb/professions.ts",
@@ -6228,7 +6235,7 @@
    "looseExports": [
     "SYMPTOM_GRAPH"
    ],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/lib/akg/kb/tools.ts",
@@ -6968,6 +6975,7 @@
     "src/lib/needEngine.ts",
     "src/lib/searchIntent.ts",
     "src/lib/visitKind.ts",
+    "src/pages/Explore.tsx",
     "src/pages/ProductsPage.tsx",
     "test/brain/catalog.test.ts",
     "test/brain/dataLoss.test.ts",
@@ -7647,7 +7655,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/lib/knowledge/candidates.ts",
@@ -7894,8 +7902,8 @@
   },
   {
    "file": "src/lib/needEngine.ts",
-   "lines": 1069,
-   "bytes": 51055,
+   "lines": 1077,
+   "bytes": 51605,
    "imports": [
     "src/types.ts",
     "src/lib/humanIntent.ts",
@@ -7938,6 +7946,7 @@
     "test/brain/food.test.ts",
     "test/brain/goals.test.ts",
     "test/brain/humanIntent.test.ts",
+    "test/brain/humanLabels.test.ts",
     "test/brain/lifeNeeds.test.ts",
     "test/brain/liveCorpus.test.ts",
     "test/brain/liveSentence.test.ts",
@@ -7977,13 +7986,13 @@
     "maskCities"
    ],
    "reach": "app+script+test",
-   "touched": 1786131227,
+   "touched": 1786239266,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 1
+   "ageDays": 0
   },
   {
    "file": "src/lib/normalize.ts",
@@ -8242,11 +8251,12 @@
   },
   {
    "file": "src/lib/understanding.ts",
-   "lines": 244,
-   "bytes": 10826,
+   "lines": 247,
+   "bytes": 11018,
    "imports": [
     "src/lib/akg/kb/index.ts",
     "src/lib/akg/kb/knowledge.ts",
+    "src/lib/akg/kb/actions.ts",
     "src/lib/humanIntent.ts"
    ],
    "importers": [
@@ -8280,13 +8290,13 @@
     "ClaudeProvider"
    ],
    "reach": "app+test",
-   "touched": 1786134725,
+   "touched": 1786239266,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 1
+   "ageDays": 0
   },
   {
    "file": "src/lib/userMemory.ts",
@@ -8458,8 +8468,8 @@
   },
   {
    "file": "src/pages/AuthPage.tsx",
-   "lines": 579,
-   "bytes": 28152,
+   "lines": 578,
+   "bytes": 28064,
    "imports": [
     "src/lib/gateTransition.ts",
     "src/store.tsx",
@@ -8640,7 +8650,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 6
+   "ageDays": 7
   },
   {
    "file": "src/pages/CouponsPage.tsx",
@@ -8753,10 +8763,11 @@
   },
   {
    "file": "src/pages/Explore.tsx",
-   "lines": 323,
-   "bytes": 23231,
+   "lines": 324,
+   "bytes": 23311,
    "imports": [
     "src/services/api.ts",
+    "src/lib/catalog.ts",
     "src/components/MapView.tsx"
    ],
    "importers": [
@@ -8768,13 +8779,13 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1785302659,
+   "touched": 1786239266,
    "todos": 0,
    "anys": 3,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 11
+   "ageDays": 0
   },
   {
    "file": "src/pages/FieldVisit.tsx",
@@ -9735,7 +9746,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "src/pages/Storefront.tsx",
@@ -9784,7 +9795,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "src/pages/UniversalPublish.tsx",
@@ -10311,7 +10322,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786232058,
+   "touched": 1786237209,
    "todos": 0,
    "anys": 1,
    "logs": 0,
@@ -10487,7 +10498,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "test/brain/cityBoundary.test.ts",
@@ -10550,7 +10561,7 @@
    "anys": 2,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 5
+   "ageDays": 6
   },
   {
    "file": "test/brain/clothing.test.ts",
@@ -10842,7 +10853,7 @@
    "anys": 1,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "test/brain/executionPolicy.test.ts",
@@ -11011,9 +11022,30 @@
    "ageDays": 11
   },
   {
+   "file": "test/brain/humanLabels.test.ts",
+   "lines": 78,
+   "bytes": 3626,
+   "imports": [
+    "src/lib/akg/kb/actions.ts",
+    "src/lib/needEngine.ts"
+   ],
+   "importers": [
+    "test/brain/index.ts"
+   ],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1786239266,
+   "todos": 0,
+   "anys": 1,
+   "logs": 0,
+   "emptyCatch": 0,
+   "ageDays": 0
+  },
+  {
    "file": "test/brain/index.ts",
-   "lines": 98,
-   "bytes": 3896,
+   "lines": 100,
+   "bytes": 3989,
    "imports": [
     "test/brain/setup.ts",
     "test/brain/understand.test.ts",
@@ -11085,13 +11117,14 @@
     "test/brain/evidence.test.ts",
     "test/brain/doors.test.ts",
     "test/brain/liveCorpus.test.ts",
-    "test/brain/searchContract.test.ts"
+    "test/brain/searchContract.test.ts",
+    "test/brain/humanLabels.test.ts"
    ],
    "importers": [],
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786232058,
+   "touched": 1786239266,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -11244,7 +11277,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/brain/lifeNeeds.test.ts",
@@ -12022,17 +12055,17 @@
   },
   {
    "file": "test/browser/walk.mjs",
-   "lines": 313,
-   "bytes": 15075,
+   "lines": 334,
+   "bytes": 16310,
    "imports": [],
    "importers": [],
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786232058,
+   "touched": 1786237209,
    "todos": 0,
    "anys": 0,
-   "logs": 6,
+   "logs": 7,
    "emptyCatch": 0,
    "ageDays": 0
   },

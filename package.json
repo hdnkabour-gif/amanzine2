@@ -29,7 +29,8 @@
     "audit:repo": "node scripts/audit.mjs",
     "walk": "node test/browser/walk.mjs",
     "journey": "node test/browser/journey.mjs",
-    "pipeline": "node test/browser/pipeline.mjs"
+    "pipeline": "node test/browser/pipeline.mjs",
+    "screens": "node test/browser/screens.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.0",
