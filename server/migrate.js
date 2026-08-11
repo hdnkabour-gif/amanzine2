@@ -201,6 +201,14 @@ async function migrate() {
       `livraison_bon_page TEXT DEFAULT ''`,
       `ramassage_page TEXT DEFAULT ''`,
       `fields JSONB DEFAULT '{}'`,
+      // ── **سرُّ الوارد ليس مفتاحَ الصادر** ───────────────────────
+      //   كان إشعارُ الشركة يُصادَق بـ`api_key` نفسِه — أي أنّ مَن يعرف كيف
+      //   نتحدّث إلى الشركة يستطيع أن يتحدّث إلينا **باسمها**. ومفتاحُ الصادر
+      //   يُشارَك مع الشركة ويمرّ في طلباتٍ خارجة، فسطحُ انكشافه أوسعُ بكثير
+      //   من سرٍّ لا يُستعمل إلّا في اتّجاهٍ واحد.
+      //   ويبقى فارغًا افتراضيًّا، والبابُ **يُغلَق** عند الفراغ — لا يسقط
+      //   إلى المفتاح القديم، وإلّا لم يتغيّر شيء.
+      `webhook_secret TEXT DEFAULT ''`,
     ]) {
       await client.query(`ALTER TABLE delivery_providers ADD COLUMN IF NOT EXISTS ${col}`).catch(() => {});
     }

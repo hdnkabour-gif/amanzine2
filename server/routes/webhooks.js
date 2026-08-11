@@ -16,15 +16,32 @@ const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'sahar_shop_verify';
 // حين يصل الإشعار، وسليمةً حين تُستفتى الشركة.
 const { normalizeDeliveryStatus: _normalizeStatus } = require('../lib/deliveryStatus');
 
+// مصادقةُ الوارد لها مالكٌ واحدٌ في `lib/webhookAuth.js` — والسببُ مقيسٌ هناك:
+// أمانُ التوقيت غيرُ مرئيٍّ سلوكيًّا، فيُحرَس بنيويًّا بجمع المقارنة في موضعٍ واحد.
+const { verifyWebhookSecret } = require('../lib/webhookAuth');
+
 router.post('/delivery/:providerRowId', async (req, res) => {
   try {
     const row = await db.getDeliveryProviderRow(req.params.providerRowId);
     if (!row) return res.status(404).json({ error: 'Unknown provider' });
 
-    // السرُّ هو مفتاحُ API نفسُه — لا سرَّ ⇒ لا قبول، وإلّا صار المسارُ مفتوحًا.
-    const secret = row.apiKey || '';
-    const given = req.headers['x-webhook-secret'] || req.query.secret || '';
-    if (!secret || String(given) !== String(secret)) {
+    // ── **بابُ الوارد: سرُّه وحدَه، من ترويسةٍ وحدَها، بمقارنةٍ ثابتة** ──
+    //
+    //   ثلاثةُ أعطابٍ كانت في أربعة أسطر:
+    //
+    //   ①  `row.apiKey` سرًّا للوارد. ومفتاحُ الصادر يُعطى للشركة ويُرسَل في
+    //      كلّ نداءٍ خارج، فمن التقطه صار قادرًا على **انتحال الشركة** نحونا:
+    //      يُعلن طلبًا «مُسلَّمًا» فيُغلَق ولم يصل، أو يُلغيه. مجالُ ثقةٍ واحدٌ
+    //      لاتّجاهَين متعاكسَين.
+    //   ②  `req.query.secret`. وما في المسار يُكتَب في سجلّ كلّ وسيطٍ وخادمٍ
+    //      وممثّلٍ عكسيّ، ويبقى في `Referer`. السرُّ في الترويسة يمرّ ولا يُخلّف
+    //      أثرًا، وهذا كلُّ الفرق.
+    //   ③  `String(given) !== String(secret)`. المقارنةُ تخرج عند أوّل حرفٍ
+    //      مختلف، فزمنُها يُفشي طولَ البادئة الصحيحة. تُخمَّن حرفًا حرفًا.
+    //
+    //   والفراغُ **يُغلِق** ولا يسقط إلى المفتاح القديم: صفٌّ لم يُضبَط له سرٌّ
+    //   بعدُ لا يقبل إشعارًا. ولو سقط لَبقي العطبُ ① حيًّا بثوبِ توافُقٍ خلفيّ.
+    if (!verifyWebhookSecret(row, req.headers)) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 

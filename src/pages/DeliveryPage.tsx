@@ -150,7 +150,9 @@ const EMPTY_URL: UrlRecipeDraft = {
 //   لا يعرف صاحبُها أنّها موجودة هي ميزةٌ غيرُ موجودة.
 //
 //   ── والسرُّ هو مفتاحُ الـAPI نفسُه ──
-//   المسارُ يرفض بلا سرّ (401)، ويقارن `?secret=` بـ`apiKey` الصفِّ. وشركةٌ
+//   المسارُ يرفض بلا سرّ (401). وكان يقارن `?secret=` بـ`apiKey` الصفِّ —
+//   ومنذ المرحلة ① صار السرُّ عمودًا مستقلًّا يُقرأ من ترويسة
+//   `x-webhook-secret` وحدَها. وشركةٌ
 //   لا تُعطي مفتاحَ API أصلًا (لوحةٌ فقط) تترك العمودَ فارغًا ⇒ كلُّ إشعارٍ
 //   يُردّ. ولذلك زرُّ «ولّد سرّ»: سرٌّ عشوائيٌّ يُحفَظ في العمود فيصير
 //   الرابطُ صالحًا — لا لأنّ الشركة أعطته، بل لأنّ الطرفَين يتّفقان عليه.
@@ -160,7 +162,7 @@ const EMPTY_URL: UrlRecipeDraft = {
 //   التاجرُ الآن**. متغيّرُ بيئةٍ خاطئٌ يُنتج رابطًا يبدو صحيحًا ولا يصل.
 // ============================================================
 function WebhookRow({ p, onSave, notify }: {
-  p: DeliveryProviderConfig & { id?: string; apiKey?: string };
+  p: DeliveryProviderConfig & { id?: string; apiKey?: string; webhookSecret?: string };
   onSave: (next: any) => Promise<any>;
   notify: (t: 'success' | 'error' | 'warning' | 'info', m: string) => void;
 }) {
@@ -168,10 +170,18 @@ function WebhookRow({ p, onSave, notify }: {
   const [busy, setBusy] = useState(false);
   const [reveal, setReveal] = useState(false);
 
-  const secret = p.apiKey || '';
+  // ── **سرُّ الوارد لا مفتاحُ الصادر** ──────────────────────────
+  //   كان هذا يقرأ `p.apiKey` ويكتب فيه، أي أنّ زرَّ «ولّد سرّ» كان يدهس
+  //   مفتاحَ التعامل مع الشركة — أو يجعل المفتاحَ نفسَه إذنَ دخولٍ إلينا.
+  //   والخادمُ صار يقرأ `webhookSecret` وحدَه، فلو بقي هذا كما كان لَولّد
+  //   التاجرُ سرًّا لا يفتح بابَه: عطبٌ صامتٌ ينتهي بإشعاراتٍ لا تصل.
+  const secret = p.webhookSecret || '';
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const base = `${origin}/api/webhooks/delivery/${p.id || ''}`;
-  const full = secret ? `${base}?secret=${encodeURIComponent(secret)}` : '';
+  // الرابطُ يُنسَخ بلا سرّ: ما في المسار يُكتَب في سجلّات الوسطاء ويبقى في
+  //   `Referer`. والواجهةُ أصلًا تقول للتاجر أن يضع السرَّ في الترويسة
+  //   «بلا ما تحطّو ف الرابط» — فصار الفعلُ موافقًا لما تقوله.
+  const full = base;
 
   const copy = () => {
     if (!full) return;
@@ -189,7 +199,7 @@ function WebhookRow({ p, onSave, notify }: {
     setBusy(true);
     try {
       // الكائنُ كاملًا: الحفظُ يكتب كلَّ الأعمدة، وإرسالُ حقلٍ واحدٍ يمحو الباقي.
-      await onSave({ ...p, apiKey: key });
+      await onSave({ ...p, webhookSecret: key });
       notify('success', '🔑 تولّد السرّ — نسخ الرابط دابا ولصقو عند الشركة');
     } catch { notify('error', 'ما تسجّلش السرّ على الخادم'); }
     setBusy(false);
@@ -208,7 +218,7 @@ function WebhookRow({ p, onSave, notify }: {
           <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
             <code style={{ flex: 1, minWidth: 0, fontSize: 11, fontFamily: 'monospace', color: 'var(--txt-2)',
               direction: 'ltr', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {reveal ? full : `${base}?secret=••••••••`}
+              {reveal ? `${full}   ·   x-webhook-secret: ${secret}` : `${base}   ·   x-webhook-secret: ••••••••`}
             </code>
             <button onClick={() => setReveal(r => !r)} className="btn btn-ghost btn-sm" style={{ paddingInline: 8 }}
               title={reveal ? 'خبّي السرّ' : 'وريني السرّ'}>
