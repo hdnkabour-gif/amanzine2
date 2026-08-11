@@ -8,7 +8,7 @@ Root-cause ledger. One line per state change; no forensic re-derivation.
 |---|---|---|---|
 | RC-P4 | Secret trust boundaries | **CLOSED_FINAL** | (below) |
 | RC-P3 | Public surfaces over-disclose | **CLOSED** | (below) |
-| RC-P2 | Client identity/state lifetime | OPEN | — |
+| RC-P2 | Client identity/state lifetime | **CLOSED** | (below) |
 | RC-P1 | Semantic destination ownership | OPEN | — |
 | RC-P5 | Database invariants | OPEN | — |
 | RC-P6 | Duplicate semantic work | OPEN | — |
@@ -67,3 +67,33 @@ row and copies nothing from the first.
 
 Tests: 7 INTEGRATION (real HTTP + disposable PostgreSQL). No customer field is printed in any
 failure message — the guard does not leak what it exists to protect.
+
+---
+
+## RC-P2 — CLOSED
+
+Five browser-persisted keys, five different rules, none written together. One registry now
+declares **scope + TTL + store** for every key (`src/lib/clientState.ts`), and logout **iterates
+the registry** instead of naming keys — because naming forgets, iterating does not.
+
+| Scope | Meaning | Cleared when |
+|---|---|---|
+| `identity` | belongs to one account (`os_state`, `user`, `pending_settings`) | any identity change |
+| `journey` | belongs to one live journey (`need`, `need_stance`, `publish_seed`, `conversation`) | identity change · journey end · "من جديد" |
+| `device` | not account-bound (`theme`) | never |
+
+| Defect | Fix |
+|---|---|
+| logout removed `ai_commerce_user` only — **1 of 8**; business cache with products/orders/customers survived | `clearIdentityState()` walks the registry |
+| offline hydration read whatever was stored and stamped the **current** identity over it | every value carries `owner`; a value belonging to someone else is refused **and deleted** |
+| `amanzine_need_stance` had **no TTL** — an abandoned offer hijacked the next login to publish, hours later | every journey key carries the same 30-minute TTL, enforced in one place |
+| cleanup was **asymmetric** — the offer branch cleared stance, the seek branch cleared need, each leaving the other behind | `resumeNeed` consumes the whole journey once |
+| `amanzine_need_seed` written on every route, **read nowhere** | retired — keeping a key with no reader is keeping a habit, not a function |
+| conversation was component-local; contextual navigation destroyed it | lifted into the same registry, `journey` scope. **No server, no account history** — survives navigation and refresh, dies with the journey or the identity |
+
+**Chromium-proven** (build served, real browser): A's five keys present → logout → **only
+`ai_commerce_user` written by B remains, session empty** → B sees none of A's trade → a surviving
+copy is refused by owner mismatch → a 40-minute-old `offer` stance is expired and cannot hijack.
+
+**Sabotage 5/5:** S16 logout clears one key · S17 no owner check · S18 no TTL · S19 stance
+without TTL · S20 back-door write outside the registry.

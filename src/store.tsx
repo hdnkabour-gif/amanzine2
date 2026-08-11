@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { clearIdentityState, writeState, readState } from './lib/clientState';
 import {
   defaultSettings, seedProducts, seedCustomers, seedOrders,
   seedConversations, seedAuditLogs,
@@ -237,13 +238,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const online = await api.checkBackend();
     if (!online) {
       try {
-        const saved = localStorage.getItem('ai_commerce_os_state');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          setState(s => ({ ...s, ...parsed, isOnline: false, isLoading: false, token: s.token, user: s.user }));
-        } else {
-          setState(s => ({ ...s, isLoading: false }));
-        }
+        // **لا تُقرأ نسخةُ غيرِ الحاضر.** كان يُقرأ ما وُجد ثمّ تُحفَظ هويّةُ
+        //   الحاضر فوقه (`token: s.token, user: s.user`) — أي أنّ بيانات
+        //   الأوّل تُعرَض تحت اسم الثاني، وهو أسوأُ شكلٍ للتسريب.
+        // تُقرأ **داخل** المُحدِّث لأنّ هويّةَ الحاضر تُعرَف هناك وحدَها.
+        setState(s => {
+          const saved = readState<any>('ai_commerce_os_state', (s.user as any)?.id);
+          return saved
+            ? { ...s, ...saved, isOnline: false, isLoading: false, token: s.token, user: s.user }
+            : { ...s, isLoading: false };
+        });
       } catch { setState(s => ({ ...s, isLoading: false })); }
       return;
     }
@@ -376,7 +380,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const { token, user, notifications, currentPage, sidebarOpen, isLoading, isOnline, hydrated, ...toSave } = state as any;
           // C-3: لا تُحفظ أسرار الطرف الثالث (مفاتيح AI/سوشيال/كلاودينري...) في localStorage
           if (toSave.settings) toSave.settings = stripSecrets(toSave.settings);
-          localStorage.setItem('ai_commerce_os_state', JSON.stringify(toSave));
+          // مختومٌ بمالكه: المسحُ عند الخروج لا يكفي وحدَه — متصفّحٌ يُغلَق
+          //   فجأةً يترك النسخةَ، فتُفحَص الهويّةُ عند القراءة أيضًا.
+          writeState('ai_commerce_os_state', toSave, state.user?.id);
         } catch {}
       }, 1000);
     }
@@ -464,7 +470,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     api.setToken(null);
     api.setRefreshToken(null);
     api.disconnectWS();
-    try { localStorage.removeItem('ai_commerce_user'); } catch {}
+    // ── **الخروجُ يمرّ على السجلّ لا على اسمٍ واحد** ─────────────
+    //   كان يمسح `ai_commerce_user` وحدَه — مفتاحًا من ثمانية. وتبقى
+    //   `ai_commerce_os_state` حاملةً منتجاتِ الخارجِ وطلباتِه وزبناءه،
+    //   وتبقى مفاتيحُ الرحلة، فيرثها الداخلُ التالي على نفس الجهاز.
+    //   (أُثبت بالمتصفّح: كلُّ المفاتيح نجت من تسلسل الخروج نفسِه.)
+    clearIdentityState();
     setState(s => ({ ...s, token: null, user: null, currentPage: 'dashboard', products: seedProducts, orders: seedOrders, customers: seedCustomers, conversations: seedConversations }));
     window.location.href = '/login';
   };

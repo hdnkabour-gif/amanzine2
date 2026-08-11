@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { writeState, readState, clearState, clearJourneyState } from '../lib/clientState';
 import { useStore } from '../store';
 import {
   Search, Mic, Camera, MapPin, ArrowLeft, Check, RotateCcw,
@@ -82,7 +83,17 @@ export default function LivingHome() {
   const navigate = useNavigate();
   const [text, setText] = useState('');
   const [result, setResult] = useState<NeedResult | null>(null);
-  const [turns, setTurns] = useState<Turn[]>([]);
+  // ── **المحادثةُ تعيش ما دامت الرحلةُ حيّة** ───────────────────
+  //   كانت حالةً محلّيّةً في هذا المكوّن وحدَه: كلُّ انتقالٍ إلى صفحةٍ ثمّ عودةٍ
+  //   يمحوها، فيعود الإنسانُ إلى شاشةٍ لا تذكر ما قاله قبل ثانية.
+  //   والحلُّ **أصغرُ ما يكفي**: تُرفَع إلى نفس سجلّ حالة العميل بنطاق `journey`
+  //   ومدّةٍ معلَنة — لا خادمَ، ولا تاريخَ حساب، ولا اختيارَ صامتٍ للبقاء بعد
+  //   إغلاق المتصفّح. تنجو من التنقّل والتحديث، وتموت مع الرحلة أو الهويّة.
+  const [turns, setTurns] = useState<Turn[]>(() => readState<Turn[]>('amanzine_conversation') || []);
+  useEffect(() => {
+    if (turns.length) writeState('amanzine_conversation', turns.slice(-40));
+    else clearJourneyState.length && clearState('amanzine_conversation');
+  }, [turns]);
   /**
    * **البابُ الوحيدُ إلى سجلّ المحادثة.**
    *
@@ -275,7 +286,7 @@ export default function LivingHome() {
     if (dest.page) {
       const p = dest.page;
       // العقل يحمل الجملة معه: «بغيت نبيع تلفون» → النشر الموحّد يستخرجها تلقائيًّا بلا إعادة كتابة.
-      if (p === 'publish') { try { sessionStorage.setItem('amanzine_publish_seed', result?.object?.raw || text); } catch { /* noop */ } }
+      if (p === 'publish') writeState('amanzine_publish_seed', result?.object?.raw || text);
       playGate(() => setPage(p));
       return;
     }
@@ -540,7 +551,9 @@ export default function LivingHome() {
     } finally { setSaving(false); }
   };
 
-  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); setSaid(''); setLearned(''); setLive(null); setShowTrace(false); setDecision(null); };
+  // «من جديد» تُنهي الرحلةَ كلَّها — لا المحادثةَ وحدَها، وإلّا بقيت بذرةُ نشرٍ
+  //   أو اتّجاهٌ معلَّقٌ يخطف ما بعدها.
+  const reset = () => { clearJourneyState(); receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); setSaid(''); setLearned(''); setLive(null); setShowTrace(false); setDecision(null); };
 
   const pickOption = (opt: NeedOption) => {
     receptionTurn(opt.label, 'button');                      // قياس: دورٌ بالأزرار

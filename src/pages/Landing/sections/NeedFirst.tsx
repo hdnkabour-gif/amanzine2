@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { writeState } from '../../../lib/clientState';
 import { useNavigate } from 'react-router-dom';
 import { understand, stanceOf } from '../../../lib/akg/kb';
 import { parseNeed, signalsFrom, clarificationStep } from '../../../lib/needEngine';
@@ -199,7 +200,9 @@ export default function NeedFirst() {
   const [signals, setSignals] = useState<Signals>({});
 
   const routeTo = (need: string, page?: string, url?: string) => {
-    try { sessionStorage.setItem('amanzine_need_seed', need); } catch { /* noop */ }
+    // **`amanzine_need_seed` أُسقط**: كان يُكتَب في كلّ توجيهٍ ولا قارئَ له في
+    //   المشروع كلِّه — كتابةٌ بلا مصبّ. وحفظُه «للتوافق» بلا قارئٍ حفظُ عادةٍ
+    //   لا وظيفة، ويُبقي مفتاحًا يعبر الخروجَ بلا سبب.
     const u: any = understand(need);
     // ── الحاجةُ تُحمَل كاملةً إلى صفحة الدخول ────────────────────
     //   `AuthPage` تعرض «فهمت أنّك بغيتي…» من `amanzine_need`، وكان الكاتبُ
@@ -209,16 +212,17 @@ export default function NeedFirst() {
     //   والفارقُ للتاجر: نموذجُ تسجيلٍ مقطوعٌ عمّا كتبه قبل ثانية، بدل حوارٍ
     //   يُكمل نفسَه — وهي أوّلُ خمس دقائقَ يُحكَم فيها على التطبيق كلِّه.
     try {
-      sessionStorage.setItem('amanzine_need', JSON.stringify({
+      writeState('amanzine_need', {
         text: need,
         service: u?.profession?.label || u?.problem?.name || u?.service || '',
         city: u?.city || '',
-        at: Date.now(),   // تقرؤه `AuthPage` وتُسقط ما مضى عليه نصفُ ساعة
-      }));
+      });   // المدّةُ في السجلّ لا في كلّ كاتبٍ على حدة
     } catch { /* noop */ }
     const city = u.city ? `&city=${encodeURIComponent(u.city)}` : '';
     if (page) {
-      try { sessionStorage.setItem('amanzine_need_stance', page === 'publish' ? 'offer' : 'seek'); } catch { /* noop */ }
+      // الاتّجاهُ صار له **مدّة** كالحاجة: كان بلا انتهاءٍ فيخطف أوّلَ دخولٍ
+      //   لاحقٍ إلى صفحة النشر، ولو مضت ساعات.
+      writeState('amanzine_need_stance', page === 'publish' ? 'offer' : 'seek');
       // ── **العتبةُ تظهر حيث يقف، لا في صفحةٍ أخرى** ──────────────
       //   كان هنا `navigate('/auth')`: يُنقَل الإنسانُ إلى استمارةٍ في ٥٤٩
       //   سطرًا، وتُسلَّم حاجتُه عبر `sessionStorage` — أي أنّ الحوارَ يُقطَع
@@ -265,7 +269,7 @@ export default function NeedFirst() {
     const u: any = understand(need);
     const stance = (() => { try { return stanceOf(need); } catch { return null; } })();
     const wantsToOffer = stance === 'offer' || /^(SELF|SELL)$/.test(String(u.intent || ''));
-    try { sessionStorage.setItem('amanzine_need_stance', wantsToOffer ? 'offer' : 'seek'); } catch { /* noop */ }
+    writeState('amanzine_need_stance', wantsToOffer ? 'offer' : 'seek');
     if (wantsToOffer) { routeTo(need, 'publish'); return; }
     routeTo(need, undefined, r.url || '/market');
   };

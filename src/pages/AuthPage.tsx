@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { readState, clearJourneyState } from '../lib/clientState';
 import { playGate } from '../lib/gateTransition';
 import { useStore } from '../store';
 import { Eye, EyeOff, User, Mail, Lock, ArrowLeft } from 'lucide-react';
@@ -96,13 +97,9 @@ export default function AuthPage() {
   const [focusedField, setFocusedField] = useState('');
   // الحاجة القادمة من صفحة الهبوط — تُكمل الرحلة بدل نموذجٍ مقطوعٍ عمّا سبقه.
   const [need] = useState<{ text: string; service?: string; city?: string } | null>(() => {
-    try {
-      const raw = sessionStorage.getItem('amanzine_need');
-      if (!raw) return null;
-      const n = JSON.parse(raw);
-      if (!n?.text || (Date.now() - (n.at || 0)) > 30 * 60 * 1000) return null;  // تنتهي بعد نصف ساعة
-      return n;
-    } catch { return null; }
+    // المدّةُ تُفحَص في السجلّ — لا يُعيد كلُّ قارئٍ كتابتَها بنفسه.
+    const n = readState<{ text: string; service?: string; city?: string }>('amanzine_need');
+    return n?.text ? n : null;
   });
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -208,20 +205,21 @@ export default function AuthPage() {
   const enterThrough = (go: () => void) => playGate(go);
 
   const resumeNeed = (): boolean => {
-    let stance = '';
-    try { stance = sessionStorage.getItem('amanzine_need_stance') || ''; } catch { /* noop */ }
+    // ── **الرحلةُ تُستهلَك كاملةً، لا مفتاحًا منها** ────────────────
+    //   كان فرعُ العرض يمسح الاتّجاهَ وحدَه، وفرعُ الطلب يمسح الحاجةَ وحدَها.
+    //   فكلُّ رحلةٍ تترك مفتاحَ الأخرى خلفها: رحلةُ طلبٍ مكتملةٌ تُبقي اتّجاهَ
+    //   `offer` حيًّا، فيُخطَف الدخولُ **التالي** إلى صفحة النشر بلا سبب يراه
+    //   صاحبُه. والاتّجاهُ صار له مدّةٌ أيضًا، فالمتروكُ يموت وحدَه.
+    const stance = readState<string>('amanzine_need_stance') || '';
     const wantsToOffer = stance === 'offer'
       || new URLSearchParams(window.location.search).get('next') === 'publish';
-
-    if (wantsToOffer) {
-      try { sessionStorage.removeItem('amanzine_need_stance'); } catch { /* noop */ }
-      try { enterThrough(() => window.location.assign('/home?page=publish')); return true; } catch { return false; }
-    }
-    if (!need?.text) return false;
-    try { sessionStorage.removeItem('amanzine_need'); } catch { /* noop */ }
-    const city = need.city ? `&city=${encodeURIComponent(need.city)}` : '';
-    try { enterThrough(() => window.location.assign(`/market?q=${encodeURIComponent(need.text)}${city}`)); return true; }
-    catch { return false; }
+    const text = need?.text;
+    if (!wantsToOffer && !text) return false;
+    clearJourneyState();                       // تُستهلَك مرّةً واحدةً كاملة
+    const target = wantsToOffer
+      ? '/home?page=publish'
+      : `/market?q=${encodeURIComponent(text!)}${need!.city ? `&city=${encodeURIComponent(need!.city)}` : ''}`;
+    try { enterThrough(() => window.location.assign(target)); return true; } catch { return false; }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -98,3 +98,5 @@ import './liveCorpus.test';
 import './searchContract.test';
 // القانونُ العاشر: «فعل → update/phone» فوجه من يكتب بالدارجة.
 import './humanLabels.test';
+// RC-P2: سِجلُّ ما يُحفَظ في المتصفّح — نطاقٌ ومدّةٌ وحدُّ هويّة.
+import './clientState.test';
