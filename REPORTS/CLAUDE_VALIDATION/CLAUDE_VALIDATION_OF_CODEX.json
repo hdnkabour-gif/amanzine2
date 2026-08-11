@@ -1,0 +1,426 @@
+{
+ "schemaVersion": 1,
+ "round": "claude-validation",
+ "mainSha": "b8faab2c50ca222843452408659ae6af2bffea5f",
+ "codexHandoffSha": "3b818d89e5424fe2ae36cea76a66ed2812afb23b",
+ "custodyCheck": "PASS - reports-only diff",
+ "codexRepairsPresentInMain": false,
+ "verificationComplete": false,
+ "findings": [
+  {
+   "id": "F-001",
+   "severity": "P0",
+   "codexStatus": "FIXED",
+   "claudeStatus": "CONFIRMED",
+   "evidenceLevel": "MEASURED+EXECUTABLE_PATH",
+   "currentFiles": [
+    "server/middleware/platformAdmin.js",
+    "server/routes/providers.js"
+   ]
+  },
+  {
+   "id": "F-002",
+   "severity": "P0",
+   "codexStatus": "FIXED_PARTIAL",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "server/routes/webhooks.js"
+   ]
+  },
+  {
+   "id": "F-003",
+   "severity": "P0",
+   "codexStatus": "FIXED_PARTIAL",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "server/routes/push.js"
+   ]
+  },
+  {
+   "id": "F-004",
+   "severity": "P0",
+   "codexStatus": "OPEN",
+   "claudeStatus": "OBSOLETE",
+   "evidenceLevel": "MEASURED(absence)",
+   "currentFiles": [
+    "src/lib/journeyHandoff.ts"
+   ]
+  },
+  {
+   "id": "F-005",
+   "severity": "P1",
+   "codexStatus": "PARTIAL",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "src/pages/Landing/sections/NeedFirst.tsx",
+    "src/pages/AuthPage.tsx"
+   ]
+  },
+  {
+   "id": "F-006",
+   "severity": "P1",
+   "codexStatus": "OPEN",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "src/pages/Landing/sections/NeedFirst.tsx"
+   ]
+  },
+  {
+   "id": "F-007",
+   "severity": "P1",
+   "codexStatus": "OPEN",
+   "claudeStatus": "CONFIRMED",
+   "evidenceLevel": "EXECUTABLE_PATH",
+   "currentFiles": [
+    "src/pages/LivingHome.tsx",
+    "src/components/CreateFlow.tsx",
+    "src/store.tsx"
+   ]
+  },
+  {
+   "id": "F-008",
+   "severity": "P1",
+   "codexStatus": "OPEN",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "src/pages/AssistantPage.tsx"
+   ]
+  },
+  {
+   "id": "F-009",
+   "severity": "P1",
+   "codexStatus": "PARTIAL",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "src/pages/Landing/sections/NeedFirst.tsx",
+    "src/pages/AssistantPage.tsx",
+    "src/pages/LivingHome.tsx"
+   ]
+  },
+  {
+   "id": "F-010",
+   "severity": "P2",
+   "codexStatus": "OPEN",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "src/pages/Landing/sections/NeedFirst.tsx",
+    "src/pages/AssistantPage.tsx",
+    "src/lib/needEngine.ts"
+   ]
+  },
+  {
+   "id": "F-011",
+   "severity": "P1",
+   "codexStatus": "PARTIAL",
+   "claudeStatus": "OBSOLETE",
+   "evidenceLevel": "MEASURED(absence)",
+   "currentFiles": [
+    "src/lib/conversationSession.ts",
+    "src/pages/LivingHome.tsx",
+    "src/pages/AssistantPage.tsx"
+   ]
+  },
+  {
+   "id": "F-012",
+   "severity": "P1",
+   "codexStatus": "OPEN",
+   "claudeStatus": "OBSOLETE",
+   "evidenceLevel": "MEASURED(absence)",
+   "currentFiles": [
+    "src/lib/conversationSession.ts"
+   ]
+  },
+  {
+   "id": "F-013",
+   "severity": "P1",
+   "codexStatus": "PARTIAL",
+   "claudeStatus": "CONFIRMED",
+   "evidenceLevel": "EXECUTABLE_PATH",
+   "currentFiles": [
+    "server/routes/customers.js",
+    "server/index.js"
+   ]
+  },
+  {
+   "id": "F-014",
+   "severity": "P1",
+   "codexStatus": "PARTIAL",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "server/database.js",
+    "server/routes/webhooks.js",
+    "src/pages/DeliveryPage.tsx"
+   ]
+  },
+  {
+   "id": "F-015",
+   "severity": "P1",
+   "codexStatus": "PARTIAL",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "server/migrate.js"
+   ]
+  },
+  {
+   "id": "F-016",
+   "severity": "P1",
+   "codexStatus": "BLOCKED",
+   "claudeStatus": "BLOCKED",
+   "evidenceLevel": "MEASURED",
+   "currentFiles": [
+    "server/test/ci-postgres-acceptance.js",
+    ".github/workflows/ci.yml"
+   ]
+  },
+  {
+   "id": "F-017",
+   "severity": "P2",
+   "codexStatus": "PARTIAL",
+   "claudeStatus": "OBSOLETE",
+   "evidenceLevel": "MEASURED(absence)",
+   "currentFiles": [
+    "test/browser/probe-runtime.mjs",
+    "test/browser/screens.mjs",
+    "test/browser/walk.mjs"
+   ]
+  },
+  {
+   "id": "F-018",
+   "severity": "P1",
+   "codexStatus": "OPEN",
+   "claudeStatus": "OBSOLETE",
+   "evidenceLevel": "MEASURED(absence)",
+   "currentFiles": [
+    "test/browser/ci-acceptance.mjs"
+   ]
+  },
+  {
+   "id": "F-019",
+   "severity": "P2",
+   "codexStatus": "BLOCKED",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "MEASURED",
+   "currentFiles": [
+    ".github/workflows/browser-acceptance.yml"
+   ]
+  },
+  {
+   "id": "F-020",
+   "severity": "P2",
+   "codexStatus": "OPEN",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "src/store.tsx",
+    "src/App.tsx",
+    "src/types.ts"
+   ]
+  },
+  {
+   "id": "F-021",
+   "severity": "P1",
+   "codexStatus": "PARTIAL",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "src/pages/Landing/sections/NeedFirst.tsx",
+    "src/pages/LivingHome.tsx",
+    "src/pages/AssistantPage.tsx"
+   ]
+  },
+  {
+   "id": "F-022",
+   "severity": "P2",
+   "codexStatus": "OPEN",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "src/pages/Landing/sections/NeedFirst.tsx"
+   ]
+  },
+  {
+   "id": "F-023",
+   "severity": "P2",
+   "codexStatus": "OPEN",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "src/lib/intentSnapshot.ts",
+    "src/pages/LivingHome.tsx"
+   ]
+  },
+  {
+   "id": "F-024",
+   "severity": "P2",
+   "codexStatus": "PARTIAL",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "src/pages/Landing/sections/NeedFirst.tsx",
+    "src/lib/orchestrator.ts"
+   ]
+  },
+  {
+   "id": "F-025",
+   "severity": "P2",
+   "codexStatus": "BLOCKED",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "src/lib/hybridUnderstanding.ts",
+    "server/services"
+   ]
+  },
+  {
+   "id": "F-026",
+   "severity": "P2",
+   "codexStatus": "OPEN",
+   "claudeStatus": "PARTIALLY_CONFIRMED",
+   "evidenceLevel": "MEASURED+CODE_READ",
+   "currentFiles": [
+    "test/architecture.test.mjs",
+    "test/architecture-freshness.test.mjs"
+   ]
+  },
+  {
+   "id": "F-027",
+   "severity": "P3",
+   "codexStatus": "OPEN",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "dist assets"
+   ]
+  },
+  {
+   "id": "F-028",
+   "severity": "P2",
+   "codexStatus": "OPEN",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "server/index.js"
+   ]
+  },
+  {
+   "id": "F-029",
+   "severity": "P2",
+   "codexStatus": "OPEN",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "server/routes/webhooks.js"
+   ]
+  },
+  {
+   "id": "F-030",
+   "severity": "P2",
+   "codexStatus": "OPEN",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "src/pages/LivingHome.tsx"
+   ]
+  },
+  {
+   "id": "F-031",
+   "severity": "P3",
+   "codexStatus": "FIXED",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "test/architecture-freshness.test.mjs"
+   ]
+  },
+  {
+   "id": "F-032",
+   "severity": "P2",
+   "codexStatus": "FALSE",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "src/pages/LivingHome.tsx"
+   ]
+  },
+  {
+   "id": "F-033",
+   "severity": "P2",
+   "codexStatus": "FALSE",
+   "claudeStatus": "OBSOLETE",
+   "evidenceLevel": "MEASURED(absence)",
+   "currentFiles": [
+    "test/browser/probe-runtime.mjs"
+   ]
+  },
+  {
+   "id": "F-034",
+   "severity": "P3",
+   "codexStatus": "OBSOLETE",
+   "claudeStatus": "CONFIRMED",
+   "evidenceLevel": "MEASURED",
+   "currentFiles": [
+    "src"
+   ]
+  },
+  {
+   "id": "F-035",
+   "severity": "P1",
+   "codexStatus": "OPEN",
+   "claudeStatus": "CONFIRMED",
+   "evidenceLevel": "EXECUTABLE_PATH",
+   "currentFiles": [
+    "src/store.tsx"
+   ]
+  },
+  {
+   "id": "F-036",
+   "severity": "P1",
+   "codexStatus": "OPEN",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "server/database.js"
+   ]
+  },
+  {
+   "id": "F-037",
+   "severity": "P1",
+   "codexStatus": "OPEN",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "server/migrate.js"
+   ]
+  },
+  {
+   "id": "F-038",
+   "severity": "P2",
+   "codexStatus": "OPEN",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "server/database.js"
+   ]
+  },
+  {
+   "id": "F-039",
+   "severity": "P1",
+   "codexStatus": "PARTIAL",
+   "claudeStatus": "UNREACHED",
+   "evidenceLevel": "NONE",
+   "currentFiles": [
+    "server/routes/customers.js",
+    "server/routes/delivery.js"
+   ]
+  }
+ ]
+}
