@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-08-11T22:02:35.599Z",
+ "generatedAt": "2026-08-11T22:10:06.943Z",
  "totals": {
-  "tracked": 738,
+  "tracked": 739,
   "code": 470,
   "orphans": 2,
   "appOnly": 107,
@@ -323,7 +323,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "script",
-   "touched": 1786460240,
+   "touched": 1786485820,
    "todos": 0,
    "anys": 0,
    "logs": 11,
@@ -2163,12 +2163,12 @@
    "exports": [],
    "deadExports": [],
    "reach": "server+test",
-   "touched": 1786233138,
+   "touched": 1786485820,
    "todos": 0,
    "anys": 0,
    "logs": 2,
    "emptyCatch": 6,
-   "ageDays": 3
+   "ageDays": 0
   },
   {
    "file": "server/routes/payment.js",
@@ -7255,7 +7255,7 @@
     "StateKey"
    ],
    "reach": "app+test",
-   "touched": 1786457533,
+   "touched": 1786485820,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -10830,7 +10830,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786444615,
+   "touched": 1786485820,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -12549,12 +12549,12 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 0,
+   "touched": 1786485820,
    "todos": 0,
    "anys": 0,
    "logs": 8,
    "emptyCatch": 0,
-   "ageDays": 20677
+   "ageDays": 0
   },
   {
    "file": "test/knowledge-health.test.mjs",

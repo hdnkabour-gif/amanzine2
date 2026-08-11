@@ -9,10 +9,14 @@ Root-cause ledger. One line per state change; no forensic re-derivation.
 | RC-P4 | Secret trust boundaries | **CLOSED_FINAL** | (below) |
 | RC-P3 | Public surfaces over-disclose | **CLOSED** | (below) |
 | RC-P2 | Client identity/state lifetime | **CLOSED** | (below) |
-| RC-P1 | Semantic destination ownership | OPEN | — |
-| RC-P5 | Database invariants | OPEN | — |
-| RC-P6 | Duplicate semantic work | OPEN | — |
-| RC-P7 | Guards green under defect | OPEN | — |
+| RC-P1 | Semantic destination ownership | **CLOSED** | `d05913c` · `88c9153` |
+| RC-P5 | Database invariants | **CLOSED** | `1d70b96` |
+| RC-P6 | Duplicate semantic work | **CLOSED** | `5c6bbff` |
+| RC-P7 | Guards green under defect | **CLOSED** | `896082a` |
+
+الحصيلةُ النهائيّةُ ومعها ما لم يُقَس: **`REPORTS/REPAIRS/CORE_READY.md`**.
+والرحلاتُ الذهبيّة (`dbcd671`) كشفت عطبَين بعد الإغلاق — عبورُ ذاكرةِ التعلّم
+للخروج، وخطأُ مُدخَلٍ يُقدَّم خطأَ خادم — وكلاهما أُغلق.
 
 ---
 
