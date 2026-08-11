@@ -75,7 +75,30 @@ test('كلُّ ملفٍّ يُسمّى مالكًا في التقارير موج
     [...text.matchAll(/`((?:server|src|test)\/[A-Za-z0-9_./-]+\.(?:js|ts|tsx|mjs|json))`/g)].map(m => m[1])
   )];
   assert.ok(claimed.length >= 30, `ادّعاءاتُ ملكيّةٍ قليلة (${claimed.length}) — هل تغيّرت صيغةُ التقارير؟`);
-  const ghosts = claimed.filter(f => !fs.existsSync(path.join(ROOT, f)));
+
+  // ── **الوجودُ يُسأل عنه git لا القرصَ** ────────────────────────
+  //
+  //   كان الفحصُ `fs.existsSync`، فمرّ محلّيًّا وسقط في CI على
+  //   `server/data/vapid.json`. والملفُّ **مادّةُ مفاتيحَ يولّدها التشغيل**
+  //   ومُتجاهَلٌ في `.gitignore`: يوجد على قرصِ من شغّل الخادمَ، ولا يوجد في
+  //   أيّ نسخةٍ نظيفة. فالحارسُ كان يقيس **بيئةَ من يشغّله** لا التقارير.
+  //
+  //   والفحصُ الآن ثلاثيٌّ وأقوى ممّا كان:
+  //     · متتبَّعٌ في git            ⇒ ادّعاءٌ صادق.
+  //     · متجاهَلٌ عمدًا             ⇒ أثرُ تشغيلٍ، غيابُه هو المنتظَر.
+  //     · لا هذا ولا ذاك            ⇒ **شبح**.
+  //   وهذا يمسك ما كان يفوته: ملفًّا يعيش على قرصِ كاتبِ التقرير وحدَه ولم
+  //   يدخل المستودعَ قطّ — كان `existsSync` يشهد له بالوجود.
+  const tracked = new Set(
+    cp.execSync('git ls-files', { cwd: ROOT, encoding: 'utf8', maxBuffer: 64e6 })
+      .trim().split('\n').filter(Boolean)
+  );
+  const ignored = new Set(
+    cp.execSync(`git check-ignore --stdin || true`, {
+      cwd: ROOT, encoding: 'utf8', input: claimed.join('\n'),
+    }).trim().split('\n').filter(Boolean)
+  );
+  const ghosts = claimed.filter(f => !tracked.has(f) && !ignored.has(f));
   assert.deepEqual(ghosts, [], `ملفّاتٌ مذكورةٌ ولا وجودَ لها: ${ghosts.join(' · ')}`);
 });
 

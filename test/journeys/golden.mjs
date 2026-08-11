@@ -26,7 +26,15 @@ import pkg from 'playwright-core';
 const { chromium } = pkg;
 
 const BASE = process.env.BASE || 'http://127.0.0.1:3001';
-const EXE = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+/**
+ * مسارُ المتصفّح — صريحٌ إن أُعطي، وإلّا يُترَك لـPlaywright أن تجده.
+ *
+ *   تثبيتُ مسارٍ بعينه يجعل هذه الرحلاتِ تعمل على جهازٍ واحدٍ وتسقط في CI —
+ *   وهو نفسُ صنفِ العطب الذي تطارده: **قياسٌ يقيس البيئةَ لا الكود**.
+ */
+const PINNED = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const EXE = process.env.CHROME
+  || ((await import('node:fs')).existsSync(PINNED) ? PINNED : undefined);
 const stamp = Date.now().toString(36);
 const ACCOUNT = { name: 'صاحبُ رحلةٍ', email: `journey-${stamp}@test.local`, password: 'JourneyPass!2026' };
 
@@ -38,7 +46,7 @@ const record = (r) => {
   if (!r.pass) console.log(`      ${'السبب'.padEnd(18)} ${r.why}`);
 };
 
-const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
+const browser = await chromium.launch({ ...(EXE ? { executablePath: EXE } : {}), args: ['--no-sandbox'] });
 
 /** سياقٌ نظيف — لا حالةَ تعبر بين رحلةٍ وأخرى إلّا حين تُطلَب صراحةً. */
 const fresh = async () => {

@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-11T22:10:06.943Z",
+ "generatedAt": "2026-08-11T23:09:13.396Z",
  "totals": {
   "tracked": 739,
   "code": 470,
@@ -10,7 +10,7 @@
   "deadExports": 217,
   "looseExports": 68,
   "todos": 8,
-  "lines": 89231
+  "lines": 89262
  },
  "files": [
   {
@@ -407,7 +407,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/db.js",
@@ -444,7 +444,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/defaults.js",
@@ -531,7 +531,7 @@
    "anys": 0,
    "logs": 19,
    "emptyCatch": 3,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/lib/ai-engine.js",
@@ -664,7 +664,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/lib/deliveryPricing.js",
@@ -1493,7 +1493,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/lib/whatsapp.js",
@@ -1601,7 +1601,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/middleware/validate.js",
@@ -1879,7 +1879,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/routes/delivery-auto.js",
@@ -2241,7 +2241,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 1,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/routes/push.js",
@@ -2267,7 +2267,7 @@
    "logs": 6,
    "emptyCatch": 1,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/routes/recommend.js",
@@ -2421,7 +2421,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/services/delivery/adapters/browser.adapter.js",
@@ -3278,7 +3278,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/test/phase1-security.test.js",
@@ -3300,7 +3300,7 @@
    "anys": 0,
    "logs": 4,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/test/phase2-public-surfaces.test.js",
@@ -3320,7 +3320,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "server/test/phase5-db-invariants.test.js",
@@ -3652,7 +3652,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/App.tsx",
@@ -3954,7 +3954,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/components/DeferredAuthBanner.tsx",
@@ -9005,7 +9005,7 @@
    "logs": 0,
    "emptyCatch": 1,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/pages/Explore.tsx",
@@ -10329,7 +10329,7 @@
    "logs": 0,
    "emptyCatch": 18,
    "looseExports": [],
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "src/types.ts",
@@ -10550,8 +10550,8 @@
   },
   {
    "file": "test/architecture-freshness.test.mjs",
-   "lines": 215,
-   "bytes": 10620,
+   "lines": 238,
+   "bytes": 11697,
    "imports": [],
    "importers": [],
    "exports": [],
@@ -12163,7 +12163,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 0
+   "ageDays": 1
   },
   {
    "file": "test/brain/stance.test.ts",
@@ -12542,8 +12542,8 @@
   },
   {
    "file": "test/journeys/golden.mjs",
-   "lines": 651,
-   "bytes": 33664,
+   "lines": 659,
+   "bytes": 34000,
    "imports": [],
    "importers": [],
    "exports": [],
