@@ -15,6 +15,7 @@
     "test:brain": "node scripts/run-brain-tests.mjs",
     "test:constitution": "node --test test/constitution.test.mjs test/theme.test.mjs",
     "test:knowledge": "node --test test/knowledge-health.test.mjs",
+    "sabotage": "node scripts/sabotage.mjs",
     "test:architecture": "node --test test/architecture.test.mjs test/architecture-freshness.test.mjs test/abilities.test.mjs test/pageActions.test.mjs test/normalize-source.test.mjs test/pulse.test.mjs test/disconnected.test.mjs test/lexicon.test.mjs test/askKind.test.mjs",
     "audit:knowledge": "node scripts/knowledge-audit.mjs",
     "gen:variants": "node scripts/knowledge-audit.mjs --emit-index",
