@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-11T14:10:59.333Z",
+ "generatedAt": "2026-08-11T14:25:55.443Z",
  "totals": {
   "tracked": 734,
   "code": 466,
@@ -10,7 +10,7 @@
   "deadExports": 217,
   "looseExports": 69,
   "todos": 8,
-  "lines": 87703
+  "lines": 87898
  },
  "files": [
   {
@@ -1116,8 +1116,8 @@
   },
   {
    "file": "server/lib/orderLifecycle.js",
-   "lines": 171,
-   "bytes": 6699,
+   "lines": 211,
+   "bytes": 8290,
    "imports": [],
    "importers": [
     "server/database.js",
@@ -1611,8 +1611,8 @@
   },
   {
    "file": "server/migrate.js",
-   "lines": 952,
-   "bytes": 47768,
+   "lines": 1107,
+   "bytes": 55587,
    "imports": [
     "server/db.js"
    ],
@@ -4295,7 +4295,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/components/LoyaltyPanel.tsx",
@@ -7218,7 +7218,7 @@
     "StateKey"
    ],
    "reach": "app+test",
-   "touched": 1786444615,
+   "touched": 1786457533,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -8666,7 +8666,7 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1786456983,
+   "touched": 1786457533,
    "todos": 0,
    "anys": 1,
    "logs": 0,
@@ -9625,7 +9625,7 @@
    ],
    "deadExports": [],
    "reach": "app",
-   "touched": 1786456983,
+   "touched": 1786457533,
    "todos": 0,
    "anys": 3,
    "logs": 0,
@@ -10988,7 +10988,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1786456983,
+   "touched": 1786457533,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -12378,7 +12378,7 @@
    "anys": 0,
    "logs": 13,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/browser/walk.mjs",

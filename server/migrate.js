@@ -1,10 +1,73 @@
 'use strict';
 const pool = require('./db');
 
+// ============================================================
+// **قفلُ الترحيل — نسختان تُقلعان معًا فتُرحّلان معًا.**
+//
+//   قِيس على PostgreSQL حقيقيّة: أربعُ نسخٍ من `migrate.js` معًا على قاعدةٍ
+//   نظيفة ⇒ **٣ من ٤ تسقط**، والخطأ:
+//
+//       code 23505 · pg_type_typname_nsp_index
+//       Key (typname, typnamespace)=(users, …) already exists
+//
+//   والسببُ أنّ `CREATE TABLE IF NOT EXISTS` **ليست ذرّيّة**: معاملتان تريان
+//   «غيرُ موجود» معًا، فتُنشئان معًا، فتسقط إحداهما على فهرس النظام. والسقوطُ
+//   يُرجِع المعاملةَ كلَّها، فتُقلع النسخةُ الثانيةُ على مخطَّطٍ ناقص — أو لا
+//   تُقلع أصلًا، لأنّ `server/index.js` ينتظر `migrate()`.
+//
+//   وهذا ليس فرضًا نظريًّا: كلُّ إعادة تشغيلٍ متدرّجةٍ أو توسّعٍ أفقيٍّ يُقلع
+//   نسختَين في نفس الثانية.
+//
+//   والعلاجُ قفلٌ استشاريٌّ على مستوى المعاملة: الثانيةُ **تنتظر** ثمّ تجد
+//   كلَّ شيءٍ موجودًا فتمرّ بلا عمل. ولا يُفكّ يدويًّا — يسقط مع المعاملة
+//   نجحت أو سقطت، فلا يبقى قفلٌ يتيمٌ يجمّد الإقلاعَ إلى الأبد.
+//
+//   والرقمُ ثابتٌ مُشتقٌّ من اسم المشروع، لا رقمًا عشوائيًّا: قفلان بمفتاحَين
+//   مختلفَين لا يحرسان شيئًا.
+// ============================================================
+const MIGRATION_LOCK = 8912_4471;
+
+/** بصمةُ نسخةِ الترحيل الجارية — تُكتَب في الدفتر فتُميَّز القواعدُ القديمة. */
+const CHECKSUM = require('crypto')
+  .createHash('sha256').update(require('fs').readFileSync(__filename)).digest('hex');
+
 async function migrate() {
   const client = await pool.connect();
+  const startedAt = Date.now();
+  /**
+   * **ما سقط من الخطوات الاختياريّة — يُجمَع ويُقال، لا يُبتلَع.**
+   *
+   *   الخطواتُ المُلحَقة (`ALTER … ADD COLUMN`, `ADD CONSTRAINT`) تُكتَب
+   *   دفاعيًّا لأنّ بعضَها مُطبَّقٌ سلفًا في قواعدَ قديمة. لكنّ `.catch(() => {})`
+   *   لا يُفرّق بين «مُطبَّقٌ سلفًا» و«سقط لسببٍ حقيقيّ»، فيمرّان معًا صامتَين.
+   */
+  const softFailures = [];
+  /**
+   * يُنفّذ خطوةً اختياريّةً داخل **نقطة حفظ**، ويسجّل سقوطَها باسمها.
+   *
+   *   و`SAVEPOINT` ليست زينةً: في PostgreSQL أيُّ خطأٍ داخل معاملةٍ **يُفسد
+   *   المعاملةَ كلَّها**، فكلُّ ما بعده يُردّ بـ«current transaction is
+   *   aborted». قِيس ذلك مباشرةً. أي أنّ `.catch(() => {})` لم يكن يبتلع
+   *   الخطأَ وحدَه — كان يبتلع الخطأَ **ويترك الترحيلَ كلَّه ميتًا** خلفه،
+   *   فيظهر العطبُ لاحقًا في خطوةٍ بريئةٍ لا علاقةَ لها بالسبب.
+   *
+   *   ومع نقطة الحفظ تصير الخطوةُ اختياريّةً حقًّا: تسقط وحدَها ويمضي الباقي.
+   */
+  let sp = 0;
+  const soft = async (label, sql, params) => {
+    const name = `mig_sp_${++sp}`;
+    await client.query(`SAVEPOINT ${name}`);
+    try {
+      await client.query(sql, params);
+      await client.query(`RELEASE SAVEPOINT ${name}`);
+    } catch (e) {
+      await client.query(`ROLLBACK TO SAVEPOINT ${name}`);
+      softFailures.push(`${label}: ${e.message}`);
+    }
+  };
   try {
     await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1)', [MIGRATION_LOCK]);
 
     await client.query(`CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -104,32 +167,31 @@ async function migrate() {
     // 🚚 Livo tracking sync (خطوة صغيرة إضافية — لا تمسّ أي عمود موجود):
     // livo_order_id كان يُرسَل من delivery.js لكن يُفقَد لأنه لم يكن له عمود ولا
     // مسار كتابة في updateOrder → استحال جلب حالة الشحنة لاحقاً. هذا يصلح ذلك.
-    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS livo_order_id TEXT DEFAULT ''`).catch(() => {});
-    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT ''`).catch(() => {});
-    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_synced_at TIMESTAMPTZ`).catch(() => {});
+    await soft('orders.livo_order_id', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS livo_order_id TEXT DEFAULT ''`);
+    await soft('orders.delivery_status', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT ''`);
+    await soft('orders.delivery_synced_at', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_synced_at TIMESTAMPTZ`);
 
     // 💰 اقتصادُ الطلب: ثمنُ التوصيل كان يُدمَج داخل `total` ثمّ يختفي، فلا يستطيع
     // التاجر معرفةَ ربحه الحقيقيّ ولا مطابقةَ فاتورة شركة التوصيل. ومُعرِّفا المزوّد
     // والمدينة عنده يُحفظان لأنّ اسم المدينة النصّيّ لا يكفي لإعادة بناء الشحنة لاحقًا.
-    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee NUMERIC DEFAULT 0`).catch(() => {});
-    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS cod_fee NUMERIC DEFAULT 0`).catch(() => {});
-    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_id TEXT DEFAULT ''`).catch(() => {});
-    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_city_id TEXT DEFAULT ''`).catch(() => {});
+    await soft('orders.delivery_fee', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee NUMERIC DEFAULT 0`);
+    await soft('orders.cod_fee', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS cod_fee NUMERIC DEFAULT 0`);
+    await soft('orders.provider_id', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_id TEXT DEFAULT ''`);
+    await soft('orders.provider_city_id', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_city_id TEXT DEFAULT ''`);
 
     // مُعرِّفُ الشحنة عند الشركة — كان اسمُه livo_order_id رغم أنّه عامّ لكلّ
     // مزوّد. العمودُ القديم يبقى للتوافق ويُملأ معه، والقراءةُ تُفضّل الجديد.
-    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_shipment_id TEXT DEFAULT ''`).catch(() => {});
+    await soft('orders.provider_shipment_id', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_shipment_id TEXT DEFAULT ''`);
     // إعادةُ المحاولة بعد عطبٍ عابرٍ لدى شركة التوصيل. الحالةُ في الطلب لا
     // في جدولٍ موازٍ: الشحنةُ صفةٌ للطلب، وجدولٌ ثانٍ يعني حقيقتَين تتباعدان.
-    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_retry_at TIMESTAMPTZ`).catch(() => {});
-    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_attempts INTEGER DEFAULT 0`).catch(() => {});
+    await soft('orders.delivery_retry_at', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_retry_at TIMESTAMPTZ`);
+    await soft('orders.delivery_attempts', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_attempts INTEGER DEFAULT 0`);
     // فهرسٌ جزئيّ: المُعيدُ يسأل كلَّ خمس دقائق عن صفوفٍ قليلةٍ جدًّا.
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_orders_delivery_retry
-      ON orders(delivery_retry_at) WHERE delivery_retry_at IS NOT NULL`).catch(() => {});
-    await client.query(
+    await soft('idx_orders_delivery_retry', `CREATE INDEX IF NOT EXISTS idx_orders_delivery_retry
+      ON orders(delivery_retry_at) WHERE delivery_retry_at IS NOT NULL`);
+    await soft('backfill provider_shipment_id',
       `UPDATE orders SET provider_shipment_id = livo_order_id
-       WHERE COALESCE(provider_shipment_id,'') = '' AND COALESCE(livo_order_id,'') <> ''`
-    ).catch(() => {});
+       WHERE COALESCE(provider_shipment_id,'') = '' AND COALESCE(livo_order_id,'') <> ''`);
 
     await client.query(`CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
@@ -210,7 +272,7 @@ async function migrate() {
       //   إلى المفتاح القديم، وإلّا لم يتغيّر شيء.
       `webhook_secret TEXT DEFAULT ''`,
     ]) {
-      await client.query(`ALTER TABLE delivery_providers ADD COLUMN IF NOT EXISTS ${col}`).catch(() => {});
+      await soft('delivery_providers ALTER', `ALTER TABLE delivery_providers ADD COLUMN IF NOT EXISTS ${col}`);
     }
 
     // 🗺️ خرائطُ المدن: مدينةُ AMANZINE واحدة، ومُعرِّفُها يختلف عند كلّ شركة.
@@ -337,10 +399,10 @@ async function migrate() {
       count INTEGER NOT NULL DEFAULT 1,
       last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`);
-    await client.query(`ALTER TABLE learning_unknowns ADD COLUMN IF NOT EXISTS ai_suggestion TEXT DEFAULT ''`).catch(() => {});
-    await client.query(`ALTER TABLE learning_unknowns ADD COLUMN IF NOT EXISTS ai_concept TEXT DEFAULT ''`).catch(() => {});
-    await client.query(`ALTER TABLE learning_unknowns ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`).catch(() => {});
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_unknowns_status ON learning_unknowns(status, count DESC)`).catch(() => {});
+    await soft('learning_unknowns.ai_suggestion', `ALTER TABLE learning_unknowns ADD COLUMN IF NOT EXISTS ai_suggestion TEXT DEFAULT ''`);
+    await soft('learning_unknowns.ai_concept', `ALTER TABLE learning_unknowns ADD COLUMN IF NOT EXISTS ai_concept TEXT DEFAULT ''`);
+    await soft('learning_unknowns.status', `ALTER TABLE learning_unknowns ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`);
+    await soft('idx_unknowns_status', `CREATE INDEX IF NOT EXISTS idx_unknowns_status ON learning_unknowns(status, count DESC)`);
 
     // ── **ما فهمناه تمامًا ولا بابَ له** ─────────────────────────
     //
@@ -364,7 +426,7 @@ async function migrate() {
       last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (kind, text)
     )`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_demand_kind ON capability_demand(kind, count DESC)`).catch(() => {});
+    await soft('idx_demand_kind', `CREATE INDEX IF NOT EXISTS idx_demand_kind ON capability_demand(kind, count DESC)`);
 
     // ما فهمناه **غلطًا** — وردّه صاحبُه بـ«ماشي هادشي».
     //
@@ -388,7 +450,7 @@ async function migrate() {
     )`);
     // الترتيبُ بالخطورة: عدّادٌ عالٍ × ثقةٌ عالية. الثقةُ العاليةُ المردودةُ
     // أسوأُ من الضعيفة — تلك تخمينٌ ظاهر، وهذه خطأٌ يمضي واثقًا.
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_misreads_rank ON learning_misreads(status, count DESC, confidence DESC)`).catch(() => {});
+    await soft('idx_misreads_rank', `CREATE INDEX IF NOT EXISTS idx_misreads_rank ON learning_misreads(status, count DESC, confidence DESC)`);
 
     // Performance indexes
     const indexes = [
@@ -430,24 +492,24 @@ async function migrate() {
     //   `identifier` هو ما يُثبَت ملكُه (بريدٌ أو رقم)، و`channel` كيف سافر
     //   الرمز، و`purpose` **الفعلُ الذي طلبه**: رمزٌ طُلب لتأكيد طلبٍ لا
     //   يصلح لتبديل رقمِ الهاتف. بلا `purpose` يصير الرمزُ مفتاحًا عامًّا.
-    await client.query(`ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS identifier TEXT`).catch(() => {});
-    await client.query(`ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS channel TEXT DEFAULT 'email'`).catch(() => {});
-    await client.query(`ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS purpose TEXT DEFAULT 'login'`).catch(() => {});
-    await client.query(`ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS user_id TEXT`).catch(() => {});
-    await client.query(`ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS attempts INTEGER DEFAULT 0`).catch(() => {});
+    await soft('otp_tokens.identifier', `ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS identifier TEXT`);
+    await soft('otp_tokens.channel', `ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS channel TEXT DEFAULT 'email'`);
+    await soft('otp_tokens.purpose', `ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS purpose TEXT DEFAULT 'login'`);
+    await soft('otp_tokens.user_id', `ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS user_id TEXT`);
+    await soft('otp_tokens.attempts', `ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS attempts INTEGER DEFAULT 0`);
     // الصفوفُ القديمةُ بريدٌ كلُّها — تُملأ كي لا يبقى نصفُ الجدول بلا هويّة.
-    await client.query(`UPDATE otp_tokens SET identifier = email WHERE identifier IS NULL`).catch(() => {});
+    await soft('update otp_tokens', `UPDATE otp_tokens SET identifier = email WHERE identifier IS NULL`);
     // `email` كانت NOT NULL: التحقّقُ برقمٍ يحتاج تركَها فارغة.
-    await client.query(`ALTER TABLE otp_tokens ALTER COLUMN email DROP NOT NULL`).catch(() => {});
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_otp_identifier
-      ON otp_tokens(identifier, purpose) WHERE used = FALSE`).catch(() => {});
+    await soft('otp_tokens ALTER', `ALTER TABLE otp_tokens ALTER COLUMN email DROP NOT NULL`);
+    await soft('idx_otp_identifier', `CREATE INDEX IF NOT EXISTS idx_otp_identifier
+      ON otp_tokens(identifier, purpose) WHERE used = FALSE`);
     // **متى تأكّدت هذه الهويّة؟** — لا يكفي `used = TRUE`: تُوضَع كذلك عند
     // الانتهاء والإبطال بعد استنفاد المحاولات. فبلا وقتٍ صريحٍ للنجاح لا
     // يستطيع الخادمُ أن يميّز «تأكّد» من «فشل ثمّ أُبطل» — ويقبل طلبًا لم
     // يتأكّد صاحبُه.
-    await client.query(`ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ`).catch(() => {});
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_otp_verified
-      ON otp_tokens(identifier, purpose, verified_at) WHERE verified_at IS NOT NULL`).catch(() => {});
+    await soft('otp_tokens.verified_at', `ALTER TABLE otp_tokens ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ`);
+    await soft('idx_otp_verified', `CREATE INDEX IF NOT EXISTS idx_otp_verified
+      ON otp_tokens(identifier, purpose, verified_at) WHERE verified_at IS NOT NULL`);
 
     // Refresh tokens table (Fix #12)
     await client.query(`CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -465,17 +527,17 @@ async function migrate() {
     await client.query(`UPDATE conversations SET status='active' WHERE status='open'`);
 
     // Add product video column for existing databases
-    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT ''`).catch(() => {});
+    await soft('products.video_url', `ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT ''`);
     // المدينة: سؤالٌ إجباريٌّ في المساعد كان يسقط عند الحفظ لأنّ لا عمودَ له.
-    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS city TEXT DEFAULT ''`).catch(() => {});
+    await soft('products.city', `ALTER TABLE products ADD COLUMN IF NOT EXISTS city TEXT DEFAULT ''`);
     // حالُ السلعة: جديدةٌ أم مستعملة. أوّلُ ما يسأل عنه المشتري بعد الثمن.
     //   الفراغُ **قيمةٌ مقصودة** لا نقص: سلعةٌ لم يُقَل حالُها تبقى ظاهرةً
     //   لمن يبحث عن جديدٍ أو مستعمل، ولا تُقصى بمرشِّحٍ لا تملك جوابَه.
-    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS condition TEXT DEFAULT ''`).catch(() => {});
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_products_city ON products(city) WHERE city <> ''`).catch(() => {});
+    await soft('products.condition', `ALTER TABLE products ADD COLUMN IF NOT EXISTS condition TEXT DEFAULT ''`);
+    await soft('idx_products_city', `CREATE INDEX IF NOT EXISTS idx_products_city ON products(city) WHERE city <> ''`);
 
     // Abandoned-cart reminder flag (H-4) — لتذكير موثوق عبر cron بدل setTimeout
-    await client.query(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS cart_reminded BOOLEAN DEFAULT FALSE`).catch(() => {});
+    await soft('conversations.cart_reminded', `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS cart_reminded BOOLEAN DEFAULT FALSE`);
 
     // Store analytics events (visits + product views) for the storefront
     await client.query(`CREATE TABLE IF NOT EXISTS store_events (
@@ -514,7 +576,7 @@ async function migrate() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )`);
     // بيانات مرنة للخدمة (تخصّصات، طرق الطلب، نموذج التسعير، حقول مخصّصة) — للقواعد القائمة
-    await client.query(`ALTER TABLE listings ADD COLUMN IF NOT EXISTS details JSONB DEFAULT '{}'`).catch(() => {});
+    await soft('listings.details', `ALTER TABLE listings ADD COLUMN IF NOT EXISTS details JSONB DEFAULT '{}'`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_listings_type   ON listings(type)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_listings_city   ON listings(city)`);
@@ -808,12 +870,12 @@ async function migrate() {
     //                          فالساعاتُ المُعلَنةُ تكذب يومَ يمرض)
     //     • `prep_minutes`  — كم يُنتظَر
     //     • `delivery_modes`— ذاتيّ · شركة · جارٌ قريب · استلامٌ من المحلّ
-    await client.query(`ALTER TABLE providers ADD COLUMN IF NOT EXISTS opening_hours JSONB DEFAULT '{}'::jsonb`).catch(() => {});
-    await client.query(`ALTER TABLE providers ADD COLUMN IF NOT EXISTS open_state TEXT NOT NULL DEFAULT 'open'`).catch(() => {});
-    await client.query(`ALTER TABLE providers ADD COLUMN IF NOT EXISTS prep_minutes INTEGER NOT NULL DEFAULT 0`).catch(() => {});
-    await client.query(`ALTER TABLE providers ADD COLUMN IF NOT EXISTS delivery_modes TEXT[] DEFAULT ARRAY[]::TEXT[]`).catch(() => {});
+    await soft('providers.opening_hours', `ALTER TABLE providers ADD COLUMN IF NOT EXISTS opening_hours JSONB DEFAULT '{}'::jsonb`);
+    await soft('providers.open_state', `ALTER TABLE providers ADD COLUMN IF NOT EXISTS open_state TEXT NOT NULL DEFAULT 'open'`);
+    await soft('providers.prep_minutes', `ALTER TABLE providers ADD COLUMN IF NOT EXISTS prep_minutes INTEGER NOT NULL DEFAULT 0`);
+    await soft('providers.delivery_modes', `ALTER TABLE providers ADD COLUMN IF NOT EXISTS delivery_modes TEXT[] DEFAULT ARRAY[]::TEXT[]`);
     // وطريقةُ التوصيل تُحفَظ على الطلب نفسِه: الزبونُ يختار، والاختيارُ يُنفَّذ.
-    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_mode TEXT DEFAULT ''`).catch(() => {});
+    await soft('orders.delivery_mode', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_mode TEXT DEFAULT ''`);
 
     // ── أنواعُ التحقّق ───────────────────────────────────────
     // `is_verified` بتٌّ واحدٌ يحمل **عدّة وقائعَ مختلفة**: هل وُجد المحلّ
@@ -856,7 +918,7 @@ async function migrate() {
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_learning_daily ON learning_daily(day, stage)`);
 
     // FK fixes: loyalty_points.customer_id → customers(id) ON DELETE CASCADE
-    await client.query(`
+    await soft('loyalty_points_customer_id_fkey', `
       DO $$ BEGIN
         IF NOT EXISTS (
           SELECT 1 FROM information_schema.table_constraints
@@ -867,10 +929,10 @@ async function migrate() {
             FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE;
         END IF;
       END $$
-    `).catch(() => {});
+    `);
 
     // FK fix: audit_logs.user_id → users(id) ON DELETE SET NULL
-    await client.query(`
+    await soft('audit_logs_user_id_fkey', `
       DO $$ BEGIN
         IF NOT EXISTS (
           SELECT 1 FROM information_schema.table_constraints
@@ -881,7 +943,7 @@ async function migrate() {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
         END IF;
       END $$
-    `).catch(() => {});
+    `);
 
     // Demand Capture — حاجةٌ لم يجد لها السوق عرضًا. أهمّ جدولٍ في البيتا:
     // سوقٌ جديد يبدأ فارغًا، فكلّ «ما لقيناش» بلا التقاطٍ هو زبونٌ ضائع
@@ -921,8 +983,101 @@ async function migrate() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_user_memory_user
       ON user_memory(user_id, updated_at DESC)`);
 
+    // ============================================================
+    // **قيودُ المعنى — القاعدةُ ترفض ما لا معنى له.**
+    //
+    //   قِيس على PostgreSQL حقيقيّة، فقُبِل كلُّ هذا بلا اعتراض:
+    //
+    //       INSERT … orders(status)  = 'حالةٌ مخترَعةٌ تمامًا'   ✔ قُبلت
+    //       UPDATE  … SET status     = 'delivered'  من 'pending' ✔ قُبلت
+    //       INSERT … products(price, stock) = (-999, -5)         ✔ قُبلت
+    //
+    //   ودورةُ حياة الطلب مكتوبةٌ كاملةً في `lib/orderLifecycle.js` — لكنّها
+    //   في **جافاسكربت**، و`db.updateOrder` يكتب العمودَ مباشرةً بلا أن
+    //   يسألها. فالقاعدةُ التي لا تعرف قواعدَها تحرسها نيّةُ الكاتب وحدَها.
+    //
+    //   ── ولماذا `NOT VALID` ──
+    //   القيدُ يُضاف بلا فحصِ الصفوف القائمة: قاعدةٌ حيّةٌ قد تحمل صفًّا مخالفًا
+    //   كُتب قبل القيد، وفحصُه يُسقط الترحيلَ فيمنع الإقلاع. و`NOT VALID`
+    //   **يُطبَّق كاملًا على كلّ كتابةٍ جديدةٍ أو تعديل** — أي أنّ البابَ يُغلَق
+    //   الآن، ويبقى الماضي كما هو حتّى يُنظَّف بقرارٍ صريح.
+    //
+    //   ── والمفرداتُ اتّحادٌ لا اختيار ──
+    //   العميلُ يعرف `pending_confirmation · approved · processing`، والخادمُ
+    //   يعرف `confirmed · closed`. ولا يُختار أحدُهما هنا: القيدُ يقبل
+    //   **اتّحادَهما** فيرفض المخترَع وحدَه. وتوحيدُ المفردتَين قرارُ منتَجٍ
+    //   يُتَّخذ صراحةً، لا أثرًا جانبيًّا لقيدٍ في ترحيل.
+    // ============================================================
+    const ORDER_STATES = ['pending', 'pending_confirmation', 'approved', 'confirmed',
+      'processing', 'shipped', 'delivered', 'cancelled', 'closed'];
+    const LIST = ORDER_STATES.map(s => `'${s}'`).join(',');
+
+    /**
+     * يُضيف قيدًا **إن لم يكن موجودًا**.
+     *
+     *   بلا فحصِ الوجود يعود كلُّ إقلاعٍ بـ«constraint already exists» في
+     *   دفتر الإخفاقات — أي أنّ الدفترَ الذي وُلد ليُميّز «مُطبَّقٌ سلفًا» من
+     *   «سقط لسببٍ حقيقيّ» يخلطهما من أوّل يوم، فيُتعلَّم تجاهلُه.
+     */
+    const constraint = (table, name, check) => soft(name,
+      `DO $$ BEGIN
+         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '${name}') THEN
+           ALTER TABLE ${table} ADD CONSTRAINT ${name} CHECK (${check}) NOT VALID;
+         END IF;
+       END $$`);
+
+    await constraint('orders', 'chk_orders_status', `status = ANY(ARRAY[${LIST}])`);
+    await constraint('orders', 'chk_orders_total', 'total >= 0');
+    await constraint('products', 'chk_products_price', 'price >= 0');
+    await constraint('products', 'chk_products_stock', 'stock >= 0');
+    await constraint('products', 'chk_products_status', `status IN ('draft','published','archived')`);
+
+    // ── **وكم صفًّا يخالف الآن؟** ─────────────────────────────────
+    //   القيدُ `NOT VALID` يُغلق البابَ ولا يقول ما خلفه. فيُعدّ المخالفُ
+    //   ويُقال — عددًا فقط، لا بياناتِ زبناء. وبلا هذا يبقى «نظّفوا الماضي»
+    //   جملةً في تعليقٍ لا أحدَ يعرف حجمَها.
+    for (const [what, sql] of [
+      ['orders.status', `SELECT count(*)::int n FROM orders WHERE NOT (status = ANY(ARRAY[${LIST}]))`],
+      ['orders.total < 0', `SELECT count(*)::int n FROM orders WHERE total < 0`],
+      ['products.price < 0', `SELECT count(*)::int n FROM products WHERE price < 0`],
+      ['products.stock < 0', `SELECT count(*)::int n FROM products WHERE stock < 0`],
+    ]) {
+      try {
+        const { rows } = await client.query(sql);
+        if (rows[0]?.n) softFailures.push(`صفوفٌ قديمةٌ تخالف ${what}: ${rows[0].n}`);
+      } catch { /* الجدولُ غيرُ موجودٍ بعد — لا شيءَ يُعدّ */ }
+    }
+
+    // ── **دفترُ الترحيل** ────────────────────────────────────────
+    //
+    //   لم يكن للترحيل أثرٌ إطلاقًا: لا متى جرى، ولا على أيّ نسخةٍ من الملفّ،
+    //   ولا كم استغرق. فحين تسقط قاعدةٌ بـ«relation does not exist» لا سبيلَ
+    //   للجواب عن سؤالٍ واحد: **هل رُحّلت هذه القاعدةُ أصلًا، وبأيّ نسخة؟**
+    //
+    //   والبصمةُ بصمةُ **الملفّ نفسِه**، فتُميّز قاعدةً رُحّلت بنسخةٍ قديمة عن
+    //   أخرى رُحّلت بالنسخة الحاضرة — وهو الفرقُ الذي يُضيَّع فيه اليوم كلُّه.
+    //   والدفترُ يُضاف إليه ولا يُكتَب فوقه: كلُّ إقلاعٍ سطرٌ.
+    await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
+      id BIGSERIAL PRIMARY KEY,
+      checksum TEXT NOT NULL,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      duration_ms INTEGER NOT NULL DEFAULT 0,
+      soft_failures INTEGER NOT NULL DEFAULT 0
+    )`);
+    await client.query(
+      `INSERT INTO schema_migrations (checksum, duration_ms, soft_failures) VALUES ($1,$2,$3)`,
+      [CHECKSUM, Date.now() - startedAt, softFailures.length]);
+
     await client.query('COMMIT');
-    console.log('[DB] ✅ Migrations complete');
+    // ── **وما ابتُلع يُقال** ──────────────────────────────────────
+    //   `.catch(() => {})` كان يبتلع ٤٢ خطوةً بلا حرف. فخطوةٌ تسقط لسببٍ
+    //   حقيقيّ (عمودٌ بنوعٍ مخالف · قيدٌ يمنع) تمرّ صامتة، ويُقلع الخادمُ
+    //   «ناجحًا» على مخطَّطٍ ينقصه ما لا يعرفه أحد.
+    if (softFailures.length) {
+      console.warn(`[DB] ⚠️ ${softFailures.length} خطوةً اختياريّةً لم تُطبَّق:`);
+      for (const f of softFailures) console.warn(`[DB]    · ${f}`);
+    }
+    console.log(`[DB] ✅ Migrations complete (${Date.now() - startedAt}ms · ${CHECKSUM.slice(0, 12)})`);
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('[DB] ❌ Migration failed — rolled back:', err.message);
