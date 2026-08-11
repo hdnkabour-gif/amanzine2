@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-11T14:25:55.443Z",
+ "generatedAt": "2026-08-11T14:42:54.252Z",
  "totals": {
-  "tracked": 734,
-  "code": 466,
+  "tracked": 736,
+  "code": 468,
   "orphans": 2,
   "appOnly": 107,
-  "testOnly": 151,
+  "testOnly": 153,
   "untested": 132,
   "deadExports": 217,
   "looseExports": 69,
   "todos": 8,
-  "lines": 87898
+  "lines": 88249
  },
  "files": [
   {
@@ -76,8 +76,8 @@
   },
   {
    "file": "scripts/audit.mjs",
-   "lines": 209,
-   "bytes": 9049,
+   "lines": 214,
+   "bytes": 9391,
    "imports": [],
    "importers": [],
    "exports": [],
@@ -416,6 +416,7 @@
     "server/test/payment-door.test.js",
     "server/test/phase1-delivery-secret.test.js",
     "server/test/phase2-public-surfaces.test.js",
+    "server/test/phase5-db-invariants.test.js",
     "server/test/shipment-retry.test.js",
     "server/test/verify.test.js"
    ],
@@ -1121,17 +1122,18 @@
    "imports": [],
    "importers": [
     "server/database.js",
-    "server/test/order-lifecycle.test.js"
+    "server/test/order-lifecycle.test.js",
+    "server/test/phase5-db-invariants.test.js"
    ],
    "exports": [],
    "deadExports": [],
    "reach": "server+test",
-   "touched": 1786119717,
+   "touched": 1786458400,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 4
+   "ageDays": 0
   },
   {
    "file": "server/lib/orderVerification.js",
@@ -1622,7 +1624,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "server",
-   "touched": 1786443252,
+   "touched": 1786458400,
    "todos": 0,
    "anys": 0,
    "logs": 1,
@@ -3298,6 +3300,25 @@
    "deadExports": [],
    "reach": "test",
    "touched": 1786443645,
+   "todos": 0,
+   "anys": 0,
+   "logs": 0,
+   "emptyCatch": 0,
+   "ageDays": 0
+  },
+  {
+   "file": "server/test/phase5-db-invariants.test.js",
+   "lines": 203,
+   "bytes": 10522,
+   "imports": [
+    "server/db.js",
+    "server/lib/orderLifecycle.js"
+   ],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1786458400,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -7404,7 +7425,8 @@
     "src/pages/Landing/sections/NeedFirst.tsx",
     "src/pages/LivingHome.tsx",
     "test/brain/destinationOwner.test.ts",
-    "test/brain/referent.test.ts"
+    "test/brain/referent.test.ts",
+    "test/brain/semanticBudget.test.ts"
    ],
    "exports": [
     "READ_ENOUGH",
@@ -9464,8 +9486,8 @@
   },
   {
    "file": "src/pages/Landing/sections/NeedFirst.tsx",
-   "lines": 500,
-   "bytes": 26504,
+   "lines": 533,
+   "bytes": 28299,
    "imports": [
     "src/lib/decide.ts",
     "src/lib/clientState.ts",
@@ -9478,10 +9500,12 @@
    ],
    "importers": [
     "src/pages/Landing/index.tsx",
-    "test/brain/landingMirror.test.ts"
+    "test/brain/landingMirror.test.ts",
+    "test/brain/semanticBudget.test.ts"
    ],
    "exports": [
     "Fact",
+    "readNeed",
     "readFacts",
     "understandingScore",
     "NeedFirst",
@@ -9493,7 +9517,7 @@
    "reach": "app+test",
    "touched": 1786456983,
    "todos": 0,
-   "anys": 6,
+   "anys": 12,
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
@@ -9581,8 +9605,8 @@
   },
   {
    "file": "src/pages/LivingHome.tsx",
-   "lines": 1091,
-   "bytes": 69674,
+   "lines": 1097,
+   "bytes": 70095,
    "imports": [
     "src/lib/decide.ts",
     "src/lib/clientState.ts",
@@ -10527,8 +10551,8 @@
   },
   {
    "file": "test/architecture.test.mjs",
-   "lines": 1845,
-   "bytes": 96284,
+   "lines": 1849,
+   "bytes": 96567,
    "imports": [
     "scripts/emit-cities.mjs"
    ],
@@ -11319,8 +11343,8 @@
   },
   {
    "file": "test/brain/index.ts",
-   "lines": 105,
-   "bytes": 4237,
+   "lines": 107,
+   "bytes": 4346,
    "imports": [
     "test/brain/setup.ts",
     "test/brain/understand.test.ts",
@@ -11396,7 +11420,8 @@
     "test/brain/searchContract.test.ts",
     "test/brain/humanLabels.test.ts",
     "test/brain/clientState.test.ts",
-    "test/brain/destinationOwner.test.ts"
+    "test/brain/destinationOwner.test.ts",
+    "test/brain/semanticBudget.test.ts"
    ],
    "importers": [],
    "exports": [],
@@ -12084,6 +12109,27 @@
    "logs": 0,
    "emptyCatch": 0,
    "ageDays": 4
+  },
+  {
+   "file": "test/brain/semanticBudget.test.ts",
+   "lines": 98,
+   "bytes": 4950,
+   "imports": [
+    "src/lib/decide.ts",
+    "src/pages/Landing/sections/NeedFirst.tsx"
+   ],
+   "importers": [
+    "test/brain/index.ts"
+   ],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 0,
+   "todos": 0,
+   "anys": 0,
+   "logs": 0,
+   "emptyCatch": 0,
+   "ageDays": 20677
   },
   {
    "file": "test/brain/setup.ts",

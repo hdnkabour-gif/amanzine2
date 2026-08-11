@@ -74,6 +74,13 @@ export default function LivingHome() {
   const { settings, products, orders, customers, conversations, setPage, user, updateProduct, notify } = useStore();
   const navigate = useNavigate();
   const [text, setText] = useState('');
+  // ── **قراءةٌ واحدةٌ للنصّ المعروض** ───────────────────────────
+  //   `correctionOptions(understand(text))` كانت داخل الرسم، فتُقرأ الجملةُ
+  //   **مع كلّ إعادة رسم** ما دامت لوحةُ التصحيح مفتوحة — لا مرّةً لكلّ فعلٍ
+  //   بل مرّةً لكلّ رمشة. و`fixNow` تقرؤها ثالثةً عند النقر.
+  //   والخطرُ التباعدُ لا الكلفة: الخياراتُ المعروضةُ من قراءةٍ والتصحيحُ
+  //   المكتوبُ في الذاكرة من قراءةٍ أخرى.
+  const uText = useMemo(() => understand(text), [text]);
   const [result, setResult] = useState<NeedResult | null>(null);
   // ── **المحادثةُ تعيش ما دامت الرحلةُ حيّة** ───────────────────
   //   كانت حالةً محلّيّةً في هذا المكوّن وحدَه: كلُّ انتقالٍ إلى صفحةٍ ثمّ عودةٍ
@@ -177,8 +184,7 @@ export default function LivingHome() {
    */
   const fixNow = () => {
     if (!wrong) return;
-    const u = understand(text);
-    const m = buildMisread(text, u, wrong.field);
+    const m = buildMisread(text, uText, wrong.field);
     if (m) reportMisread(m);
     if (wrong.field !== 'all') applyCorrection(text, fixText);
     // **ما لا يُنسى لا يُكتَب**: تصحيحُ الحقل يمحو ما حفظناه عنه، وإلّا بقي
@@ -719,7 +725,7 @@ export default function LivingHome() {
             <>
               <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--ink1)' }}>سمح ليا — شنو اللي غالط؟</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                {correctionOptions(understand(text)).map(o => (
+                {correctionOptions(uText).map(o => (
                   <button key={o.field} type="button" onClick={() => setWrong(o)}
                     style={{ padding: '7px 13px', borderRadius: 99, border: '1px solid var(--border,rgba(255,255,255,.12))', background: 'transparent', color: 'var(--ink1)', fontSize: 12.5, fontWeight: 750, fontFamily: 'inherit', cursor: 'pointer' }}>
                     {o.label}

@@ -39,11 +39,31 @@ const EXAMPLES = [
 //   بالدارجة لا بمصطلحاتٍ داخليّة: «كتقلّب على سبّاك» لا «الاتّجاه: طلب».
 export interface Fact { icon: string; label: string; value: string; say: string; }
 
-export function readFacts(text: string): Fact[] {
+/**
+ * **قراءةٌ واحدةٌ للجملة الواحدة** — الفهمُ والحاجةُ والحقائقُ معًا.
+ *
+ *   قِيس على «خاصني سبّاك مستعجل فالدار البيضاء» بعدّادٍ في العقل نفسِه:
+ *
+ *       ضغطةُ مفتاحٍ واحدة  ⇒ understand ×٢ · parseNeed ×٢   (٤ تحاليل)
+ *       نقرةُ إرسالٍ واحدة  ⇒ understand ×٢ · parseNeed ×٢ + الحكم (٧)
+ *
+ *   والمواضعُ الأربعةُ كلُّها تقرأ **نفسَ النصّ** في نفس اللحظة: `readFacts`
+ *   والأثرُ والنتيجةُ ثمّ `go`. والكلفةُ أهونُ ما في الأمر — الخطرُ **التباعد**:
+ *   الذاكرةُ والمفاهيمُ المُسجَّلةُ حيًّا تُكتَب بين نداءٍ وآخر، فتُعرَض حقائقُ
+ *   من قراءةٍ ويُبنى القرارُ على قراءةٍ أخرى بلا أن يظهر ذلك في أيّ سطر.
+ *
+ *   فتُقرأ الجملةُ هنا مرّةً، ويُمرَّر ما قُرئ إلى المالك الواحد بدل أن يُعيده.
+ */
+export function readNeed(text: string): { u: any; r: any; facts: Fact[] } {
   const q = text.trim();
-  if (q.length < 2) return [];
+  if (q.length < 2) return { u: null, r: null, facts: [] };
   const u: any = understand(q);
   const r: any = parseNeed(q, {});
+  return { u, r, facts: factsFrom(q, u, r) };
+}
+
+/** الحقائقُ من قراءةٍ **مُعطاةٍ** — لا تقرأ الجملةَ من جديد. */
+function factsFrom(q: string, u: any, r: any): Fact[] {
   const st = stanceOf(q);
   const out: Fact[] = [];
 
@@ -88,6 +108,9 @@ export function readFacts(text: string): Fact[] {
 
   return out;
 }
+
+/** الحقائقُ وحدَها — بابٌ قديمٌ يُبقى للاختبارات ولمن لا يحتاج القراءةَ كاملةً. */
+export function readFacts(text: string): Fact[] { return readNeed(text).facts; }
 
 // نسبةُ الفهم — تُحسَب ممّا عرفناه فعلًا لا من ثقة التوجيه.
 // ثقةُ المحرّك ثابتةٌ لكلّ نيّة (سبّاك = ٦٠٪ سواءٌ ذكر المدينة أم لا)، فحلقةٌ
@@ -141,16 +164,19 @@ export default function NeedFirst() {
     return () => clearInterval(t);
   }, [text, examples.length]);
 
-  const facts = useMemo(() => readFacts(text), [text]);
-  const result: any = useMemo(() => (text.trim().length >= 2 ? parseNeed(text, {}) : null), [text]);
+  // **قراءةٌ واحدةٌ تُغذّي المشهدَ كلَّه.** كانت الحقائقُ والنتيجةُ والأثرُ
+  //   ثلاثَ قراءاتٍ لنفس النصّ في نفس اللحظة — قِيس: ٤ تحاليلَ لكلّ ضغطةِ
+  //   مفتاح. والخطرُ التباعدُ لا الكلفة: الذاكرةُ تُكتَب بين نداءٍ وآخر.
+  const read = useMemo(() => readNeed(text), [text]);
+  const facts = read.facts;
+  const result: any = read.r;
   // حلقةُ الثقة: تُعلّم المستخدم كيف يكلّم النظام. ترتفع كلّما وضّح أكثر،
   // فيتعلّم وحده أنّ ذكر المدينة والاستعجال يُحسّن النتيجة.
   const conf = useMemo(() => understandingScore(text, facts), [text, facts]);
   // أثرُ الفهم — **ما ينتجه العقلُ فعلًا** لهذه الجملة، لا سردٌ مكتوبٌ بيد.
   // يُحسَب مع المرآة نفسِها فلا تحليلَ ثانٍ للجملة الواحدة (القاعدة ㉒).
   const [showWhy, setShowWhy] = useState(false);
-  const trace: string[] = useMemo(
-    () => (text.trim().length >= 2 ? ((understand(text) as any).reasoning || []) : []), [text]);
+  const trace: string[] = (read.u?.reasoning as string[]) || [];
   // يُطوى تلقائيًّا مع كلّ جملةٍ جديدة: أثرُ جملةٍ سابقةٍ معروضٌ تحت جملةٍ
   // حاليّةٍ كذبٌ بصريّ.
   useEffect(() => { setShowWhy(false); }, [text]);
@@ -207,8 +233,10 @@ export default function NeedFirst() {
   //
   //   و`page` المُمرَّرةُ من خيار استيضاحٍ تبقى محترَمةً: الإنسانُ اختار بيدِه،
   //   وذاك ليس تخمينَ شاشةٍ بل جوابٌ صريحٌ منه.
-  const routeTo = (need: string, page?: string, url?: string) => {
-    const d = decideFor(need);
+  //   وتُمرَّر القراءةُ المحسوبةُ سلفًا: هذه الشاشةُ قرأت الجملةَ للتوّ في
+  //   `go`، وإعادةُ قراءتها هنا تحليلٌ ثانٍ **وقراءةٌ قد تخالف الأولى**.
+  const routeTo = (need: string, page?: string, url?: string, pre?: { u?: any; r?: any }) => {
+    const d = decideFor(need, { u: pre?.u || undefined, need: pre?.r || undefined });
     const t: { page?: string; url?: string } = page ? { page } : targetOf(d, need);
 
     // الحاجةُ تُحمَل كاملةً إلى صفحة الدخول — و**معها وجهتُها المحسوبة**، فلا
@@ -243,7 +271,11 @@ export default function NeedFirst() {
   const go = (q?: string) => {
     const need = (q ?? text).trim();
     if (!need) { inputRef.current?.focus(); return; }
-    const r: any = parseNeed(need, {});
+    // **قراءةٌ واحدةٌ للنقرة كلِّها.** إن كانت الجملةُ هي المكتوبةَ في الحقل
+    //   فقد قُرئت في العرض للتوّ، فتُعاد نفسُها — وإلّا (اقتراحٌ نُقر) تُقرأ
+    //   مرّةً هنا وتُمرَّر إلى المالك بدل أن يقرأها من جديد.
+    const rd = need === text.trim() ? read : readNeed(need);
+    const r: any = rd.r;
     const sig = signalsFrom(r);
 
     // ① سؤالُ المحرّك إن وُجد — أخصُّ وأدقُّ من أيّ سؤالٍ عامّ.
@@ -267,12 +299,12 @@ export default function NeedFirst() {
       return;
     }
 
-    const u: any = understand(need);
+    const u: any = rd.u;
     const stance = (() => { try { return stanceOf(need); } catch { return null; } })();
     const wantsToOffer = stance === 'offer' || /^(SELF|SELL)$/.test(String(u.intent || ''));
     writeState('amanzine_need_stance', wantsToOffer ? 'offer' : 'seek');
-    if (wantsToOffer) { routeTo(need, 'publish'); return; }
-    routeTo(need, undefined, r.url || '/market');
+    if (wantsToOffer) { routeTo(need, 'publish', undefined, rd); return; }
+    routeTo(need, undefined, r.url || '/market', rd);
   };
 
   /** جوابُ المستخدم يُدمَج، ثمّ يُسأل المحرّكُ ثانيةً — لا قفزَ أعمى. */
@@ -283,7 +315,8 @@ export default function NeedFirst() {
     // الجوابُ يُدمَج في الإشارات (يُقاس ويُبنى عليه)، ثمّ تُتَّبع وجهتُه.
     if (ask.id) setSignals(applyAnswer(signals, ask.id as any, optionId));
     setAsk(null);
-    routeTo(need, opt?.page, opt?.url);
+    // `need` هو نصُّ الحقل بعينه، وقد قُرئ في العرض — فيُمرَّر ولا يُعاد.
+    routeTo(need, opt?.page, opt?.url, read);
   };
 
   return (

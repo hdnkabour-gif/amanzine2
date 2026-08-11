@@ -102,3 +102,5 @@ import './humanLabels.test';
 import './clientState.test';
 // RC-P1: مالكٌ واحدٌ للوجهة الدلاليّة — ستُّ عائلاتٍ تقرّر «أين يذهب هذا الطلب».
 import './destinationOwner.test';
+// RC-P6: تحليلٌ دلاليٌّ واحدٌ لكلّ فعلِ مستخدم — ٤ لكلّ ضغطةِ مفتاحٍ قبلها.
+import './semanticBudget.test';
