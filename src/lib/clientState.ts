@@ -62,6 +62,8 @@ export const CLIENT_STATE: StateKey[] = [
     why: 'نصُّ ما يريد نشرَه، يُستهلَك مرّةً في `CreateFlow`' },
   { key: 'amanzine_conversation', scope: 'journey', store: 'session', ttlMs: JOURNEY_TTL,
     why: 'أدوارُ الحوار داخل الرحلة الجارية — لا تاريخَ حسابٍ ولا خادم' },
+  { key: 'amanzine_assistant', scope: 'journey', store: 'session', ttlMs: JOURNEY_TTL,
+    why: 'حوارُ المساعد داخل نفس الرحلة — ينجو من التنقّل ويموت معها' },
   { key: 'ai_commerce_theme', scope: 'device', store: 'local',
     why: 'سِمةٌ يختارها صاحبُ الجهاز، لا تخصّ حسابًا' },
 ];

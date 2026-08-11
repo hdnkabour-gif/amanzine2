@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { decideFor, targetOf } from '../../src/lib/decide';
+import { CLIENT_STATE, JOURNEY_TTL } from '../../src/lib/clientState';
 
 // ============================================================
 // **RC-P1 — مالكٌ واحدٌ للوجهة الدلاليّة.**
@@ -31,7 +32,7 @@ const SURFACES = [
   'src/pages/LivingHome.tsx',
 ];
 
-const SHAPE_FILES = [...SURFACES, 'src/lib/decide.ts', 'src/pages/AuthPage.tsx'];
+const SHAPE_FILES = [...SURFACES, 'src/lib/decide.ts', 'src/pages/AuthPage.tsx', 'src/lib/clientState.ts'];
 
 test('**والجذرُ جذرُ المشروع** — حارسُ شكلٍ على جذرٍ خاطئٍ حارسٌ أجوف', () => {
   assert.ok(fs.existsSync(path.join(ROOT, 'package.json')), `ليس جذرَ المشروع: ${ROOT}`);
@@ -124,6 +125,41 @@ test('**وصفحةُ الدخول تنفّذ ما قُرِّر ولا تُعيد
   assert.doesNotMatch(code, /\babilityFor\s*\(|\bdecideExecution\s*\(/, 'تركّب الحكمَ بنفسها');
   // والرحلةُ تُستهلَك كاملةً — لا مفتاحًا منها.
   assert.match(code, /clearJourneyState\(\)/, 'لا تُستهلَك الرحلةُ كاملةً');
+});
+
+// ── ③ المحادثةُ تعبر الملاحةَ ولا تحمل وجهةً مخبوزة ──────────────
+test('**والمساعدُ لا يُلاحق بلا حكم** — لا سقوطَ إلى وجهةٍ مخبوزة', () => {
+  // العائلةُ ⑤ كانت تعود من باب الاستعادة: `lastRef` في الذاكرة وحدَها،
+  //   فكلُّ محادثةٍ مُستعادةٍ تفقد النصَّ وتسقط إلى `r.page`/`r.url`.
+  const code = strip(read('src/pages/AssistantPage.tsx'));
+  const goTo = (code.match(/const goTo = \([\s\S]*?\n  \};/) || [''])[0];
+  assert.ok(goTo.length > 200, 'لم يُعثَر على `goTo` — الحارسُ يقيس فراغًا');
+  assert.doesNotMatch(goTo, /\br\.page\b|\br\.url\b/,
+    '`goTo` يسقط إلى وجهةِ `NeedResult` بلا حكم — العائلةُ ⑤ تعود');
+  assert.match(goTo, /if \(!text\)/, 'لا حدَّ لغياب النصّ — تُخترَع وجهةٌ لطلبٍ غيرِ موجود');
+  // والرسالةُ تحمل نصَّها، وإلّا فالحدُّ أعلاه يقتل زرًّا يعمل.
+  assert.match(code, /interface Msg \{[^}]*\braw\?: string/, '`Msg` بلا نصٍّ يُحكَم عليه');
+  assert.match(code, /goTo\(m\.result!, m\.raw\)/, 'النصُّ محمولٌ ولا يُمرَّر');
+});
+
+test('**وحوارُ المساعد ينجو من الملاحة ويموت مع الرحلة**', () => {
+  const code = strip(read('src/pages/AssistantPage.tsx'));
+  assert.match(code, /readState<Msg\[\]>\('amanzine_assistant'\)/, 'الحوارُ لا يُستعاد بعد التنقّل');
+  assert.match(code, /writeState\('amanzine_assistant'/, 'الحوارُ لا يُحفَظ');
+  // ولا مفتاحَ خارجَ السجلّ: النطاقُ والمدّةُ مُعلَنان أو لا يُكتَب أصلًا.
+  const k = CLIENT_STATE.find(x => x.key === 'amanzine_assistant');
+  assert.ok(k, 'مفتاحُ حوارِ المساعد غيرُ مُعلَنٍ في السجلّ');
+  assert.equal(k!.scope, 'journey', 'حوارُ المساعد بنطاقٍ يتجاوز الرحلة');
+  assert.equal(k!.ttlMs, JOURNEY_TTL, 'حوارُ المساعد بلا مدّة');
+});
+
+test('**ومسحُ المحادثة يبلغ المخزَن فعلًا** — لا شرطَ كاذبٍ دائمًا', () => {
+  // كان السطرُ `clearJourneyState.length && clearState(…)`، و`.length` طولُ
+  //   **مُعاملات الدالّة** = صفر، فالشرطُ كاذبٌ أبدًا والمسحُ لا يقع.
+  const code = strip(read('src/pages/LivingHome.tsx'));
+  assert.doesNotMatch(code, /clearJourneyState\.length/,
+    'عاد شرطٌ يقرأ طولَ مُعاملاتِ دالّةٍ — حارسٌ كاذبٌ دائمًا');
+  assert.match(code, /else clearState\('amanzine_conversation'\)/, 'المسحُ غيرُ موصول');
 });
 
 test('**والراوترُ ينفّذ ولا يفسّر** — `decide.ts` لا يلمس الملاحة', () => {

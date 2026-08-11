@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { decideFor, targetOf } from '../lib/decide';
+import { readState, writeState, clearState } from '../lib/clientState';
 import { useStore } from '../store';
 import { Sparkles, Send, ArrowLeft, Camera } from 'lucide-react';
 import { type NeedResult, type NeedOption } from '../lib/needEngine';
@@ -20,7 +21,17 @@ import type { Page } from '../types';
 // نفس محرّك النيّة (parseNeed) — لا عقل ثانٍ. طابع بصريّ: زجاج داكن + توهّج أخضر.
 // ============================================================
 
-interface Msg { who: 'user' | 'ai'; text: string; result?: NeedResult; node?: ConceptNode | null; }
+/**
+ * `raw` — **النصُّ الذي بُني عليه هذا الردّ.**
+ *
+ *   بلا هذا كان `goTo` يسقط إلى `r.page`/`r.url` كلَّما غاب النصُّ — أي في
+ *   كلّ محادثةٍ مُستعادةٍ بعد تنقّلٍ أو تحديث، لأنّ `lastRef` يعيش في الذاكرة
+ *   وحدَها. فتُلاحَق وجهةٌ **مخبوزةٌ سلفًا** بلا حكمٍ يسندها — وهي بعينها
+ *   العائلةُ ⑤ التي أُغلقت في RC-P1، تعود من باب الاستعادة.
+ *
+ *   والرسالةُ تحمل نصَّها، فيُسأل المالكُ الواحدُ من جديدٍ متى نُقر عليها.
+ */
+interface Msg { who: 'user' | 'ai'; text: string; raw?: string; result?: NeedResult; node?: ConceptNode | null; }
 
 const GREET = 'السلام 👋 أنا مساعد أمانزين. قول ليا شنو محتاج — نجّار، بيتزا، شقة فالرباط، بغيت نبيع… ونوجّهك.';
 const SUGGEST = ['بغيت سبّاك مستعجل', 'فين نلقى طبيب أسنان', 'بغيت نبيع تلفون', 'شقة للكراء فالرباط'];
@@ -42,7 +53,19 @@ export default function AssistantPage() {
   const store = useStore();
   const { setPage, user } = store;
   const navigate = useNavigate();
-  const [msgs, setMsgs] = useState<Msg[]>([{ who: 'ai', text: GREET }]);
+  // ── **وحوارُ المساعد يعيش ما دامت الرحلةُ حيّة** ────────────────
+  //   نفسُ العطب الذي أُصلح في `LivingHome`، قائمًا هنا: حالةٌ محلّيّةٌ في
+  //   المكوّن وحدَه، فكلُّ انتقالٍ إلى صفحةٍ ثمّ عودةٍ يمحو الحوارَ ويعود
+  //   الإنسانُ إلى تحيّةٍ لا تذكر ما قاله قبل ثانية. والمساعدُ هو الشاشةُ
+  //   التي **تُلاحِق** أكثرَ من غيرها، فالمحوُ فيها أشدُّ وقعًا.
+  //   والعلاجُ نفسُه: سجلُّ حالة العميل بنطاق `journey` ومدّةٍ معلَنة.
+  const [msgs, setMsgs] = useState<Msg[]>(
+    () => readState<Msg[]>('amanzine_assistant') || [{ who: 'ai', text: GREET }]);
+  useEffect(() => {
+    const meaningful = msgs.length > 1 || msgs[0]?.who === 'user';
+    if (meaningful) writeState('amanzine_assistant', msgs.slice(-40));
+    else clearState('amanzine_assistant');
+  }, [msgs]);
   const [text, setText] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -68,7 +91,9 @@ export default function AssistantPage() {
         receptionUnderstood();  // الرؤية فهمت المشكل من صورة → حالةٌ مفهومة
         const node = conceptGraph(svc) || null;
         const res: NeedResult = { intent: 'find_pro', label: svc, color: 'var(--info,#3B82F6)', tags: [], url: withNeed('/market', node?.name || svc, u.city || uctx.place.city || undefined), next: '' };
-        setMsgs(m => [...m, { who: 'ai', text: `أها 👍 باين ${svc}${u.city ? ` ف${u.city}` : ''}. نوصّلك بالأقرب.`, result: res, node }]);
+        // ولا نصَّ كتبه الإنسانُ هنا — الصورةُ هي الطلب. فالنصُّ الذي يُبنى
+        //   عليه الحكمُ هو ما قرأته الرؤية، وهو ما يُحمَل مع الرسالة.
+        setMsgs(m => [...m, { who: 'ai', text: `أها 👍 باين ${svc}${u.city ? ` ف${u.city}` : ''}. نوصّلك بالأقرب.`, raw: node?.name || svc, result: res, node }]);
       } else {
         setMsgs(m => [...m, { who: 'ai', text: 'ما بانش ليّ مزيان فالصورة — وصّف ليّ المشكل بكلمة وحدة؟' }]);
       }
@@ -97,7 +122,7 @@ export default function AssistantPage() {
     // المفهومُ مقروءٌ للتوّ في `svc` — يُمرَّر ولا يُقرأ ثانيةً (القاعدةُ ㉒).
     const rr: NeedResult = (!r.page && r.url) ? { ...r, url: withNeed(r.url, query, uctx.place.city || undefined, svc) } : r;
     lastRef.current = { raw: query, intent: r.intent, journey: String(jrn), uctx };
-    setMsgs(m => [...m, { who: 'user', text: query }, { who: 'ai', text: reply, result: rr, node }]);
+    setMsgs(m => [...m, { who: 'user', text: query }, { who: 'ai', text: reply, raw: query, result: rr, node }]);
     setText('');
 
     // آخر طبقة (AI): إن عجزت القواعد (unknown) نستدعي الفهم الهجين — لا يوقف الحوار،
@@ -117,7 +142,9 @@ export default function AssistantPage() {
             url: withNeed('/market', conceptGraph(svc)?.name || svc, u.city || uctx.place.city || undefined), next: '',
           };
           const line = `أها 👍 فهمت — باين ${svc}${u.city ? ` ف${u.city}` : ''}. نوصّلك بالأقرب ليك.`;
-          setMsgs(m => [...m, { who: 'ai', text: line, result: res }]);
+          // النصُّ الأصليُّ لا ما فهمه الذكاء: المالكُ الواحد يُسأل بما قاله
+          //   الإنسانُ، ثمّ يُكمَّل الفراغُ بما قرأه الذكاء — لا العكس.
+          setMsgs(m => [...m, { who: 'ai', text: line, raw: query, result: res }]);
         })
         .catch(() => { /* شبكة/بلا مفتاح ⇒ نُبقي ردّ القواعد */ });
     }
@@ -140,19 +167,19 @@ export default function AssistantPage() {
   //   `refuse`) **لا يُلاحَق** — يُقال ما قاله الحَكَم ويبقى الإنسانُ مكانَه.
   const goTo = (r: NeedResult, raw?: string) => {
     const text = String(raw || (r as { object?: { raw?: string } })?.object?.raw || lastRef.current?.raw || '').trim();
-    if (text) {
-      const d = decideFor(text, { need: r });
-      const t = targetOf(d, text);
-      if (!t.page && !t.url) { receptionEnd('idle'); return; }   // حكمٌ بلا وجهة
-      if (t.page) { const p = t.page as Page; logExperience(String(p)); playGate(() => setPage(p)); return; }
-      logExperience(t.url!); receptionEnd('routed'); playGate(() => navigate(t.url!)); return;
-    }
-    // بلا نصٍّ (استعادةُ محادثةٍ مثلًا) يبقى السلوكُ القديم — ولا وجهةَ تُخترَع.
-    if (r.page) { const p = r.page as Page; logExperience(String(r.page)); playGate(() => setPage(p)); return; }
-    const url = r.url || '/market';
-    logExperience(url);
-    receptionEnd('routed');
-    playGate(() => navigate(url));
+    // ── **ولا وجهةَ بلا نصٍّ يُحكَم عليه** ──────────────────────────
+    //   كان هنا سقوطٌ إلى `r.page`/`r.url` حين يغيب النصّ. وهو يبدو حارسًا
+    //   لحالةٍ نادرة، وليس كذلك: `lastRef` يعيش في الذاكرة وحدَها، فكلُّ
+    //   محادثةٍ مُستعادةٍ بعد تنقّلٍ أو تحديثٍ **تمرّ منه** — أي أنّ المسارَ
+    //   القديمَ كان يعمل في أكثرِ الحالات لا أقلِّها.
+    //   والرسائلُ صارت تحمل نصَّها (`Msg.raw`)، فالغيابُ الآن يعني أنّه لا
+    //   طلبَ أصلًا — ولا تُخترَع وجهةٌ لطلبٍ غير موجود.
+    if (!text) { receptionEnd('idle'); return; }
+    const d = decideFor(text, { need: r });
+    const t = targetOf(d, text);
+    if (!t.page && !t.url) { receptionEnd('idle'); return; }   // حكمٌ بلا وجهة
+    if (t.page) { const p = t.page as Page; logExperience(String(p)); playGate(() => setPage(p)); return; }
+    logExperience(t.url!); receptionEnd('routed'); playGate(() => navigate(t.url!));
   };
 
   // نقر على خيارٍ في سؤالٍ موجّه → يقود لوجهته (صفحة أو رابط). التسمية = التنقيح
@@ -202,7 +229,7 @@ export default function AssistantPage() {
               {m.text}
             </div>
             {m.result && !m.result.steps && (m.result.url || m.result.page) && (
-              <button onClick={() => goTo(m.result!)} style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 12, border: 'none', background: 'var(--amz-gold,#D4A017)', color: '#1a1300', fontSize: 13, fontWeight: 900, fontFamily: 'inherit', cursor: 'pointer' }}>
+              <button onClick={() => goTo(m.result!, m.raw)} style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 12, border: 'none', background: 'var(--amz-gold,#D4A017)', color: '#1a1300', fontSize: 13, fontWeight: 900, fontFamily: 'inherit', cursor: 'pointer' }}>
                 يالله نمشيو <ArrowLeft size={15} />
               </button>
             )}

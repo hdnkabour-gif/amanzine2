@@ -84,7 +84,10 @@ export default function LivingHome() {
   const [turns, setTurns] = useState<Turn[]>(() => readState<Turn[]>('amanzine_conversation') || []);
   useEffect(() => {
     if (turns.length) writeState('amanzine_conversation', turns.slice(-40));
-    else clearJourneyState.length && clearState('amanzine_conversation');
+    // كان هنا `clearJourneyState.length && clearState(…)` — و`.length` طولُ
+    //   **مُعاملات الدالّة** لا شيءَ آخر، وهو صفرٌ، فالشرطُ كاذبٌ دائمًا
+    //   والمسحُ لا يقع أبدًا. سطرٌ يقرأ كحارسٍ ولا يفعل شيئًا.
+    else clearState('amanzine_conversation');
   }, [turns]);
   /**
    * **البابُ الوحيدُ إلى سجلّ المحادثة.**
