@@ -66,6 +66,32 @@ export const CLIENT_STATE: StateKey[] = [
     why: 'حوارُ المساعد داخل نفس الرحلة — ينجو من التنقّل ويموت معها' },
   { key: 'ai_commerce_theme', scope: 'device', store: 'local',
     why: 'سِمةٌ يختارها صاحبُ الجهاز، لا تخصّ حسابًا' },
+
+  // ── **ذاكرةُ التعلّم — تخصّ صاحبَها لا الجهاز** ─────────────────
+  //
+  //   كشفتها رحلةٌ ذهبيّةٌ في متصفّحٍ حقيقيّ: بعد الخروج بقيت في المتصفّح
+  //   عشرةُ مفاتيحَ لم يكن أيٌّ منها في هذا السجلّ، فيها **الجملُ التي كتبها
+  //   الإنسانُ ولم تُفهَم** ورحلاتُه ورضاه. فمستخدمٌ ثانٍ على نفس الجهاز يرث
+  //   ما تعلّمه التطبيقُ عن الأوّل — نفسُ عطبِ `ai_commerce_os_state` الذي
+  //   أُغلق في RC-P2، قائمًا في عائلةٍ أكبرَ منه.
+  //
+  //   ── ولماذا تُعلَن هنا لا تُستورَد ──
+  //   جُرِّب أوّلًا المرورُ على `SYNCED_KEYS` باستيرادها من `userMemory`.
+  //   والبناءُ **أسقط الحلقةَ صامتًا** — فمرّ الإصلاحُ في الاختبارات وسقط في
+  //   المتصفّح. وذاك أخطرُ من ألّا يُكتَب. فالسجلُّ يُعلن مفاتيحَه بنفسه،
+  //   ويحرس اختبارٌ أن يبقى مطابقًا لقائمة المزامنة.
+  { key: 'amanzine_learned', scope: 'identity', store: 'local', why: 'عباراتٌ تعلّمها التطبيقُ من هذا الإنسان' },
+  { key: 'amanzine_learned_places', scope: 'identity', store: 'local', why: 'أماكنُ تعلّمها منه' },
+  { key: 'amanzine_user_graph', scope: 'identity', store: 'local', why: 'رسمُ اهتماماتِ هذا الحساب' },
+  { key: 'amanzine_journeys', scope: 'identity', store: 'local', why: 'رحلاتُه داخل التطبيق' },
+  { key: 'amanzine_receptions', scope: 'identity', store: 'local', why: 'قياسُ استقباله — أدوارٌ وأزمنةُ فهم' },
+  { key: 'amanzine_feedback', scope: 'identity', store: 'local', why: 'رضاه عن النتائج' },
+  { key: 'amanzine_xp_log', scope: 'identity', store: 'local', why: 'تقدّمُه' },
+  { key: 'amanzine_decisions', scope: 'identity', store: 'local', why: '**الجملُ التي كتبها ولم تُفهَم** وقراراتُ التوجيه' },
+  { key: 'amanzine_snapshots', scope: 'identity', store: 'local', why: 'لقطاتُ سياقٍ من جلساته' },
+  { key: 'amanzine_kb_version', scope: 'identity', store: 'local', why: 'نسخةُ المعرفة التي زُوملت له' },
+  { key: 'amanzine_visited_pages', scope: 'identity', store: 'local', why: 'أيَّ صفحاتٍ زار — تقدّمُ التنقّل' },
+  { key: 'amanzine_last_visit', scope: 'identity', store: 'local', why: 'آخرُ زيارةٍ له' },
 ];
 
 const BY_KEY = new Map(CLIENT_STATE.map(k => [k.key, k]));
@@ -133,6 +159,7 @@ export function clearState(key: string): void {
  */
 export function clearIdentityState(): void {
   for (const k of CLIENT_STATE) if (k.scope !== 'device') clearState(k.key);
+
 }
 
 /** يُمحى ما يخصّ الرحلةَ وحدَها — عند انتهائها أو عند «من جديد». */

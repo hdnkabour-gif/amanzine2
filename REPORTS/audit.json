@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-11T14:55:19.215Z",
+ "generatedAt": "2026-08-11T22:02:35.599Z",
  "totals": {
-  "tracked": 737,
-  "code": 469,
+  "tracked": 738,
+  "code": 470,
   "orphans": 2,
   "appOnly": 107,
-  "testOnly": 153,
+  "testOnly": 154,
   "untested": 132,
   "deadExports": 217,
-  "looseExports": 69,
+  "looseExports": 68,
   "todos": 8,
-  "lines": 88501
+  "lines": 89231
  },
  "files": [
   {
@@ -316,19 +316,19 @@
   },
   {
    "file": "scripts/sabotage.mjs",
-   "lines": 252,
-   "bytes": 13798,
+   "lines": 267,
+   "bytes": 14731,
    "imports": [],
    "importers": [],
    "exports": [],
    "deadExports": [],
    "reach": "script",
-   "touched": 0,
+   "touched": 1786460240,
    "todos": 0,
    "anys": 0,
    "logs": 11,
    "emptyCatch": 0,
-   "ageDays": 20677
+   "ageDays": 0
   },
   {
    "file": "server/database.js",
@@ -2137,8 +2137,8 @@
   },
   {
    "file": "server/routes/orders.js",
-   "lines": 630,
-   "bytes": 34409,
+   "lines": 641,
+   "bytes": 34911,
    "imports": [
     "server/middleware/validate.js",
     "server/middleware/auth.js",
@@ -3691,7 +3691,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "src/components/ActivityTimeline.tsx",
@@ -4556,7 +4556,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "src/components/NotificationToast.tsx",
@@ -7225,8 +7225,8 @@
   },
   {
    "file": "src/lib/clientState.ts",
-   "lines": 142,
-   "bytes": 6291,
+   "lines": 169,
+   "bytes": 8290,
    "imports": [],
    "importers": [
     "src/components/CreateFlow.tsx",
@@ -8550,7 +8550,8 @@
     "src/services/api.ts"
    ],
    "importers": [
-    "src/store.tsx"
+    "src/store.tsx",
+    "test/brain/clientState.test.ts"
    ],
    "exports": [
     "syncMemory",
@@ -8566,9 +8567,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "looseExports": [
-    "SYNCED_KEYS"
-   ],
+   "looseExports": [],
    "ageDays": 4
   },
   {
@@ -9392,7 +9391,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/pages/Landing/sections/Footer.tsx",
@@ -9444,7 +9443,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/pages/Landing/sections/HowItWorks.tsx",
@@ -9498,7 +9497,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/pages/Landing/sections/NeedFirst.tsx",
@@ -9562,7 +9561,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 3
+   "ageDays": 4
   },
   {
    "file": "src/pages/Landing/theme.ts",
@@ -9727,7 +9726,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "src/pages/Marketplace.tsx",
@@ -10819,10 +10818,11 @@
   },
   {
    "file": "test/brain/clientState.test.ts",
-   "lines": 88,
-   "bytes": 4163,
+   "lines": 114,
+   "bytes": 5648,
    "imports": [
-    "src/lib/clientState.ts"
+    "src/lib/clientState.ts",
+    "src/lib/userMemory.ts"
    ],
    "importers": [
     "test/brain/index.ts"
@@ -10946,7 +10946,7 @@
    "anys": 3,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/brain/correction.test.ts",
@@ -12376,7 +12376,7 @@
    "anys": 0,
    "logs": 6,
    "emptyCatch": 1,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/browser/gate.mjs",
@@ -12392,7 +12392,7 @@
    "anys": 0,
    "logs": 8,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/browser/journey.mjs",
@@ -12456,7 +12456,7 @@
    "anys": 0,
    "logs": 7,
    "emptyCatch": 0,
-   "ageDays": 2
+   "ageDays": 3
   },
   {
    "file": "test/constitution.test.mjs",
@@ -12539,6 +12539,22 @@
    "logs": 0,
    "emptyCatch": 0,
    "ageDays": 4
+  },
+  {
+   "file": "test/journeys/golden.mjs",
+   "lines": 651,
+   "bytes": 33664,
+   "imports": [],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 0,
+   "todos": 0,
+   "anys": 0,
+   "logs": 8,
+   "emptyCatch": 0,
+   "ageDays": 20677
   },
   {
    "file": "test/knowledge-health.test.mjs",

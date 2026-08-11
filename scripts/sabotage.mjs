@@ -62,6 +62,7 @@ function count(cmd) {
 
 const RUN_OWNER = brainSlice(['test/brain/destinationOwner.test.ts', 'test/brain/referent.test.ts']);
 const RUN_BUDGET = brainSlice(['test/brain/semanticBudget.test.ts']);
+const RUN_STATE = brainSlice(['test/brain/clientState.test.ts']);
 const RUN_ARCH = nodeTest('test/architecture.test.mjs');
 /**
  * **مخطَّطٌ نظيفٌ قبل كلّ قياس.**
@@ -169,6 +170,20 @@ const FAMILIES = [
     ['قراءةٌ مُخبَّأةٌ عالميًّا تُبطل الحارس', [
       [D, `  const u = ctx.u || understand(q);`,
         `  const __c = ((globalThis as any).__u ||= {}); const u = ctx.u || (__c[q] ||= understand(q));`]]],
+  ]],
+
+  ['RC-P2', 'حدودُ الهويّة لما يُحفَظ في المتصفّح', RUN_STATE, [
+    ['مفتاحُ ذاكرةِ تعلّمٍ يخرج من السجلّ', [
+      [CS, `  { key: 'amanzine_decisions', scope: 'identity', store: 'local', why: '**الجملُ التي كتبها ولم تُفهَم** وقراراتُ التوجيه' },\n`, ``]]],
+    ['ذاكرةُ التعلّم تصير تفضيلَ جهازٍ فتنجو من الخروج', [
+      [CS, `  { key: 'amanzine_journeys', scope: 'identity', store: 'local',`,
+        `  { key: 'amanzine_journeys', scope: 'device', store: 'local',`]]],
+    ['الخروجُ يترك مفاتيحَ الهويّة', [
+      [CS, `  for (const k of CLIENT_STATE) if (k.scope !== 'device') clearState(k.key);`,
+        `  for (const k of CLIENT_STATE) if (k.scope === 'journey') clearState(k.key);`]]],
+    ['نسخةُ حسابٍ تُقرأ لحسابٍ آخر', [
+      [CS, `    if (k.scope === 'identity' && env.owner && owner && env.owner !== owner) {`,
+        `    if (false) {`]]],
   ]],
 
   ['RC-P5', 'القاعدةُ تحرس معناها', RUN_DB, [

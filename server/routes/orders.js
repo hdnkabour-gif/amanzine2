@@ -64,7 +64,18 @@ router.put('/:id', auth, async (req, res) => {
     const o = await db.getOrder(req.params.id);
     if (!o || o.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
     res.json(await db.updateOrder(o.id, { ...req.body, userId: req.user.id }));
-  } catch (e) { console.error('[orders]', e.message); res.status(500).json({ error: 'Server error' }); }
+  } catch (e) {
+    console.error('[orders]', e.message);
+    // ── **خطأُ مُدخَلٍ لا يُقدَّم خطأَ خادم** ──────────────────────
+    //   كشفته رحلةٌ ذهبيّة: `status: 'حالةٌ مخترَعة'` كان يعود **500 Server
+    //   error**. والقاعدةُ ترفضه بحقٍّ (قيدُ RC-P5)، لكنّ الجوابَ يقول
+    //   للعميل «العطبُ عندي» وهو عنده — فيُعاد الطلبُ ويُفتَح بلاغٌ عن
+    //   خادمٍ سليم. و`23514` هو رمزُ مخالفةِ قيدٍ في PostgreSQL.
+    if (e.code === '23514') {
+      return res.status(400).json({ error: 'قيمةٌ غيرُ مقبولة — تحقّق من حالة الطلب والمبالغ' });
+    }
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // -- مُرسِلٌ واحدٌ للبريد --

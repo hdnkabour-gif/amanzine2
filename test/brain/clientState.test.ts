@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CLIENT_STATE, writeState, readState, consumeState, clearIdentityState, clearJourneyState, JOURNEY_TTL } from '../../src/lib/clientState';
+import { SYNCED_KEYS } from '../../src/lib/userMemory';
 
 // ============================================================
 // **RC-P2 — حدودُ الهويّة والمدّة لما يُحفَظ في المتصفّح.**
@@ -84,4 +85,29 @@ test('**ومفتاحٌ غيرُ مُعلَنٍ في السجلّ لا يُكتَ
 test('و`amanzine_need_seed` أُسقط — كتابةٌ بلا مصبٍّ لا تُحفَظ «للتوافق»', () => {
   assert.equal(CLIENT_STATE.find(k => k.key === 'amanzine_need_seed'), undefined,
     'عاد مفتاحٌ لا قارئَ له إلى السجلّ');
+});
+
+test('**وكلُّ مفتاحِ ذاكرةٍ مُزامَنٍ مُعلَنٌ في السجلّ** — لا قائمتان تتباعدان', () => {
+  // كشفته رحلةٌ ذهبيّةٌ في متصفّحٍ حقيقيّ: بعد الخروج بقيت عشرةُ مفاتيحَ
+  //   فيها **الجملُ التي كتبها الإنسانُ ولم تُفهَم** ورحلاتُه ورضاه، ولا واحدٌ
+  //   منها في السجلّ. فمَن يدخل بعده على نفس الجهاز يرث ما تعلّمه التطبيقُ عنه.
+  //
+  //   والحارسُ يمنع عودةَ الفجوة من بابها: مفتاحٌ يُضاف إلى `SYNCED_KEYS`
+  //   ولا يُعلَن هنا يسقط هذا الاختبار — لا يُكتشَف بعد سنةٍ في متصفّح.
+  const missing = SYNCED_KEYS.filter(k => !CLIENT_STATE.some(c => c.key === k));
+  assert.deepEqual(missing, [], `مفاتيحُ مزامنةٍ خارجَ السجلّ — تنجو من الخروج: ${missing.join(' · ')}`);
+  // وكلُّها تخصّ الحساب: ذاكرةُ تعلّمٍ بنطاق `device` تبقى للداخل التالي.
+  const wrongScope = SYNCED_KEYS
+    .map(k => CLIENT_STATE.find(c => c.key === k)!)
+    .filter(c => c.scope !== 'identity');
+  assert.deepEqual(wrongScope.map(c => c.key), [], 'ذاكرةُ تعلّمٍ بنطاقٍ لا يُمحى عند تبدّل الهويّة');
+});
+
+test('**وتبدّلُ الهويّة يمحو ذاكرةَ التعلّم فعلًا**', () => {
+  wipe();
+  for (const k of SYNCED_KEYS) writeState(k, { secret: 'سِرُّ-الأوّل' }, 'USER_A');
+  assert.ok(SYNCED_KEYS.every(k => readState(k, 'USER_A') !== null), 'لم تُكتَب أصلًا');
+  clearIdentityState();
+  const survived = SYNCED_KEYS.filter(k => globalThis.localStorage.getItem(k) !== null);
+  assert.deepEqual(survived, [], `نجت ذاكرةُ تعلّمٍ تخصّ الخارج: ${survived.join(' · ')}`);
 });
