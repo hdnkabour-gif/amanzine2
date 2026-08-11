@@ -52,7 +52,7 @@ Therefore Assistant parity is **OPEN/WRONG statically** and runtime states ask
 
 ### Fake-client verified
 
-**`migrate-atomicity.test.js`** validates query order, rollback call, version insertion and original-error preservation against an injected client. It does **`not`** prove PostgreSQL DDL semantics, locks, constraints, indexes or production failure rollback.
+**`migrate-atomicity.test.js`** validates query order, rollback call, version insertion and original-error preservation against an injected client. It does **not** prove PostgreSQL DDL semantics, locks, constraints, indexes or production failure rollback.
 
 ### Designed for real PostgreSQL, not executed
 
