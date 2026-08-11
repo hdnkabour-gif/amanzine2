@@ -8,7 +8,7 @@ on:
 # دفعٌ إلى فرعٍ مفتوحٍ عليه PR يُشعل تشغيلَين على نفس الـcommit، فيتنافسان
 # على نفس المُشغِّل ويطول كلاهما. يُلغى القديمُ ويبقى الأحدث.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
