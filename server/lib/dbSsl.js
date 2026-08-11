@@ -41,8 +41,24 @@ const ADVICE =
 function buildSSL(env = process.env, readFile = null) {
   const url = String(env.DATABASE_URL || '');
 
-  // ① تعطيلٌ صريح
-  if (env.PGSSLMODE === 'disable' || env.DB_SSL === 'false' || /sslmode=disable/i.test(url)) return false;
+  const isLocalUrl = /@(localhost|127\.0\.0\.1|\[?::1\]?)[:/]/i.test(url);
+  const wantsDisable = env.PGSSLMODE === 'disable' || env.DB_SSL === 'false' || /sslmode=disable/i.test(url);
+
+  // ── ① تعطيلٌ صريح — **وللمحلّيّ أو غير الإنتاج وحدَه** ────────
+  //   كان هذا الفرعُ يسبق تمييزَ المحلّيّ من البعيد، فمتغيّرُ بيئةٍ واحدٌ
+  //   (`PGSSLMODE=disable`) يجعل قاعدةَ إنتاجٍ بعيدةً تعمل **نصًّا صريحًا**
+  //   عبر الشبكة: لا تشفيرَ ولا هويّة. وهو أسوأُ من التساهل الذي أُصلح قبله،
+  //   ويقع بسطرِ إعدادٍ يُنسَخ من وثيقةِ تطوير.
+  //
+  //   والقاعدةُ: التعطيلُ أداةُ تطويرٍ محلّيّ. فإن كانت القاعدةُ بعيدةً
+  //   **وكانت البيئةُ إنتاجًا**، يُرفَض ويُقال السبب — ولا يُخمَّن أنّ صاحبَه
+  //   قصد النصَّ الصريح.
+  if (wantsDisable) {
+    if (isLocalUrl || env.NODE_ENV !== 'production') return false;
+    throw new Error(
+      'DB TLS: طُلب تعطيلُ TLS لقاعدةٍ بعيدةٍ في الإنتاج — وهذا يجعل الاتّصالَ نصًّا صريحًا. '
+      + 'التعطيلُ للتطوير المحلّيّ وحدَه. ' + ADVICE);
+  }
 
   // ② شهادةُ جذرٍ مُعطاة — والفشلُ هنا يرمي ولا يُخفِّض
   const caInline = env.DATABASE_CA;
@@ -59,8 +75,7 @@ function buildSSL(env = process.env, readFile = null) {
   }
 
   // ③ قاعدةٌ محلّيّةٌ في غير الإنتاج
-  const isLocal = /@(localhost|127\.0\.0\.1|\[?::1\]?)[:/]/i.test(url);
-  if (isLocal && env.NODE_ENV !== 'production') return false;
+  if (isLocalUrl && env.NODE_ENV !== 'production') return false;
 
   // ④ بعيدةٌ بلا شهادةٍ مُعطاة ⇒ تحقّقٌ من الهويّة، لا تساهُل
   return { rejectUnauthorized: true };

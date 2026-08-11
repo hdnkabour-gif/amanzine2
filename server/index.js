@@ -410,8 +410,13 @@ async function startServer() {
       try {
         const { platformAdminEmails } = require('./middleware/platformAdmin');
         const list = platformAdminEmails();
+        // **العددُ يكفي، والعناوينُ لا تُطبَع.** كان يُطبَع `list.join(', ')` —
+        //   أي بريدُ المالك في سجلٍّ يُحفَظ ويُصدَّر ويُقرأ من غيره. وهو دليلُ
+        //   استهدافٍ جاهز: من يعرف بريدَ الأدمن يعرف على مَن يُجرّب.
+        //   (وكنتُ قد حكمتُ على F-028 بأنّها مدحوضة اعتمادًا على فحصٍ ضيّق —
+        //   والقياسُ هنا نقضَ حكمي.)
         console.log(list.length
-          ? `[Admin] أدمن المنصّة: ${list.join(', ')}`
+          ? `[Admin] أدمن المنصّة: ${list.length} بريدًا مُصرَّحًا.`
           : '[Admin] ⚠️  لا ADMIN_EMAIL — لوحة المنصّة مقفلة في الإنتاج.');
       } catch { /* noop */ }
     });

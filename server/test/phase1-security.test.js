@@ -261,3 +261,52 @@ test('**ولا يقارن المسارُ بنفسه** — مالكٌ واحدٌ 
   assert.doesNotMatch(owner, /req\.query|\.query\./, 'المالكُ يقرأ سلسلةَ الاستعلام');
   assert.doesNotMatch(owner, /apiKey/, 'المالكُ يعرف مفتاحَ الصادر');
 });
+
+// ── ⑥ مراجعةُ المرحلة ① الذاتيّة — BEHAVIORAL ──────────────────
+test('**P1-A: قاعدةٌ بعيدةٌ في الإنتاج لا تصير نصًّا صريحًا بمتغيّرِ بيئة**', () => {
+  // التعطيلُ كان يسبق تمييزَ المحلّيّ من البعيد: سطرٌ واحدٌ يُنسَخ من وثيقةِ
+  //   تطويرٍ يجعل وصلةَ الإنتاج بلا تشفيرٍ أصلًا — أسوأُ من التساهل نفسِه.
+  for (const env of [{ PGSSLMODE: 'disable' }, { DB_SSL: 'false' }]) {
+    assert.throws(() => buildSSL({ DATABASE_URL: REMOTE, NODE_ENV: 'production', ...env }), /DB TLS/,
+      `قُبل تعطيلُ TLS لقاعدةٍ بعيدةٍ في الإنتاج: ${JSON.stringify(env)}`);
+  }
+  assert.throws(() => buildSSL({ DATABASE_URL: REMOTE + '?sslmode=disable', NODE_ENV: 'production' }), /DB TLS/);
+  // وأداةُ التطوير تبقى أداةَ تطوير — محلّيًّا دائمًا، وبعيدًا خارج الإنتاج.
+  assert.equal(buildSSL({ DATABASE_URL: LOCAL, PGSSLMODE: 'disable', NODE_ENV: 'production' }), false);
+  assert.equal(buildSSL({ DATABASE_URL: REMOTE, PGSSLMODE: 'disable' }), false);
+});
+
+test('**P1-B: عنوانُ اتّصالِ الإشعارات لا يمنح صلاحيّةَ المنصّة**', () => {
+  // من ضبط عنوانَ مراسلةٍ لـVAPID كان يمنح نفسَه — أو غيرَه — أدمنَ منصّة.
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../routes/push.js'), 'utf8');
+  assert.match(src, /VAPID_CONTACT_EMAIL/, 'لا متغيّرَ اتّصالٍ مستقلّ');
+  // ويبقى `ADMIN_EMAIL` تصريحًا: `index.js` يُنشئ به حسابَ المالك — عقدٌ في
+  //   الكود لا عادةٌ متوارَثة، فالتوافقُ هنا مُسنَدٌ بدليل.
+  const idx = require('fs').readFileSync(require('path').join(__dirname, '../index.js'), 'utf8');
+  assert.match(idx, /const email = process\.env\.ADMIN_EMAIL/, 'تغيّر عقدُ هويّة المالك');
+  withEnv({ ADMIN_EMAIL: 'owner@x.ma' }, () => assert.equal(isPlatformAdmin(asUser('owner@x.ma')), true));
+});
+
+test('**P1-C: ملفُّ VAPID القديمُ الضعيفُ يُقسَّى عند القراءة**', () => {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vapid-'));
+  const f = path.join(dir, 'vapid.json');
+  fs.writeFileSync(f, JSON.stringify({ publicKey: 'p', privateKey: 'x' }), { mode: 0o644 });
+  assert.ok((fs.statSync(f).mode & 0o077) !== 0, 'التهيئةُ نفسُها لم تُنتج ملفًّا ضعيفًا');
+  // نفسُ المنطق كما في `push.js` — يُنفَّذ لا يُقرأ.
+  const mode = fs.statSync(f).mode & 0o777;
+  if (mode & 0o077) fs.chmodSync(f, 0o600);
+  assert.equal(fs.statSync(f).mode & 0o077, 0, 'بقي الملفُّ القديمُ مكشوفًا');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../routes/push.js'), 'utf8');
+  assert.match(src, /chmodSync\(VAPID_FILE, 0o600\)/, 'سقط تقسيةُ الملفّ القائم');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('**F-028: قائمةُ الأدمن لا تُطبَع في السجلّ** — تصحيحُ حكمٍ سابقٍ لي', () => {
+  // حكمتُ عليها بـDISPROVED من فحصٍ ضيّق، ثمّ أظهر القياسُ أنّ الإقلاع يطبع
+  //   `list.join(', ')` — بريدَ المالك في سجلٍّ يُصدَّر ويُقرأ.
+  const idx = require('fs').readFileSync(require('path').join(__dirname, '../index.js'), 'utf8');
+  const code = idx.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.doesNotMatch(code, /\[Admin\][^\n]*list\.join/, 'عادت عناوينُ الأدمن إلى السجلّ');
+  assert.match(code, /list\.length\} بريدًا/, 'سقط عدُّ الأدمن من رسالة الإقلاع');
+});
