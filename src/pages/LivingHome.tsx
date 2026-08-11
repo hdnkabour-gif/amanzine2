@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { decideFor } from '../lib/decide';
 import { writeState, readState, clearState, clearJourneyState } from '../lib/clientState';
 import { useStore } from '../store';
 import {
@@ -16,7 +17,7 @@ import { playGate } from '../lib/gateTransition';
 import { useNavigate } from 'react-router-dom';
 import { personaGreeting, personaWelcome } from '../lib/persona';
 import { knownAbout, enrichSignals, explainFilled } from '../lib/knownContext';
-import { decideInterface, confirmPrompt, type InterfaceDecision } from '../lib/interfaceDecision';
+import { confirmPrompt, type InterfaceDecision } from '../lib/interfaceDecision';
 import { receptionStart, receptionTurn, receptionUnderstood, receptionStep, receptionEnd, recordDecision, recordConfirm, recordClarificationAsked, recordClarificationAnswered, recordSnapshot } from '../lib/journey';
 import {
   openSnapshot, askClarification, answerClarification, confirmSnapshot, withDestination,
@@ -24,10 +25,8 @@ import {
 } from '../lib/intentSnapshot';
 import UnderstandingCard from '../components/UnderstandingCard';
 import { correctionOptions, applyCorrection, buildMisread, thankFor, type CorrectionOption } from '../lib/correction';
-import { abilityFor, entityAccepts, VERB_MAP, OBJECT_MAP } from '../lib/abilities';
 import FocusedEdit, { isFocusable, type FocusField } from '../components/FocusedEdit';
 import { readPersonFacts, rememberFacts, forgetFact, describeFacts } from '../lib/personFacts';
-import { decideExecution } from '../lib/executionPolicy';
 import { reportMisread } from '../lib/journey';
 import { understand, type Understanding } from '../lib/akg/kb';
 // أرضيّةُ الفهم: هل عندنا دليلٌ، أم رجعت النيّةُ من المصرف؟
@@ -55,13 +54,6 @@ import type { Page } from '../types';
 const MAX_BEATS = 5;
 const VISIT_KEY = 'amanzine_last_visit';
 
-// **قراءةٌ ضعيفةٌ لا تُرفَض بها قدرةٌ ولا تُفتَح بها.**
-//
-//   قِيس: «زيد زبون جديد» تُقرأ `create:settings` بثقة **٠٫٣٥** — لأنّ قارئَ
-//   الأفعال يسقط على `settings` حين لا يعرف الهدف. والقراءاتُ الصحيحةُ تحمل
-//   ٠٫٧٠–٠٫٨٥، فالحدُّ يفصلهما بوضوح. وما دونه يُسأل عنه: **الشكُّ يُسأل ولا
-//   يُرفَض** — ولا يُنفَّذ به شيءٌ أيضًا.
-const READ_ENOUGH = 0.5;
 
 interface Turn { who: 'sys' | 'user'; text: string }
 interface Beat { id: string; icon: any; color: string; title: string; sub?: string; page?: Page; pr: number }
@@ -347,22 +339,17 @@ export default function LivingHome() {
     //   له بابُ إعداداته.
     //   والحدُّ `READ_ENOUGH` كان مطبَّقًا على `impossible` وحدَه — أي أنّ
     //   القراءةَ الضعيفةَ لا تكفي **للرفض** وتكفي **للتنفيذ**. وهذا معكوس.
-    const act = (u.action?.confidence ?? 0) >= READ_ENOUGH ? u.action : null;
-    const match = abilityFor({ action: act, intent: r.intent, stance: u.stance, service: u.service });
-    // ── حدُّ القدرة الصادق ────────────────────────────────────────
-    //   يُسأل **المجالُ** لا الكتالوج: أيقبل هذا الكيانُ هذا الفعلَ أصلًا؟
-    //   ولا يُسأل إلّا حين يكون الفعلُ صريحًا (فعلٌ + هدفٌ مقروءان)، فالنيّةُ
-    //   الخشنةُ تُسأل ولا تُرفَض — الجهلُ عندنا ليس عجزًا عندنا.
-    //   وغيابُ القدرة من الكتالوج لا يُرفَض به شيء: قِيس فوُجد ٤٢ زوجًا
-    //   غيرَ مُعلَنٍ وفيها أبوابٌ تعمل (`view:product`).
-    const av = act ? VERB_MAP[act.verb] : undefined;
-    const ae = act ? OBJECT_MAP[act.object] : undefined;
-    const impossible = !!(av && ae && !entityAccepts(av, ae));
-    // والسياقُ يُمرَّر: «مسح **هاد** المنتوج» تعيّن المقصودَ بغير اسمِه،
-    // ولا يعرف المعجمُ كتالوجَ أحد. بلا هذا يبقى المؤشِّرُ مقروءًا ولا يشير
-    // إلى شيء — طبقةٌ تعمل ولا أحدَ يعرف أنّها تعمل.
-    const verdict = decideExecution(u, match || undefined, impossible,
-      { lastProduct: uctx.state.lastProduct, raw });
+    // ── **الحَكَمُ يُسأل، ولا يُعادُ تركيبُه هنا** ────────────────
+    //   كانت هذه الشاشةُ تركّب الطبقاتِ بنفسها: حدُّ القراءة، ثمّ الكتالوج،
+    //   ثمّ حدُّ المجال، ثمّ الحكم، ثمّ الشكل. و`NeedFirst` تركّبها بترتيبٍ
+    //   آخر، و`Assistant` لا تركّبها أصلًا — فاختلفت الوجهةُ باختلاف الشاشة.
+    //   الترتيبُ صار في `decide.ts` وحدَه، وهذه تسأله.
+    //
+    //   ويُمرَّر الفهمُ المحسوبُ سلفًا: مسارُ الذكاء الخارجيّ يُكمّل الفراغَ
+    //   قبل النداء، فإعادةُ القراءة هنا تمحو ما مُلئ — وتكرّر العملَ بلا داعٍ.
+    const d = decideFor(raw, { u, need: r, lastProduct: uctx.state.lastProduct });
+    const match = d.ability;
+    const verdict = { verdict: d.verdict, say: d.say, dest: d.dest, trace: d.trace, boundary: d.boundary };
     // **والوعدُ يُنفَّذ.** الحدُّ الصادق يقول «سجّلت طلبك»، فلو لم يُسجَّل صار
     //   كذبةً ألطفَ من السؤال العاجز ولا فرقَ. وهذه هي القناةُ الثالثة:
     //   ما فُهم تمامًا ولا بابَ له — خارطةُ الطريق يكتبها الناسُ بأنفسهم.
@@ -385,7 +372,7 @@ export default function LivingHome() {
         note: prod.price != null ? `الثمن دابا ${prod.price} درهم` : undefined,
       },
     } : undefined));
-    const dec = decideInterface({ ...r, hasInput: true }, verdict.verdict);
+    const dec = { mode: d.mode, reason: '' };
     // `explain` و`refuse` يُقالان ولا يُفعَلان. وما عداهما له شكلٌ في الواجهة،
     // فلا يُطبَع نصُّه فوقها — نصٌّ ورسمٌ يقولان الشيءَ نفسَه ازدواجٌ لا تأكيد.
     // ── **وسؤالُ الحَكَم يُعرَض كما يُعرَض شرحُه** ──────────────────

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { decideFor, targetOf } from '../../../lib/decide';
 import { writeState } from '../../../lib/clientState';
 import { useNavigate } from 'react-router-dom';
 import { understand, stanceOf } from '../../../lib/akg/kb';
@@ -199,44 +200,44 @@ export default function NeedFirst() {
   const [ask, setAsk] = useState<Ask | null>(null);
   const [signals, setSignals] = useState<Signals>({});
 
+  // ── **الوجهةُ تُطلَب من المالك الواحد** ────────────────────────
+  //   كانت هذه الشاشةُ تقرّر بنفسها: عرضٌ ⇒ نشر، وإلّا ⇒ رابطُ الحاجة أو السوق.
+  //   فنفسُ الجملة تنتهي هنا إلى مكانٍ وفي `LivingHome` إلى مكانٍ آخر، لأنّ
+  //   كلًّا منهما ركّب الطبقاتِ بترتيبه. صارت تسأل `decideFor` وتنفّذ جوابَه.
+  //
+  //   و`page` المُمرَّرةُ من خيار استيضاحٍ تبقى محترَمةً: الإنسانُ اختار بيدِه،
+  //   وذاك ليس تخمينَ شاشةٍ بل جوابٌ صريحٌ منه.
   const routeTo = (need: string, page?: string, url?: string) => {
-    // **`amanzine_need_seed` أُسقط**: كان يُكتَب في كلّ توجيهٍ ولا قارئَ له في
-    //   المشروع كلِّه — كتابةٌ بلا مصبّ. وحفظُه «للتوافق» بلا قارئٍ حفظُ عادةٍ
-    //   لا وظيفة، ويُبقي مفتاحًا يعبر الخروجَ بلا سبب.
-    const u: any = understand(need);
-    // ── الحاجةُ تُحمَل كاملةً إلى صفحة الدخول ────────────────────
-    //   `AuthPage` تعرض «فهمت أنّك بغيتي…» من `amanzine_need`، وكان الكاتبُ
-    //   الوحيدُ لهذا المفتاح قسمًا **ميّتًا** (`Hero.tsx` لا يستورده شيء).
-    //   فبقيت البطاقةُ لا تظهر لأحدٍ منذ أن صارت `NeedFirst` أوّلَ شاشة:
-    //   قارئٌ حيٌّ وكاتبٌ ميّت، والحارسُ يراهما زوجًا سليمًا.
-    //   والفارقُ للتاجر: نموذجُ تسجيلٍ مقطوعٌ عمّا كتبه قبل ثانية، بدل حوارٍ
-    //   يُكمل نفسَه — وهي أوّلُ خمس دقائقَ يُحكَم فيها على التطبيق كلِّه.
-    try {
-      writeState('amanzine_need', {
-        text: need,
-        service: u?.profession?.label || u?.problem?.name || u?.service || '',
-        city: u?.city || '',
-      });   // المدّةُ في السجلّ لا في كلّ كاتبٍ على حدة
-    } catch { /* noop */ }
-    const city = u.city ? `&city=${encodeURIComponent(u.city)}` : '';
-    if (page) {
-      // الاتّجاهُ صار له **مدّة** كالحاجة: كان بلا انتهاءٍ فيخطف أوّلَ دخولٍ
-      //   لاحقٍ إلى صفحة النشر، ولو مضت ساعات.
-      writeState('amanzine_need_stance', page === 'publish' ? 'offer' : 'seek');
-      // ── **العتبةُ تظهر حيث يقف، لا في صفحةٍ أخرى** ──────────────
-      //   كان هنا `navigate('/auth')`: يُنقَل الإنسانُ إلى استمارةٍ في ٥٤٩
-      //   سطرًا، وتُسلَّم حاجتُه عبر `sessionStorage` — أي أنّ الحوارَ يُقطَع
-      //   ويُعاد وصلُه بخيط. والآن يبقى مكانَه: العتبةُ سطرٌ تحت جملته،
-      //   وحين يعبرها **يُكمل ما كان يفعله**.
-      //
-      //   ومَن دخل سلفًا لا يُسأل: المصادقةُ ليست طقسًا يُؤدّى بل شرطٌ يُفحَص.
-      if (!isAuthed) { setGate({ need, page }); return; }
-      navigate(`/${page}?q=${encodeURIComponent(need)}`);
+    const d = decideFor(need);
+    const t: { page?: string; url?: string } = page ? { page } : targetOf(d, need);
+
+    // الحاجةُ تُحمَل كاملةً إلى صفحة الدخول — و**معها وجهتُها المحسوبة**، فلا
+    //   يُعيد `AuthPage` اشتقاقَها من اتّجاهٍ قديمٍ يسبق ما كتبه للتوّ.
+    writeState('amanzine_need', {
+      text: need,
+      service: d.u?.profession?.label || d.u?.problem?.name || d.u?.service || '',
+      city: d.u?.city || '',
+      target: t,
+    });
+
+    const wantsAuth = t.page === 'publish' || (page && page === 'publish');
+    if (wantsAuth) {
+      writeState('amanzine_need_stance', 'offer');
+      // العتبةُ تظهر حيث يقف لا في صفحةٍ أخرى؛ ومن دخل سلفًا لا يُسأل.
+      if (!isAuthed) { setGate({ need, page: 'publish' }); return; }
+      navigate(`/publish?q=${encodeURIComponent(need)}`);
       return;
     }
-    const target = url || '/market';
-    const sep = target.includes('?') ? '&' : '?';
-    navigate(`${target}${sep}q=${encodeURIComponent(need)}${city}`);
+    if (t.page) { navigate(`/${t.page}?q=${encodeURIComponent(need)}`); return; }
+    if (t.url) { navigate(t.url); return; }
+    // حكمٌ بلا وجهة (`ask`/`soon`/`explain`) — لا يُنقَل أحد. تبقى الشاشةُ
+    //   تعرض ما قاله الحَكَم، وهذا هو الفرقُ عن السؤال المرميّ.
+    const fallback = url || '/market';
+    const sep = fallback.includes('?') ? '&' : '?';
+    const city = d.u.city ? `&city=${encodeURIComponent(d.u.city)}` : '';
+    if (d.verdict === 'execute' || d.verdict === 'confirm') {
+      navigate(`${fallback}${sep}q=${encodeURIComponent(need)}${city}`);
+    }
   };
 
   const go = (q?: string) => {

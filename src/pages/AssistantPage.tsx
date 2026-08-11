@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { decideFor, targetOf } from '../lib/decide';
 import { useStore } from '../store';
 import { Sparkles, Send, ArrowLeft, Camera } from 'lucide-react';
 import { type NeedResult, type NeedOption } from '../lib/needEngine';
@@ -129,7 +130,24 @@ export default function AssistantPage() {
     catch { /* التسجيل لا يعطّل التنقّل أبدًا */ }
   };
 
-  const goTo = (r: NeedResult) => {
+  // ── **المساعدُ يخضع لنفس الحَكَم** ─────────────────────────────
+  //   قِيس فتبيّن أنّ هذا الملفَّ لا يستورد `abilityFor` ولا `decideExecution`
+  //   ولا `decideInterface` **إطلاقًا**: أربعةُ مساراتٍ تُلاحق مباشرةً من
+  //   `r.page`/`r.url`/`opt.page`/`opt.url`. فنفسُ الجملة التي تُسأل عنها في
+  //   الشاشة الرئيسيّة تُنفَّذ هنا بلا سؤال، والعكس.
+  //
+  //   والآن: يُسأل المالكُ الواحد. وما لا وجهةَ له (`ask`/`soon`/`explain`/
+  //   `refuse`) **لا يُلاحَق** — يُقال ما قاله الحَكَم ويبقى الإنسانُ مكانَه.
+  const goTo = (r: NeedResult, raw?: string) => {
+    const text = String(raw || (r as { object?: { raw?: string } })?.object?.raw || lastRef.current?.raw || '').trim();
+    if (text) {
+      const d = decideFor(text, { need: r });
+      const t = targetOf(d, text);
+      if (!t.page && !t.url) { receptionEnd('idle'); return; }   // حكمٌ بلا وجهة
+      if (t.page) { const p = t.page as Page; logExperience(String(p)); playGate(() => setPage(p)); return; }
+      logExperience(t.url!); receptionEnd('routed'); playGate(() => navigate(t.url!)); return;
+    }
+    // بلا نصٍّ (استعادةُ محادثةٍ مثلًا) يبقى السلوكُ القديم — ولا وجهةَ تُخترَع.
     if (r.page) { const p = r.page as Page; logExperience(String(r.page)); playGate(() => setPage(p)); return; }
     const url = r.url || '/market';
     logExperience(url);
@@ -140,7 +158,16 @@ export default function AssistantPage() {
   // نقر على خيارٍ في سؤالٍ موجّه → يقود لوجهته (صفحة أو رابط). التسمية = التنقيح
   // (مثلاً «أسنان») ⇒ نحملها كـ q إلى السوق ليُرتّبها البحث بدل سوقٍ عامّ.
   const goToOption = (opt: NeedOption) => {
+    // خيارٌ اختاره الإنسانُ بيدِه: وجهتُه محترَمةٌ ولا تُخمَّن. لكن **إن لم
+    //   يحمل وجهةً** فلا تُخترَع له واحدة — يُسأل الحَكَمُ بنصّ الخيار.
     if (opt.page) { const p = opt.page as Page; playGate(() => setPage(p)); return; }
+    if (!opt.url) {
+      const d = decideFor(opt.label);
+      const t = targetOf(d, opt.label);
+      if (!t.page && !t.url) { receptionEnd('idle'); return; }
+      if (t.page) { const p = t.page as Page; playGate(() => setPage(p)); return; }
+      playGate(() => navigate(t.url!)); return;
+    }
     const uctx = buildContext(store as any, { authed: !!user });
     receptionTurn(opt.label, 'button');
     const url = withNeed(opt.url || '/market', opt.label, uctx.place.city || undefined);

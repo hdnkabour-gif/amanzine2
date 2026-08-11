@@ -100,3 +100,5 @@ import './searchContract.test';
 import './humanLabels.test';
 // RC-P2: سِجلُّ ما يُحفَظ في المتصفّح — نطاقٌ ومدّةٌ وحدُّ هويّة.
 import './clientState.test';
+// RC-P1: مالكٌ واحدٌ للوجهة الدلاليّة — ستُّ عائلاتٍ تقرّر «أين يذهب هذا الطلب».
+import './destinationOwner.test';

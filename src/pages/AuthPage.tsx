@@ -205,20 +205,27 @@ export default function AuthPage() {
   const enterThrough = (go: () => void) => playGate(go);
 
   const resumeNeed = (): boolean => {
-    // ── **الرحلةُ تُستهلَك كاملةً، لا مفتاحًا منها** ────────────────
-    //   كان فرعُ العرض يمسح الاتّجاهَ وحدَه، وفرعُ الطلب يمسح الحاجةَ وحدَها.
-    //   فكلُّ رحلةٍ تترك مفتاحَ الأخرى خلفها: رحلةُ طلبٍ مكتملةٌ تُبقي اتّجاهَ
-    //   `offer` حيًّا، فيُخطَف الدخولُ **التالي** إلى صفحة النشر بلا سبب يراه
-    //   صاحبُه. والاتّجاهُ صار له مدّةٌ أيضًا، فالمتروكُ يموت وحدَه.
+    // ── **يُنفَّذ ما قُرِّر، ولا يُعاد الاشتقاق** ────────────────────
+    //   كان هذا يقرأ `amanzine_need_stance` **قبل** الحاجة ويُعيد بناء الوجهة
+    //   منه. فاتّجاهٌ متروكٌ يسبق ما كتبه صاحبُه للتوّ، وتصير صفحةُ الدخول
+    //   مالكًا ثالثًا للوجهة يخالف من قرّر قبله.
+    //
+    //   الآن: `NeedFirst` تسأل `decideFor` مرّةً وتحمل **الوجهةَ المحسوبة**
+    //   داخل الرحلة، وهذه الصفحةُ تنفّذها. والاتّجاهُ لم يعد مصدرَ قرار، بل
+    //   سقوطٌ أخيرٌ لرحلاتٍ كُتبت قبل هذا الإصلاح.
+    //   والرحلةُ تُستهلَك كاملةً مرّةً واحدة — لا مفتاحًا منها.
+    const j = readState<{ text?: string; city?: string; target?: { page?: string; url?: string } }>('amanzine_need');
     const stance = readState<string>('amanzine_need_stance') || '';
-    const wantsToOffer = stance === 'offer'
-      || new URLSearchParams(window.location.search).get('next') === 'publish';
-    const text = need?.text;
-    if (!wantsToOffer && !text) return false;
-    clearJourneyState();                       // تُستهلَك مرّةً واحدةً كاملة
-    const target = wantsToOffer
-      ? '/home?page=publish'
-      : `/market?q=${encodeURIComponent(text!)}${need!.city ? `&city=${encodeURIComponent(need!.city)}` : ''}`;
+    const nextIsPublish = new URLSearchParams(window.location.search).get('next') === 'publish';
+
+    let target = '';
+    if (j?.target?.page) target = `/${j.target.page}${j.text ? `?q=${encodeURIComponent(j.text)}` : ''}`;
+    else if (j?.target?.url) target = j.target.url;
+    else if (nextIsPublish || stance === 'offer') target = '/home?page=publish';
+    else if (j?.text) target = `/market?q=${encodeURIComponent(j.text)}${j.city ? `&city=${encodeURIComponent(j.city)}` : ''}`;
+
+    if (!target) return false;
+    clearJourneyState();
     try { enterThrough(() => window.location.assign(target)); return true; } catch { return false; }
   };
 
