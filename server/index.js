@@ -225,6 +225,9 @@ app.use('/api/auth/', rateLimit({
 // عجلة الحظ، إنشاء الطلبات، المجيب الآلي، والتحقق من الكوبونات
 app.use('/api/coupons/public/spin', rateLimit({ windowMs: 60 * 60 * 1000, max: 10, message: { error: 'محاولات كثيرة — عُد لاحقاً 🍀' } }));
 app.use('/api/orders/public',       rateLimit({ windowMs: 60 * 60 * 1000, max: 15, message: { error: 'طلبات كثيرة من هذا الجهاز — حاول بعد قليل' } }));
+// تسجيلُ زبونٍ بنفسه — كان **الوحيدَ** بين المسارات العامّة بلا حدٍّ خاصّ، وهو
+// بابُ كتابةٍ مجهولٌ يقبل رقمَ هاتف. وبلا حدٍّ يصير عدّادَ تخمينٍ بلا كلفة.
+app.use('/api/customers/public',    rateLimit({ windowMs: 60 * 60 * 1000, max: 15, message: { error: 'محاولات كثيرة من هذا الجهاز — حاول بعد قليل' } }));
 app.use('/api/ai/public-reply',     rateLimit({ windowMs: 10 * 60 * 1000, max: 30, message: { error: 'رسائل كثيرة — انتظر قليلاً ثم أعد المحاولة' } }));
 app.use('/api/coupons/validate',    rateLimit({ windowMs: 10 * 60 * 1000, max: 40, message: { error: 'محاولات تحقق كثيرة — انتظر قليلاً' } }));
 app.use('/api/track',               rateLimit({ windowMs: 5 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false })); // أحداث view/click متكرّرة

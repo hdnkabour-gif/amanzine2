@@ -7,7 +7,7 @@ Root-cause ledger. One line per state change; no forensic re-derivation.
 | RC | Title | State | Closing SHA |
 |---|---|---|---|
 | RC-P4 | Secret trust boundaries | **CLOSED_FINAL** | (below) |
-| RC-P3 | Public surfaces over-disclose | OPEN | — |
+| RC-P3 | Public surfaces over-disclose | **CLOSED** | (below) |
 | RC-P2 | Client identity/state lifetime | OPEN | — |
 | RC-P1 | Semantic destination ownership | OPEN | — |
 | RC-P5 | Database invariants | OPEN | — |
@@ -40,3 +40,30 @@ S8 remote plaintext · S9 contact grants auth · S10 legacy file left weak · S1
 comparisons return `401`, and measured timing on 4096-char inputs gave ratio `0.54×` for the
 naive compare (signal drowned in noise). The property is therefore held **structurally**: one
 comparison owner in `lib/webhookAuth.js`, with the guard declared `SOURCE_SHAPE` in the test.
+
+---
+
+## RC-P3 — CLOSED
+
+`POST /api/customers/public` is an anonymous **write** door by design — a customer fills a form
+on the merchant's public page before having an account. The defect was never its existence; it
+was its **answer**.
+
+| Defect (measured over real HTTP) | Fix |
+|---|---|
+| returned the **stored** record — 16 fields incl. name, phone, address, notes, vip, trustScore, totalSpent — so sending a real phone with a made-up name returned **the phone owner's data** | one acknowledgement `{ ok: true }` for every outcome |
+| `isNew` + `201`/`200` distinguished existing from new ⇒ **membership oracle**: try phone after phone and enumerate the merchant's customers without reading a single field | identical body **and** identical status in both cases |
+| raw `e.message` exposed table and constraint names | generic 400; detail to server log only |
+| the **only** public route with no dedicated limiter (orders/coupons/bookings/track all had one) | `15/hour`, same pattern as its siblings |
+
+**Caller check first, as required:** a full `src/` sweep found **no client anywhere in the
+repository** that calls this endpoint, so minimising the response hides no existing screen.
+
+**Cross-tenant verified:** the same phone under a second merchant creates that merchant's own
+row and copies nothing from the first.
+
+**Sabotage 4/4:** S12 full-record return (2 failed) · S13 membership oracle (3) · S14 raw error
+(1) · S15 no rate limit (1).
+
+Tests: 7 INTEGRATION (real HTTP + disposable PostgreSQL). No customer field is printed in any
+failure message — the guard does not leak what it exists to protect.
