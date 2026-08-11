@@ -1,0 +1,35 @@
+REPOSITORY=hdnkabour-gif/amanzine2
+BASE=b8faab2c50ca222843452408659ae6af2bffea5f
+TARGET=8482af34329d07ecad4132838b5f6be54198dea2
+TARGET_PARENT=b8faab2c50ca222843452408659ae6af2bffea5f
+TARGET_TREE=00eeaf1b9acf13e7ba3e60baa2ca57bc8ac93624
+BUNDLE_SHA256=5abb2afa2d32337d20dd7736e3921e93e7a788395e29abff14e559a21fd00f1b
+BUNDLE_BYTES=27519
+BUNDLE_REF=refs/review/phase1
+COMMITS_BASE_TO_TARGET=1
+BUNDLE_HASH_ALGO=sha1
+
+# APPLY (Codex already has BASE locally):
+#   git bundle verify AMANZINE_PHASE1_CODEX_REVIEW.bundle
+#   git fetch AMANZINE_PHASE1_CODEX_REVIEW.bundle refs/review/phase1:refs/review/phase1
+#   git diff b8faab2c50ca222843452408659ae6af2bffea5f..refs/review/phase1
+
+# git diff --stat BASE..TARGET
+ REPORTS/DISCONNECTED.md                    |   4 +-
+ REPORTS/LEXICON.md                         |   2 +-
+ REPORTS/PAGE_ACTIONS.md                    |   2 +-
+ REPORTS/REPAIRS/PHASE_1_RC_P4.md           | 198 ++++++++++++++++++++++
+ server/database.js                         |  12 +-
+ server/db.js                               |  29 +---
+ server/lib/dbSsl.js                        |  69 ++++++++
+ server/lib/webhookAuth.js                  |  60 +++++++
+ server/middleware/platformAdmin.js         |  13 +-
+ server/migrate.js                          |   8 +
+ server/routes/providers.js                 |  12 +-
+ server/routes/push.js                      |  11 +-
+ server/routes/webhooks.js                  |  25 ++-
+ server/test/phase1-delivery-secret.test.js |  96 +++++++++++
+ server/test/phase1-security.test.js        | 263 +++++++++++++++++++++++++++++
+ server/test/webhook-door.test.js           |  46 ++++-
+ src/pages/DeliveryPage.tsx                 |  22 ++-
+ 17 files changed, 817 insertions(+), 55 deletions(-)
