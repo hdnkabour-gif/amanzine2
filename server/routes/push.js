@@ -18,11 +18,18 @@ function getVapidKeys() {
     try { const keys = JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8')); if (keys.publicKey && keys.privateKey) return keys; } catch {}
   }
   const keys = webpush.generateVAPIDKeys();
-  try { fs.mkdirSync(path.dirname(VAPID_FILE), { recursive: true }); fs.writeFileSync(VAPID_FILE, JSON.stringify(keys)); } catch (e) { console.warn('[Push] Could not write vapid.json:', e.message); }
+  // `mode: 0o600` — مادّةٌ خاصّة: للمالك وحدَه لا لكلّ من يقرأ الحاوية.
+  try { fs.mkdirSync(path.dirname(VAPID_FILE), { recursive: true }); fs.writeFileSync(VAPID_FILE, JSON.stringify(keys), { mode: 0o600 }); } catch (e) { console.warn('[Push] Could not write vapid.json:', e.message); }
+  // ── **المفتاحُ الخاصُّ لا يُطبَع** ─────────────────────────────
+  //   كان السطرُ التالي يطبع `VAPID_PRIVATE_KEY=` كاملًا في stdout. وسجلّاتُ
+  //   الاستضافة تُحفَظ وتُصدَّر وتُقرأ من غير صاحب الحساب، فمن رأى سطرًا
+  //   واحدًا ملك القدرةَ على انتحال إشعارات المنصّة إلى كلّ مشترك.
+  //   والعامُّ يبقى مطبوعًا لأنّه عامٌّ بطبيعته ويحتاجه صاحبُ المشروع للنسخ،
+  //   والخاصُّ يُقرأ من الملفّ حيث كُتب — لا من سجلٍّ يمرّ عبر عشر أدوات.
   console.log('[Push] ⚠️  Generated new VAPID keys — existing subscriptions are now invalid.');
   console.log('[Push] 📋 Add these to Railway env vars:');
   console.log(`[Push]    VAPID_PUBLIC_KEY=${keys.publicKey}`);
-  console.log(`[Push]    VAPID_PRIVATE_KEY=${keys.privateKey}`);
+  console.log(`[Push]    VAPID_PRIVATE_KEY=[REDACTED] — نُسخ إلى ${VAPID_FILE} (اقرأه من هناك، ولا يُطبَع)`);
   return keys;
 }
 

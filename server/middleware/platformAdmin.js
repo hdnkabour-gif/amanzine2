@@ -25,8 +25,17 @@ function isPlatformAdmin(req) {
   const allow = platformAdminEmails();
   const email = String((req.user && req.user.email) || '').toLowerCase();
   if (!email) return false;
-  // لم يُضبَط أيّ بريد ⇒ منعٌ في الإنتاج (آمن افتراضيًّا)، وسماحٌ محلّيًّا للتطوير.
-  if (allow.length === 0) return process.env.NODE_ENV !== 'production';
+  // ── **قائمةٌ فارغةٌ = منعٌ، بلا استثناء** ─────────────────────
+  //   كان هنا `return process.env.NODE_ENV !== 'production'` — أي سماحٌ لكلّ
+  //   من يملك حسابًا كلَّما لم يكن `NODE_ENV` مضبوطًا على `production`. وهذا
+  //   شرطٌ لا يملكه المستودع: لا `railway.json` ولا `nixpacks.toml` ولا
+  //   `Procfile` ولا `package.json` يضبطه. فالبابُ كان يُفتَح بغياب إعدادٍ
+  //   لا بحضور إذن — وهو عكسُ ما يجب أن يفعله حارس.
+  //
+  //   والافتراضُ الآمن لا يُقاس ببيئةٍ بل بإذنٍ صريح: **لا بريدَ مُصرَّحٌ به
+  //   ⇒ لا أحدَ أدمنُ منصّة**، محلّيًّا كان أو في الإنتاج. ومن أراد التطوير
+  //   يضبط `ADMIN_EMAILS` — سطرٌ واحدٌ يُكتَب مرّةً، مقابلَ منصّةٍ مفتوحة.
+  if (allow.length === 0) return false;
   return allow.includes(email);
 }
 

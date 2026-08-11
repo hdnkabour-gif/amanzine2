@@ -119,12 +119,14 @@ router.put('/:id/concepts', auth, async (req, res) => {
 //  وقرارٌ حاسم: الكلماتُ تمرّ بـ**حارس التعارض** نفسِه. زيارةٌ ميدانيّة لا
 //  يجوز أن تسمّم المعرفة، ولو بحسن نيّة. ما تعارض يُعاد موسومًا «يحتاج
 //  مراجعة» — لا يُطبَّق صامتًا ولا يُرمى صامتًا.
-const { platformAdminEmails } = require('../middleware/platformAdmin');
+// ── **حارسٌ واحدٌ للمنصّة، لا نسخةٌ محلّيّةٌ أضعف** ──────────────
+//   كان هنا `isPlatformAdmin` خاصٌّ بهذا الملفّ يقول
+//   `!emails.length || emails.includes(...)` — أي **سماحٌ غيرُ مشروطٍ** لأيّ
+//   صاحب حسابٍ حين تكون القائمةُ فارغة، بلا حتّى شرط البيئة الذي كان في
+//   الحارس المركزيّ. فنسخةٌ ثانيةٌ من نفس القرار انحرفت عن أصلها وصارت أضعفَ
+//   منه، وهذا هو ثمنُ تعدُّد المُلّاك: يُشدَّد الأصلُ فتبقى النسخةُ مفتوحة.
+const { isPlatformAdmin } = require('../middleware/platformAdmin');
 const knowledgeRoute = require('./knowledge');
-const isPlatformAdmin = (req) => {
-  const emails = platformAdminEmails();
-  return !emails.length || emails.includes(String(req.user?.email || '').toLowerCase());
-};
 
 // حصّةُ التزكية لمحلٍّ معتمَد. محدودةٌ عمدًا: «بلا حدّ» تعني ٢٠٠ محلٍّ
 // وهميٍّ في ليلة، وتعني أيضًا أنّ التزكية بلا كُلفةٍ — فتصير بلا معنى.

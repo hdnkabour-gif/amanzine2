@@ -176,6 +176,8 @@ function _mapDelivery(p) {
     // فكُّ التشفير passthrough للقيم القديمة غير المشفّرة ⇒ لا ينكسر صفٌّ قائم.
     apiKey:       secrets.decrypt(p.api_key || ''),
     apiEndpoint:  p.api_endpoint   || '',
+    // سرُّ الإشعار الوارد — مستقلٌّ عن `apiKey`، ومشفَّرٌ مثلَه.
+    webhookSecret: secrets.decrypt(p.webhook_secret || ''),
     webhookUrl:   p.webhook_url    || '',
     logo:         p.logo           || '🚚',
     mode:         p.mode           || 'api',
@@ -696,14 +698,14 @@ const db = {
           `UPDATE delivery_providers SET name=$1,website_url=$2,add_order_page=$3,tracking_url=$4,
            phone=$5,cost=$6,enabled=$7,api_type=$8,api_key=$9,api_endpoint=$10,webhook_url=$11,
            logo=$12,mode=$13,login_url=$14,username=$15,password=$16,
-           livraison_bon_page=$17,ramassage_page=$18,fields=$19
+           livraison_bon_page=$17,ramassage_page=$18,fields=$19,webhook_secret=$22
            WHERE id=$20 AND user_id=$21`,
           [p.name, p.websiteUrl||'', p.addOrderPage||'', p.trackingUrl||'',
            p.phone||'', +(p.cost||0), p.enabled!==false,
            p.apiType||'', secrets.encrypt(p.apiKey||''), p.apiEndpoint||'', p.webhookUrl||'',
            p.logo||'🚚', p.mode||'api', p.loginUrl||'', p.username||'', secrets.encrypt(p.password||''),
            p.livraisonBonPage||'', p.ramassagePage||'', JSON.stringify(p.fields||{}),
-           p.id, p.userId]
+           p.id, p.userId, secrets.encrypt(p.webhookSecret||'')]
         );
         return p.id;
       }
@@ -714,13 +716,13 @@ const db = {
     await pool.query(
       `INSERT INTO delivery_providers
         (id,user_id,name,website_url,add_order_page,tracking_url,phone,cost,enabled,api_type,api_key,api_endpoint,webhook_url,
-         logo,mode,login_url,username,password,livraison_bon_page,ramassage_page,fields)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+         logo,mode,login_url,username,password,livraison_bon_page,ramassage_page,fields,webhook_secret)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`,
       [id, p.userId, p.name, p.websiteUrl||'', p.addOrderPage||'', p.trackingUrl||'',
        p.phone||'', +(p.cost||0), p.enabled!==false,
        p.apiType||'', secrets.encrypt(p.apiKey||''), p.apiEndpoint||'', p.webhookUrl||'',
        p.logo||'🚚', p.mode||'api', p.loginUrl||'', p.username||'', secrets.encrypt(p.password||''),
-       p.livraisonBonPage||'', p.ramassagePage||'', JSON.stringify(p.fields||{})]
+       p.livraisonBonPage||'', p.ramassagePage||'', JSON.stringify(p.fields||{}), secrets.encrypt(p.webhookSecret||'')]
     );
     return id;
   },
