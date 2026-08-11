@@ -14,6 +14,9 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # سقفٌ للوظيفة كلِّها: تعليقٌ صامتٌ يحرق ستَّ ساعاتٍ افتراضيّةً بلا سجلّ،
+    # فيُقرأ «قيد التشغيل» ولا يُقرأ «معطوب». والسقفُ يجعل التعليقَ إخفاقًا يُقرأ.
+    timeout-minutes: 45
 
     # ── **قاعدةٌ حقيقيّةٌ في CI — لا تخطٍّ صامت** ────────────────────
     #
@@ -56,6 +59,7 @@ jobs:
         run: npm run build
 
       - name: Brain tests (understand · memory · describe · systemMap)
+        timeout-minutes: 10
         run: npm run test:brain
 
       # كانت هاتان غائبتين عن CI تمامًا، ولذلك بقي constitution.test.mjs
@@ -74,11 +78,14 @@ jobs:
         run: node server/migrate.js
 
       - name: Server tests (على قاعدةٍ حقيقيّة — صفرُ متخطّاة)
+        timeout-minutes: 15
         run: cd server && npm test
 
       # كلُّ حارسٍ يُثبَت بعطبه: يُعاد العطبُ نصًّا، ويجب أن يسقط الحارس.
       # حارسٌ ينجو من عطبه خاملٌ — يُطمئن ولا يحرس.
+      # أثقلُ بوّابة: ٤٥ دورةَ بناءٍ واختبار. سقفٌ صريحٌ يمنع التعليقَ الصامت.
       - name: Sabotage matrix (٤٥ عطبًا يُعاد ويُقاس)
+        timeout-minutes: 25
         run: npm run sabotage
 
       - name: Install Chromium for journeys
@@ -87,6 +94,7 @@ jobs:
       # الرحلاتُ الذهبيّة: متصفّحٌ حقيقيٌّ + خادمٌ حقيقيٌّ + قاعدةٌ حقيقيّة.
       # كشفت عطبَين لم يرَهما أيُّ اختبارِ وحدة — فلا تُترَك خارجَ البوّابة.
       - name: Golden Journeys (Chromium · خادمٌ حقيقيّ)
+        timeout-minutes: 12
         env:
           PORT: "3001"
           NODE_ENV: development
