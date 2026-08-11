@@ -1,426 +1,326 @@
 {
- "schemaVersion": 1,
- "round": "claude-validation",
+ "schemaVersion": 2,
+ "round": "claude-validation-complete",
  "mainSha": "b8faab2c50ca222843452408659ae6af2bffea5f",
  "codexHandoffSha": "3b818d89e5424fe2ae36cea76a66ed2812afb23b",
  "custodyCheck": "PASS - reports-only diff",
- "codexRepairsPresentInMain": false,
- "verificationComplete": false,
+ "verificationComplete": true,
+ "environment": {
+  "chromium": "VERIFIED_TARGETED",
+  "postgresql": "VERIFIED_DISPOSABLE"
+ },
  "findings": [
   {
    "id": "F-001",
    "severity": "P0",
-   "codexStatus": "FIXED",
-   "claudeStatus": "CONFIRMED",
-   "evidenceLevel": "MEASURED+EXECUTABLE_PATH",
-   "currentFiles": [
-    "server/middleware/platformAdmin.js",
-    "server/routes/providers.js"
-   ]
+   "codexRepairStatus": "FIXED",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "providers.js:125 unconditional fail-open; canonical NODE_ENV-gated"
   },
   {
    "id": "F-002",
    "severity": "P0",
-   "codexStatus": "FIXED_PARTIAL",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "server/routes/webhooks.js"
-   ]
+   "codexRepairStatus": "FIXED_PARTIAL",
+   "currentMainStatus": "DISPROVED",
+   "repairPresentOnMain": "N/A",
+   "why": "webhooks.js:75-85 HMAC verified before handler in main"
   },
   {
    "id": "F-003",
    "severity": "P0",
-   "codexStatus": "FIXED_PARTIAL",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "server/routes/push.js"
-   ]
+   "codexRepairStatus": "FIXED_PARTIAL",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "push.js:25 logs VAPID_PRIVATE_KEY in cleartext"
   },
   {
    "id": "F-004",
    "severity": "P0",
-   "codexStatus": "OPEN",
-   "claudeStatus": "OBSOLETE",
-   "evidenceLevel": "MEASURED(absence)",
-   "currentFiles": [
-    "src/lib/journeyHandoff.ts"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "OBSOLETE",
+   "repairPresentOnMain": "N/A",
+   "why": "journeyHandoff.ts absent from BASE and main"
   },
   {
    "id": "F-005",
    "severity": "P1",
-   "codexStatus": "PARTIAL",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "src/pages/Landing/sections/NeedFirst.tsx",
-    "src/pages/AuthPage.tsx"
-   ]
+   "codexRepairStatus": "PARTIAL",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "AuthPage.resumeNeed asymmetric cleanup; stance has no expiry"
   },
   {
    "id": "F-006",
    "severity": "P1",
-   "codexStatus": "OPEN",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "src/pages/Landing/sections/NeedFirst.tsx"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "amanzine_need_seed written never read; stale keys survive"
   },
   {
    "id": "F-007",
    "severity": "P1",
-   "codexStatus": "OPEN",
-   "claudeStatus": "CONFIRMED",
-   "evidenceLevel": "EXECUTABLE_PATH",
-   "currentFiles": [
-    "src/pages/LivingHome.tsx",
-    "src/components/CreateFlow.tsx",
-    "src/store.tsx"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "BROWSER-PROVEN: publish seed survives logout"
   },
   {
    "id": "F-008",
    "severity": "P1",
-   "codexStatus": "OPEN",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "src/pages/AssistantPage.tsx"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "AssistantPage imports no policy module at all"
   },
   {
    "id": "F-009",
    "severity": "P1",
-   "codexStatus": "PARTIAL",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "src/pages/Landing/sections/NeedFirst.tsx",
-    "src/pages/AssistantPage.tsx",
-    "src/pages/LivingHome.tsx"
-   ]
+   "codexRepairStatus": "PARTIAL",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "6 semantic destination owner families measured"
   },
   {
    "id": "F-010",
    "severity": "P2",
-   "codexStatus": "OPEN",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "src/pages/Landing/sections/NeedFirst.tsx",
-    "src/pages/AssistantPage.tsx",
-    "src/lib/needEngine.ts"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "understand x2 per LivingHome submit; stance x2 NeedFirst"
   },
   {
    "id": "F-011",
    "severity": "P1",
-   "codexStatus": "PARTIAL",
-   "claudeStatus": "OBSOLETE",
-   "evidenceLevel": "MEASURED(absence)",
-   "currentFiles": [
-    "src/lib/conversationSession.ts",
-    "src/pages/LivingHome.tsx",
-    "src/pages/AssistantPage.tsx"
-   ]
+   "codexRepairStatus": "PARTIAL",
+   "currentMainStatus": "OBSOLETE",
+   "repairPresentOnMain": "N/A",
+   "why": "conversationSession.ts absent; main has no AI persistence"
   },
   {
    "id": "F-012",
    "severity": "P1",
-   "codexStatus": "OPEN",
-   "claudeStatus": "OBSOLETE",
-   "evidenceLevel": "MEASURED(absence)",
-   "currentFiles": [
-    "src/lib/conversationSession.ts"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "OBSOLETE",
+   "repairPresentOnMain": "N/A",
+   "why": "same file absent"
   },
   {
    "id": "F-013",
    "severity": "P1",
-   "codexStatus": "PARTIAL",
-   "claudeStatus": "CONFIRMED",
-   "evidenceLevel": "EXECUTABLE_PATH",
-   "currentFiles": [
-    "server/routes/customers.js",
-    "server/index.js"
-   ]
+   "codexRepairStatus": "PARTIAL",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "HTTP MEASURED: 16 PII fields, no limiter, raw error"
   },
   {
    "id": "F-014",
    "severity": "P1",
-   "codexStatus": "PARTIAL",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "server/database.js",
-    "server/routes/webhooks.js",
-    "src/pages/DeliveryPage.tsx"
-   ]
+   "codexRepairStatus": "PARTIAL",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "webhooks.js:25 secret=row.apiKey; webhookSecret absent"
   },
   {
    "id": "F-015",
    "severity": "P1",
-   "codexStatus": "PARTIAL",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "server/migrate.js"
-   ]
+   "codexRepairStatus": "PARTIAL",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "0 advisory locks, 0 ledger, 42 swallow sites"
   },
   {
    "id": "F-016",
    "severity": "P1",
-   "codexStatus": "BLOCKED",
-   "claudeStatus": "BLOCKED",
-   "evidenceLevel": "MEASURED",
-   "currentFiles": [
-    "server/test/ci-postgres-acceptance.js",
-    ".github/workflows/ci.yml"
-   ]
+   "codexRepairStatus": "BLOCKED",
+   "currentMainStatus": "OBSOLETE",
+   "repairPresentOnMain": "N/A",
+   "why": "disposable PG provisioned; migration idempotent x2"
   },
   {
    "id": "F-017",
    "severity": "P2",
-   "codexStatus": "PARTIAL",
-   "claudeStatus": "OBSOLETE",
-   "evidenceLevel": "MEASURED(absence)",
-   "currentFiles": [
-    "test/browser/probe-runtime.mjs",
-    "test/browser/screens.mjs",
-    "test/browser/walk.mjs"
-   ]
+   "codexRepairStatus": "PARTIAL",
+   "currentMainStatus": "OBSOLETE",
+   "repairPresentOnMain": "N/A",
+   "why": "probe-runtime.mjs absent"
   },
   {
    "id": "F-018",
    "severity": "P1",
-   "codexStatus": "OPEN",
-   "claudeStatus": "OBSOLETE",
-   "evidenceLevel": "MEASURED(absence)",
-   "currentFiles": [
-    "test/browser/ci-acceptance.mjs"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "OBSOLETE",
+   "repairPresentOnMain": "N/A",
+   "why": "ci-acceptance.mjs absent"
   },
   {
    "id": "F-019",
    "severity": "P2",
-   "codexStatus": "BLOCKED",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "MEASURED",
-   "currentFiles": [
-    ".github/workflows/browser-acceptance.yml"
-   ]
+   "codexRepairStatus": "BLOCKED",
+   "currentMainStatus": "OBSOLETE",
+   "repairPresentOnMain": "N/A",
+   "why": "workflow absent; Chromium works here"
   },
   {
    "id": "F-020",
    "severity": "P2",
-   "codexStatus": "OPEN",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "src/store.tsx",
-    "src/App.tsx",
-    "src/types.ts"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "PARTIALLY_CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "dual writers exist; divergence not runtime-proven"
   },
   {
    "id": "F-021",
    "severity": "P1",
-   "codexStatus": "PARTIAL",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "src/pages/Landing/sections/NeedFirst.tsx",
-    "src/pages/LivingHome.tsx",
-    "src/pages/AssistantPage.tsx"
-   ]
+   "codexRepairStatus": "PARTIAL",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "3 surfaces compose understanding independently"
   },
   {
    "id": "F-022",
    "severity": "P2",
-   "codexStatus": "OPEN",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "src/pages/Landing/sections/NeedFirst.tsx"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "NeedFirst option routing bypasses any decision"
   },
   {
    "id": "F-023",
    "severity": "P2",
-   "codexStatus": "OPEN",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "src/lib/intentSnapshot.ts",
-    "src/pages/LivingHome.tsx"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "IntentSnapshot consumer = LivingHome only"
   },
   {
    "id": "F-024",
    "severity": "P2",
-   "codexStatus": "PARTIAL",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "src/pages/Landing/sections/NeedFirst.tsx",
-    "src/lib/orchestrator.ts"
-   ]
+   "codexRepairStatus": "PARTIAL",
+   "currentMainStatus": "PARTIALLY_CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "raw q routing present; relevance unmeasured"
   },
   {
    "id": "F-025",
    "severity": "P2",
-   "codexStatus": "BLOCKED",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "src/lib/hybridUnderstanding.ts",
-    "server/services"
-   ]
+   "codexRepairStatus": "BLOCKED",
+   "currentMainStatus": "BLOCKED",
+   "repairPresentOnMain": "N/A",
+   "why": "no provider sandbox credentials - genuine external block"
   },
   {
    "id": "F-026",
    "severity": "P2",
-   "codexStatus": "OPEN",
-   "claudeStatus": "PARTIALLY_CONFIRMED",
-   "evidenceLevel": "MEASURED+CODE_READ",
-   "currentFiles": [
-    "test/architecture.test.mjs",
-    "test/architecture-freshness.test.mjs"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "PARTIALLY_CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "68 arch tests; class proven by 2 hollow guards found first-hand"
   },
   {
    "id": "F-027",
    "severity": "P3",
-   "codexStatus": "OPEN",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "dist assets"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "build emits large-chunk warnings - reproduced"
   },
   {
    "id": "F-028",
    "severity": "P2",
-   "codexStatus": "OPEN",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "server/index.js"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "DISPROVED",
+   "repairPresentOnMain": "N/A",
+   "why": "no allowlist email logging found in server/index.js"
   },
   {
    "id": "F-029",
    "severity": "P2",
-   "codexStatus": "OPEN",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "server/routes/webhooks.js"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "req.query.secret accepted; non-constant-time !== compare"
   },
   {
    "id": "F-030",
    "severity": "P2",
-   "codexStatus": "OPEN",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "src/pages/LivingHome.tsx"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "LivingHome owns UI+conversation+policy+nav+persistence"
   },
   {
    "id": "F-031",
    "severity": "P3",
-   "codexStatus": "FIXED",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "test/architecture-freshness.test.mjs"
-   ]
+   "codexRepairStatus": "FIXED",
+   "currentMainStatus": "OBSOLETE",
+   "repairPresentOnMain": "NO",
+   "why": "Codex tooling change absent; file exists at BASE"
   },
   {
    "id": "F-032",
    "severity": "P2",
-   "codexStatus": "FALSE",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "src/pages/LivingHome.tsx"
-   ]
+   "codexRepairStatus": "FALSE",
+   "currentMainStatus": "DISPROVED",
+   "repairPresentOnMain": "N/A",
+   "why": "agreed - not current behavior"
   },
   {
    "id": "F-033",
    "severity": "P2",
-   "codexStatus": "FALSE",
-   "claudeStatus": "OBSOLETE",
-   "evidenceLevel": "MEASURED(absence)",
-   "currentFiles": [
-    "test/browser/probe-runtime.mjs"
-   ]
+   "codexRepairStatus": "FALSE",
+   "currentMainStatus": "OBSOLETE",
+   "repairPresentOnMain": "N/A",
+   "why": "probe-runtime.mjs absent"
   },
   {
    "id": "F-034",
    "severity": "P3",
-   "codexStatus": "OBSOLETE",
-   "claudeStatus": "CONFIRMED",
-   "evidenceLevel": "MEASURED",
-   "currentFiles": [
-    "src"
-   ]
+   "codexRepairStatus": "OBSOLETE",
+   "currentMainStatus": "DISPROVED",
+   "repairPresentOnMain": "N/A",
+   "why": "CORRECTION: all 3 need keys ACTIVE in main"
   },
   {
    "id": "F-035",
    "severity": "P1",
-   "codexStatus": "OPEN",
-   "claudeStatus": "CONFIRMED",
-   "evidenceLevel": "EXECUTABLE_PATH",
-   "currentFiles": [
-    "src/store.tsx"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "BROWSER-PROVEN: os_state survives logout with A data"
   },
   {
    "id": "F-036",
    "severity": "P1",
-   "codexStatus": "OPEN",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "server/database.js"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "db.js:50 rejectUnauthorized:false is the remote default"
   },
   {
    "id": "F-037",
    "severity": "P1",
-   "codexStatus": "OPEN",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "server/migrate.js"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "REAL PG: orders has only pkey+fkey, no lifecycle CHECK"
   },
   {
    "id": "F-038",
    "severity": "P2",
-   "codexStatus": "OPEN",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "server/database.js"
-   ]
+   "codexRepairStatus": "OPEN",
+   "currentMainStatus": "CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "saveSettings whole-document JSONB, no version column"
   },
   {
    "id": "F-039",
    "severity": "P1",
-   "codexStatus": "PARTIAL",
-   "claudeStatus": "UNREACHED",
-   "evidenceLevel": "NONE",
-   "currentFiles": [
-    "server/routes/customers.js",
-    "server/routes/delivery.js"
-   ]
+   "codexRepairStatus": "PARTIAL",
+   "currentMainStatus": "PARTIALLY_CONFIRMED",
+   "repairPresentOnMain": "NO",
+   "why": "customer half confirmed; tracking route unverified"
   }
  ]
 }
