@@ -318,6 +318,9 @@ const FAMILIES = [
       [TL, `    if (wantsDisable) {
       const which = [`, `    if (false) {
       const which = [`]]],
+    ['الوثيقةُ تعود إلى نصيحةٍ تكسر — «اضبط DATABASE_URL وحدَه»', [
+      ['server/.env.example', `# Pick exactly ONE of the following.`,
+        `# On Railway/Supabase you normally set ONLY DATABASE_URL — nothing else.\n# Pick exactly ONE of the following.`]]],
     ['يسقط الفشلُ المغلق — الإعلانُ الخاطئُ يُخفَّض بصمتٍ بدل أن يرمي', [
       [TL, `      throw new Error('DB TLS: أُعلن \`DB_TRANSPORT=railway-private\` لمضيفٍ خارجَ '`,
         `      return { rejectUnauthorized: true }; /* c8 */ void ('DB TLS: أُعلن لمضيفٍ خارجَ '`]]],
