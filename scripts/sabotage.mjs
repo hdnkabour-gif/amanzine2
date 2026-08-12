@@ -64,6 +64,7 @@ const RUN_OWNER = brainSlice(['test/brain/destinationOwner.test.ts', 'test/brain
 const RUN_BUDGET = brainSlice(['test/brain/semanticBudget.test.ts']);
 const RUN_STATE = brainSlice(['test/brain/clientState.test.ts']);
 const RUN_ARCH = nodeTest('test/architecture.test.mjs');
+const RUN_TLS = nodeTest('server/test/phase1-security.test.js');
 /**
  * **مخطَّطٌ نظيفٌ قبل كلّ قياس.**
  *
@@ -101,7 +102,8 @@ const D = 'src/lib/decide.ts', LH = 'src/pages/LivingHome.tsx',
   AU = 'src/pages/AuthPage.tsx', CS = 'src/lib/clientState.ts',
   MG = 'server/migrate.js', OL = 'server/lib/orderLifecycle.js',
   DB = 'server/database.js', OR = 'server/routes/orders.js',
-  ID = 'server/lib/idempotency.js', SF = 'src/pages/Storefront.tsx';
+  ID = 'server/lib/idempotency.js', SF = 'src/pages/Storefront.tsx',
+  TL = 'server/lib/dbSsl.js';
 
 const FAMILIES = [
   ['RC-P1', 'مالكٌ واحدٌ للوجهة الدلاليّة', RUN_OWNER, [
@@ -284,6 +286,41 @@ const FAMILIES = [
     ['المحاولةُ لا تُطوى — الطلبُ الثاني المشروع يُردّ بتعارض', [
       ['src/lib/attemptKey.ts', `export function endAttempt(scope: string): void {`,
         `export function _unused(scope: string): void {`]]],
+  ]],
+
+  // ── ثقةُ النقل إلى القاعدة ─────────────────────────────────────
+  //   بابٌ ضيّقٌ واحدٌ لشبكة Railway الخاصّة. وكلُّ عطبٍ هنا يفتح قاعدةً
+  //   بعيدةً على إنترنتٍ عامّة بلا هويّةٍ مُتحقَّقة — والأثرُ صامت: الوصلةُ
+  //   تعمل، ويبدو كلُّ شيءٍ سليمًا، ومن جلس في الطريق يقرأ كلَّ شيء.
+  ['RC-P9', 'نقلُ القاعدة موصوفٌ لا مُخفَّف', RUN_TLS, [
+    ['يسقط قيدُ الشبكة الخاصّة — أيُّ مضيفٍ يُقبَل', [
+      [TL, `    if (!isRailwayPrivateHost(url)) {`, `    if (false) {`]]],
+    ['المطابقةُ تصير بالنصّ لا بالتسمية — حيلةُ اللاحقة تعبر', [
+      [TL, `  return h.length > PRIVATE_SUFFIX.length && h.endsWith(PRIVATE_SUFFIX);`,
+        `  return String(url).includes('railway.internal');`]]],
+    ['لاحقةٌ بلا نقطةٍ — `evilrailway.internal` يمرّ', [
+      [TL, `const PRIVATE_SUFFIX = '.railway.internal';`, `const PRIVATE_SUFFIX = 'railway.internal';`]]],
+    ['تساهلٌ عامّ — كلُّ قاعدةٍ بعيدةٍ تقبل أيَّ شهادة', [
+      [TL, `  return { rejectUnauthorized: true };`, `  return { rejectUnauthorized: false };`]]],
+    ['الوضعُ يُقبَل خارجَ الإنتاج فيُطفَأ TLS في أيّ بيئة', [
+      [TL, `    if (env.NODE_ENV !== 'production') {`, `    if (false) {`]]],
+    ['المضيفُ يُستخرَج بتعبيرٍ نمطيٍّ لا بمحلّل URL', [
+      [TL, `    const u = new URL(String(url).replace(/^postgres(ql)?:/i, 'http:'));`,
+        `    const u = { hostname: (String(url).match(/@([^:/?#]+)/) || ['', ''])[1] };`]]],
+    ['يسقط شرطُ كوننا داخلَ Railway — إعدادٌ منسوخٌ يُطفئ TLS في أيّ خادم', [
+      [TL, `    if (!String(env.RAILWAY_ENVIRONMENT_ID || '').trim()) {`, `    if (false) {`]]],
+    ['حضورُ البيئة يُقاس بالوجود لا بالمحتوى — فراغٌ يُقرأ حضورًا', [
+      [TL, `    if (!String(env.RAILWAY_ENVIRONMENT_ID || '').trim()) {`,
+        `    if (!('RAILWAY_ENVIRONMENT_ID' in env)) {`]]],
+    ['الالتباسُ يُرجَّح صامتًا — شهادةُ جذرٍ مع نقلٍ خاصّ تُهمَل', [
+      [TL, `    if (caSet.length) {`, `    if (false) {`]]],
+    ['سياستا نقلٍ في إعدادٍ واحد — التعطيلُ الصريحُ يُبتلَع صامتًا', [
+      [TL, `    if (wantsDisable) {
+      const which = [`, `    if (false) {
+      const which = [`]]],
+    ['يسقط الفشلُ المغلق — الإعلانُ الخاطئُ يُخفَّض بصمتٍ بدل أن يرمي', [
+      [TL, `      throw new Error('DB TLS: أُعلن \`DB_TRANSPORT=railway-private\` لمضيفٍ خارجَ '`,
+        `      return { rejectUnauthorized: true }; /* c8 */ void ('DB TLS: أُعلن لمضيفٍ خارجَ '`]]],
   ]],
 ];
 

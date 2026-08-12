@@ -148,6 +148,134 @@ test('**وشهادةٌ لا تُقرَأ ترمي ولا تُخفَّض** — م
   );
 });
 
+// ── ③ب نقلُ Railway الخاصّ — بابٌ ضيّقٌ يفشل مغلقًا — BEHAVIORAL ──
+//
+//   العطبُ المقيسُ على الإنتاج: `self-signed certificate in certificate chain`.
+//   والعلاجُ المرفوض: `rejectUnauthorized:false` — يجعل **كلَّ** قاعدةٍ بعيدةٍ
+//   تقبل أيَّ شهادة، بما فيها واحدةٌ تعبر إنترنتًا عامًّا. والمقبول: وصفُ
+//   النقل الذي نثق به بالاسم، ورفضُ ما عداه **برمي** لا بصمت.
+const RW = 'postgres://u:p@postgres-abc.railway.internal:5432/railway';
+// الشروطُ الخمسةُ مجتمعةً. و`RAILWAY_ENVIRONMENT_ID` وحدَها هي التي **لا
+//   يكتبها المشغِّل** — تكتبها المنصّةُ وقتَ التشغيل. فهي الشاهدُ الذي لا
+//   يأتي من الملفّ الذي يدّعي.
+const PROD_RW = { NODE_ENV: 'production', DB_TRANSPORT: 'railway-private',
+  RAILWAY_ENVIRONMENT_ID: 'env-test-0001' };
+
+test('**A · الشروطُ الثلاثةُ مجتمعةً ⇒ النقلُ الخاصُّ بلا TLS ثانية**', () => {
+  assert.equal(buildSSL({ ...PROD_RW, DATABASE_URL: RW }), false);
+});
+
+test('**B · مضيفٌ خارجَ الشبكة الخاصّة ⇒ يرمي، لا يمرّ نصًّا صريحًا**', () => {
+  assert.throws(() => buildSSL({ ...PROD_RW, DATABASE_URL: REMOTE }), /railway\.internal/);
+});
+
+test('**C · بلا إعلانِ النقل ⇒ المضيفُ الخاصُّ يبقى تحت التحقّق الصارم**', () => {
+  // إعلانُ النقل قرارُ مشغِّلٍ صريح. ولو استُنتج من شكل المضيف وحدَه لصار
+  //   أيُّ اسمٍ ينتهي بـ`.railway.internal` كافيًا لإسقاط TLS بلا أن يطلب أحد.
+  const ssl = buildSSL({ NODE_ENV: 'production', DATABASE_URL: RW });
+  assert.notEqual(ssl, false);
+  assert.equal(ssl.rejectUnauthorized, true);
+});
+
+test('**D · قاعدةٌ خارجيّةٌ بلا إعلانٍ ⇒ تحقّقٌ صارمٌ كما كان**', () => {
+  assert.equal(buildSSL({ NODE_ENV: 'production', DATABASE_URL: REMOTE }).rejectUnauthorized, true);
+});
+
+test('**E · شهادةُ جذرٍ لقاعدةٍ خارجيّة ⇒ صارمٌ + CA**', () => {
+  const ssl = buildSSL({ NODE_ENV: 'production', DATABASE_URL: REMOTE, DATABASE_CA: '---CA---' });
+  assert.equal(ssl.rejectUnauthorized, true);
+  assert.equal(ssl.ca, '---CA---');
+});
+
+test('**F · تعطيلُ TLS لقاعدةٍ خارجيّةٍ في الإنتاج ⇒ يرمي**', () => {
+  assert.throws(() => buildSSL({ NODE_ENV: 'production', DATABASE_URL: REMOTE, PGSSLMODE: 'disable' }), /DB TLS/);
+});
+
+test('**G · التطويرُ المحلّيُّ لم يتغيّر**', () => {
+  assert.equal(buildSSL({ DATABASE_URL: LOCAL }), false);
+  assert.equal(buildSSL({ DATABASE_URL: LOCAL, PGSSLMODE: 'disable' }), false);
+});
+
+test('**H · حيلُ الاسم لا تعبر** — لا `includes` ولا لاحقةٌ على نصٍّ خام', () => {
+  // كلُّ واحدٍ من هؤلاء يحتوي السلسلةَ `railway.internal` نصًّا، ولا واحدَ
+  //   منهم مضيفٌ **داخلَ** الشبكة الخاصّة. ومطابقةٌ بالنصّ كانت ستفتحهم كلَّهم.
+  for (const host of [
+    'postgres.railway.internal.attacker.com',
+    'evilrailway.internal.example',
+    'railway.internal.attacker.com',
+    'notrailway.internal',
+    'railway.internal',                     // النطاقُ نفسُه لا مضيفٌ فيه
+    'attacker.com/postgres.railway.internal',
+  ]) {
+    assert.throws(
+      () => buildSSL({ ...PROD_RW, DATABASE_URL: `postgres://u:p@${host}:5432/app` }),
+      /railway\.internal/,
+      `**عبر مضيفٌ ليس في الشبكة الخاصّة: ${host}**`);
+  }
+});
+
+test('**والمضيفُ يُقرأ بمحلّل URL لا بتعبيرٍ نمطيّ** — تعدّدُ `@` يخدع الثاني', () => {
+  // كُشف بالتخريب: استخراجُ المضيف بـ`/@([^:/?#]+)/` ينجو من كلّ الحالات
+  //   أعلاه، لأنّه يوافق محلّلَ URL فيها جميعًا. ويختلفان في موضعٍ واحدٍ
+  //   وهو الموضعُ الخطر: عنوانٌ فيه `@` مرّتين.
+  //
+  //     postgres://u@postgres-abc.railway.internal:5432@evil.com:5432/db
+  //
+  //   التعبيرُ النمطيُّ يقرأ أوّلَ `@` ويقف عند `:` ⇒ «مضيفٌ خاصّ» ⇒ يُطفئ
+  //   TLS. ومحلّلُ URL يأخذ **آخرَ** `@` ⇒ المضيفُ الحقيقيُّ `evil.com`.
+  //   أي أنّ الوصلةَ تذهب نصًّا صريحًا إلى خادمٍ لا يخصّنا وهي تحسب نفسَها
+  //   داخلَ شبكةٍ خاصّة. ولا يقع هذا بالصدفة — يقع بـ`DATABASE_URL` مصنوع.
+  assert.throws(
+    () => buildSSL({ ...PROD_RW,
+      DATABASE_URL: 'postgres://u@postgres-abc.railway.internal:5432@evil.com:5432/db' }),
+    /railway\.internal/,
+    '**عبر عنوانٌ يقرؤه التعبيرُ النمطيُّ «خاصًّا» ووجهتُه الحقيقيّةُ evil.com**');
+});
+
+test('**I · بلا `RAILWAY_ENVIRONMENT_ID` ⇒ يرمي** — لسنا داخلَ Railway', () => {
+  // الشروطُ الأربعةُ الأولى كلُّها يكتبها المشغِّل: اسمٌ ينتهي بـ
+  //   `.railway.internal` يُكتَب في أيّ ملفٍّ، و`NODE_ENV` كذلك. فلو نُسخ
+  //   هذا الإعدادُ إلى خادمٍ خارجَ Railway لبقيت الشروطُ صادقةً **شكلًا**
+  //   والشبكةُ الخاصّةُ غيرَ موجودة — فتعبر كلمةُ مرور القاعدة نصًّا صريحًا.
+  const { RAILWAY_ENVIRONMENT_ID, ...noEnv } = PROD_RW;
+  assert.throws(() => buildSSL({ ...noEnv, DATABASE_URL: RW }), /RAILWAY_ENVIRONMENT_ID/);
+  assert.throws(() => buildSSL({ ...noEnv, RAILWAY_ENVIRONMENT_ID: '', DATABASE_URL: RW }), /RAILWAY_ENVIRONMENT_ID/);
+  assert.throws(() => buildSSL({ ...noEnv, RAILWAY_ENVIRONMENT_ID: '   ', DATABASE_URL: RW }), /RAILWAY_ENVIRONMENT_ID/,
+    'فراغٌ محضٌ قُرئ حضورًا');
+});
+
+test('**J · إعدادٌ ملتبسٌ يُردّ** — نقلٌ خاصٌّ مع شهادةِ جذر', () => {
+  // نيّتان متعارضتان: «تحقّق بهذه الشهادة» و«لا TLS أصلًا». وأيُّ ترجيحٍ
+  //   صامتٍ يترك صاحبَه يظنّ أنّ الأخرى هي العاملة.
+  for (const k of ['DATABASE_CA', 'PGSSLROOTCERT', 'DATABASE_CA_PATH']) {
+    assert.throws(() => buildSSL({ ...PROD_RW, DATABASE_URL: RW, [k]: '---x---' }),
+      new RegExp(k), `**اختِير أحدُ النقلَين صامتًا رغم ${k}**`);
+  }
+});
+
+test('**K · قرارُ نقلٍ ثانٍ التباسٌ كذلك** — ولو اتّفقت النتيجة', () => {
+  // النتيجةُ العمليّةُ واحدةٌ اليوم (لا TLS في الحالَين) — وهذا ما يجعل
+  //   السكوتَ خطرًا لا هيّنًا: تُكتَب `PGSSLMODE=disable` فلا تُقرأ ولا
+  //   يُشتكى، ويظنّ صاحبُها أنّها هي العاملة. ثمّ يُحذَف `DB_TRANSPORT`
+  //   يومًا فتنكشف سياسةٌ كانت نائمةً، وتتبدّل بلا أن يقصد أحد.
+  assert.throws(() => buildSSL({ ...PROD_RW, DATABASE_URL: RW, PGSSLMODE: 'disable' }),
+    /PGSSLMODE=disable/, '**ابتُلع `PGSSLMODE=disable` صامتًا**');
+  assert.throws(() => buildSSL({ ...PROD_RW, DATABASE_URL: RW, DB_SSL: 'false' }),
+    /DB_SSL=false/, '**ابتُلع `DB_SSL=false` صامتًا**');
+  assert.throws(() => buildSSL({ ...PROD_RW, DATABASE_URL: RW + '?sslmode=disable' }),
+    /sslmode=disable/, '**ابتُلعت `sslmode=disable` في العنوان صامتةً**');
+});
+
+test('**واجتماعُ الالتباسَين يُقال ولا يُبتلَع أحدُهما**', () => {
+  // شهادةٌ **و**تعطيلٌ مع النقل الخاصّ: يُردّ عند أوّلِهما، والمهمُّ ألّا يمرّ.
+  assert.throws(() => buildSSL({ ...PROD_RW, DATABASE_URL: RW,
+    DATABASE_CA: '---CA---', PGSSLMODE: 'disable' }), /DB TLS/);
+});
+
+test('**والإعلانُ في غير الإنتاج يرمي** — لا يُخفَّض بصمتٍ إلى شيءٍ آخر', () => {
+  assert.throws(() => buildSSL({ DB_TRANSPORT: 'railway-private', DATABASE_URL: RW }), /إنتاجٍ/);
+});
+
 // ── ④ بابُ إشعار التوصيل — INTEGRATION (HTTP حقيقيّ) ───────────
 const express = require('express');
 
