@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { consumeState } from '../lib/clientState';
 import { useStore } from '../store';
 import ShareShop from './ShareShop';
 import { Sparkles, Camera, Mic, MessageCircle, FileText, Check, ArrowLeft, Rocket, List, Clock } from 'lucide-react';
@@ -73,8 +74,10 @@ export default function CreateFlow({ def }: { def: PageDef }) {
 
   useEffect(() => {
     try {
-      const seed = sessionStorage.getItem('amanzine_publish_seed');
-      if (seed) { sessionStorage.removeItem('amanzine_publish_seed'); if (seed.trim()) { build(seed); return () => { finishJourney(false); }; } }
+      // يُستهلَك مرّةً عبر السجلّ — وله مدّةٌ الآن، فبذرةٌ متروكةٌ منذ ساعاتٍ
+      //   لا تسبق ما كتبه صاحبُها للتوّ.
+      const seed = consumeState<string>('amanzine_publish_seed');
+      if (seed && seed.trim()) { build(seed); return () => { finishJourney(false); }; }
     } catch { /* noop */ }
     if (scoped && def.seed) build(def.seed);   // صفحة موجَّهة → ابدأ من بذرة المجال
     return () => { finishJourney(false); };

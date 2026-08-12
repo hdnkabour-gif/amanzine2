@@ -15,19 +15,37 @@ function getVapidKeys() {
     return { publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY };
   }
   if (fs.existsSync(VAPID_FILE)) {
+    // **وملفٌّ كُتب قبل هذا الإصلاح يبقى مكشوفًا.** `mode: 0o600` يحمي الجديدَ
+    //   وحدَه؛ أمّا ما كُتب بالافتراض القديم فيظلّ مقروءًا لكلّ حسابٍ في
+    //   الحاوية إلى الأبد. فيُقسَّى عند أوّل قراءةٍ — ولا تُمَسّ المادّةُ نفسُها.
+    try {
+      const mode = fs.statSync(VAPID_FILE).mode & 0o777;
+      if (mode & 0o077) fs.chmodSync(VAPID_FILE, 0o600);
+    } catch { /* نظامُ ملفّاتٍ لا يدعم ⇒ لا نكسر الإقلاع */ }
     try { const keys = JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8')); if (keys.publicKey && keys.privateKey) return keys; } catch {}
   }
   const keys = webpush.generateVAPIDKeys();
-  try { fs.mkdirSync(path.dirname(VAPID_FILE), { recursive: true }); fs.writeFileSync(VAPID_FILE, JSON.stringify(keys)); } catch (e) { console.warn('[Push] Could not write vapid.json:', e.message); }
+  // `mode: 0o600` — مادّةٌ خاصّة: للمالك وحدَه لا لكلّ من يقرأ الحاوية.
+  try { fs.mkdirSync(path.dirname(VAPID_FILE), { recursive: true }); fs.writeFileSync(VAPID_FILE, JSON.stringify(keys), { mode: 0o600 }); } catch (e) { console.warn('[Push] Could not write vapid.json:', e.message); }
+  // ── **المفتاحُ الخاصُّ لا يُطبَع** ─────────────────────────────
+  //   كان السطرُ التالي يطبع `VAPID_PRIVATE_KEY=` كاملًا في stdout. وسجلّاتُ
+  //   الاستضافة تُحفَظ وتُصدَّر وتُقرأ من غير صاحب الحساب، فمن رأى سطرًا
+  //   واحدًا ملك القدرةَ على انتحال إشعارات المنصّة إلى كلّ مشترك.
+  //   والعامُّ يبقى مطبوعًا لأنّه عامٌّ بطبيعته ويحتاجه صاحبُ المشروع للنسخ،
+  //   والخاصُّ يُقرأ من الملفّ حيث كُتب — لا من سجلٍّ يمرّ عبر عشر أدوات.
   console.log('[Push] ⚠️  Generated new VAPID keys — existing subscriptions are now invalid.');
   console.log('[Push] 📋 Add these to Railway env vars:');
   console.log(`[Push]    VAPID_PUBLIC_KEY=${keys.publicKey}`);
-  console.log(`[Push]    VAPID_PRIVATE_KEY=${keys.privateKey}`);
+  console.log(`[Push]    VAPID_PRIVATE_KEY=[REDACTED] — نُسخ إلى ${VAPID_FILE} (اقرأه من هناك، ولا يُطبَع)`);
   return keys;
 }
 
 const vapid = getVapidKeys();
-const CONTACT = process.env.ADMIN_EMAIL ? `mailto:${process.env.ADMIN_EMAIL}` : 'mailto:admin@amanzine.shop';
+// عنوانُ اتّصال VAPID — متغيّرُه الخاصُّ أوّلًا. كان يقرأ `ADMIN_EMAIL` وحدَه،
+// وهو **متغيّرُ تصريح**: فمن أراد عنوانَ مراسلةٍ للإشعارات كان يمنح صلاحيّةَ
+// المنصّة بلا أن يقصد. ويبقى السقوطُ إليه للتوافق مع النشرات القائمة.
+const CONTACT_EMAIL = process.env.VAPID_CONTACT_EMAIL || process.env.ADMIN_EMAIL;
+const CONTACT = CONTACT_EMAIL ? `mailto:${CONTACT_EMAIL}` : 'mailto:admin@amanzine.shop';
 
 webpush.setVapidDetails(CONTACT, vapid.publicKey, vapid.privateKey);
 console.log(`[Push] VAPID public key: ${vapid.publicKey.slice(0, 20)}...`);

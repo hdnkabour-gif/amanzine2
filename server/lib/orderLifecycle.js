@@ -39,6 +39,44 @@ const TRANSITIONS = {
 };
 
 /**
+ * **مفرداتُ العميل — أسماءٌ أخرى لنفس المواضع، لا مواضعُ جديدة.**
+ *
+ *   قِيس فوُجدت مفردتان لشيءٍ واحد. العميلُ (`src/types.ts`) يعرف
+ *   `pending_confirmation · approved · processing`، وهذا الملفُّ لا يعرف
+ *   منها شيئًا. والأثرُ ليس تسميةً:
+ *
+ *       `PUT /api/orders/:id/approve` ⇒ `status = 'approved'`
+ *
+ *   وهو الفعلُ الأوّلُ الذي يفعله التاجرُ بكلّ طلب. و`approved` ليست في
+ *   `TRANSITIONS`، فـ`TRANSITIONS['approved']` تُقرأ `undefined` ⇒ `[]`:
+ *
+ *       approved → shipped   ✘        approved → cancelled ✘
+ *       approved → closed    ✘        **لا مخرجَ إطلاقًا**
+ *
+ *   أي أنّ كلَّ طلبٍ يوافق عليه التاجرُ **يتجمّد إلى الأبد**: لا يُشحَن ولا
+ *   يُلغى ولا يُغلَق. قِيست الحالاتُ الثلاثُ فكانت كلُّها مجمَّدة.
+ *
+ *   ── والعلاجُ ترجمةٌ لا حالةٌ سابعة ──
+ *   `approved` **هي** `confirmed` بلسانٍ آخر. فتُترجَم عند القراءة، ويبقى
+ *   عددُ المواضع ستًّا. وإضافتُها حالةً مستقلّةً كانت ستُدخل جدولَ انتقالاتٍ
+ *   موازيًا يتباعد عن الأوّل — وهو العطبُ نفسُه بشكلٍ أكبر.
+ *
+ *   وتوحيدُ المفردتَين في مصدرٍ واحدٍ قرارُ منتَجٍ يُتَّخذ صراحةً؛ وهذه
+ *   الترجمةُ تمنع التجميدَ الآن بلا أن تختار عن أحد.
+ */
+const ALIASES = {
+  pending_confirmation: 'pending',
+  approved: 'confirmed',
+  processing: 'confirmed',
+};
+
+/** يُرجع الموضعَ القانونيَّ لأيّ اسمٍ من المفردتَين. */
+function canonicalState(s) {
+  const k = String(s || '');
+  return Object.prototype.hasOwnProperty.call(ALIASES, k) ? ALIASES[k] : k;
+}
+
+/**
  * أنواعُ الأحداث. `money` تعني أنّ الحدثَ يُغيّر المبلغَ الواجبَ تحصيلُه،
  * فيجب أن يحمل `amount_delta`. و`closes` تعني أنّه يُنهي طلبًا مفتوحًا سابقًا
  * (`refund.requested` ← `refund.completed`) — فنعرف ما بقي معلّقًا.
@@ -68,9 +106,11 @@ function isKnownEvent(type) { return Object.prototype.hasOwnProperty.call(EVENTS
 
 /** هل الانتقالُ مسموح؟ البقاءُ في المكان مسموحٌ دائمًا (حدثٌ بلا تغييرِ حالة). */
 function canTransition(from, to) {
-  if (!STATES.includes(to)) return false;
-  if (from === to) return true;
-  return (TRANSITIONS[from] || []).includes(to);
+  // يُترجَم الطرفان قبل السؤال: `approved → shipped` هي `confirmed → shipped`.
+  const f = canonicalState(from), t = canonicalState(to);
+  if (!STATES.includes(t)) return false;
+  if (f === t) return true;
+  return (TRANSITIONS[f] || []).includes(t);
 }
 
 /**
@@ -165,6 +205,6 @@ function validateEvent(ev, order, existing) {
 }
 
 module.exports = {
-  STATES, TRANSITIONS, EVENTS,
-  isKnownEvent, canTransition, amountDue, deriveFacts, validateEvent,
+  STATES, TRANSITIONS, EVENTS, ALIASES,
+  isKnownEvent, canTransition, canonicalState, amountDue, deriveFacts, validateEvent,
 };

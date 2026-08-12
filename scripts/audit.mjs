@@ -118,7 +118,12 @@ for (const [kind, roots] of Object.entries(ENTRIES)) {
     const f = stack.pop();
     if (seen.has(f)) continue;
     seen.add(f);
-    for (const i of F.get(f).imports) if (!seen.has(i)) stack.push(i);
+    // ملفٌّ غيرُ متتبَّعٍ في git لا يُقرأ محتواه، فيُذكَر مدخلًا ولا يُوجَد.
+    //   وكان ذلك يسقط بـ`Cannot read properties of undefined` — رسالةٌ لا
+    //   تقول ما يجب فعله. والجوابُ سطرٌ واحد: `git add` قبل التوليد.
+    const d = F.get(f);
+    if (!d) { console.warn(`[audit] ملفٌّ غيرُ متتبَّع — شغّل \`git add\` أوّلًا: ${f}`); continue; }
+    for (const i of d.imports) if (!seen.has(i)) stack.push(i);
   }
   for (const f of seen) {
     if (!reachedBy.has(f)) reachedBy.set(f, new Set());

@@ -2,12 +2,46 @@ name: CI
 
 on:
   push:
-    branches: [main, "claude/**"]
+    branches: [main, "claude/**", "repair/**"]
   pull_request:
+
+# دفعٌ إلى فرعٍ مفتوحٍ عليه PR يُشعل تشغيلَين على نفس الـcommit، فيتنافسان
+# على نفس المُشغِّل ويطول كلاهما. يُلغى القديمُ ويبقى الأحدث.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # سقفٌ للوظيفة كلِّها: تعليقٌ صامتٌ يحرق ستَّ ساعاتٍ افتراضيّةً بلا سجلّ،
+    # فيُقرأ «قيد التشغيل» ولا يُقرأ «معطوب». والسقفُ يجعل التعليقَ إخفاقًا يُقرأ.
+    timeout-minutes: 45
+
+    # ── **قاعدةٌ حقيقيّةٌ في CI — لا تخطٍّ صامت** ────────────────────
+    #
+    #   كانت اختباراتُ الخادم تُشغَّل هنا بلا `DATABASE_URL`، فتُعلَن ٢٩٧ ناجحةً
+    #   و**١٦١ متخطّاة** — والأخضرُ يُقرأ نجاحًا كاملًا. والمتخطّى هو بالضبط ما
+    #   يمسّ القاعدةَ: ذرّيّةُ الترحيل، وقيودُ المعنى، وعزلُ المستأجرين.
+    #   فبوّابةٌ تتخطّى ثلثَ ما تدّعي حراستَه ليست بوّابة.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: amz
+          POSTGRES_PASSWORD: amz
+          POSTGRES_DB: amz
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://amz:amz@127.0.0.1:5432/amz
+      PGSSLMODE: disable
+
     steps:
       - uses: actions/checkout@v4
 
@@ -25,6 +59,7 @@ jobs:
         run: npm run build
 
       - name: Brain tests (understand · memory · describe · systemMap)
+        timeout-minutes: 10
         run: npm run test:brain
 
       # كانت هاتان غائبتين عن CI تمامًا، ولذلك بقي constitution.test.mjs
@@ -39,8 +74,42 @@ jobs:
       - name: Architecture guard (لا اسمَ شركةٍ في منطق الأعمال)
         run: npm run test:architecture
 
-      - name: Server tests
+      - name: Migrate disposable PostgreSQL
+        run: node server/migrate.js
+
+      - name: Server tests (على قاعدةٍ حقيقيّة — صفرُ متخطّاة)
+        timeout-minutes: 15
         run: cd server && npm test
+
+      # كلُّ حارسٍ يُثبَت بعطبه: يُعاد العطبُ نصًّا، ويجب أن يسقط الحارس.
+      # حارسٌ ينجو من عطبه خاملٌ — يُطمئن ولا يحرس.
+      # أثقلُ بوّابة: ٤٥ دورةَ بناءٍ واختبار. سقفٌ صريحٌ يمنع التعليقَ الصامت.
+      - name: Sabotage matrix (٤٥ عطبًا يُعاد ويُقاس)
+        timeout-minutes: 25
+        run: npm run sabotage
+
+      - name: Install Chromium for journeys
+        run: npx playwright install --with-deps chromium
+
+      # الرحلاتُ الذهبيّة: متصفّحٌ حقيقيٌّ + خادمٌ حقيقيٌّ + قاعدةٌ حقيقيّة.
+      # كشفت عطبَين لم يرَهما أيُّ اختبارِ وحدة — فلا تُترَك خارجَ البوّابة.
+      - name: Golden Journeys (Chromium · خادمٌ حقيقيّ)
+        timeout-minutes: 12
+        env:
+          PORT: "3001"
+          NODE_ENV: development
+          JWT_SECRET: ci-disposable-secret-0123456789abcdef
+          ADMIN_EMAIL: admin@ci.local
+          ADMIN_PASSWORD: CiDisposable!2026
+          ADMIN_NAME: CI
+        run: |
+          node server/index.js > /tmp/server.log 2>&1 &
+          for i in $(seq 1 40); do
+            curl -sf -o /dev/null http://127.0.0.1:3001/ && break
+            sleep 2
+          done
+          curl -sf -o /dev/null http://127.0.0.1:3001/ || { echo "الخادمُ لم يُقلع:"; tail -40 /tmp/server.log; exit 1; }
+          BASE=http://127.0.0.1:3001 node test/journeys/golden.mjs
 
       # بوّابةٌ حقيقيّة منذ أن نظُف tsc: كان `continue-on-error` يُمرِّر استيرادًا
       # مكسورًا كتحذيرٍ أصفر يُهمَل — وهو نفسُه آليّةُ «الأخضر الكاذب».

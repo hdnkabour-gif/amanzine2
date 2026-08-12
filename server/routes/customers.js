@@ -66,17 +66,39 @@ router.delete('/:id', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
-// POST /api/customers/public — self-registration (customer fills form)
+// ── POST /api/customers/public — تسجيلُ زبونٍ بنفسه ─────────────
+//
+//   بابُ **كتابةٍ** مجهولٌ عمدًا: الزبونُ يملأ استمارةً في صفحة التاجر العامّة
+//   قبل أن يكون له حساب. والمشكلةُ لم تكن في وجوده بل في **جوابه**:
+//
+//   ①  كان يردّ السجلَّ المخزَّنَ كاملًا (١٦ حقلًا: الاسم · الهاتف · العنوان ·
+//      البريد · الملاحظات · vip · trustScore · مجموعُ الإنفاق · عددُ الطلبات…).
+//      ومن أرسل رقمًا موجودًا باسمٍ مخترَع كان يستردّ **بيانات صاحب الرقم**
+//      لا ما أرسله هو — عرّافُ قراءةٍ مجهولٌ لا يحتاج إلّا معرفةَ رقمٍ.
+//   ②  و`isNew` مع ٢٠١/٢٠٠ يفرّقان الموجودَ من الجديد ⇒ **عرّافُ عضويّة**:
+//      يُجرَّب رقمٌ بعد رقمٍ فيُعرَف زبناءُ التاجر بلا قراءةِ حقلٍ واحد.
+//   ③  و`e.message` خامًا يُفشي أسماءَ الجداول والقيود.
+//
+//   والقاعدة: **بابُ الكتابة يُقرّ الاستلام ولا يروي شيئًا.** جوابٌ واحدٌ
+//   لكلّ الحالات، ورمزٌ واحد. ولا عميلَ في المشروع يقرأ هذا الجوابَ أصلًا
+//   (فُحص كامل `src/`)، فالتقليلُ لا يُعطّل شاشةً قائمة.
 router.post('/public', async (req, res) => {
   const { userId, name, phone, city, address, source, notes } = req.body;
   if (!userId || !name || !phone) return res.status(400).json({ error: 'userId, name, phone required' });
+  // جوابٌ واحدٌ لا يفرّق بين موجودٍ وجديد — ولا رمزَ حالةٍ يفرّق.
+  const ACK = { ok: true };
   try {
     const existing = (await db.getCustomers(userId)).find(c => c.phone === phone);
-    if (existing) return res.json({ customer: existing, isNew: false });
-    const customer = await db.createCustomer({ userId, name, phone, city: city||'', address: address||'', source: source||'Form', notes: notes||'', vip: false, trustScore: 80 });
+    if (existing) return res.json(ACK);
+    await db.createCustomer({ userId, name, phone, city: city||'', address: address||'', source: source||'Form', notes: notes||'', vip: false, trustScore: 80 });
     await db.addNotification({ userId, type: 'info', message: `👤 زبون جديد سجّل: ${name}` });
-    res.status(201).json({ customer, isNew: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    return res.json(ACK);
+  } catch (e) {
+    // تاجرٌ غيرُ موجودٍ يُنتج خرقَ مفتاحٍ أجنبيّ. لا يُروى نصُّه، ولا يُفرَّق
+    //   عن غيره برمزٍ — وإلّا صار وجودُ التاجر نفسُه عرّافًا.
+    console.error('[customers/public]', e.message);
+    return res.status(400).json({ error: 'تعذّر التسجيل — تحقّق من المعطيات' });
+  }
 });
 
 module.exports = router;

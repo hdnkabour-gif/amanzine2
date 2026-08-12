@@ -98,3 +98,9 @@ import './liveCorpus.test';
 import './searchContract.test';
 // القانونُ العاشر: «فعل → update/phone» فوجه من يكتب بالدارجة.
 import './humanLabels.test';
+// RC-P2: سِجلُّ ما يُحفَظ في المتصفّح — نطاقٌ ومدّةٌ وحدُّ هويّة.
+import './clientState.test';
+// RC-P1: مالكٌ واحدٌ للوجهة الدلاليّة — ستُّ عائلاتٍ تقرّر «أين يذهب هذا الطلب».
+import './destinationOwner.test';
+// RC-P6: تحليلٌ دلاليٌّ واحدٌ لكلّ فعلِ مستخدم — ٤ لكلّ ضغطةِ مفتاحٍ قبلها.
+import './semanticBudget.test';

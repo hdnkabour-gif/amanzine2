@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { decideFor, targetOf } from '../../../lib/decide';
+import { writeState } from '../../../lib/clientState';
 import { useNavigate } from 'react-router-dom';
 import { understand, stanceOf } from '../../../lib/akg/kb';
 import { parseNeed, signalsFrom, clarificationStep } from '../../../lib/needEngine';
@@ -37,11 +39,31 @@ const EXAMPLES = [
 //   بالدارجة لا بمصطلحاتٍ داخليّة: «كتقلّب على سبّاك» لا «الاتّجاه: طلب».
 export interface Fact { icon: string; label: string; value: string; say: string; }
 
-export function readFacts(text: string): Fact[] {
+/**
+ * **قراءةٌ واحدةٌ للجملة الواحدة** — الفهمُ والحاجةُ والحقائقُ معًا.
+ *
+ *   قِيس على «خاصني سبّاك مستعجل فالدار البيضاء» بعدّادٍ في العقل نفسِه:
+ *
+ *       ضغطةُ مفتاحٍ واحدة  ⇒ understand ×٢ · parseNeed ×٢   (٤ تحاليل)
+ *       نقرةُ إرسالٍ واحدة  ⇒ understand ×٢ · parseNeed ×٢ + الحكم (٧)
+ *
+ *   والمواضعُ الأربعةُ كلُّها تقرأ **نفسَ النصّ** في نفس اللحظة: `readFacts`
+ *   والأثرُ والنتيجةُ ثمّ `go`. والكلفةُ أهونُ ما في الأمر — الخطرُ **التباعد**:
+ *   الذاكرةُ والمفاهيمُ المُسجَّلةُ حيًّا تُكتَب بين نداءٍ وآخر، فتُعرَض حقائقُ
+ *   من قراءةٍ ويُبنى القرارُ على قراءةٍ أخرى بلا أن يظهر ذلك في أيّ سطر.
+ *
+ *   فتُقرأ الجملةُ هنا مرّةً، ويُمرَّر ما قُرئ إلى المالك الواحد بدل أن يُعيده.
+ */
+export function readNeed(text: string): { u: any; r: any; facts: Fact[] } {
   const q = text.trim();
-  if (q.length < 2) return [];
+  if (q.length < 2) return { u: null, r: null, facts: [] };
   const u: any = understand(q);
   const r: any = parseNeed(q, {});
+  return { u, r, facts: factsFrom(q, u, r) };
+}
+
+/** الحقائقُ من قراءةٍ **مُعطاةٍ** — لا تقرأ الجملةَ من جديد. */
+function factsFrom(q: string, u: any, r: any): Fact[] {
   const st = stanceOf(q);
   const out: Fact[] = [];
 
@@ -86,6 +108,9 @@ export function readFacts(text: string): Fact[] {
 
   return out;
 }
+
+/** الحقائقُ وحدَها — بابٌ قديمٌ يُبقى للاختبارات ولمن لا يحتاج القراءةَ كاملةً. */
+export function readFacts(text: string): Fact[] { return readNeed(text).facts; }
 
 // نسبةُ الفهم — تُحسَب ممّا عرفناه فعلًا لا من ثقة التوجيه.
 // ثقةُ المحرّك ثابتةٌ لكلّ نيّة (سبّاك = ٦٠٪ سواءٌ ذكر المدينة أم لا)، فحلقةٌ
@@ -139,16 +164,19 @@ export default function NeedFirst() {
     return () => clearInterval(t);
   }, [text, examples.length]);
 
-  const facts = useMemo(() => readFacts(text), [text]);
-  const result: any = useMemo(() => (text.trim().length >= 2 ? parseNeed(text, {}) : null), [text]);
+  // **قراءةٌ واحدةٌ تُغذّي المشهدَ كلَّه.** كانت الحقائقُ والنتيجةُ والأثرُ
+  //   ثلاثَ قراءاتٍ لنفس النصّ في نفس اللحظة — قِيس: ٤ تحاليلَ لكلّ ضغطةِ
+  //   مفتاح. والخطرُ التباعدُ لا الكلفة: الذاكرةُ تُكتَب بين نداءٍ وآخر.
+  const read = useMemo(() => readNeed(text), [text]);
+  const facts = read.facts;
+  const result: any = read.r;
   // حلقةُ الثقة: تُعلّم المستخدم كيف يكلّم النظام. ترتفع كلّما وضّح أكثر،
   // فيتعلّم وحده أنّ ذكر المدينة والاستعجال يُحسّن النتيجة.
   const conf = useMemo(() => understandingScore(text, facts), [text, facts]);
   // أثرُ الفهم — **ما ينتجه العقلُ فعلًا** لهذه الجملة، لا سردٌ مكتوبٌ بيد.
   // يُحسَب مع المرآة نفسِها فلا تحليلَ ثانٍ للجملة الواحدة (القاعدة ㉒).
   const [showWhy, setShowWhy] = useState(false);
-  const trace: string[] = useMemo(
-    () => (text.trim().length >= 2 ? ((understand(text) as any).reasoning || []) : []), [text]);
+  const trace: string[] = (read.u?.reasoning as string[]) || [];
   // يُطوى تلقائيًّا مع كلّ جملةٍ جديدة: أثرُ جملةٍ سابقةٍ معروضٌ تحت جملةٍ
   // حاليّةٍ كذبٌ بصريّ.
   useEffect(() => { setShowWhy(false); }, [text]);
@@ -198,47 +226,56 @@ export default function NeedFirst() {
   const [ask, setAsk] = useState<Ask | null>(null);
   const [signals, setSignals] = useState<Signals>({});
 
-  const routeTo = (need: string, page?: string, url?: string) => {
-    try { sessionStorage.setItem('amanzine_need_seed', need); } catch { /* noop */ }
-    const u: any = understand(need);
-    // ── الحاجةُ تُحمَل كاملةً إلى صفحة الدخول ────────────────────
-    //   `AuthPage` تعرض «فهمت أنّك بغيتي…» من `amanzine_need`، وكان الكاتبُ
-    //   الوحيدُ لهذا المفتاح قسمًا **ميّتًا** (`Hero.tsx` لا يستورده شيء).
-    //   فبقيت البطاقةُ لا تظهر لأحدٍ منذ أن صارت `NeedFirst` أوّلَ شاشة:
-    //   قارئٌ حيٌّ وكاتبٌ ميّت، والحارسُ يراهما زوجًا سليمًا.
-    //   والفارقُ للتاجر: نموذجُ تسجيلٍ مقطوعٌ عمّا كتبه قبل ثانية، بدل حوارٍ
-    //   يُكمل نفسَه — وهي أوّلُ خمس دقائقَ يُحكَم فيها على التطبيق كلِّه.
-    try {
-      sessionStorage.setItem('amanzine_need', JSON.stringify({
-        text: need,
-        service: u?.profession?.label || u?.problem?.name || u?.service || '',
-        city: u?.city || '',
-        at: Date.now(),   // تقرؤه `AuthPage` وتُسقط ما مضى عليه نصفُ ساعة
-      }));
-    } catch { /* noop */ }
-    const city = u.city ? `&city=${encodeURIComponent(u.city)}` : '';
-    if (page) {
-      try { sessionStorage.setItem('amanzine_need_stance', page === 'publish' ? 'offer' : 'seek'); } catch { /* noop */ }
-      // ── **العتبةُ تظهر حيث يقف، لا في صفحةٍ أخرى** ──────────────
-      //   كان هنا `navigate('/auth')`: يُنقَل الإنسانُ إلى استمارةٍ في ٥٤٩
-      //   سطرًا، وتُسلَّم حاجتُه عبر `sessionStorage` — أي أنّ الحوارَ يُقطَع
-      //   ويُعاد وصلُه بخيط. والآن يبقى مكانَه: العتبةُ سطرٌ تحت جملته،
-      //   وحين يعبرها **يُكمل ما كان يفعله**.
-      //
-      //   ومَن دخل سلفًا لا يُسأل: المصادقةُ ليست طقسًا يُؤدّى بل شرطٌ يُفحَص.
-      if (!isAuthed) { setGate({ need, page }); return; }
-      navigate(`/${page}?q=${encodeURIComponent(need)}`);
+  // ── **الوجهةُ تُطلَب من المالك الواحد** ────────────────────────
+  //   كانت هذه الشاشةُ تقرّر بنفسها: عرضٌ ⇒ نشر، وإلّا ⇒ رابطُ الحاجة أو السوق.
+  //   فنفسُ الجملة تنتهي هنا إلى مكانٍ وفي `LivingHome` إلى مكانٍ آخر، لأنّ
+  //   كلًّا منهما ركّب الطبقاتِ بترتيبه. صارت تسأل `decideFor` وتنفّذ جوابَه.
+  //
+  //   و`page` المُمرَّرةُ من خيار استيضاحٍ تبقى محترَمةً: الإنسانُ اختار بيدِه،
+  //   وذاك ليس تخمينَ شاشةٍ بل جوابٌ صريحٌ منه.
+  //   وتُمرَّر القراءةُ المحسوبةُ سلفًا: هذه الشاشةُ قرأت الجملةَ للتوّ في
+  //   `go`، وإعادةُ قراءتها هنا تحليلٌ ثانٍ **وقراءةٌ قد تخالف الأولى**.
+  const routeTo = (need: string, page?: string, url?: string, pre?: { u?: any; r?: any }) => {
+    const d = decideFor(need, { u: pre?.u || undefined, need: pre?.r || undefined });
+    const t: { page?: string; url?: string } = page ? { page } : targetOf(d, need);
+
+    // الحاجةُ تُحمَل كاملةً إلى صفحة الدخول — و**معها وجهتُها المحسوبة**، فلا
+    //   يُعيد `AuthPage` اشتقاقَها من اتّجاهٍ قديمٍ يسبق ما كتبه للتوّ.
+    writeState('amanzine_need', {
+      text: need,
+      service: d.u?.profession?.label || d.u?.problem?.name || d.u?.service || '',
+      city: d.u?.city || '',
+      target: t,
+    });
+
+    const wantsAuth = t.page === 'publish' || (page && page === 'publish');
+    if (wantsAuth) {
+      writeState('amanzine_need_stance', 'offer');
+      // العتبةُ تظهر حيث يقف لا في صفحةٍ أخرى؛ ومن دخل سلفًا لا يُسأل.
+      if (!isAuthed) { setGate({ need, page: 'publish' }); return; }
+      navigate(`/publish?q=${encodeURIComponent(need)}`);
       return;
     }
-    const target = url || '/market';
-    const sep = target.includes('?') ? '&' : '?';
-    navigate(`${target}${sep}q=${encodeURIComponent(need)}${city}`);
+    if (t.page) { navigate(`/${t.page}?q=${encodeURIComponent(need)}`); return; }
+    if (t.url) { navigate(t.url); return; }
+    // حكمٌ بلا وجهة (`ask`/`soon`/`explain`) — لا يُنقَل أحد. تبقى الشاشةُ
+    //   تعرض ما قاله الحَكَم، وهذا هو الفرقُ عن السؤال المرميّ.
+    const fallback = url || '/market';
+    const sep = fallback.includes('?') ? '&' : '?';
+    const city = d.u.city ? `&city=${encodeURIComponent(d.u.city)}` : '';
+    if (d.verdict === 'execute' || d.verdict === 'confirm') {
+      navigate(`${fallback}${sep}q=${encodeURIComponent(need)}${city}`);
+    }
   };
 
   const go = (q?: string) => {
     const need = (q ?? text).trim();
     if (!need) { inputRef.current?.focus(); return; }
-    const r: any = parseNeed(need, {});
+    // **قراءةٌ واحدةٌ للنقرة كلِّها.** إن كانت الجملةُ هي المكتوبةَ في الحقل
+    //   فقد قُرئت في العرض للتوّ، فتُعاد نفسُها — وإلّا (اقتراحٌ نُقر) تُقرأ
+    //   مرّةً هنا وتُمرَّر إلى المالك بدل أن يقرأها من جديد.
+    const rd = need === text.trim() ? read : readNeed(need);
+    const r: any = rd.r;
     const sig = signalsFrom(r);
 
     // ① سؤالُ المحرّك إن وُجد — أخصُّ وأدقُّ من أيّ سؤالٍ عامّ.
@@ -262,12 +299,12 @@ export default function NeedFirst() {
       return;
     }
 
-    const u: any = understand(need);
+    const u: any = rd.u;
     const stance = (() => { try { return stanceOf(need); } catch { return null; } })();
     const wantsToOffer = stance === 'offer' || /^(SELF|SELL)$/.test(String(u.intent || ''));
-    try { sessionStorage.setItem('amanzine_need_stance', wantsToOffer ? 'offer' : 'seek'); } catch { /* noop */ }
-    if (wantsToOffer) { routeTo(need, 'publish'); return; }
-    routeTo(need, undefined, r.url || '/market');
+    writeState('amanzine_need_stance', wantsToOffer ? 'offer' : 'seek');
+    if (wantsToOffer) { routeTo(need, 'publish', undefined, rd); return; }
+    routeTo(need, undefined, r.url || '/market', rd);
   };
 
   /** جوابُ المستخدم يُدمَج، ثمّ يُسأل المحرّكُ ثانيةً — لا قفزَ أعمى. */
@@ -278,7 +315,8 @@ export default function NeedFirst() {
     // الجوابُ يُدمَج في الإشارات (يُقاس ويُبنى عليه)، ثمّ تُتَّبع وجهتُه.
     if (ask.id) setSignals(applyAnswer(signals, ask.id as any, optionId));
     setAsk(null);
-    routeTo(need, opt?.page, opt?.url);
+    // `need` هو نصُّ الحقل بعينه، وقد قُرئ في العرض — فيُمرَّر ولا يُعاد.
+    routeTo(need, opt?.page, opt?.url, read);
   };
 
   return (

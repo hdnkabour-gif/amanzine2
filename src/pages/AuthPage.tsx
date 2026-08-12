@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { readState, clearJourneyState } from '../lib/clientState';
 import { playGate } from '../lib/gateTransition';
 import { useStore } from '../store';
 import { Eye, EyeOff, User, Mail, Lock, ArrowLeft } from 'lucide-react';
@@ -96,13 +97,9 @@ export default function AuthPage() {
   const [focusedField, setFocusedField] = useState('');
   // الحاجة القادمة من صفحة الهبوط — تُكمل الرحلة بدل نموذجٍ مقطوعٍ عمّا سبقه.
   const [need] = useState<{ text: string; service?: string; city?: string } | null>(() => {
-    try {
-      const raw = sessionStorage.getItem('amanzine_need');
-      if (!raw) return null;
-      const n = JSON.parse(raw);
-      if (!n?.text || (Date.now() - (n.at || 0)) > 30 * 60 * 1000) return null;  // تنتهي بعد نصف ساعة
-      return n;
-    } catch { return null; }
+    // المدّةُ تُفحَص في السجلّ — لا يُعيد كلُّ قارئٍ كتابتَها بنفسه.
+    const n = readState<{ text: string; service?: string; city?: string }>('amanzine_need');
+    return n?.text ? n : null;
   });
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -208,20 +205,28 @@ export default function AuthPage() {
   const enterThrough = (go: () => void) => playGate(go);
 
   const resumeNeed = (): boolean => {
-    let stance = '';
-    try { stance = sessionStorage.getItem('amanzine_need_stance') || ''; } catch { /* noop */ }
-    const wantsToOffer = stance === 'offer'
-      || new URLSearchParams(window.location.search).get('next') === 'publish';
+    // ── **يُنفَّذ ما قُرِّر، ولا يُعاد الاشتقاق** ────────────────────
+    //   كان هذا يقرأ `amanzine_need_stance` **قبل** الحاجة ويُعيد بناء الوجهة
+    //   منه. فاتّجاهٌ متروكٌ يسبق ما كتبه صاحبُه للتوّ، وتصير صفحةُ الدخول
+    //   مالكًا ثالثًا للوجهة يخالف من قرّر قبله.
+    //
+    //   الآن: `NeedFirst` تسأل `decideFor` مرّةً وتحمل **الوجهةَ المحسوبة**
+    //   داخل الرحلة، وهذه الصفحةُ تنفّذها. والاتّجاهُ لم يعد مصدرَ قرار، بل
+    //   سقوطٌ أخيرٌ لرحلاتٍ كُتبت قبل هذا الإصلاح.
+    //   والرحلةُ تُستهلَك كاملةً مرّةً واحدة — لا مفتاحًا منها.
+    const j = readState<{ text?: string; city?: string; target?: { page?: string; url?: string } }>('amanzine_need');
+    const stance = readState<string>('amanzine_need_stance') || '';
+    const nextIsPublish = new URLSearchParams(window.location.search).get('next') === 'publish';
 
-    if (wantsToOffer) {
-      try { sessionStorage.removeItem('amanzine_need_stance'); } catch { /* noop */ }
-      try { enterThrough(() => window.location.assign('/home?page=publish')); return true; } catch { return false; }
-    }
-    if (!need?.text) return false;
-    try { sessionStorage.removeItem('amanzine_need'); } catch { /* noop */ }
-    const city = need.city ? `&city=${encodeURIComponent(need.city)}` : '';
-    try { enterThrough(() => window.location.assign(`/market?q=${encodeURIComponent(need.text)}${city}`)); return true; }
-    catch { return false; }
+    let target = '';
+    if (j?.target?.page) target = `/${j.target.page}${j.text ? `?q=${encodeURIComponent(j.text)}` : ''}`;
+    else if (j?.target?.url) target = j.target.url;
+    else if (nextIsPublish || stance === 'offer') target = '/home?page=publish';
+    else if (j?.text) target = `/market?q=${encodeURIComponent(j.text)}${j.city ? `&city=${encodeURIComponent(j.city)}` : ''}`;
+
+    if (!target) return false;
+    clearJourneyState();
+    try { enterThrough(() => window.location.assign(target)); return true; } catch { return false; }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

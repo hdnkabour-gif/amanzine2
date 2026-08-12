@@ -767,18 +767,34 @@ test('㉒ كلُّ حكمٍ يُخرجه الحَكَمُ له شكلٌ في ا�
     `أحكامٌ تُحسَب ولا شكلَ لها: ${unhandled.join(' · ')} — أعطِها شكلًا أو احذفها من الاتّحاد`);
 });
 
+// **بعد RC-P1**: لم يعد المشهدُ يركّب الطبقاتِ بنفسه، فالعدُّ انتقل إلى
+//   المالك الواحد (`src/lib/decide.ts`). والخاصّيّةُ المحروسةُ هي هي: حسابٌ
+//   ثانٍ لا يعرف الحكمَ الأوّلَ فيخالفه. وزِيد عليها ما صار ممكنًا بعد
+//   التوحيد: **الشاشةُ تسأل المالكَ مرّةً واحدةً** في المشهد الواحد.
 test('㉒ لا يُستدعى الحَكَمان في مشهدٍ واحد أكثرَ من مرّة', () => {
-  const home = readFileSync(join(ROOT, 'src/pages/LivingHome.tsx'), 'utf8');
-  const code = home.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
-  const calls = (n) => (code.match(new RegExp(`\\b${n}\\(`, 'g')) || []).length;
-  assert.equal(calls('decideInterface'), 1,
-    `\`decideInterface\` تُستدعى ${calls('decideInterface')} مرّات — الحسابُ الثاني لا يعرف الحكمَ فيخالفه`);
-  assert.equal(calls('decideExecution'), 1, 'حَكَمان في مشهدٍ واحد');
+  const bare = (p) => readFileSync(join(ROOT, p), 'utf8')
+    .split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  const owner = bare('src/lib/decide.ts');
+  const calls = (code, n) => (code.match(new RegExp(`\\b${n}\\(`, 'g')) || []).length;
+  assert.equal(calls(owner, 'decideInterface'), 1,
+    `\`decideInterface\` تُستدعى ${calls(owner, 'decideInterface')} مرّات في المالك — الحسابُ الثاني لا يعرف الحكمَ فيخالفه`);
+  assert.equal(calls(owner, 'decideExecution'), 1, 'حَكَمان في المالك الواحد');
+  assert.equal(calls(owner, 'abilityFor'), 1, 'مطابِقان للقدرة في المالك الواحد');
+
+  const code = bare('src/pages/LivingHome.tsx');
   // `understand(q)` كانت تُستدعى مرّتين هنا بعد أن حلّلها `orchestrate`.
   // والخطرُ ليس الكلفةَ بل تباعُدَ الفهم بين نداءٍ وآخرَ في نفس الدالّة.
   const submit = (code.match(/const submit = \(raw: string\) => \{[\s\S]*?\n  \};/) || [''])[0];
+  assert.ok(submit.length > 200, 'لم يُعثَر على `submit` — الحارسُ يقيس فراغًا');
   const parses = (submit.match(/\bunderstand\(/g) || []).length;
   assert.ok(parses <= 1, `\`submit\` يحلّل الجملةَ ${parses} مرّات — تحليلٌ واحدٌ يكفي`);
+  // والمشهدُ يسأل المالكَ عبر `applyVerdict`، فيُقاس أمران: **موضعُ سؤالٍ
+  //   واحدٌ** في الملفّ كلِّه، و**نداءٌ واحدٌ** له في المشهد. أحدُهما بلا
+  //   الآخرِ يمرّ: موضعٌ واحدٌ يُنادى مرّتين، أو نداءٌ واحدٌ لموضعَين.
+  const sites = (code.match(/\bdecideFor\(/g) || []).length;
+  assert.equal(sites, 1, `\`LivingHome\` فيه ${sites} مواضعِ سؤالٍ للمالك — موضعٌ واحد`);
+  const asks = (submit.match(/\bapplyVerdict\(/g) || []).length;
+  assert.equal(asks, 1, `\`submit\` يستدعي \`applyVerdict\` ${asks} مرّات — نداءٌ واحدٌ لكلّ فعلِ مستخدم`);
 });
 
 // ============================================================
@@ -822,17 +838,22 @@ test('㉓ مفاتيحُ الذاكرة متطابقةٌ بين العميل و�
 //   كانت ستموت في التطبيق وتبقى حيّةً في الاختبار، وهو أسوأُ صنفٍ من العطب:
 //   حارسٌ يشهد لِما لا يعمل.
 test('㉔ «ما نقدرش» موصولةٌ بالتجربة لا بالاختبار وحدَه', () => {
+  // بعد RC-P1 يُسأل حدُّ المجال في المالك الواحد لا في كلّ شاشة — وكان
+  //   سؤالُه في شاشةٍ واحدةٍ هو بعينه ما جعل «ما نقدرش» تعمل في `LivingHome`
+  //   وتصمت في `NeedFirst` و`Assistant`.
+  const code = readFileSync(join(ROOT, 'src/lib/decide.ts'), 'utf8')
+    .split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
   const home = readFileSync(join(ROOT, 'src/pages/LivingHome.tsx'), 'utf8');
-  const code = home.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
   assert.match(code, /entityAccepts\(/,
-    '`entityAccepts` غيرُ مستعملةٍ في المشهد — حدُّ القدرة مبنيٌّ ولا يُسأل');
+    '`entityAccepts` غيرُ مستعملةٍ في المالك — حدُّ القدرة مبنيٌّ ولا يُسأل');
   // والحدُّ **وسيطٌ داخل النداء** لا آخرُه: كانت الصيغةُ تشترط أن يكون
   // `impossible` آخرَ ما يُمرَّر، فسقط الحارسُ يومَ أُضيف وسيطُ السياق
   // (`lastProduct`) — وهو إضافةٌ لا تمسّ ما يحرسه. حارسٌ يشترط **موضعًا**
   // يشهد على الترتيب لا على الوصل.
   assert.match(code, /decideExecution\([^)]*\bimpossible\b/,
     'الحدُّ يُحسَب ولا يُمرَّر إلى الحَكَم — يُقاس ولا يُستهلَك (القاعدة ④)');
-  assert.match(code, /mode === 'refuse'/,
+  // والشكلُ يبقى حيث يُعرَض: الرفضُ حكمٌ يراه الإنسانُ في الشاشة لا في المالك.
+  assert.match(home, /mode === 'refuse'/,
     'حكمُ الرفض بلا شكلٍ في العرض — يُحسَب ولا يراه أحد');
 });
 
@@ -885,10 +906,14 @@ test('㉖ أثرُ الفهم يُقرأ من العقل لا يُكتَب في 
   assert.match(code, /setShowWhy\(false\)/,
     'الأثرُ لا يُطوى مع الجملة الجديدة — يُعرَض أثرُ جملةٍ سابقةٍ تحت جملةٍ حاليّة');
 
-  // ولا تحليلَ يتكرّر: اثنان في المشهد (`readFacts` والأثر) واثنان في
-  // مُعالِجَي النقر — والنقرُ يقع مرّةً لا مع كلّ ضغطةِ مفتاح.
+  // ── **ولا تحليلَ يتكرّر — والسقّافةُ نزلت من ٤ إلى ١ (RC-P6)** ──
+  //   كانت أربعةً: `readFacts` والأثرُ ومُعالِجا النقر. وقِيس بعدّادٍ في العقل
+  //   نفسِه أنّ ذلك يعني **٤ تحاليلَ لكلّ ضغطةِ مفتاح** و٧ لكلّ نقرة، كلُّها
+  //   على نفس النصّ في نفس اللحظة. صارت `readNeed` تقرأ مرّةً ويُمرَّر ما
+  //   قرأته إلى المالك الواحد وإلى العرض معًا.
+  //   ولا تُرفَع هذه السقّافةُ ليمرّ نداءٌ جديد: يُمرَّر ما قُرئ.
   const understandCalls = (code.match(/\bunderstand\(/g) || []).length;
-  assert.ok(understandCalls <= 4,
+  assert.ok(understandCalls <= 1,
     `\`understand\` تُستدعى ${understandCalls} مرّاتٍ في الصفحة — تحليلٌ يتكرّر بلا داعٍ`);
 });
 
@@ -1013,10 +1038,13 @@ test('㉙ سؤالُ الحَكَم يبلغ الشاشةَ — ولا وجهة�
 //   أحدَ يعرف أنّها تعمل هي أشيعُ أعطاب هذا المشروع.
 // ============================================================
 test('الاتّجاهُ يُمرَّر إلى مطابِق القدرة', () => {
-  const home = readFileSync(join(ROOT, 'src/pages/LivingHome.tsx'), 'utf8');
-  const code = home.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
-  assert.match(code, /abilityFor\([^)]*stance/s,
-    'الشاشةُ تطابق القدرةَ بلا اتّجاه — فالطالبُ يعود إلى صفحة النشر');
+  // بعد RC-P1 يُمرَّر الاتّجاهُ من المالك الواحد، فيبلغ **كلَّ** شاشةٍ تسأله
+  //   بدل أن يبلغ من تذكّره كاتبُها. والحدُّ الأعلى (٣٠٠ حرفًا) يمنع أن يمرّ
+  //   الحارسُ على `stance` بعيدةٍ في ملفٍّ آخرَ من نداءِ الكتالوج.
+  const code = readFileSync(join(ROOT, 'src/lib/decide.ts'), 'utf8')
+    .split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.match(code, /abilityFor\(\{[\s\S]{0,300}?\bstance\b/,
+    'المالكُ يطابق القدرةَ بلا اتّجاه — فالطالبُ يعود إلى صفحة النشر');
 
   const ab = readFileSync(join(ROOT, 'src/lib/abilities.ts'), 'utf8');
   const abCode = ab.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
@@ -1120,12 +1148,19 @@ test('و`refine` تملأ ولا تمسح — القاعدةُ في الكود �
 //   أهونُ من فتحِ بابٍ خاطئٍ بلا أن يطلبه أحد.
 // ============================================================
 test('الفعلُ الضعيفُ لا يبلغ الكتالوج', () => {
-  const code = readFileSync(join(ROOT, 'src/pages/LivingHome.tsx'), 'utf8')
+  // الحدُّ صار في المالك الواحد، فيسري على كلّ شاشةٍ تسأله. وحارسُ الشكل هنا
+  //   **إضافيّ**: السلوكُ محروسٌ في `destinationOwner.test` بجملةِ «عندي غير
+  //   10 دراهم» — قِيس أنّ إسقاطَ الحدّ يقلبها إلى `UPDATE_SETTINGS`.
+  const code = readFileSync(join(ROOT, 'src/lib/decide.ts'), 'utf8')
     .split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
   assert.match(code, /const\s+act\s*=\s*\(u\.action\?\.confidence[^)]*\)\s*>=\s*READ_ENOUGH/,
     'سقط حدُّ القراءة عن الفعل قبل الكتالوج');
-  assert.match(code, /abilityFor\(\{ action: act,/,
+  assert.match(code, /abilityFor\(\{\s*action:\s*act,/,
     'يُمرَّر الفعلُ الخام إلى الكتالوج — قراءةٌ بثقة ٠٫٣٥ تفتح صفحة');
+  // **سقّافةٌ لا تُرفَع**: القراءةُ الضعيفةُ تحمل ٠٫٣٥ والصحيحةُ ٠٫٧٠–٠٫٨٥،
+  //   فحدٌّ دون ٠٫٤ يعيد فتحَ بابِ الإعدادات لمن لم يطلبه.
+  const th = Number((code.match(/export const READ_ENOUGH\s*=\s*([\d.]+)/) || [])[1]);
+  assert.ok(th >= 0.4, `حدُّ التصديق نزل إلى ${th} — القراءةُ الضعيفةُ تفتح بابًا`);
 });
 
 // ============================================================

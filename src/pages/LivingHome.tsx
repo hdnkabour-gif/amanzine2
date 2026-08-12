@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { decideFor } from '../lib/decide';
+import { writeState, readState, clearState, clearJourneyState } from '../lib/clientState';
 import { useStore } from '../store';
 import {
   Search, Mic, Camera, MapPin, ArrowLeft, Check, RotateCcw,
@@ -15,7 +17,7 @@ import { playGate } from '../lib/gateTransition';
 import { useNavigate } from 'react-router-dom';
 import { personaGreeting, personaWelcome } from '../lib/persona';
 import { knownAbout, enrichSignals, explainFilled } from '../lib/knownContext';
-import { decideInterface, confirmPrompt, type InterfaceDecision } from '../lib/interfaceDecision';
+import { confirmPrompt, type InterfaceDecision } from '../lib/interfaceDecision';
 import { receptionStart, receptionTurn, receptionUnderstood, receptionStep, receptionEnd, recordDecision, recordConfirm, recordClarificationAsked, recordClarificationAnswered, recordSnapshot } from '../lib/journey';
 import {
   openSnapshot, askClarification, answerClarification, confirmSnapshot, withDestination,
@@ -23,10 +25,8 @@ import {
 } from '../lib/intentSnapshot';
 import UnderstandingCard from '../components/UnderstandingCard';
 import { correctionOptions, applyCorrection, buildMisread, thankFor, type CorrectionOption } from '../lib/correction';
-import { abilityFor, entityAccepts, VERB_MAP, OBJECT_MAP } from '../lib/abilities';
 import FocusedEdit, { isFocusable, type FocusField } from '../components/FocusedEdit';
 import { readPersonFacts, rememberFacts, forgetFact, describeFacts } from '../lib/personFacts';
-import { decideExecution } from '../lib/executionPolicy';
 import { reportMisread } from '../lib/journey';
 import { understand, type Understanding } from '../lib/akg/kb';
 // أرضيّةُ الفهم: هل عندنا دليلٌ، أم رجعت النيّةُ من المصرف؟
@@ -54,13 +54,6 @@ import type { Page } from '../types';
 const MAX_BEATS = 5;
 const VISIT_KEY = 'amanzine_last_visit';
 
-// **قراءةٌ ضعيفةٌ لا تُرفَض بها قدرةٌ ولا تُفتَح بها.**
-//
-//   قِيس: «زيد زبون جديد» تُقرأ `create:settings` بثقة **٠٫٣٥** — لأنّ قارئَ
-//   الأفعال يسقط على `settings` حين لا يعرف الهدف. والقراءاتُ الصحيحةُ تحمل
-//   ٠٫٧٠–٠٫٨٥، فالحدُّ يفصلهما بوضوح. وما دونه يُسأل عنه: **الشكُّ يُسأل ولا
-//   يُرفَض** — ولا يُنفَّذ به شيءٌ أيضًا.
-const READ_ENOUGH = 0.5;
 
 interface Turn { who: 'sys' | 'user'; text: string }
 interface Beat { id: string; icon: any; color: string; title: string; sub?: string; page?: Page; pr: number }
@@ -81,8 +74,28 @@ export default function LivingHome() {
   const { settings, products, orders, customers, conversations, setPage, user, updateProduct, notify } = useStore();
   const navigate = useNavigate();
   const [text, setText] = useState('');
+  // ── **قراءةٌ واحدةٌ للنصّ المعروض** ───────────────────────────
+  //   `correctionOptions(understand(text))` كانت داخل الرسم، فتُقرأ الجملةُ
+  //   **مع كلّ إعادة رسم** ما دامت لوحةُ التصحيح مفتوحة — لا مرّةً لكلّ فعلٍ
+  //   بل مرّةً لكلّ رمشة. و`fixNow` تقرؤها ثالثةً عند النقر.
+  //   والخطرُ التباعدُ لا الكلفة: الخياراتُ المعروضةُ من قراءةٍ والتصحيحُ
+  //   المكتوبُ في الذاكرة من قراءةٍ أخرى.
+  const uText = useMemo(() => understand(text), [text]);
   const [result, setResult] = useState<NeedResult | null>(null);
-  const [turns, setTurns] = useState<Turn[]>([]);
+  // ── **المحادثةُ تعيش ما دامت الرحلةُ حيّة** ───────────────────
+  //   كانت حالةً محلّيّةً في هذا المكوّن وحدَه: كلُّ انتقالٍ إلى صفحةٍ ثمّ عودةٍ
+  //   يمحوها، فيعود الإنسانُ إلى شاشةٍ لا تذكر ما قاله قبل ثانية.
+  //   والحلُّ **أصغرُ ما يكفي**: تُرفَع إلى نفس سجلّ حالة العميل بنطاق `journey`
+  //   ومدّةٍ معلَنة — لا خادمَ، ولا تاريخَ حساب، ولا اختيارَ صامتٍ للبقاء بعد
+  //   إغلاق المتصفّح. تنجو من التنقّل والتحديث، وتموت مع الرحلة أو الهويّة.
+  const [turns, setTurns] = useState<Turn[]>(() => readState<Turn[]>('amanzine_conversation') || []);
+  useEffect(() => {
+    if (turns.length) writeState('amanzine_conversation', turns.slice(-40));
+    // كان هنا `clearJourneyState.length && clearState(…)` — و`.length` طولُ
+    //   **مُعاملات الدالّة** لا شيءَ آخر، وهو صفرٌ، فالشرطُ كاذبٌ دائمًا
+    //   والمسحُ لا يقع أبدًا. سطرٌ يقرأ كحارسٍ ولا يفعل شيئًا.
+    else clearState('amanzine_conversation');
+  }, [turns]);
   /**
    * **البابُ الوحيدُ إلى سجلّ المحادثة.**
    *
@@ -171,8 +184,7 @@ export default function LivingHome() {
    */
   const fixNow = () => {
     if (!wrong) return;
-    const u = understand(text);
-    const m = buildMisread(text, u, wrong.field);
+    const m = buildMisread(text, uText, wrong.field);
     if (m) reportMisread(m);
     if (wrong.field !== 'all') applyCorrection(text, fixText);
     // **ما لا يُنسى لا يُكتَب**: تصحيحُ الحقل يمحو ما حفظناه عنه، وإلّا بقي
@@ -275,7 +287,7 @@ export default function LivingHome() {
     if (dest.page) {
       const p = dest.page;
       // العقل يحمل الجملة معه: «بغيت نبيع تلفون» → النشر الموحّد يستخرجها تلقائيًّا بلا إعادة كتابة.
-      if (p === 'publish') { try { sessionStorage.setItem('amanzine_publish_seed', result?.object?.raw || text); } catch { /* noop */ } }
+      if (p === 'publish') writeState('amanzine_publish_seed', result?.object?.raw || text);
       playGate(() => setPage(p));
       return;
     }
@@ -336,22 +348,17 @@ export default function LivingHome() {
     //   له بابُ إعداداته.
     //   والحدُّ `READ_ENOUGH` كان مطبَّقًا على `impossible` وحدَه — أي أنّ
     //   القراءةَ الضعيفةَ لا تكفي **للرفض** وتكفي **للتنفيذ**. وهذا معكوس.
-    const act = (u.action?.confidence ?? 0) >= READ_ENOUGH ? u.action : null;
-    const match = abilityFor({ action: act, intent: r.intent, stance: u.stance, service: u.service });
-    // ── حدُّ القدرة الصادق ────────────────────────────────────────
-    //   يُسأل **المجالُ** لا الكتالوج: أيقبل هذا الكيانُ هذا الفعلَ أصلًا؟
-    //   ولا يُسأل إلّا حين يكون الفعلُ صريحًا (فعلٌ + هدفٌ مقروءان)، فالنيّةُ
-    //   الخشنةُ تُسأل ولا تُرفَض — الجهلُ عندنا ليس عجزًا عندنا.
-    //   وغيابُ القدرة من الكتالوج لا يُرفَض به شيء: قِيس فوُجد ٤٢ زوجًا
-    //   غيرَ مُعلَنٍ وفيها أبوابٌ تعمل (`view:product`).
-    const av = act ? VERB_MAP[act.verb] : undefined;
-    const ae = act ? OBJECT_MAP[act.object] : undefined;
-    const impossible = !!(av && ae && !entityAccepts(av, ae));
-    // والسياقُ يُمرَّر: «مسح **هاد** المنتوج» تعيّن المقصودَ بغير اسمِه،
-    // ولا يعرف المعجمُ كتالوجَ أحد. بلا هذا يبقى المؤشِّرُ مقروءًا ولا يشير
-    // إلى شيء — طبقةٌ تعمل ولا أحدَ يعرف أنّها تعمل.
-    const verdict = decideExecution(u, match || undefined, impossible,
-      { lastProduct: uctx.state.lastProduct, raw });
+    // ── **الحَكَمُ يُسأل، ولا يُعادُ تركيبُه هنا** ────────────────
+    //   كانت هذه الشاشةُ تركّب الطبقاتِ بنفسها: حدُّ القراءة، ثمّ الكتالوج،
+    //   ثمّ حدُّ المجال، ثمّ الحكم، ثمّ الشكل. و`NeedFirst` تركّبها بترتيبٍ
+    //   آخر، و`Assistant` لا تركّبها أصلًا — فاختلفت الوجهةُ باختلاف الشاشة.
+    //   الترتيبُ صار في `decide.ts` وحدَه، وهذه تسأله.
+    //
+    //   ويُمرَّر الفهمُ المحسوبُ سلفًا: مسارُ الذكاء الخارجيّ يُكمّل الفراغَ
+    //   قبل النداء، فإعادةُ القراءة هنا تمحو ما مُلئ — وتكرّر العملَ بلا داعٍ.
+    const d = decideFor(raw, { u, need: r, lastProduct: uctx.state.lastProduct });
+    const match = d.ability;
+    const verdict = { verdict: d.verdict, say: d.say, dest: d.dest, trace: d.trace, boundary: d.boundary };
     // **والوعدُ يُنفَّذ.** الحدُّ الصادق يقول «سجّلت طلبك»، فلو لم يُسجَّل صار
     //   كذبةً ألطفَ من السؤال العاجز ولا فرقَ. وهذه هي القناةُ الثالثة:
     //   ما فُهم تمامًا ولا بابَ له — خارطةُ الطريق يكتبها الناسُ بأنفسهم.
@@ -374,7 +381,7 @@ export default function LivingHome() {
         note: prod.price != null ? `الثمن دابا ${prod.price} درهم` : undefined,
       },
     } : undefined));
-    const dec = decideInterface({ ...r, hasInput: true }, verdict.verdict);
+    const dec = { mode: d.mode, reason: '' };
     // `explain` و`refuse` يُقالان ولا يُفعَلان. وما عداهما له شكلٌ في الواجهة،
     // فلا يُطبَع نصُّه فوقها — نصٌّ ورسمٌ يقولان الشيءَ نفسَه ازدواجٌ لا تأكيد.
     // ── **وسؤالُ الحَكَم يُعرَض كما يُعرَض شرحُه** ──────────────────
@@ -540,7 +547,9 @@ export default function LivingHome() {
     } finally { setSaving(false); }
   };
 
-  const reset = () => { receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); setSaid(''); setLearned(''); setLive(null); setShowTrace(false); setDecision(null); };
+  // «من جديد» تُنهي الرحلةَ كلَّها — لا المحادثةَ وحدَها، وإلّا بقيت بذرةُ نشرٍ
+  //   أو اتّجاهٌ معلَّقٌ يخطف ما بعدها.
+  const reset = () => { clearJourneyState(); receptionEnd('reset'); receptionStart(); setText(''); setResult(null); setTurns([]); setStepIdx(0); setPending(null); setConfirmed(false); setSnap(null); setSignals({}); setEscalated(false); setKnownWhy(''); setCorrecting(false); setWrong(null); setFixText(''); setThanks(''); setSaid(''); setLearned(''); setLive(null); setShowTrace(false); setDecision(null); };
 
   const pickOption = (opt: NeedOption) => {
     receptionTurn(opt.label, 'button');                      // قياس: دورٌ بالأزرار
@@ -716,7 +725,7 @@ export default function LivingHome() {
             <>
               <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--ink1)' }}>سمح ليا — شنو اللي غالط؟</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                {correctionOptions(understand(text)).map(o => (
+                {correctionOptions(uText).map(o => (
                   <button key={o.field} type="button" onClick={() => setWrong(o)}
                     style={{ padding: '7px 13px', borderRadius: 99, border: '1px solid var(--border,rgba(255,255,255,.12))', background: 'transparent', color: 'var(--ink1)', fontSize: 12.5, fontWeight: 750, fontFamily: 'inherit', cursor: 'pointer' }}>
                     {o.label}

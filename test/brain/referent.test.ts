@@ -6,6 +6,7 @@ import { understand } from '../../src/lib/akg/kb';
 import { parseNeed } from '../../src/lib/needEngine';
 import { abilityFor, ABILITIES, ENTITY_VERBS } from '../../src/lib/abilities';
 import { decideExecution } from '../../src/lib/executionPolicy';
+import { decideFor } from '../../src/lib/decide';
 import { buildContext } from '../../src/lib/core/context';
 
 // ============================================================
@@ -120,9 +121,23 @@ test('والكيانُ الجديد مُعلَنٌ في المجال — لا ك
 });
 
 // ── ⑥ والوصلُ موصولٌ فعلًا في الشاشة ─────────────────────────
-test('**الشاشةُ تُمرّر السياق** — وإلّا بقي المؤشِّرُ لا يشير', () => {
+test('**والمالكُ الواحدُ يوصل السياقَ إلى الحَكَم** — سلوكيًّا', () => {
+  // بعد RC-P1 لم تعد الشاشةُ تنادي `decideExecution` بنفسها، فالوصلُ صار
+  //   حلقتَين: شاشةٌ ⇐ `decideFor` ⇐ الحَكَم. وتُقاس الحلقةُ الثانيةُ **سلوكيًّا**
+  //   لا نصًّا: تمريرُ `lastProduct` يجب أن يحلّ المؤشِّرَ فعلًا.
+  const q = 'بغيت هاشتاگ أو وصف لهاد المنتوج';
+  assert.equal(decideFor(q).say, 'أيّ منتوج؟', 'بلا سياقٍ يجب أن يُسأل');
+  const withCtx = decideFor(q, { lastProduct: { id: 'p1', name: 'طاجين' } });
+  assert.notEqual(withCtx.say, 'أيّ منتوج؟',
+    '**المالكُ الواحد يبتلع السياق** — فالإشارةُ تُقرأ ولا تُحَلّ أبدًا');
+  assert.equal(withCtx.verdict, 'execute');
+});
+
+test('**والشاشةُ تُمرّر السياق** — الحلقةُ الأولى (SOURCE_SHAPE معلَن)', () => {
+  // حارسُ شكلٍ **إضافيّ**: أنّ الشاشةَ تُمرّر السياقَ لا يُقاس من مخرجِ العقل،
+  //   لأنّ العقلَ يعمل صحيحًا وإن نسيت الشاشةُ أن تُعطيَه ما عندها.
   const src = readFileSync(join(process.cwd(), 'src/pages/LivingHome.tsx'), 'utf8')
     .split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
-  assert.match(src, /decideExecution\([^)]*lastProduct/s,
-    'الشاشةُ تقرأ الحكمَ بلا سياق — فالإشارةُ تُقرأ ولا تُحَلّ أبدًا في التطبيق');
+  assert.match(src, /decideFor\([^)]*lastProduct/s,
+    'الشاشةُ تسأل المالكَ بلا سياق — فالإشارةُ تُقرأ ولا تُحَلّ أبدًا في التطبيق');
 });
