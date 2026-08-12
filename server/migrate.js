@@ -1036,11 +1036,16 @@ async function migrate() {
     //   القيدُ `NOT VALID` يُغلق البابَ ولا يقول ما خلفه. فيُعدّ المخالفُ
     //   ويُقال — عددًا فقط، لا بياناتِ زبناء. وبلا هذا يبقى «نظّفوا الماضي»
     //   جملةً في تعليقٍ لا أحدَ يعرف حجمَها.
+    //
+    //   و**لكلّ قيدٍ عدّاد**: كانت القيودُ خمسةً والعدّاداتُ أربعة، فيبقى
+    //   مخالفُ `products.status` غيرَ مرئيٍّ حتّى لحظة `VALIDATE` — أي يُنظَّف
+    //   الماضي على أربعِ فئاتٍ ثمّ تسقط الخامسةُ فجأة. قِيس في بيئة التهيئة.
     for (const [what, sql] of [
       ['orders.status', `SELECT count(*)::int n FROM orders WHERE NOT (status = ANY(ARRAY[${LIST}]))`],
       ['orders.total < 0', `SELECT count(*)::int n FROM orders WHERE total < 0`],
       ['products.price < 0', `SELECT count(*)::int n FROM products WHERE price < 0`],
       ['products.stock < 0', `SELECT count(*)::int n FROM products WHERE stock < 0`],
+      ['products.status', `SELECT count(*)::int n FROM products WHERE status NOT IN ('draft','published','archived')`],
     ]) {
       try {
         const { rows } = await client.query(sql);
