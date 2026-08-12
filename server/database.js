@@ -2676,6 +2676,13 @@ db.mergeUserMemory = async (userId, entries, source = 'client') => {
     await client.query('BEGIN');
     const result = {};
     for (const [key, incoming] of Object.entries(entries || {})) {
+      // ── **`FOR UPDATE` لا يقفل صفًّا غيرَ موجود** ────────────────
+      //   أوّلُ مزامنةٍ لمفتاحٍ جديد: لا صفَّ ⇒ لا قفل ⇒ جهازان يقرآن
+      //   العدمَ ويُدمِج كلٌّ منهما فوق العدم، فيُدرِج الأوّلُ ثمّ يكتب
+      //   الثاني فوقه ما دمجه هو وحدَه. ويضيع ما تعلّمه الأوّلُ صامتًا.
+      //   والقفلُ الاستشاريّ يقفل **الاسمَ** لا الصفَّ، فيعمل قبل الوجود.
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
+        [String(userId), String(key)]);
       const cur = await client.query(
         'SELECT value, rev FROM user_memory WHERE user_id = $1 AND key = $2 FOR UPDATE',
         [userId, key]
