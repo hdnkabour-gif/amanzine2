@@ -184,6 +184,30 @@ async function migrate() {
     await soft('orders.provider_shipment_id', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_shipment_id TEXT DEFAULT ''`);
     // إعادةُ المحاولة بعد عطبٍ عابرٍ لدى شركة التوصيل. الحالةُ في الطلب لا
     // في جدولٍ موازٍ: الشحنةُ صفةٌ للطلب، وجدولٌ ثانٍ يعني حقيقتَين تتباعدان.
+    // ── **مفتاحُ محاولةِ الإنشاء — حارسُ الطلب المزدوج** ──────────
+    //
+    //   قِيس في التهيئة: عشرون نداءَ إنشاءٍ متزامنًا ⇒ **عشرون صفًّا**. وهو
+    //   صحيحٌ بلا مفتاح — لكنّه يعني أنّ نقرةً مزدوجةً من تاجرٍ أو إعادةَ
+    //   إرسالٍ من الشبكة تُنشئ طلبَين، فيُشحَن الثاني ويُحاسَب عليه زبونٌ لم
+    //   يطلبه.
+    //
+    //   ولا يُنزَع التكرارُ بالهاتف ولا بالمبلغ ولا بالوقت: زبونٌ قد يطلب
+    //   نفسَ السلّة مرّتين في دقيقةٍ **عمدًا**، وحذفُ الثاني خسارةُ بيعٍ لا
+    //   حمايةٌ من خطأ. فالمُميِّزُ هو **المحاولة** لا محتواها.
+    //
+    //   والفرادةُ تُحرَس في القاعدة لا في الذاكرة: قفلٌ في العمليّة لا يمنع
+    //   شيئًا حين تعمل نسختان من الخادم — وهو ما يقع في كلّ نشرٍ متدرّج.
+    //   وهي **جزئيّة**: الطلباتُ القديمةُ والمساراتُ التي لا ترسل مفتاحًا
+    //   تبقى بلا قيدٍ ولا تتصادم.
+    await soft('orders.idempotency_key',
+      `ALTER TABLE orders ADD COLUMN IF NOT EXISTS idempotency_key TEXT`);
+    await soft('orders.idempotency_fingerprint',
+      `ALTER TABLE orders ADD COLUMN IF NOT EXISTS idempotency_fingerprint TEXT`);
+    await soft('uniq_orders_idempotency',
+      `CREATE UNIQUE INDEX IF NOT EXISTS uniq_orders_idempotency
+         ON orders(user_id, idempotency_key)
+         WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`);
+
     await soft('orders.delivery_retry_at', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_retry_at TIMESTAMPTZ`);
     await soft('orders.delivery_attempts', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_attempts INTEGER DEFAULT 0`);
     // فهرسٌ جزئيّ: المُعيدُ يسأل كلَّ خمس دقائق عن صفوفٍ قليلةٍ جدًّا.
@@ -1008,8 +1032,12 @@ async function migrate() {
     //   **اتّحادَهما** فيرفض المخترَع وحدَه. وتوحيدُ المفردتَين قرارُ منتَجٍ
     //   يُتَّخذ صراحةً، لا أثرًا جانبيًّا لقيدٍ في ترحيل.
     // ============================================================
-    const ORDER_STATES = ['pending', 'pending_confirmation', 'approved', 'confirmed',
-      'processing', 'shipped', 'delivered', 'cancelled', 'closed'];
+    // **المفردةُ القانونيّةُ الواحدة** — قرارُ منتَجٍ اتُّخذ صراحةً. وهي ما
+    //   يكتبه النظامُ فعلًا. و`confirmed`/`closed`/`pending_confirmation`
+    //   صفرُ كاتب، فلا تُقبَل في العمود. والقيدُ `NOT VALID`، فصفوفُ الماضي
+    //   الحاملةُ لها تبقى وتُعدّ ولا تُسقط الإقلاع.
+    const ORDER_STATES = ['pending', 'approved', 'processing',
+      'shipped', 'delivered', 'cancelled'];
     const LIST = ORDER_STATES.map(s => `'${s}'`).join(',');
 
     /**

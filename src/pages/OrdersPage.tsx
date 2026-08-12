@@ -83,7 +83,7 @@ import { useStore } from '../store';
 import { Search, ChevronDown, ChevronUp, CheckCircle, XCircle, Package, AlertTriangle, Bot, Loader2, ExternalLink } from 'lucide-react';
 import { deliveryAutoAPI, type AutoShipResult } from '../services/api';
 
-const STATUS_AR: Record<string, string> = { pending: 'بانتظار', pending_confirmation: 'تأكيد واتساب', approved: 'موافقة', processing: 'جارٍ', shipped: 'شُحن', delivered: 'وُصّل', cancelled: 'ملغي' };
+const STATUS_AR: Record<string, string> = { pending: 'بانتظار', approved: 'موافقة', processing: 'جارٍ', shipped: 'شُحن', delivered: 'وُصّل', cancelled: 'ملغي' };
 // تبويباتُ التصفية تشتقُّ أسماءَها من الحالات — لا قائمةَ ثانيةً تتباعد عنها.
 const FILTER_AR: Record<string, string> = { all: 'الكل', ...STATUS_AR };
 const FILTER_KEYS = Object.keys(FILTER_AR);
@@ -370,7 +370,6 @@ export default function OrdersPage() {
 
   const colDefs = [
     { key: 'pending', label: 'بانتظار', color: '#fbbf24', bg: 'rgba(245,158,11,0.1)' },
-    { key: 'pending_confirmation', label: 'تأكيد واتساب', color: '#a855f7', bg: 'rgba(168,85,247,0.1)' },
     { key: 'approved', label: 'موافقة', color: '#818cf8', bg: 'rgba(99,102,241,0.1)' },
     { key: 'processing', label: 'جارٍ', color: '#a78bfa', bg: 'rgba(139,92,246,0.1)' },
     { key: 'shipped', label: 'شُحن', color: '#22d3ee', bg: 'rgba(6,182,212,0.1)' },
@@ -494,7 +493,7 @@ export default function OrdersPage() {
         {/* Orders List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filtered.map(order => (
-            <div key={order.id} className={`order-row ${order.status === 'pending' || order.status === 'pending_confirmation' ? 'pending' : ''} ${expanded === order.id ? 'expanded' : ''}`}>
+            <div key={order.id} className={`order-row ${order.status === 'pending' ? 'pending' : ''} ${expanded === order.id ? 'expanded' : ''}`}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} onClick={() => setExpanded(expanded === order.id ? null : order.id)}>
                 <span className={`status status-${order.status}`} style={{ flexShrink: 0 }}>{STATUS_AR[order.status]}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -673,11 +672,6 @@ export default function OrdersPage() {
 
                   {/* Actions */}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {order.status === 'pending_confirmation' && (
-                      <button onClick={() => { approveOrder(order.id); setExpanded(null); }} className="btn btn-accent" style={{ flex: 1, justifyContent: 'center' }}>
-                        <CheckCircle size={15} /> تأكيد موافقة الزبون (جاءت عبر واتساب)
-                      </button>
-                    )}
                     {order.status === 'pending' && (<>
                       <button onClick={() => { approveOrder(order.id); setExpanded(null); }} className="btn btn-success" style={{ flex: 1, justifyContent: 'center', minWidth: 0 }}>
                         <CheckCircle size={15} /> موافقة مباشرة

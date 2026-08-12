@@ -59,7 +59,9 @@ export default function WalletPage() {
     let earned = 0, pending = 0;
     for (const o of orders) {
       if (o.status === 'delivered' || o.status === 'approved') earned += o.total || 0;
-      else if (o.status === 'pending' || o.status === 'pending_confirmation' || o.status === 'processing' || o.status === 'shipped') pending += o.total || 0;
+      // `approved` محسوبةٌ في `earned` أعلاه، فلا تُعاد هنا. وأُسقطت
+      //   `pending_confirmation`: حالةٌ لا يكتبها أيُّ مسارِ خادم.
+      else if (o.status === 'pending' || o.status === 'processing' || o.status === 'shipped') pending += o.total || 0;
     }
     return { earned, pending };
   }, [orders]);

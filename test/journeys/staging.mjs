@@ -136,6 +136,98 @@ async function S3() {
   record({ id: 'S3', title: 'الويبهوك يرفض السرَّ الخاطئ وغيابَه', cells, pass, why });
 }
 
+
+// ── S6 · محاولةٌ واحدةٌ ⇒ طلبٌ واحد — بمتصفّحٍ حقيقيّ ────────────
+//
+//   **ولا يُقاس بنقرتين متلاحقتين**: قِيس أنّ الزرَّ يُعطَّل أثناء الانتظار،
+//   فالنقرةُ الثانيةُ لا تصل الخادمَ أصلًا ⇒ رحلةٌ تمرّ ولو نُزعت الحمايةُ
+//   كلُّها. وهو بالضبط صنفُ «الحارس الخامل».
+//
+//   والمسارُ الحقيقيُّ للطلب المزدوج: الطلبُ **يصل ويُكتَب**، ثمّ يضيع
+//   الجوابُ في الشبكة. يرى الزبونُ فشلًا، فيضغط ثانيةً. بلا مفتاحِ محاولةٍ
+//   يُكتَب طلبٌ ثانٍ ويدفع التاجرُ توصيلًا مرّتين.
+async function S6() {
+  const { ctx, page } = await fresh();
+  const cells = {}; let pass = false, why = '';
+  try {
+    page.on('dialog', d => d.dismiss().catch(() => {}));
+    ctx.on('page', pp => pp.close().catch(() => {}));
+    await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+    const acc = { name: 'تاجرُ التفرّد', email: `stg-idem-${stamp}@test.local`, password: 'StagingPass!2026' };
+    const reg = await api(page, '/api/auth/register', { method: 'POST', body: acc });
+    const tok = reg.body?.token, uid = reg.body?.user?.id;
+    await api(page, '/api/products', { method: 'POST', token: tok,
+      body: { name: 'قنينة ماء', price: 20, stock: 100, status: 'published', description: 'ماء' } });
+
+    await page.goto(`${BASE}/store/${uid}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+    for (const t of ['تخطّي ✕', '×']) { const el = await page.$(`button:has-text("${t}")`); if (el) await el.click().catch(() => {}); }
+    await page.click('button:has-text("زيد للسلة")');
+    await page.waitForTimeout(700);
+    await page.click('button:has-text("السلة (1)")');
+    await page.waitForTimeout(700);
+    await page.click('button:has-text("كمّل الطلب")');
+    await page.waitForTimeout(900);
+
+    let seen = 0;
+    await page.route('**/api/orders/public', async route => {
+      seen++;
+      // ① يصل الخادمَ ويُكتَب ② ثمّ يسقط الجوابُ قبل أن يصل العميل
+      if (seen === 1) { await route.fetch().catch(() => {}); await route.abort('failed'); }
+      else await route.continue();
+    });
+
+    await page.fill('input[placeholder*="السمية"]', 'زبونُ الجوابِ الضائع');
+    await page.fill('input[type="tel"]', '0611002200');
+    await page.fill('input[placeholder*="المدينة"]', 'الدارُ البيضاء');
+    await page.fill('textarea[placeholder*="العنوان"]', 'زنقة ٩');
+    const submit = page.locator('button:has-text("أكّد عبر واتساب")');
+
+    await submit.click({ force: true });
+    await page.waitForTimeout(2500);
+    const mid = await api(page, '/api/orders', { token: tok });
+    const afterLost = (mid.body || []).length;
+
+    await submit.click({ force: true });          // الإنسانُ يعيد المحاولة
+    await page.waitForTimeout(3000);
+    const one = await api(page, '/api/orders', { token: tok });
+    const afterRetry = (one.body || []).length;
+
+    // ── والشراءُ الثاني المقصودُ يمرّ ────────────────────────────
+    //   حمايةٌ تمنعه ليست حمايةً بل خسارةُ بيعة. محاولةٌ جديدةٌ ⇒ مفتاحٌ جديد.
+    await page.unroute('**/api/orders/public');
+    await page.goto(`${BASE}/store/${uid}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1000);
+    for (const t of ['تخطّي ✕', '×']) { const el = await page.$(`button:has-text("${t}")`); if (el) await el.click().catch(() => {}); }
+    await page.click('button:has-text("زيد للسلة")');
+    await page.waitForTimeout(600);
+    await page.click('button:has-text("السلة (1)")');
+    await page.waitForTimeout(600);
+    await page.click('button:has-text("كمّل الطلب")');
+    await page.waitForTimeout(800);
+    await page.fill('input[placeholder*="السمية"]', 'زبونُ الجوابِ الضائع');
+    await page.fill('input[type="tel"]', '0611002200');
+    await page.fill('input[placeholder*="المدينة"]', 'الدارُ البيضاء');
+    await page.fill('textarea[placeholder*="العنوان"]', 'زنقة ٩');
+    await page.locator('button:has-text("أكّد عبر واتساب")').click({ force: true });
+    await page.waitForTimeout(3000);
+    const two = await api(page, '/api/orders', { token: tok });
+    const afterSecond = (two.body || []).length;
+
+    cells['المدخل'] = 'سلّةُ متجرٍ حقيقيّة — ضغطٌ بمتصفّحٍ لا نداءُ API';
+    cells['الهويّة'] = 'زبونٌ زائرٌ بلا حساب';
+    cells['الشبكة'] = `${seen} نداءَ إنشاءٍ بلغ الخادمَ · الأوّلُ ضاع جوابُه`;
+    cells['أثرُ القاعدة'] = `بعد الضياع ${afterLost} · بعد الإعادة ${afterRetry} · بعد شراءٍ ثانٍ مقصود ${afterSecond}`;
+    cells['النتيجةُ المرئيّة'] = afterRetry === 1
+      ? 'الزبونُ رأى طلبَه الأوّلَ لا طلبًا ثانيًا' : '**طلبان لمحاولةٍ واحدة**';
+    pass = seen === 2 && afterLost === 1 && afterRetry === 1 && afterSecond === 2;
+    if (!pass) why = `نداءات=${seen} · بعد الضياع=${afterLost} · بعد الإعادة=${afterRetry} · بعد الثاني=${afterSecond}`
+      + (afterRetry > 1 ? ' — **كُتب طلبٌ مزدوج**' : afterSecond < 2 ? ' — **مُنع شراءٌ ثانٍ مشروع**' : '');
+  } catch (e) { why ||= String(e).slice(0, 180); }
+  finally { await ctx.close(); }
+  record({ id: 'S6', title: 'محاولةٌ واحدةٌ ⇒ طلبٌ واحد · وشراءٌ ثانٍ مقصودٌ يمرّ', cells, pass, why });
+}
+
 // ── S4 · دورةُ الطلب الكاملة عبر الواجهة الحقيقيّة ──────────────
 async function S4() {
   const { ctx, page } = await fresh();
@@ -189,7 +281,7 @@ async function S5() {
   record({ id: 'S5', title: 'طرقُ الدفع لا تدّعي ما لم يُكتَب', cells, pass, why });
 }
 
-for (const j of [S1, S2, S3, S4, S5]) {
+for (const j of [S1, S2, S3, S4, S5, S6]) {
   try { await j(); } catch (e) { console.log('‼ سقطت رحلةٌ خارج الحساب:', String(e).slice(0, 160)); }
 }
 await browser.close();

@@ -77,14 +77,31 @@ const RUN_DB = () => {
     { cwd: R, stdio: 'pipe' });
   try { execSync(`node "${path.join(R, 'server/migrate.js')}"`, { cwd: path.join(R, 'server'), stdio: 'pipe' }); }
   catch { /* قد يسقط الترحيلُ عمدًا تحت التخريب — الاختباراتُ تقول ماذا حدث */ }
-  return count(`node --test "${path.join(R, 'server/test/phase5-db-invariants.test.js')}"`);
+  return count(`node --test "${path.join(R, 'server/test/phase5-db-invariants.test.js')}" ` +
+    `"${path.join(R, 'server/test/order-lifecycle.test.js')}" ` +
+    `"${path.join(R, 'server/test/order-events.test.js')}"`);
+};
+
+/**
+ * تفرّدُ إنشاءِ الطلب — يُقاس على قاعدةٍ نظيفةٍ كذلك: الفهرسُ الفريدُ يبقى
+ * في القاعدة بعد حذفِ سطرِ إنشائه، فيمرّ التخريبُ ويبدو الحارسُ حيًّا.
+ */
+const RUN_IDEM = () => {
+  execSync(`node -e "const p=require('${path.join(R, 'server/db.js').replace(/\\/g, '/')}');` +
+    `p.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public').then(()=>p.end()).catch(e=>{console.error(e.message);process.exit(1)})"`,
+    { cwd: R, stdio: 'pipe' });
+  try { execSync(`node "${path.join(R, 'server/migrate.js')}"`, { cwd: path.join(R, 'server'), stdio: 'pipe' }); }
+  catch { /* قد يسقط الترحيلُ عمدًا تحت التخريب */ }
+  return count(`node --test "${path.join(R, 'server/test/order-idempotency.test.js')}"`);
 };
 
 // ── العائلات ────────────────────────────────────────────────────
 const D = 'src/lib/decide.ts', LH = 'src/pages/LivingHome.tsx',
   NF = 'src/pages/Landing/sections/NeedFirst.tsx', AP = 'src/pages/AssistantPage.tsx',
   AU = 'src/pages/AuthPage.tsx', CS = 'src/lib/clientState.ts',
-  MG = 'server/migrate.js', OL = 'server/lib/orderLifecycle.js';
+  MG = 'server/migrate.js', OL = 'server/lib/orderLifecycle.js',
+  DB = 'server/database.js', OR = 'server/routes/orders.js',
+  ID = 'server/lib/idempotency.js', SF = 'src/pages/Storefront.tsx';
 
 const FAMILIES = [
   ['RC-P1', 'مالكٌ واحدٌ للوجهة الدلاليّة', RUN_OWNER, [
@@ -206,8 +223,67 @@ const FAMILIES = [
       [OL, `  const f = canonicalState(from), t = canonicalState(to);`, `  const f = from, t = to;`]]],
     ['الترجمةُ تفتح كلَّ انتقال', [[OL, `  return (TRANSITIONS[f] || []).includes(t);`, `  return true;`]]],
     ['المرادفُ يصير موضعًا سابعًا', [
-      [OL, `const STATES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled', 'closed'];`,
-        `const STATES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled', 'closed', 'approved'];`]]],
+      [OL, `const STATES = ['pending', 'approved', 'processing', 'shipped', 'delivered', 'cancelled'];`,
+        `const STATES = ['pending', 'approved', 'processing', 'shipped', 'delivered', 'cancelled', 'confirmed'];`]]],
+
+    // ── مفرداتُ الحالة: ستٌّ مخزَّنةٌ لا تسع ──────────────────────
+    ['تعود `confirmed` مفردةً مخزَّنةً في العمود', [
+      [MG, `const ORDER_STATES = ['pending', 'approved', 'processing',`,
+        `const ORDER_STATES = ['confirmed', 'pending', 'approved', 'processing',`]]],
+    ['تعود `pending_confirmation` حالةً حيّةً في العمود', [
+      [MG, `  'shipped', 'delivered', 'cancelled'];`,
+        `  'shipped', 'delivered', 'cancelled', 'pending_confirmation'];`]]],
+    ['مسارُ الأحداث يكتب الحالةَ بيده ويتجاوز المالكَ الواحد', [
+      [DB, `    const updated = await db.updateOrder(orderId, { status: ev.status });\n    if (updated?.status) order.status = updated.status;`,
+        `    await pool.query('UPDATE orders SET status = $1 WHERE id = $2', [ev.status, orderId]);\n    order.status = ev.status;`]]],
+    ['`approved` تفقد أهليّةَ الشحن', [
+      [OL, `  approved:   ['processing', 'shipped', 'cancelled'],`, `  approved:   ['cancelled'],`]]],
+    ['الترجمةُ تُنزَع من بابِ التحديث — بابٌ يفهم وآخرُ يردّ', [
+      [DB, `      u = { ...u, status: canonicalState(u.status) };`, ``]]],
+  ]],
+
+  ['RC-P8', 'محاولةٌ واحدةٌ ⇒ طلبٌ واحد', RUN_IDEM, [
+    ['الفهرسُ الفريدُ يسقط من الترحيل', [
+      [MG, `    await soft('uniq_orders_idempotency',`, `    await soft('uniq_orders_idempotency_DISABLED',`],
+      [MG, `      \`CREATE UNIQUE INDEX IF NOT EXISTS uniq_orders_idempotency`,
+        `      \`SELECT 1 -- CREATE UNIQUE INDEX IF NOT EXISTS uniq_orders_idempotency`]]],
+    ['يُنزَع تقييدُ التفرّد بالتاجر — مفتاحُ متجرٍ يمنع متجرًا آخر', [
+      [MG, `         ON orders(user_id, idempotency_key)`, `         ON orders(idempotency_key)`],
+      [DB, `       ON CONFLICT (user_id, idempotency_key)\n         WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`,
+        `       ON CONFLICT (idempotency_key)\n         WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`]]],
+    ['القاعدةُ تكفّ عن الحكم — إدراجٌ بلا `ON CONFLICT`', [
+      [DB, `       ON CONFLICT (user_id, idempotency_key)\n         WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''\n         DO NOTHING\n       RETURNING *\`,`,
+        `       RETURNING *\`,`]]],
+    ['الطريقُ يبتلع المفتاحَ ولا يمرّره', [
+      [OR, `status: 'pending', idempotencyKey: key });`, `status: 'pending' });`]]],
+    ['المفتاحُ المشوَّهُ يُتجاهَل صمتًا بدل أن يُردّ', [
+      [ID, `const KEY_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;`, `const KEY_RE = /^[\\s\\S]*$/;`]]],
+    ['البصمةُ تُهمَل — مفتاحٌ لحمولةٍ أخرى يُعيد طلبًا لا يخصّه', [
+      [DB, `  if (rows[0].idempotency_fingerprint !== fp) throw new idem.IdempotencyConflict(rows[0].id);`, ``]]],
+    ['المحاولةُ المعادةُ تُحسَب إنشاءً جديدًا', [
+      [OR, `    if (order.idempotentReplay) return res.status(200).json(order);`, ``]]],
+    ['العَلَمُ يُطفَأ — لا يعرف الطريقُ أنّها إعادة', [
+      [ID, `  if (order) Object.defineProperty(order, 'idempotentReplay', { value: true, enumerable: false });`, ``]]],
+    ['التفرّدُ يصير بالشبَه لا بالمحاولة', [
+      [MG, `         ON orders(user_id, idempotency_key)\n         WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''\`);`,
+        `         ON orders(user_id, customer_phone, total)\`);`]]],
+  ]],
+
+  // الواجهةُ نصفُ العهد: فهرسٌ جزئيٌّ بلا مفتاحٍ لا يمنع شيئًا. ويُقاس
+  //   بلا قاعدة — لأنّ سقوطَه لا يظهر في أيّ اختبارِ خادم.
+  ['RC-P8/UI', 'الواجهةُ تُعلن المحاولة', RUN_ARCH, [
+    ['سلّةُ المتجر تكفّ عن إرسال المفتاح', [
+      [SF, `'Idempotency-Key':attemptKey('storefront-checkout')`, `'X-Attempt':''`]]],
+    ['طلبُ الخدمة يكفّ عن إرسال المفتاح', [
+      [SF, `'Idempotency-Key':attemptKey('service-order')`, `'X-Attempt':''`]]],
+    ['لوحةُ التاجر تكفّ عن إرسال المفتاح', [
+      ['src/store.tsx', `api.ordersAPI.create({ ...o, idempotencyKey: attemptKey('dashboard-order') })`,
+        `api.ordersAPI.create(o)`]]],
+    ['مفتاحٌ جديدٌ مع كلّ نقرةٍ — حمايةٌ شكلُها قائمٌ وأثرُها صفر', [
+      ['src/lib/attemptKey.ts', `const keys = new Map<string, string>();`, `const keys = { get: () => undefined, set: () => {}, delete: () => {} } as any;`]]],
+    ['المحاولةُ لا تُطوى — الطلبُ الثاني المشروع يُردّ بتعارض', [
+      ['src/lib/attemptKey.ts', `export function endAttempt(scope: string): void {`,
+        `export function _unused(scope: string): void {`]]],
   ]],
 ];
 

@@ -12,6 +12,7 @@ const fetch  = require('node-fetch');
 const { resolveDeliveryFee } = require('../lib/deliveryPricing');
 const { runShipment } = require('../lib/shipmentAttempt');
 const { attachCosts } = require('../lib/orderCosting');
+const idem   = require('../lib/idempotency');
 const logger = require('../lib/logger');
 
 let pushNotify;
@@ -31,6 +32,25 @@ function emitOrderCreated(userId, order, source) {
   } catch { /* القياسُ لا يُسقط طلبًا حقيقيًّا */ }
 }
 
+/**
+ * مفتاحُ المحاولة من العميل — رأسُ `Idempotency-Key` أوّلًا (القياسيّ)،
+ * ثمّ حقلُ الجسد لعميلٍ لا يملك رؤوسًا. غيابُه يُبقي السلوكَ القديم.
+ * شكلٌ غيرُ صالح يُردّ صراحةً `false` — لأنّ تجاهلَه صمتًا يعني كتابةَ
+ * صفٍّ ثانٍ بينما العميلُ يظنّ أنّه محميّ. حمايةٌ صامتةُ الفشل تكذب.
+ */
+function attemptKey(req) {
+  const raw = req.get('Idempotency-Key') || req.body?.idempotencyKey || '';
+  const k = idem.normalizeKey(raw);
+  if (!k) return '';
+  return idem.isValidKey(k) ? k : false;
+}
+
+const CONFLICT_BODY = (e) => ({
+  error: 'هاد المفتاح تستعمل من قبلُ لطلبٍ آخر — عاود من جديد بمحاولةٍ جديدة',
+  code: 'IDEMPOTENCY_CONFLICT',
+  orderId: e.existingOrderId,
+});
+
 router.get('/', auth, async (req, res) => {
   try { res.json(await db.getOrders(req.user.id)); }
   catch (e) { console.error('[orders]', e.message); res.status(500).json({ error: 'Server error' }); }
@@ -38,8 +58,13 @@ router.get('/', auth, async (req, res) => {
 
 router.post('/', auth, sanitizeBody, async (req, res) => {
   try {
+    const key = attemptKey(req);
+    if (key === false) return res.status(400).json({ error: 'مفتاحُ المحاولة غيرُ صالح' });
     const items = await attachCosts(db, req.user.id, req.body.items);
-    const order = await db.createOrder({ ...req.body, items, userId: req.user.id, status: 'pending' });
+    const order = await db.createOrder({ ...req.body, items, userId: req.user.id, status: 'pending', idempotencyKey: key });
+    // إعادةُ إرسالِ نفسِ المحاولة: الطلبُ الأصليّ يُعاد كما هو، وكلُّ
+    // الآثارِ الجانبيّة تُتخطّى — سجلٌّ واحد، إشعارٌ واحد، بثٌّ واحد.
+    if (order.idempotentReplay) return res.status(200).json(order);
     await db.addLog({ userId: req.user.id, user: 'AI', action: `New order: ${order.id}`, details: order.customerName, type: 'order', severity: 'info' });
     await db.addNotification({ userId: req.user.id, type: 'info', message: `🛒 طلب جديد من ${order.customerName}` });
     emitOrderCreated(req.user.id, order, 'dashboard');
@@ -48,7 +73,10 @@ router.post('/', auth, sanitizeBody, async (req, res) => {
     pushNotify(req.user.id, '🛒 طلب جديد!', `${order.customerName} — ${order.total || 0} ${settings.brand?.currency || 'MAD'}`, { url: '/orders' }).catch(() => {});
     req.app.get('broadcast')?.(req.user.id, { event: 'order_created', data: order });
     res.status(201).json(order);
-  } catch (e) { console.error('[orders]', e.message); res.status(500).json({ error: 'Server error' }); }
+  } catch (e) {
+    if (e.code === 'IDEMPOTENCY_CONFLICT') return res.status(409).json(CONFLICT_BODY(e));
+    console.error('[orders]', e.message); res.status(500).json({ error: 'Server error' });
+  }
 });
 
 router.get('/:id', auth, async (req, res) => {
@@ -390,7 +418,17 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
   const { userId, items, customerName, customerPhone, city, address, notes, source, couponCode, captchaToken, customerEmail } = req.body;
   if (!userId || !items?.length || !customerName || !customerPhone)
     return res.status(400).json({ error: 'userId, items, name, phone required' });
+  const attempt = attemptKey(req);
+  if (attempt === false) return res.status(400).json({ error: 'مفتاحُ المحاولة غيرُ صالح' });
   try {
+    // ── مسارٌ قصيرٌ للمحاولة المُعادة ──────────────────────────────
+    //   يُقرأ قبل أيّ أثرٍ جانبيّ: قبل استهلاك رمزِ hCaptcha، وقبل عدّ
+    //   استعمالِ الكوبون. القاعدةُ تبقى الحَكَمَ في السباق الحقيقيّ، وهذا
+    //   يمنع نقرةً ثانيةً متأخّرةً من أن تُحرِق رمزًا أو تُنقِص كوبونًا.
+    if (attempt) {
+      const prior = await db.findOrderByIdempotencyKey(userId, attempt);
+      if (prior) return res.status(200).json({ order: prior, customerId: prior.customerId, replayed: true });
+    }
     const preSettings = await db.getSettings(userId) || {};
 
     // ── تأكيدُ النمرة: أوّلَ مرّةٍ فقط ────────────────────────────
@@ -512,7 +550,6 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     const serverTotal = afterDiscount + delivery;
 
     const couponApplied = couponFreeShip || (couponDiscount > 0 && couponDiscount >= bundleDiscount);
-    if (couponId && couponApplied) { try { await db.incrementCouponUse(couponId); } catch {} }
 
     const promoNotes = [
       discount > 0 ? `خصم ${discount} MAD (${discountSource})` : '',
@@ -528,10 +565,20 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
       { userId, customerName, customerPhone, city: city||'', address: address||'',
         items: pricedItems, total: serverTotal, source: source||'Storefront',
         status: 'pending', notes: [notes||'', promoNotes].filter(Boolean).join(' · '), customerCode,
-        deliveryFee: delivery },
+        deliveryFee: delivery, idempotencyKey: attempt },
       { userId, name: customerName, phone: customerPhone,
         city: city||'', address: address||'', source: source||'Storefront' }
     );
+
+    // نفسُ المحاولة وصلت مرّتين في آنٍ واحد ⇒ القاعدةُ ردّت الأصلَ. لا
+    // كوبونَ يُعَدّ، ولا إشعارَ، ولا بريدَ، ولا حدثَ نشاطٍ ثانٍ.
+    if (order.idempotentReplay) {
+      return res.status(200).json({ order, customerId: customer?.id, replayed: true });
+    }
+
+    // عدُّ الكوبون بعد نجاحِ الكتابة لا قبلَها — محاولةٌ مكرّرةٌ أو طلبٌ
+    // سقط كانا يخصمان من رصيد الكوبون بلا طلبٍ مقابل.
+    if (couponId && couponApplied) { try { await db.incrementCouponUse(couponId); } catch {} }
 
     emitOrderCreated(userId, order, source || 'Storefront');
 
@@ -556,7 +603,10 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     // `deliveryFee` يُعاد للواجهة كي تعرض الرقم الذي احتسبه الخادم فعلًا،
     // لا الرقم الذي قدّرته هي محلّيًّا.
     res.status(201).json({ order, customerId: customer.id, applied: { discount, discountSource, freeShipping, deliveryFee: delivery, total: serverTotal } });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    if (e.code === 'IDEMPOTENCY_CONFLICT') return res.status(409).json(CONFLICT_BODY(e));
+    res.status(500).json({ error: e.message });
+  }
 });
 
 router.get('/track/:phone', async (req, res) => {

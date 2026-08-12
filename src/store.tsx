@@ -15,6 +15,7 @@ import { syncMemory } from './lib/userMemory';
 import { loadLearnedPlaces } from './lib/akg/kb/places';
 import { validateImport } from './utils/importSchema';
 import { Sounds } from './utils/sounds';
+import { attemptKey, endAttempt } from './lib/attemptKey';
 
 // C-3: نسخة من الإعدادات بدون أسرار الطرف الثالث — لمنع بقاء المفاتيح في localStorage
 function stripSecrets(settings: any): any {
@@ -587,7 +588,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const addOrder = async (o: any) => {
     let order: any;
     if (state.isOnline && api.getToken()) {
-      order = await api.ordersAPI.create(o);
+      // نقرتان على «حفظ» — أو إعادةُ إرسالٍ بعد انقطاعِ شبكة — محاولةٌ
+      // واحدة. المفتاحُ يثبت حتّى ينجح الطلب، ثمّ يُطوى.
+      order = await api.ordersAPI.create({ ...o, idempotencyKey: attemptKey('dashboard-order') });
+      endAttempt('dashboard-order');
     } else {
       order = { ...o, id: 'ORD-'+uid().toUpperCase(), createdAt: new Date().toISOString() };
     }

@@ -72,7 +72,12 @@ export const URL_TO_PAGE: Record<string, Page> = Object.fromEntries(
 ) as Record<string, Page>;
 
 export type UserRole = 'admin' | 'seller' | 'support' | 'delivery';
-export type OrderStatus = 'pending' | 'pending_confirmation' | 'approved' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+/**
+ * **المفردةُ القانونيّةُ الواحدةُ لحالة الطلب** — وهي ما يكتبه النظامُ فعلًا.
+ *   `confirmed`/`closed`/`pending_confirmation` صفرُ كاتب؛ أُسقطت من العمود
+ *   وتُقرأ أسماءً قديمةً في `server/lib/orderLifecycle.js` وحدَه.
+ */
+export type OrderStatus = 'pending' | 'approved' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 export type ProductStatus = 'draft' | 'published' | 'archived';
 export type NotifType = 'success' | 'error' | 'warning' | 'info';
 export type LogType = 'product' | 'order' | 'customer' | 'ai' | 'delivery' | 'settings' | 'auth' | 'notification';
