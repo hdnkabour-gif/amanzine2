@@ -127,11 +127,28 @@ if (process.argv[1] && process.argv[1].endsWith('knowledge-audit.mjs')) {
 if (process.argv.includes('--emit-index')) {
   const mod = await import('file://' + loadConcepts());
   const CONCEPTS = mod.CONCEPTS || mod.default;
+  //   **والملكيّةُ تُعلَن في `variants` وحدَها، والتسميةُ بديلٌ لا يَغلب.**
+  //
+  //   كان المرورُ واحدًا: لكلِّ مفهومٍ تُفهرَس متغيّراتُه ثمّ تسمياتُه، والأوّلُ
+  //   يفوز (`!map[k]`). فمفهومٌ تُرتِّبه الصدفةُ قبل غيره كان يأخذ اللفظَ
+  //   بـ**تسميته** قبل أن يصل مالكُه الحقيقيُّ بمتغيّراته.
+  //
+  //   والأثرُ أنّ `DISOWNED` كان لا يصل الخادمَ: هو ينزع من `variants`
+  //   ولا يمسّ `concept`. قِيس بعد فضِّ ٥٧ عنقودًا: **سبعةُ ألفاظٍ**
+  //   كان فهرسُ الخادم يُحيلها إلى الخاسر — «خضار» ⇒ `vegetable_fruit_seller`
+  //   و«بارابول» ⇒ `satellite_tv_installer` و«كريش» ⇒ `nursery_daycare_preschool`
+  //   وغيرُها — في حين يُحيلها العميلُ إلى الفائز. فالعميلُ والخادمُ
+  //   يفهمان الكلمةَ الواحدةَ فهمَين.
+  //
+  //   فمرّتان: المتغيّراتُ كلُّها أوّلًا، ثمّ التسمياتُ لما لا مالكَ له.
+  //   ولا يضيع مفتاح: تسميةٌ لا يدّعيها متغيّرٌ تبقى كما كانت.
   const map = {};
   for (const c of CONCEPTS) {
     for (const v of Object.values(c.variants || {}).flat()) {
       const k = norm(v); if (k.length >= 2 && !map[k]) map[k] = c.id;
     }
+  }
+  for (const c of CONCEPTS) {
     for (const v of Object.values(c.concept || {})) {
       const k = norm(v); if (k.length >= 2 && !map[k]) map[k] = c.id;
     }

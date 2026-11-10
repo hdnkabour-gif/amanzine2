@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 const ROOT = process.cwd();
 import { CONCEPTS } from '../../src/lib/akg/kb/concepts';
+import { resolveConcept } from '../../src/lib/akg/kb/knowledge';
 
 const norm = (x: string) => String(x || '').toLowerCase().trim();
 
@@ -45,6 +46,72 @@ const RESOLVED: Record<string, string> = {
   'كيس': 'traditional_hammam', 'حمام بلدي': 'traditional_hammam',
   'سناك': 'snack_bar_restaurant', 'طاكوس': 'snack_bar_restaurant',
   'مطعم': 'restaurant', 'ماكلة': 'restaurant',
+
+  // ── الدفعةُ الثانية: ٤٥ عنقودًا، حكمًا صريحًا لكلِّ لفظ ──────────
+  'automobile': 'car',
+  'صيانة': 'car_service',
+  'révision': 'car_service',
+  'car service': 'car_service',
+  'grocery store': 'grocer',
+  'coffee shop': 'coffee_shop',
+  'صباغة طوموبيل': 'car_painting',
+  'كنصبغ السيارة': 'car_painting',
+  'carrosserie peinture': 'car_painting',
+  'دروكري': 'hardware_store',
+  'quincaillerie': 'hardware_store',
+  'كينكايري': 'hardware_store',
+  'بياس': 'auto_parts',
+  'بياسات': 'auto_parts',
+  'قطع طوموبيلات': 'auto_parts',
+  'قطع غيار السيارات': 'auto_parts',
+  'مول السوارت': 'key_maker',
+  'كيصايب السوارت': 'key_maker',
+  'serrurier': 'key_maker',
+  'خضار': 'greengrocer',
+  'بائع أحذية': 'shoe_store',
+  'magasin de chaussures': 'shoe_store',
+  'مول الدجاج': 'poultry_seller',
+  'مطبعة': 'print_shop',
+  'طباعة': 'print_shop',
+  'photocopie': 'print_shop',
+  'informatique': 'computer_repair',
+  'فورماتاج': 'computer_repair',
+  'تهيئة': 'computer_repair',
+  'formatage': 'computer_repair',
+  'formatting': 'computer_repair',
+  'ألمنيوم': 'aluminum_fabricator_window_installer',
+  'snack bar': 'snack_bar_restaurant',
+  'building contractor': 'contractor',
+  'لحام': 'blacksmith_welder',
+  'مبيض': 'painter',
+  'marbre': 'marble_granite_worker',
+  'مول البني': 'mason',
+  'bistro': 'cafe',
+  'فران': 'bakery',
+  'فرن': 'bakery',
+  'جباس': 'plasterer',
+  'كيدير الجبس': 'plasterer',
+  'خراز': 'cobbler_shoe_repair',
+  'cordonnier': 'cobbler_shoe_repair',
+  'مول الصباط': 'shoe_seller',
+  'مول الفرش': 'bedding_and_home_textiles_store',
+  'كليماتيزور': 'air_conditioning_and_refrigeration_technician',
+  'تصليح الثلاجات': 'air_conditioning_and_refrigeration_technician',
+  'كليم': 'carpet_and_rug_seller',
+  'agence immobilière': 'real_estate_agency',
+  'انفورماتيك': 'computer_repair',
+  'impression': 'print_shop',
+  'كريش': 'daycare',
+  'حضانة': 'daycare',
+  'crèche': 'daycare',
+  'بارابول': 'satellite_receiver',
+  'ريسيفر': 'satellite_receiver',
+  'parabole': 'satellite_receiver',
+  'satellite': 'satellite_receiver',
+  'حمام شعبي': 'traditional_hammam',
+  'خيمة': 'event_equipment_rental',
+  'منجرة': 'carpenter',
+  'menuisier / ébéniste': 'carpenter_joiner',
 };
 
 test('**كلُّ لفظٍ مفضوضٍ يُحسَم لمفهومٍ واحدٍ بعينه**', () => {
@@ -63,10 +130,13 @@ test('**كلُّ لفظٍ مفضوضٍ يُحسَم لمفهومٍ واحدٍ ب
 });
 
 test('**والتنازعُ الكلّيُّ لا يزيد** — سقفٌ يَنزل ولا يَصعد', () => {
-  // ١٢٩ كان قبل الفضّ. السقفُ ١٠٥ لأنّ ٤٥ عنقودًا لم تُفحَص بعد؛
-  //   ولا يُرفَع هذا الرقمُ أبدًا — يُفَضّ عنقودٌ آخرُ ويُخفَّض.
+  // ١٢٩ ⇒ ١٠٥ ⇒ **٤**. وهذه الأربعةُ ليست بقيّةَ عملٍ بل قرارُ منتَجٍ
+  //   مؤجَّلٌ لصاحبِه: «سكانير» (فحصُ سيّارةٍ أم ماسحُ وثائق؟) ·
+  //   «كنبدل الثوب» (ثوبُ سيّارةٍ أم صالون؟) · «حمام» و«hammam»
+  //   (سبا أم بلديّ؟). ولا يُرفَع هذا الرقمُ أبدًا: من أضاف مفردةً
+  //   تتنازع مع مالكٍ قائمٍ يُسقِطه هذا الحارسُ قبل الدمج.
   const n = clashes().size;
-  assert.ok(n <= 105, `التنازعُ ${n} لفظًا — كان يجب ألّا يتجاوز ١٠٥`);
+  assert.ok(n <= 4, `التنازعُ ${n} لفظًا — كان يجب ألّا يتجاوز ٤`);
 });
 
 test('**ولا مفهومَ فقد كلَّ ألفاظه** — النزعُ لا يُفرِغ', () => {
@@ -86,4 +156,136 @@ test('**ولا مفتاحَ مكرّرًا في `DISOWNED`** — الأخيرُ 
   const dup = [...new Set(keys.filter((k, i) => keys.indexOf(k) !== i))];
   assert.deepEqual(dup, [], `مفاتيحُ مكرّرة — الأخيرُ يمحو ما قبله: ${dup.join(' · ')}`);
   assert.ok(keys.length > 0, 'لم يُقرأ `DISOWNED` أصلًا — الحارسُ يقيس الفراغ');
+});
+
+// ============================================================
+// **وقتَ التشغيل، لا في الشكل.**
+//
+//   الحرّاسُ أعلاه يقرؤون `CONCEPTS` المدموجَ — وهو شكلُ بيانات. والمستخدمُ
+//   لا يقرأ `CONCEPTS`: يكتب لفظًا فيمرُّ على `resolveConcept`. وقد قِيس
+//   الفرقُ فعلًا: نزعٌ **صحيحٌ** في الشكل قتل حلَّ أربعةِ ألفاظٍ لاتينيّةٍ
+//   تمامًا (`marbre` · `ferronnier` · `déménagement` · `informatique`)،
+//   لأنّ المالكَ الفائزَ يخزّنها تحت `darija` والفهرسُ اللاتينيُّ لا يبلغها.
+//   فلا يكفي أن يَصحَّ المالك: يجب أن **يُجيب**.
+// ============================================================
+const RUNTIME: Record<string, string> = {
+  'automobile': 'car',
+  'صيانة': 'car_service',
+  'révision': 'car_service',
+  'grocery store': 'grocer',
+  'coffee shop': 'coffee_shop',
+  'صباغة طوموبيل': 'car_painting',
+  'كنصبغ السيارة': 'car_painting',
+  'carrosserie peinture': 'car_painting',
+  'دروكري': 'hardware_store',
+  'quincaillerie': 'hardware_store',
+  'كينكايري': 'hardware_store',
+  'بياس': 'auto_parts',
+  'بياسات': 'auto_parts',
+  'قطع طوموبيلات': 'auto_parts',
+  'قطع غيار السيارات': 'auto_parts',
+  'مول السوارت': 'key_maker',
+  'كيصايب السوارت': 'key_maker',
+  'serrurier': 'key_maker',
+  'خضار': 'greengrocer',
+  'بائع أحذية': 'shoe_store',
+  'magasin de chaussures': 'shoe_store',
+  'مول الدجاج': 'poultry_seller',
+  'مطبعة': 'print_shop',
+  'طباعة': 'print_shop',
+  'informatique': 'computer_repair',
+  'فورماتاج': 'computer_repair',
+  'تهيئة': 'computer_repair',
+  'formatage': 'computer_repair',
+  'formatting': 'computer_repair',
+  'ألمنيوم': 'aluminum_fabricator_window_installer',
+  'snack bar': 'snack_bar_restaurant',
+  'building contractor': 'contractor',
+  'لحام': 'blacksmith_welder',
+  'مبيض': 'painter',
+  'marbre': 'marble_granite_worker',
+  'مول البني': 'mason',
+  'bistro': 'cafe',
+  'فران': 'bakery',
+  'فرن': 'bakery',
+  'جباس': 'plasterer',
+  'كيدير الجبس': 'plasterer',
+  'خراز': 'cobbler_shoe_repair',
+  'cordonnier': 'cobbler_shoe_repair',
+  'مول الصباط': 'shoe_seller',
+  'مول الفرش': 'bedding_and_home_textiles_store',
+  'كليماتيزور': 'air_conditioning_and_refrigeration_technician',
+  'تصليح الثلاجات': 'air_conditioning_and_refrigeration_technician',
+  'كليم': 'carpet_and_rug_seller',
+  'agence immobilière': 'real_estate_agency',
+  'انفورماتيك': 'computer_repair',
+  'impression': 'print_shop',
+  'كريش': 'daycare',
+  'حضانة': 'daycare',
+  'crèche': 'daycare',
+  'بارابول': 'satellite_receiver',
+  'ريسيفر': 'satellite_receiver',
+  'parabole': 'satellite_receiver',
+  'satellite': 'satellite_receiver',
+  'حمام شعبي': 'traditional_hammam',
+  'خيمة': 'event_equipment_rental',
+  'منجرة': 'carpenter',
+  'menuisier / ébéniste': 'carpenter_joiner',
+};
+
+test('**وكلُّ لفظٍ محسومٍ يُجيب بمالكه عبر `resolveConcept`**', () => {
+  const bad: string[] = [];
+  for (const [term, want] of Object.entries(RUNTIME)) {
+    const r = resolveConcept(term) as { id?: string } | null;
+    if (!r) { bad.push(`«${term}» لا يُحَلّ إطلاقًا — نُزع من الجميع ولم يُمنَح لأحد`); continue; }
+    if (r.id !== want) bad.push(`«${term}» ⇒ ${r.id} بدل ${want}`);
+  }
+  assert.deepEqual(bad, [], 'ألفاظٌ لا تُجيب بمالكها:\n  ' + bad.join('\n  '));
+});
+
+// ولفظان مستثنيان من الحارس أعلاه، وسببُهما **ليس** التنازع:
+//   «car service» ⇒ `car` و«photocopie» ⇒ `printing_shop_copy_center`.
+//   كلتاهما كلمةٌ فرنسيّةٌ/إنجليزيّةٌ سليمة، يفكُّها `deArabizi` إلى حروفٍ
+//   عربيّةٍ («كار سرفيك» · «فوتوكوبي») فيصطدم الفهرسُ العربيُّ — وهو
+//   **يسبق** الفهرسَ اللاتينيّ — بلفظٍ قصيرٍ مصادفةً («كار»). فالمسارُ
+//   اللاتينيُّ لا يُستشار أصلًا. وهذا عطبُ ترتيبٍ في `resolveConcept`
+//   قائمٌ قبل هذا العمل وبعدَه (قِيس: نفسُ الجوابِ قبل النزع وبعده)،
+//   ويُصلَح وحدَه لأنّ إصلاحَه يُغيّر مسارَ الفهمِ كلَّه لا جدولَ ملكيّة.
+
+// ============================================================
+// **والخادمُ يفهم كما يفهم العميل.**
+//
+//   الخادمُ لا يقرأ TS، فيقرأ `server/generated/builtin-variants.json` —
+//   خريطةً مسطّحةً يُولّدها `knowledge-audit.mjs --emit-index`، ويقرؤها
+//   `providers.js` و`conceptLearning.js`.
+//
+//   وكان المولِّدُ يفهرس **تسمياتِ** المفاهيم (`concept`) إلى جانب
+//   متغيّراتها، في مرورٍ واحدٍ والأوّلُ يفوز. و`DISOWNED` ينزع من
+//   `variants` ولا يمسّ `concept` — فالخاسرُ يستردُّ اللفظَ عند الخادم
+//   بتسميته. قِيس بعد فضِّ العناقيد: **سبعةُ ألفاظٍ** يُحيلها الخادمُ إلى
+//   الخاسرِ والعميلُ إلى الفائز، منها «خضار» و«بارابول» و«كريش».
+//
+//   وأثرُه ليس تجميليًّا: `providers.js` يُطابق مزوّدًا بهذا الفهرس،
+//   و`conceptLearning` يرفض تعلُّمَ لفظٍ يراه مملوكًا — فيتعلّم الخادمُ
+//   ويبحث على خريطةِ ملكيّةٍ تخالف ما يفهمه المستخدم.
+// ============================================================
+test('**وفهرسُ الخادم يُحيل كلَّ لفظٍ محسومٍ إلى مالكه نفسِه**', () => {
+  // **تطبيعٌ منسوخٌ عن `knowledge-audit.mjs` عمدًا** — هو ما يُبنى به
+  //   الفهرسُ، فلا يصلح تطبيعٌ آخر: لو اختلفا لصار الحارسُ يفحص مفاتيحَ
+  //   غيرَ موجودةٍ ويمرُّ وهو أعمى. ولذلك يُشترَط أدناه ألّا يغيب مفتاح.
+  const norm = (s: string) => String(s || '').toLowerCase().trim()
+    .replace(/[ً-ٟ]/g, '').replace(/[أإآ]/g, 'ا')
+    .replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ');
+  const map: Record<string, string> =
+    JSON.parse(readFileSync(join(ROOT, 'server/generated/builtin-variants.json'), 'utf8'));
+  assert.ok(Object.keys(map).length > 1000, 'لم يُقرأ فهرسُ الخادم أصلًا — الحارسُ يقيس الفراغ');
+
+  const bad: string[] = [], missing: string[] = [];
+  for (const [term, want] of Object.entries(RESOLVED)) {
+    const got = map[norm(term)];
+    if (got === undefined) missing.push(term);
+    else if (got !== want) bad.push(`«${term}» الخادمُ ⇒ ${got} والمالكُ ${want}`);
+  }
+  assert.deepEqual(missing, [], 'ألفاظٌ غائبةٌ عن فهرس الخادم — شغّل `npm run gen:variants`:\n  ' + missing.join(' · '));
+  assert.deepEqual(bad, [], 'الخادمُ والعميلُ يختلفان على المالك:\n  ' + bad.join('\n  '));
 });

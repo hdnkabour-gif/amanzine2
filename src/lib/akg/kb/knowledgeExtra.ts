@@ -48,12 +48,17 @@ export const DISOWNED: Record<string, string[]> = {
   auto_mechanic: ['ميكانيك', 'ميكانيسيان', 'مصلح طوموبيلات', 'گاراج', 'garage', 'ميكانيكي سيارات', 'auto mechanic'],
   general_practitioner: ['طبيب', 'دكتور', 'جنراليست', 'médecin généraliste', 'طبيب عام', 'general practitioner'],
   butcher_butcher_shop: ['ڭزار', 'كزار', 'جزار', 'مول اللحم', 'قصاب', 'boucher'],
-  grocery_store: ['مول الحانوت', 'هري', 'بقالة', 'épicerie'],
+  grocery_store: ['مول الحانوت', 'هري', 'بقالة', 'épicerie', 'grocery store'],
   grocery_store_convenience_store: ['حانوت', 'بقال', 'تبقالت', 'دكان', 'مول الحانوت', 'هري', 'بقالة', 'épicerie'],
   // معرّفٌ سقطت منه `é` — عطبٌ في مولّد المفاهيم، يستحقّ فحصًا منفصلًا.
   caf_coffee_shop: ['قهوة', 'كافي', 'مقهى', 'café'],
   coffee_shop: ['قهوة', 'كافي', 'مقهى', 'café'],
-  house_painter: ['صباغ ديال البيوت', 'صباغ', 'peintre en bâtiment', 'house painter'],
+  //   و«coffee shop» تُحسَم في الاتّجاه المقابل: `coffee_shop` لا يملك
+  //   سواها (لفظٌ واحدٌ + خدماتٌ موصوفة)، فنزعُها منه يُفرِغه تمامًا —
+  //   قِيس: صار بلا لفظٍ واحد. و`cafe` يبقى بـ٢٢ لفظًا منها «café» و
+  //   «coffee house». فالعبارةُ الإنجليزيّةُ لصاحبِها الوحيد.
+  cafe: ['coffee shop'],
+  house_painter: ['صباغ ديال البيوت', 'صباغ', 'peintre en bâtiment', 'house painter', 'مبيض'],
   laundry_dry_cleaner: ['مصبغة', 'مغسلة الحوايج', 'pressing', 'laverie'],
 
   // ── ب · ليست تكرارًا: تقسيمٌ لا دمج ───────────────────────────
@@ -62,12 +67,12 @@ export const DISOWNED: Record<string, string[]> = {
   //   `baker` إنسانٌ و`bakery` مكان. من يقول «بغيت خبّاز» يطلب عاملًا،
   //   ومن يقول «فين شي مخبزة» يطلب محلًّا. و«فران» تعني الاثنين في
   //   الدارجة — **تُركت للاثنين عمدًا** حتّى يحكم صاحبُ المنتَج.
-  baker: ['مخبزة', 'بولونجري'],
+  baker: ['مخبزة', 'بولونجري', 'فران', 'فرن'],
   bakery: ['خباز'],
 
   //   البنّاءُ يَبني بيده، والمقاولُ يُدير ورشةً ويُسعّر. و`maçon`
   //   فرنسيّةُ «بنّاء» لا «مقاول».
-  building_contractor: ['maçon', 'mason', 'مقاول بناء', 'مقاول', 'مول البني'],
+  building_contractor: ['maçon', 'mason', 'مقاول بناء', 'مقاول', 'مول البني', 'building contractor'],
   //   و`building_contractor` نسخةٌ فقيرةٌ من `contractor` — «مقاول بناء»
   //   لمالكٍ واحدٍ هو الأغنى. (دُمج أعلاه في مفتاحٍ واحد.)
 
@@ -78,7 +83,7 @@ export const DISOWNED: Record<string, string[]> = {
 
   //   السناكُ صنفٌ قائمٌ بذاته مغربيًّا، لا «مطعمٌ صغير».
   snack_bar_restaurant: ['مطعم', 'ماكلة'],
-  restaurant: ['سناك', 'سندويتش', 'طاكوس', 'snack'],
+  restaurant: ['سناك', 'سندويتش', 'طاكوس', 'snack', 'bistro', 'snack bar'],
 
   real_estate_agency: ['بيع', 'شراء'],
   // «قشاشة» في المغرب تعني المستعمَلَ تحديدًا، لا الملابسَ عامّة.
@@ -89,7 +94,7 @@ export const DISOWNED: Record<string, string[]> = {
   //   يذهب لِمَن يقصده تسعةٌ من عشرة.
   pottery_and_traditional_cookware_seller: ['طاجين', 'طواجن', 'قدر'],
   // «دجاج» وحدَها تعني اللحمَ في الطبق أكثرَ ممّا تعني محلَّ الدواجن.
-  poultry_shop: ['دجاج'],
+  poultry_shop: ['دجاج', 'مول الدجاج'],
   // **«معلّم» في المغرب صاحبُ الحرفة أيًّا كانت** — سبّاكٌ ونجّارٌ وميكانيكيّ.
   //
   //   قِيس بجملةٍ كتبها صاحبُ المشروع: «عندي مشكل فالثلاجة بغيت شي **معلم**».
@@ -101,6 +106,81 @@ export const DISOWNED: Record<string, string[]> = {
   //   وهي نفسُ قاعدة «بيع» و«شراء» أعلاه: الكلمةُ التي تصف **صفةً عامّةً**
   //   لا تملكها مهنةٌ بعينها. والبنّاءُ له «بناي» و«معلم البناء» ويكفيانه.
   mason: ['معلم', 'المعلم', 'مقاول بناء'],
+
+  // ══════════════════════════════════════════════════════════════
+  // **ج · الدفعةُ الثانية — ٤٥ عنقودًا، فلا يبقى إلّا المؤجَّل.**
+  //
+  //   القاعدةُ المُطبَّقة، بهذا الترتيب:
+  //     ١. **قرابةُ المعرّف**: إن كان `a` بادئةَ `b` (`carpenter` ⊂
+  //        `carpenter_joiner`) فهما نسختان لشيءٍ واحد ⇒ يفوز الأغنى ألفاظًا.
+  //     ٢. **حكمٌ صريح** لكلِّ لفظٍ باقٍ، مكتوبٌ لفظًا لفظًا لا بالقياس.
+  //     ٣. ولا يُمنَح لفظٌ لمفهومٍ لا يدّعيه: يُضاف إليه في
+  //        `ENRICH_CONCEPTS` **أوّلًا**، وإلّا صار النزعُ إفناءً.
+  //
+  //   وما لم يُحسَم تُرك متنازَعًا عمدًا، لأنّ حسمَه قرارُ منتَجٍ لا قرارُ
+  //   مهندس: «سكانير» (فحصُ سيّارةٍ أم ماسحُ وثائق؟) · «كنبدل الثوب»
+  //   (ثوبُ سيّارةٍ أم صالون؟) · «حمام» و«hammam» (سبا أم بلديّ؟).
+  // ══════════════════════════════════════════════════════════════
+
+  // ── سيّارات ───────────────────────────────────────────────────
+  automobile: ['automobile'],
+  car_maintenance: ['صيانة', 'révision', 'car service'],
+  auto_body_paint: ['صباغة طوموبيل', 'كنصبغ السيارة', 'carrosserie peinture'],
+  auto_spare_parts: ['بياس', 'بياسات', 'قطع طوموبيلات', 'قطع غيار السيارات'],
+
+  // ── بناءٌ وحرفٌ يدويّة ────────────────────────────────────────
+  carpenter_joiner: ['نجار', 'خدام الخشب', 'منجرة', 'menuisier'],
+  carpenter_woodworker: ['نجار', 'خدام الخشب', 'نجار الدار', 'منجرة', 'menuisier / ébéniste'],
+  plasterer: ['مبيض'],              // المبيّضُ صبّاغ، والجبّاسُ جبّاس.
+  decorative_plasterer: ['جباس', 'كيدير الجبس'],
+  tiler: ['marbre'],                // الرخامُ لصاحبِه، والبلاطُ للبلّاط.
+  contractor: ['مول البني'],        // «مول البني» بنّاءٌ بيده ⇒ `mason`.
+  blacksmith: ['حداد', 'ferronnier'],
+  butcher: ['لحام'],                // **«لحام» لِحامُ الحديد لا بائعُ اللحم.**
+  aluminum_pvc_windows: ['ألمنيوم'],
+
+  // ── تجارةٌ ومحلّات ───────────────────────────────────────────
+  //   «كينكايري» (quincaillerie) كان يذهب إلى بائعِ الإسمنتِ والرمل.
+  hardware_household_supplies: ['دروكري', 'كينكايري', 'quincaillerie'],
+  building_materials_store: ['كينكايري', 'quincaillerie'],
+  vegetable_fruit_seller: ['خضار'],
+  fishmonger_fish_shop: ['بياسري', 'مول الحوت', 'بائع سمك'],
+  shoemaker: ['خراز', 'cordonnier'],
+  cobbler_shoe_repair: ['مول الصباط'],   // بائعُ الصبّاط لا مُصلحُه.
+  shoe_seller: ['بائع أحذية', 'magasin de chaussures'],
+  used_furniture_seller: ['مول الفرش'],
+  bookstore_stationery: ['مكتبة', 'قرطاسية', 'librairie', 'papeterie'],
+  optician_optical_store: ['نظارات', 'opticien'],
+  locksmith_key_maker: ['مول السوارت', 'كيصايب السوارت', 'serrurier'],
+
+  // ── خدماتٌ وأجهزة ────────────────────────────────────────────
+  //   **«كليم» كان يملكه مُكيّفُ الهواء** — قطعًا من «كليماتيزور». ومن
+  //   يكتب «كليم» يريد زربيّة.
+  air_conditioning_service: ['كليماتيزور', 'كليم'],
+  appliance_repair_technician: ['تصليح الثلاجات'],
+  mobile_phone_repair_technician: ['تصليح البورطابل', 'réparation téléphone'],
+  moving_company_furniture_transport: ['نقل الأثاث', 'déménagement'],
+
+  //   «informatique» و«انفورماتيك» لفظٌ واحدٌ بحرفين ⇒ مالكٌ واحد.
+  computer_repair_technician_it_technician: ['informatique', 'انفورماتيك'],
+  it_support: ['informatique', 'فورماتاج', 'انفورماتيك', 'تهيئة', 'formatage', 'formatting'],
+
+  //   ثلاثةُ مفاهيمَ للطباعة ومفهومان للسيبير. «impression» و«photocopie»
+  //   و«طباعة» لمطبعةٍ واحدة، و«سيبير» للسيبير.
+  printing_shop_copy_center: ['مطبعة', 'طباعة', 'photocopie', 'impression'],
+  cybercafe: ['طباعة', 'photocopie', 'impression'],
+  cybercafe_copy_print: ['photocopie', 'impression', 'سيبير', 'cyber'],
+
+  //   الوكالةُ وكالة: `real_estate_agency` اسمُه الفرنسيُّ هو اللفظُ نفسُه.
+  real_estate_agent: ['agence immobilière'],
+  nursery_daycare_preschool: ['كريش', 'حضانة', 'crèche'],
+  //   «بارابول» و«ريسيفر»: الأغنى يحمل عباراتِ العطبِ نفسَها («التلفزة ما
+  //   شاعلاش» · «القنوات تقطعات») وخدماتُه خدماتُ المُركِّب.
+  satellite_tv_installer: ['بارابول', 'ريسيفر', 'parabole', 'satellite'],
+  //   «خيمة» وحدَها: الطلبُ الغالبُ كراءٌ لحفلٍ لا تفصيلُ قبّة. وصانعُها
+  //   يبقى بـ«خياط الخيام» و«كيصايب الخيام» و«قبة».
+  traditional_tent_maker: ['خيمة'],
+  traditional_moroccan_bath_hammam: ['حمام شعبي'],
 };
 
 export const EXTRA_CONCEPTS: ConceptData[] = [
@@ -285,6 +365,59 @@ export const ENRICH_CONCEPTS: ConceptData[] = [
   C('snack_bar_restaurant', 'food', 'مطعم / وجبات سريعة', 'سناك', 'Snack', 'Snack bar',
     { en: ['snack', 'snack bar', 'fast food'], fr: ['snack', 'restauration rapide'] },
     ['فين شي سناك قريب؟']),
+
+  // ══════════════════════════════════════════════════════════════
+  // **أربعةُ ألفاظٍ حُسِمت لمفهومٍ لم يكن يدّعيها.**
+  //
+  //   في فضِّ التنازع يُنزَع اللفظُ من كلِّ مُدَّعٍ إلّا مالكَه. فإن كان
+  //   المالكُ الصحيحُ لا يملكه أصلًا، صار النزعُ **إفناءً**: اللفظُ يختفي
+  //   من التطبيق كلِّه. وقِيس هذا فعلًا على «snack» أعلاه.
+  //
+  //   فهنا يُمنَح اللفظُ لمالكه **قبل** أن يُنزَع من غيره:
+
+  // «كينكايري» (quincaillerie) كان يذهب إلى `building_materials_store` —
+  //   وذاك يبيع الإسمنتَ والرملَ والطوب. ومن يسأل عن كينكايري يريد
+  //   براغيَ وصباغةً وأدواتِ سباكة. و«quincaillerie» اللاتينيّةُ محسومةٌ
+  //   لـ`hardware_store`، فلو ذهب شقيقُها العربيُّ إلى مفهومٍ آخرَ لصار
+  //   الحرفُ هو من يحدّد الجواب.
+  C('hardware_store', 'تجارة / أدوات منزلية', 'متجر أدوات منزلية', 'دروڭري', 'Droguerie', 'Hardware Store',
+    { darija: ['كينكايري'] }),
+
+  // «انفورماتيك» بحرفٍ عربيّ و«informatique» بحرفٍ لاتينيّ لفظٌ واحد.
+  //   والثانيةُ محسومةٌ لـ`computer_repair` (أغنى المفاهيم الثلاثة: ٦١ لفظًا).
+  C('computer_repair', 'دارجة: تصليحات / إعلاميات', 'صيانة كمبيوتر', 'كيصلح الكمبيوتر', "Réparateur d'ordinateurs", 'Computer repair',
+    { darija: ['انفورماتيك'], fr: ['informatique'] }),
+
+  // «impression» كان يملكه `cybercafe` و`cybercafe_copy_print` و
+  //   `printing_shop_copy_center`، ولا يملكه `print_shop` — وهو مالكُ
+  //   «مطبعة» و«طباعة» و«photocopie». يُوضَع في `fr` لأنّ الفهرسَ
+  //   اللاتينيَّ لا يبلغ الدارجة (درسُ «snack»).
+  C('print_shop', 'تجارة / طباعة', 'مطبعة', 'مطبعة', 'Imprimerie', 'Print shop',
+    { fr: ['impression'] }),
+
+  // «منجرة» يملكه `carpenter_joiner` و`carpenter_woodworker`، ولا يملكه
+  //   `carpenter` — وهو مالكُ «نجار» و«خدام الخشب» و«menuisier». وعند
+  //   `carpenter` «مجرة» بلا نونٍ: خطأٌ إملائيٌّ في الملفِّ المولَّد.
+  C('carpenter', 'حرف يدوية / خشب', 'نجار', 'نجار', 'Menuisier', 'Carpenter',
+    { darija: ['منجرة'] }),
+
+  // ══════════════════════════════════════════════════════════════
+  // **ثلاثةُ ألفاظٍ لاتينيّةٍ مات حلُّها بالنزع — وقِيس لا خُمِّن.**
+  //
+  //   هذه هي إصابةُ «snack» نفسُها، أربعَ مرّاتٍ أخرى: المالكُ الفائز
+  //   يخزّن اللفظَ اللاتينيَّ تحت `darija`، والفهرسُ اللاتينيُّ لا يبلغ
+  //   الدارجة. فلمّا نُزع من المالكِ القديمِ — الذي كان يخزّنه تحت `fr` —
+  //   اختفى اللفظُ من التطبيق كلِّه.
+  //
+  //   القياس: `resolveConcept` على ٨٩ لفظًا قبلَ التعديل وبعدَه. النتيجة
+  //   قبل هذا الإصلاح: `marbre` · `ferronnier` · `déménagement` ·
+  //   `informatique` ⇒ **لا شيء**. وكانت تُحَلّ قبله.
+  C('marble_granite_worker', 'دارجة: بناء / رخام', 'عامل رخام وجرانيت', 'رخامي', 'Marbrier', 'Marble & Granite Worker',
+    { fr: ['marbre'] }),
+  C('blacksmith_welder', 'حرف يدوية / حديد', 'حداد / لحام معادن', 'حداد', 'Ferronnier / Soudeur', 'Blacksmith / Welder',
+    { fr: ['ferronnier'] }),
+  C('moving_company', 'نقل', 'نقل الأثاث', 'ديميناجور', 'Société de déménagement', 'Moving Company',
+    { fr: ['déménagement'] }),
 
   // ── من الزيارة الميدانيّة أيضًا ──
   // «صباغة السيارات» كانت تُحسَم لـ`car` لأنّ المفهوم يعرف «صباغة طوموبيل»

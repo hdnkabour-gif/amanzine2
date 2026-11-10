@@ -3,14 +3,14 @@
 > **مُولَّدٌ آليًّا** بـ`npm run report:lexicon` — لا يُحرَّر بيد.
 > يُقرأ من نفس المصادر التي يقرؤها التطبيقُ في التشغيل، فلا يكذب بعد تعديل.
 
-آخرُ توليد: 2026-08-12
+آخرُ توليد: 2026-11-10
 
 ## ① الخلاصةُ بالأرقام
 
 | ما هو | العدد |
 |---|---|
 | مفهومًا يفهمه التطبيق | **٢٠٨** |
-| مصطلحًا مميَّزًا (كلَّ اللغات) | **٣٠٤٤** |
+| مصطلحًا مميَّزًا (كلَّ اللغات) | **٣٠٤٦** |
 | قدرةً يستطيع تنفيذها | **٩١** |
 | زوجَ فعلٍ×هدفٍ مقروءًا | **١١٢** |
 | غايةَ حياةٍ تُقرأ | **٧** |
@@ -296,56 +296,58 @@
 
 | الفئة | المفاهيم | مصطلحات |
 |---|---|---|
-| (بلا فئة) | ١٠٣ | ١٥٢٨ |
+| (بلا فئة) | ٩٩ | ١٣٥٣ |
 | fashion | ٢٠ | ٧٢٠ |
 | automotive | ١١ | ٣٨١ |
-| electronics | ٧ | ٢١٨ |
-| تجارة / غذاء | ٣ | ٤٦ |
-| digital | ٣ | ٧٥ |
+| electronics | ٧ | ٢١٠ |
+| تجارة / غذاء | ٣ | ٣٩ |
+| digital | ٣ | ٧٣ |
+| food | ٣ | ٧٧ |
 | home | ٣ | ١٠١ |
 | معلوميات | ٣ | ٥٢ |
 | home_services | ٢ | ٩٥ |
-| مأكولات ومشروبات | ٢ | ٢٠٤ |
-| food | ٢ | ٦١ |
+| مأكولات ومشروبات | ٢ | ١٩٠ |
 | vehicle | ١ | ٣٩ |
-| حرف يدوية / خشب | ١ | ٢٧ |
-| دارجة: بناء / زليج | ١ | ٣٠ |
-| حرف يدوية / معادن | ١ | ١٠ |
+| حرف يدوية / خشب | ١ | ٢٨ |
+| دارجة: بناء / زليج | ١ | ٢٩ |
+| حرف يدوية / معادن | ١ | ٧ |
 | سيارات / تجميل | ١ | ٢٧ |
-| سيارات | ١ | ١٢ |
+| سيارات | ١ | ٨ |
 | سيارات / تنجيد | ١ | ١١ |
-| سيارات / كاروسوري | ١ | ١٠ |
+| سيارات / كاروسوري | ١ | ٧ |
 | سيارات / زجاج | ١ | ١٢ |
-| تجارة / أدوات منزلية | ١ | ١٣ |
+| تجارة / أدوات منزلية | ١ | ١٤ |
 | حرف / منزل | ١ | ١١ |
 | خدمات / إلكترونيات ميكانيكية | ١ | ١١ |
 | تجارة / غذاء وصحة | ١ | ١١ |
 | خدمات / تصوير | ١ | ١٠ |
 | تجارة / سيارات | ١ | ١١ |
-| حرف / جلديات | ١ | ١٠ |
+| حرف / جلديات | ١ | ٨ |
 | خدمات / أمان | ١ | ١٢ |
 | تجارة / أزياء | ١ | ٦٧ |
+| نقل | ١ | ١٦ |
 | education | ١ | ٣٠ |
 | دارجة: سفر / وكالة | ١ | ١٩ |
-| دارجة: تصليحات / إعلاميات | ١ | ٦٥ |
+| دارجة: تصليحات / إعلاميات | ١ | ٦٧ |
+| تجارة / طباعة | ١ | ١٩ |
 | دارجة: سيارات / كراء | ١ | ١٥ |
 | دارجة: سيارات / ديباناج | ١ | ١٥ |
 | دارجة: سيارات / فيزيت تكنيك | ١ | ١١ |
 | دارجة: خدمات / أصورونس | ١ | ١١ |
 | دارجة: عقار / سمسار | ١ | ١٤ |
 | دارجة: سياحة / أوطيل | ١ | ١٨ |
-| دارجة: خدمات / سيبير | ١ | ١٦ |
+| دارجة: خدمات / سيبير | ١ | ١١ |
 | دارجة: تصليحات / أجهزة الدار | ١ | ٣٩ |
-| دارجة: خدمات منزلية / كليم | ١ | ١٢ |
-| دارجة: إلكترونيات / بارابول | ١ | ١٢ |
-| دارجة: بناء / رخام | ١ | ١٢ |
+| دارجة: خدمات منزلية / كليم | ١ | ١٠ |
+| دارجة: إلكترونيات / بارابول | ١ | ٨ |
+| دارجة: بناء / رخام | ١ | ١٣ |
 | دارجة: خدمات منزلية / جردة | ١ | ١٤ |
 | دارجة: خدمات منزلية / حشرات | ١ | ١٤ |
 | دارجة: أمان / كاميرات | ١ | ٣٥ |
 | دارجة: جمال / عناية | ١ | ١٥ |
 | دارجة: جمال / أظافر | ١ | ١٤ |
 | دارجة: جمال / مكياج | ١ | ١٢ |
-| دارجة: راحة / حمام | ١ | ١٤ |
+| دارجة: راحة / حمام | ١ | ١٢ |
 | دارجة: رياضة / جيم | ١ | ١٥ |
 | دارجة: صحة / نظارات | ١ | ١٣ |
 | دارجة: صحة / كيني | ١ | ١٢ |
@@ -354,7 +356,8 @@
 | دارجة: تعليم / لغات | ١ | ١٢ |
 | دارجة: حفلات / ماكلة | ١ | ١١ |
 | دارجة: حفلات / كراء | ١ | ١٢ |
-| تم دمج المكررات وتصحيح الأخطاء وإضافة مرادفات وأمثلة جديدة لتكون مرجعاً كاملاً للتطبيقات والمحركات الذكية. | ١ | ٧ |
+| حرف يدوية / حديد | ١ | ١٣ |
+| تم دمج المكررات وتصحيح الأخطاء وإضافة مرادفات وأمثلة جديدة لتكون مرجعاً كاملاً للتطبيقات والمحركات الذكية. | ١ | ٦ |
 | transport | ١ | ٣١ |
 
 ### كلُّ مفهومٍ وما يُكتب به
@@ -364,48 +367,48 @@
 | المفهوم | بالدارجة | ما يُكتب به |
 |---|---|---|
 | `air_conditioning_and_refrigeration_technician` | تبريد | فني تبريد وتكييف · تبريد · Technicien en froid et climatisation · Air conditioning and refrigeration technician · تبريد · كليماتيزور · فني كليم · تصليح الثلاجات · مكيفات · climatisation · froid · فني تبريد وتكييف · مصلح مكيفات · technicien en froid et climatisation … (+٢) |
-| `air_conditioning_service` | كليماتيزور | تركيب وصيانة المكيفات · كليماتيزور · Installation et entretien climatisation · Air Conditioning Service · كليماتيزور · كليم · clim · تركيب التكييف · صيانة الكليم · تركيب وصيانة المكيفات · installation et entretien climatisation · air conditioning service |
+| `air_conditioning_service` | كليماتيزور | تركيب وصيانة المكيفات · كليماتيزور · Installation et entretien climatisation · Air Conditioning Service · clim · تركيب التكييف · صيانة الكليم · تركيب وصيانة المكيفات · installation et entretien climatisation · air conditioning service |
 | `aluminum_fabricator_window_installer` | ألمنيوم | صانع ومُركّب الألمنيوم · ألمنيوم · Menuisier aluminium · Aluminum fabricator/window installer · ألمنيوم · كيصايب الشبابيك · تركيب الألمنيوم · menuisier aluminium · نجار الألمنيوم · صانع ومُركّب الألمنيوم · نجار ألمنيوم · menuisier aluminium · fabricant de fenêtres · aluminum fabricator/window installer |
-| `aluminum_pvc_windows` | ألمنيوم | نجارة ألمنيوم و PVC · ألمنيوم · Menuiserie aluminium et PVC · Aluminum & PVC Windows · ألمنيوم · ألومنيوم · PVC · نوافذ · شبابيك · أبواب ألمنيوم · فينترات · نجارة ألمنيوم و PVC · menuiserie aluminium et pvc · aluminum & pvc windows |
+| `aluminum_pvc_windows` | ألمنيوم | نجارة ألمنيوم و PVC · ألمنيوم · Menuiserie aluminium et PVC · Aluminum & PVC Windows · ألومنيوم · PVC · نوافذ · شبابيك · أبواب ألمنيوم · فينترات · نجارة ألمنيوم و PVC · menuiserie aluminium et pvc · aluminum & pvc windows |
 | `animal_feed_store` | بياع العلف | بائع أعلاف · بياع العلف · Marchand d'aliments pour bétail · Animal feed store · بياع العلف · العلف · فول · شعير · نخالة · كيسابة · أعلاف البهايم · بائع أعلاف · متجر مواد علفية · marchand d'aliments pour bétail … (+٢) |
 | `antique_dealer` | بياع التحف | بائع تحف قديمة · بياع التحف · Antiquaire · Antique dealer · بياع التحف · أنتيكا · antiquités · تحف قديمة · antiquaire · بائع تحف قديمة · antiquaire · brocanteur · antique dealer |
-| `appliance_repair_technician` | كيصلح لوازم الدار | مصلح الأجهزة المنزلية · كيصلح لوازم الدار · Réparateur électroménager · Appliance repair technician · كيصلح لوازم الدار · تصليح الثلاجات · تصليح الماكينات · réparateur électroménager · مصلح الأجهزة المنزلية · réparateur électroménager · appliance repair technician |
+| `appliance_repair_technician` | كيصلح لوازم الدار | مصلح الأجهزة المنزلية · كيصلح لوازم الدار · Réparateur électroménager · Appliance repair technician · كيصلح لوازم الدار · تصليح الماكينات · réparateur électroménager · مصلح الأجهزة المنزلية · réparateur électroménager · appliance repair technician |
 | `architect` | مهندس معماري | مهندس معماري · مهندس معماري · Architecte · Architect · مهندس معماري · مكتب دراسات · architecture · تصميم الدار · رخصة البناء · مهندس معماري · مكتب دراسات معمارية · architecte · bureau d’études architecturales · architect … (+١) |
 | `artificial_grass_installation` | عشب اصطناعي | تركيب عشب صناعي · عشب اصطناعي · Pose de gazon synthétique · Artificial grass installation · عشب اصطناعي · gazon · نجيل صناعي · جردة · تركيب العشب · تركيب عشب صناعي · pose de gazon synthétique · artificial grass installation |
 | `artisanat_et_m_tiers_manuels` | `crafts` | الحرف والصنائع · `crafts` · الحرف اليدوية والمهن الحرفية · Artisanat et métiers manuels · الحرف اليدوية والمهن الحرفية · الحرف والصنائع · artisanat et métiers manuels |
-| `auto_body_paint` | طولي | سمكرة وطلاء السيارات · طولي · Carrosserie peinture · Auto Body & Paint · طولي · صباغة طوموبيل · كنصبغ السيارة · سمكرة وطلاء السيارات · carrosserie peinture · auto body & paint |
+| `auto_body_paint` | طولي | سمكرة وطلاء السيارات · طولي · Carrosserie peinture · Auto Body & Paint · طولي · سمكرة وطلاء السيارات · auto body & paint |
 | `auto_electrician` | كهربائي طوموبيلات | كهربائي سيارات · كهربائي طوموبيلات · Électricien automobile · Auto electrician · كهربائي طوموبيلات · كهرباء السيارات · إلكتريك السيارات · كصلح الضو ديال الطوموبيل · إليكتريسيان ديال طوموبيلات · تريسيتي لوطو · كيصلح الضو ديال الطوموبيل · إليكتريسيان طوموبيل · كهربائي سيارات · électricien automobile … (+١) |
 | `auto_glass` | زاج طوموبيلات | زجاج السيارات · زاج طوموبيلات · Vitrage automobile · Auto Glass · زاج طوموبيلات · باربريز · فيتر · كنبدل الزاج · زجاج السيارات · vitrage automobile · pare-brise · auto glass |
-| `auto_mechanic` | ميكانيك | ميكانيكي سيارات · ميكانيك · Mécanicien automobile · Auto Mechanic · ميكانيك · ميكانيسيان · مصلح طوموبيلات · گاراج · garage · ميكانيكي سيارات · mécanicien automobile · auto mechanic |
+| `auto_mechanic` | ميكانيك | ميكانيكي سيارات · ميكانيك · Mécanicien automobile · Auto Mechanic · mécanicien automobile |
 | `auto_parts` | بياس | قطع غيار السيارات · بياس · Pièces automobiles · Auto Parts · بياس · بياسات · قطع طوموبيلات · pièces · قطع غيار السيارات · pièces automobiles · auto parts |
-| `auto_spare_parts` | بياس | قطع غيار السيارات · بياس · Pièces auto · Auto Spare Parts · بياس · بياسات · قطع طوموبيلات · pièces auto · قطع غيار السيارات · pièces auto · auto spare parts |
+| `auto_spare_parts` | بياس | قطع غيار السيارات · بياس · Pièces auto · Auto Spare Parts · pièces auto · pièces auto · auto spare parts |
 | `automatic_gate_repairer` | مصلح الأبواب الأوتوماتيك | مصلح بوابات كهربائية · مصلح الأبواب الأوتوماتيك · Réparateur de portails automatiques · Automatic gate repairer · مصلح الأبواب الأوتوماتيك · portail automatique · باب الكراج · moteur portail · مصلح بوابات كهربائية · réparateur de portails automatiques · automatic gate repairer |
-| `automobile` | `automotive` | الطوموبيلات · `automotive` · السيارات والمركبات · Automobile · السيارات والمركبات · الطوموبيلات · automobile |
+| `automobile` | `automotive` | الطوموبيلات · `automotive` · السيارات والمركبات · Automobile · السيارات والمركبات · الطوموبيلات |
 | `baby_clothing` | حوايج ديال البيبي | ملابس رضّع · حوايج ديال البيبي · Vêtements bébé · Baby clothing · حوايج ديال البيبي · بيبي · البيبي · حوايج المواليد · حوايج البيبي · حوايج للبيبي · كسوة البيبي · حوايج المولود · mawalid · hwayj baby … (+١٨) |
 | `baby_onesies` | طرطاقة | ملابس داخلية للرضّع · طرطاقة · Body bébé · Baby onesie · طرطاقة · طرطاقات · طرطاقت · الطرطاقت · بودي ديال الدراري · بودي رضيع · ملابس داخلية للرضع · بودي أطفال · لباس داخلي للرضع · body bebe … (+٣) |
-| `baker` | فران | خباز · فران · Boulanger · Baker · فران · خباز · بولونجري · كيبيع الخبز · مخبزة · خباز · فرن · boulanger · four · baker … (+١) |
-| `bakery` | مخبزة | مخبز · مخبزة · Boulangerie · Bakery · مخبزة · بولونجري · فران · كيباع الخبز · محل الخبز · خباز · الخبز · boulangerie · مخبز · فرن … (+٥) |
+| `baker` | فران | خباز · فران · Boulanger · Baker · خباز · كيبيع الخبز · خباز · boulanger · four · baker · traditional bakery |
+| `bakery` | مخبزة | مخبز · مخبزة · Boulangerie · Bakery · مخبزة · بولونجري · فران · كيباع الخبز · محل الخبز · الخبز · boulangerie · مخبز · فرن · مخبز / فرن … (+٤) |
 | `barber` | حلاق | حلاق · حلاق · Barbier · Barber · حلاق · حجام · باربير · كوافور رجال · حلاگ · coiffeur · barbier · 7la9 · hl9 · halak … (+١٧) |
 | `beauty_salon` | صالون تجميل | صالون تجميل · صالون تجميل · Institut de beauté · Beauty Salon · صالون تجميل · soins visage · إستيتيسيان · épilation · تنظيف البشرة · صالون تجميل · خبيرة تجميل · institut de beauté · esthéticienne · beauty salon … (+١) |
 | `bedding_and_home_textiles_store` | بياع الفرش | بائع أفرشة ومنسوجات منزلية · بياع الفرش · Magasin de linge de maison · Bedding and home textiles store · بياع الفرش · مول الفرش · أفرشة · درابيه · مفروشات · linge de maison · فراش · الفراش · فرش · مطرح … (+٢٥) |
 | `beekeeper` | بياع العسل | بائع عسل · بياع العسل · Apiculteur · Beekeeper · بياع العسل · مول العسل · عسل طبيعي · نحال · عسل حر · بائع عسل · نحال · منتجات الخلية · apiculteur · vendeur de miel … (+٢) |
 | `bicycle` | بيكالا | درّاجة هوائيّة · بيكالا · Vélo · Bicycle · بيكالا · البيكالا · بيكالات · بيكالة · البيكالة · بيكالي · بشكليطة · البشكليطة · بشكليط · دراجة هوائية … (+١٨) |
 | `bicycle_repairer` | كيصلح البيكالات | تصليح الدراجات الهوائية · كيصلح البيكالات · Réparateur de vélos · Bicycle Repairer · كيصلح البيكالات · مصلح الدراجات · réparateur vélo · ميكانيك بيكالات · تصليح الدراجات الهوائية · réparateur de vélos · bicycle repairer |
-| `blacksmith` | حداد | حداد · حداد · Ferronnier · Blacksmith · حداد · حداد · ferronnier · forgeron · blacksmith · metal worker |
-| `blacksmith_welder` | حداد | حداد / لحام معادن · حداد · Ferronnier / Soudeur · Blacksmith / Welder · حداد · لحام · حديد · soudeur · ferronnier · حداد / لحام معادن · ferronnier / soudeur · blacksmith / welder |
+| `blacksmith` | حداد | حداد · حداد · Ferronnier · Blacksmith · forgeron · blacksmith · metal worker |
+| `blacksmith_welder` | حداد | حداد / لحام معادن · حداد · Ferronnier / Soudeur · Blacksmith / Welder · حداد · لحام · حديد · soudeur · ferronnier · حداد / لحام معادن · ferronnier / soudeur · ferronnier · blacksmith / welder |
 | `bookstore` | مكتبة | مكتبة · مكتبة · Librairie · Bookstore · مكتبة · مول الكتب · كيباع الكرارس · papier · قرطاسية · مكتبة · بائع كتب وقرطاسية · librairie · papeterie · bookstore … (+١) |
-| `bookstore_stationery` | مكتبة | مكتبة وقرطاسية · مكتبة · Librairie / Papeterie · Bookstore / Stationery · مكتبة · مول الكرارس · قرطاسية · papeterie · librairie · مكتبة وقرطاسية · librairie / papeterie · bookstore / stationery |
-| `building_contractor` | مقاول | مقاول بناء · مقاول · Entrepreneur en bâtiment · Building Contractor · مقاول · صاحب شركة البني · entrepreneur bâtiment · كيخدم فالبني · مول البني · كيبني البيوت · مصايب البني · مقاول بناء · شركة بناء · entrepreneur en bâtiment … (+٣) |
-| `building_materials_store` | كينكايري | محل مواد بناء · كينكايري · Magasin de matériaux de construction · Building materials store · كينكايري · محل مواد البناء · quincaillerie · الإسمنت · الحديد · محل مواد بناء · magasin de matériaux de construction · building materials store |
-| `butcher` | ڭزار | جزار · ڭزار · Boucher · Butcher · ڭزار · كزار · جزار · قصاب · مول اللحم · الڭزار · gzar · kzar · 9sab · boucher … (+١١) |
-| `butcher_butcher_shop` | ڭزار | جزار / محل لحوم · ڭزار · Boucher / Boucherie · Butcher / Butcher Shop · ڭزار · كزار · جزار · مول اللحم · قصاب · boucher · جزار / محل لحوم · boucher / boucherie · butcher / butcher shop |
-| `caf_coffee_shop` | قهوة | مقهى · قهوة · Café · Café / Coffee Shop · قهوة · كافي · مقهى · café · مقهى · café · café / coffee shop |
-| `cafe` | قهوة | مقهى · قهوة · Café · Café · قهوة · كافي · مقهى · قهاوي · تيران · صالون شاي · qahwa · cafe · kawi · coffee … (+١٣) |
+| `bookstore_stationery` | مكتبة | مكتبة وقرطاسية · مكتبة · Librairie / Papeterie · Bookstore / Stationery · مول الكرارس · مكتبة وقرطاسية · librairie / papeterie · bookstore / stationery |
+| `building_contractor` | مقاول | مقاول بناء · مقاول · Entrepreneur en bâtiment · Building Contractor · صاحب شركة البني · entrepreneur bâtiment · كيخدم فالبني · كيبني البيوت · مصايب البني · شركة بناء · entrepreneur en bâtiment |
+| `building_materials_store` | كينكايري | محل مواد بناء · كينكايري · Magasin de matériaux de construction · Building materials store · محل مواد البناء · الإسمنت · الحديد · محل مواد بناء · magasin de matériaux de construction · building materials store |
+| `butcher` | ڭزار | جزار · ڭزار · Boucher · Butcher · ڭزار · كزار · جزار · قصاب · مول اللحم · الڭزار · gzar · kzar · 9sab · boucher … (+١٠) |
+| `butcher_butcher_shop` | ڭزار | جزار / محل لحوم · ڭزار · Boucher / Boucherie · Butcher / Butcher Shop · جزار / محل لحوم · boucher / boucherie · butcher / butcher shop |
+| `caf_coffee_shop` | قهوة | مقهى · قهوة · Café · Café / Coffee Shop · café / coffee shop |
+| `cafe` | قهوة | مقهى · قهوة · Café · Café · قهوة · كافي · مقهى · قهاوي · تيران · صالون شاي · qahwa · cafe · kawi · coffee … (+١٢) |
 | `car` | طوموبيل | سيارة · طوموبيل · Voiture · Car · طوموبيل · طموبيل · توموبيل · لوطو · كار · الكار · اللوطو · طونوبيل · tomobil · tomobile … (+٢٥) |
 | `car_body_repair` | طولري | إصلاح هيكل السيّارة · طولري · Carrosserie · Body repair · طولوري · طوليري · تولوري · طولري · سمكرة · سمكري · مول الطولوري · كنصلح الهيكل · دريساج · ادريساج … (+٢٤) |
 | `car_diagnostics` | دياڭنوستيك | تشخيص السيارات · دياڭنوستيك · Diagnostic automobile · Car Diagnostics · دياڭنوستيك · سكانير · كنفحص طوموبيل بالكمبيوتر · دياگنوستيك · valise · OBD · ديانيوستيك · فحص إلكتروني · الفحص ديال الطوموبيل · فاليز الفحص … (+١٥) |
 | `car_interior_cleaning` | غسل لداخل | تنظيف داخل السيّارة · غسل لداخل · Nettoyage intérieur · Interior cleaning · غسل لداخل · نغسل لداخل · غسيل لداخل · تنظيف لداخل · نسبيري لداخل · سبيري لداخل · غسل الكوسانات · نغسل الكوسانات · تنظيف الكوسان · غسل الكوسان … (+٢٠) |
-| `car_maintenance` | صيانة | صيانة السيارات · صيانة · Entretien automobile · Car Maintenance · صيانة · صيانة طوموبيل · révision · صيانة السيارات · entretien automobile · révision · car maintenance · car service |
+| `car_maintenance` | صيانة | صيانة السيارات · صيانة · Entretien automobile · Car Maintenance · صيانة طوموبيل · صيانة السيارات · entretien automobile · car maintenance |
 | `car_painting` | صباغة طوموبيل | إعادة طلاء السيارات · صباغة طوموبيل · Peinture automobile · Car painting · صباغة طوموبيل · peinture auto · كنصبغ السيارة · لون السيارة · إعادة الطلاء · صباغة السيارات · صباغة سيارات · كنصبغ الطوموبيل · نصبغ الطوموبيل · نصبغ السيارة … (+٢٨) |
 | `car_polishing` | بوليش | تلميع السيارات · بوليش · Polissage automobile · Car Polishing · بوليش · تلميع · كنلمع السيارات · تلميع طوموبيل · نلمع الطوموبيل · نلمّع الطوموبيل · كنلمّع · بغيت نلمع · بوليش الطوموبيل · بوليساج … (+١٣) |
 | `car_rental` | كراء طوموبيلات | تأجير السيارات · كراء طوموبيلات · Location de voitures · Car rental · كراء طوموبيلات · لوكاسيون · location voiture · كرا السيارات · كراء السيارات · لوكيشن · وكالة كراء طوموبيلات · تأجير السيارات · كراء السيارات · location de voitures … (+١) |
@@ -413,9 +416,9 @@
 | `car_upholstery` | طاپيسي | تنجيد السيارات · طاپيسي · Sellerie automobile · Car Upholstery · طاپيسي · تابيسي · صالون طوموبيل · كنبدل الثوب · تنجيد السيارات · sellerie automobile · car upholstery |
 | `car_wash` | لاڤاج | مغسلة سيارات · لاڤاج · Lavage auto · Car Wash · لاڤاج · لافاج · لوفاج · غسل الطوموبيل · غسيل السيارات · نضافة الطوموبيل · غسل طوموبيلات · غسل السيارات · كنغسل طوموبيل · lavage … (+١٩) |
 | `car_wrapping` | ستيكاج | ستيكاج وتغليف السيّارات · ستيكاج · Stickage / Covering · Car wrapping · ستيكاج · سطيكاج · الستيكاج · ستيكرز · لصق الزجاج · تغليف الطوموبيل · كوفرينغ · فيلم واقي · تفميم · الفيمي … (+٢٩) |
-| `carpenter` | نجار | نجار · نجار · Menuisier · Carpenter · نجار · خدام الخشب · مجرة · نجار الدار · مول الخشب · njar · menuisier · carpentier · khadam lkhchb · نجار … (+١٣) |
-| `carpenter_joiner` | نجار | نجار · نجار · Menuisier / Ébéniste · Carpenter / Joiner · نجار · خدام الخشب · منجرة · menuisier · نجار · menuisier / ébéniste · carpenter / joiner |
-| `carpenter_woodworker` | نجار | نجار وصانع أثاث خشبي · نجار · Menuisier / Ébéniste · Carpenter / Woodworker · نجار · منجرة · خدام الخشب · menuizier · نجار الدار · نجار وصانع أثاث خشبي · menuisier / ébéniste · carpenter / woodworker |
+| `carpenter` | نجار | نجار · نجار · Menuisier · Carpenter · نجار · خدام الخشب · مجرة · نجار الدار · مول الخشب · منجرة · njar · menuisier · carpentier · khadam lkhchb … (+١٤) |
+| `carpenter_joiner` | نجار | نجار · نجار · Menuisier / Ébéniste · Carpenter / Joiner · menuisier / ébéniste · carpenter / joiner |
+| `carpenter_woodworker` | نجار | نجار وصانع أثاث خشبي · نجار · Menuisier / Ébéniste · Carpenter / Woodworker · menuizier · نجار وصانع أثاث خشبي · carpenter / woodworker |
 | `carpet_and_rug_seller` | بياع الزربية | بائع سجاد وزرابي · بياع الزربية · Marchand de tapis · Carpet and rug seller · بياع الزربية · مول الزرابي · سجاد · زربية · حنبل · كليم · بائع سجاد وزرابي · متجر السجاد · marchand de tapis · tapissier … (+١) |
 | `carpet_cleaning` | غسل الزرابي | غسل الزرابي والسجّاد · غسل الزرابي · Nettoyage de tapis · Carpet cleaning · غسل الزرابي · غسيل الزرابي · تنظيف الزرابي · كنغسل الزرابي · غسل الزربية · الزربية موسخة · تنظيف السجاد · غسل السجاد · تنظيف الموكيت · غسل الموكيت … (+١٨) |
 | `caterer` | تريتور | ممون حفلات · تريتور · Traiteur · Caterer · تريتور · traiteur · كيصايب ماكلة للحفلات · ممون الأعراس · ممون حفلات · traiteur · caterer |
@@ -425,21 +428,21 @@
 | `cleaning_company` | شركة تنظيف | شركة تنظيف منازل · شركة تنظيف · Société de nettoyage · Cleaning Company · شركة تنظيف · كنظافة ديال البيوت · شركة ديال النضافة · كينقّيو الشقة · société nettoyage · شركة تنظيف منازل · خدمة نظافة · société de nettoyage · nettoyage résidentiel · cleaning company … (+١) |
 | `clothing` | حوايج | ملابس · حوايج · Vêtements · Clothing · حوايج · ملابس · لباس · حويج · حويجات · كسوة · الكسوة · لبسة · اللبسة · اللباس … (+٥٣) |
 | `clothing_sets` | اونصومبل | أطقم ملابس · اونصومبل · Ensembles · Clothing sets · اونصومبل · اونصومبلات · انصومبل · انصومبلات · طقم · أطقم · طقم ملابس · أطقم ملابس · ensemble · ensembles … (+٢) |
-| `cobbler_shoe_repair` | خراز | إسكافي / مصلح أحذية · خراز · Cordonnier · Cobbler / Shoe Repair · خراز · مول الصباط · كيصلح الصبابط · cordonnier · إسكافي / مصلح أحذية · cordonnier · cobbler / shoe repair |
-| `coffee_shop` | قهوة | مقهى · قهوة · Café · Coffee Shop · قهوة · كافي · مقهى · مقهى · café · coffee shop · café |
+| `cobbler_shoe_repair` | خراز | إسكافي / مصلح أحذية · خراز · Cordonnier · Cobbler / Shoe Repair · خراز · كيصلح الصبابط · cordonnier · إسكافي / مصلح أحذية · cordonnier · cobbler / shoe repair |
+| `coffee_shop` | قهوة | مقهى · قهوة · Café · Coffee Shop · coffee shop |
 | `computer_hardware_store` | بيع معدات الإنفورماتيك | بيع معدّات المعلوميات · بيع معدات الإنفورماتيك · Matériel informatique · Computer hardware store · بيع حواسيب · معدات معلوماتية · قطع غيار حواسيب · معدات الإنفورماتيك · بيع بيسي · قطع الحاسوب · نشري حاسوب · شراء حاسوب · نشري لابتوب · materiel informatique … (+٥) |
-| `computer_repair` | كيصلح الكمبيوتر | صيانة كمبيوتر · كيصلح الكمبيوتر · Réparateur d'ordinateurs · Computer repair · كيصلح الكمبيوتر · تصليح اللابتوب · PC · informatique · réparation ordinateur · تصليح البيسي · تصليح PC · ordinateur · فورماتاج · بيسي … (+٥١) |
-| `computer_repair_technician_it_technician` | كيصلح البيسي | فني حاسوب وشبكات · كيصلح البيسي · Réparateur informatique / Technicien réseau · Computer repair technician / IT technician · كيصلح البيسي · انفورماتيك · تصليح الحاسوب · informatique · technicien réseau · فني حاسوب وشبكات · réparateur informatique / technicien réseau · computer repair technician / it technician |
-| `contractor` | مقاول | مقاول · مقاول · Entrepreneur · Contractor · مقاول · مول البني · شركة البني · ريبور · مقاول البناء · mo9awil · mokawil · contracteur · rabi3a · chef de chantier … (+١٢) |
+| `computer_repair` | كيصلح الكمبيوتر | صيانة كمبيوتر · كيصلح الكمبيوتر · Réparateur d'ordinateurs · Computer repair · كيصلح الكمبيوتر · تصليح اللابتوب · PC · informatique · réparation ordinateur · تصليح البيسي · تصليح PC · ordinateur · فورماتاج · انفورماتيك … (+٥٣) |
+| `computer_repair_technician_it_technician` | كيصلح البيسي | فني حاسوب وشبكات · كيصلح البيسي · Réparateur informatique / Technicien réseau · Computer repair technician / IT technician · كيصلح البيسي · تصليح الحاسوب · technicien réseau · فني حاسوب وشبكات · réparateur informatique / technicien réseau · computer repair technician / it technician |
+| `contractor` | مقاول | مقاول · مقاول · Entrepreneur · Contractor · مقاول · شركة البني · ريبور · مقاول البناء · mo9awil · mokawil · contracteur · rabi3a · chef de chantier · مقاول … (+١١) |
 | `curtain_installer` | كيركب الستائر | فني تركيب الستائر · كيركب الستائر · Installateur de rideaux · Curtain installer · كيركب الستائر · البرادي · ستائر · rideaux · تركيب الستائر · فني تركيب الستائر · installateur de rideaux · curtain installer |
-| `cybercafe` | سيبير | مركز إنترنت وطباعة وتصوير · سيبير · Cybercafé · Cybercafe · سيبير · cyber · photocopie · impression · سكانير · طباعة · مركز إنترنت وطباعة وتصوير · cybercafé · photocopie · impression … (+٢) |
-| `cybercafe_copy_print` | سيبير | مركز إنترنت وطباعة · سيبير · Cybercafé / Photocopie / Impression · Cybercafe / Copy & Print · سيبير · cyber · photocopie · impression · سكانير · مركز إنترنت وطباعة · cybercafé / photocopie / impression · cybercafe / copy & print |
+| `cybercafe` | سيبير | مركز إنترنت وطباعة وتصوير · سيبير · Cybercafé · Cybercafe · سيبير · cyber · سكانير · مركز إنترنت وطباعة وتصوير · cybercafé · cybercafe · copy & print center |
+| `cybercafe_copy_print` | سيبير | مركز إنترنت وطباعة · سيبير · Cybercafé / Photocopie / Impression · Cybercafe / Copy & Print · سكانير · مركز إنترنت وطباعة · cybercafé / photocopie / impression · cybercafe / copy & print |
 | `cybersecurity` | أمان سيبراني | أمن سيبرانيّ · أمان سيبراني · Cybersécurité · Cybersecurity · أمان سيبراني · الامن السيبراني · حماية · اختراق · firewall · جدار ناري · cybersecurite · securite · firewall · hack … (+١٢) |
 | `dairy_shop_juice_bar` | محلبة | محلبة / محل ألبان وعصائر · محلبة · Laiterie / Bar à jus · Dairy Shop / Juice Bar · محلبة · مول الحليب · رايب · عصير · مهلبية · laiterie · محلبة / محل ألبان وعصائر · laiterie / bar à jus · dairy shop / juice bar |
 | `data_recovery` | استرجاع الداتا | استرجاع البيانات · استرجاع الداتا · Récupération de données · Data recovery · استرجاع بيانات · استرجاع ملفات · قرص صلب تالف · استرجاع الداتا · الديسك خربان · طارو ليا الفيشيات · recuperation de donnees · recuperation fichiers · data recovery · file recovery … (+٣) |
 | `dates_and_dried_fruits_seller` | مول التمر | بائع تمور وفواكه جافة · مول التمر · Marchand de dattes et fruits secs · Dates and dried fruits seller · مول التمر · بياع التمر · قيسارية · فواكه جافة · مكسرات · fruits secs · بائع تمور وفواكه جافة · marchand de dattes et fruits secs · dates and dried fruits seller |
 | `daycare` | حضانة | حضانة وروضة أطفال · حضانة · Crèche · Daycare · حضانة · روضة · كريش · crèche · garderie · حضانة وروضة أطفال · crèche · garderie · maternelle · daycare … (+١) |
-| `decorative_plasterer` | جباس | فني أسقف جبسية مزخرفة · جباس · Plâtrier décorateur · Decorative plasterer · جباس · كيدير الجبس · قبب · أسقف · plafond décoratif · gypserie · فني أسقف جبسية مزخرفة · plâtrier décorateur · decorative plasterer |
+| `decorative_plasterer` | جباس | فني أسقف جبسية مزخرفة · جباس · Plâtrier décorateur · Decorative plasterer · قبب · أسقف · plafond décoratif · gypserie · فني أسقف جبسية مزخرفة · plâtrier décorateur · decorative plasterer |
 | `dentist` | دكتور الضراسة | طبيب أسنان · دكتور الضراسة · Dentiste · Dentist · دكتور السنان · طبيب السنان · دنتيست · مقلع الضروس · دكتور الضراسة · طبيب الأسنان · كيقلع الضروس · dentiste · dental · dentiste … (+١٣) |
 | `doctor_gp` | طبيب | طبيب · طبيب · Médecin · Doctor · طبيب · دكتور · جنراليست · دوك · الدوك · الطبيب · tbib · doktor · docteur · medecin … (+١٦) |
 | `driving_school` | أوطو إيكول | مدرسة تعليم السياقة · أوطو إيكول · Auto-école · Driving School · أوطو إيكول · مدرسة السياقة · تعليم الكود · تعليم لكوندوي · مدرسة تعليم السياقة · auto-école · driving school |
@@ -451,7 +454,7 @@
 | `fabric_shop` | الطوب والخياطة | أقمشة وخياطة · الطوب والخياطة · Tissus · Fabric · طوب · الطوب · قماش · اقمشة · خيط · الخيط · زواق · سفيفة · عقاد · تسوارت … (+٣٤) |
 | `fashion_accessories` | كاسكيطة وصاك | إكسسوارات الأزياء · كاسكيطة وصاك · Accessoires · Fashion accessories · كاسكيطة · شابو · شاش · حزام · سنطورة · صاك · ساك · محفظة · بورطفاي · لنيط … (+٣٦) |
 | `fishmonger` | بياسري | بائع سمك · بياسري · Poissonnier · Fishmonger · بياسري · مول الحوت · كيباع الحوت · سوق الحوت · بائع سمك · poissonnier · fishmonger |
-| `fishmonger_fish_shop` | مول الحوت | بائع سمك · مول الحوت · Poissonnier / Poissonnerie · Fishmonger / Fish Shop · مول الحوت · حوات · بياسري · poissonnerie · بائع سمك · poissonnier / poissonnerie · fishmonger / fish shop |
+| `fishmonger_fish_shop` | مول الحوت | بائع سمك · مول الحوت · Poissonnier / Poissonnerie · Fishmonger / Fish Shop · حوات · poissonnerie · poissonnier / poissonnerie · fishmonger / fish shop |
 | `florist` | مول الورد | بائع زهور · مول الورد · Fleuriste · Florist · مول الورد · كيباع الزهور · بيّاع الورد · floriste · بياع الزهور · محل الورد · fleuriste · تنسيق الزهور · بائع زهور · محل ورود … (+٥) |
 | `food_and_grocery` | الماكلة والشرا | الأغذية والتجارة الغذائية · الماكلة والشرا · Alimentation · Food and Grocery · الماكلة والشرا · الأغذية والتجارة الغذائية · alimentation · food and grocery |
 | `food_courier` | دليفري | موصِّل طلبات · دليفري · Livreur · Delivery courier · دليفري · ليفرور · موصل · كنوصل · نوصل الطلبات · كنوصل الطلبات · موصل طلبات · بغيت نخدم دليفري · خدمة ديال التوصيل · كنخدم دليفري … (+١٧) |
@@ -462,15 +465,15 @@
 | `garment_dress` | روب وبلوزة | فساتين وبلوزات نسائية · روب وبلوزة · Robes · Dresses · روب · فستان · بلوزة · بلايز · جيب · تنورة · روب سواريه · الروب · الفستان · روب ديال العرس … (+٢٨) |
 | `garment_outerwear` | فيست وكبوط | جواكت ومعاطف · فيست وكبوط · Vestes & manteaux · Jackets & coats · فيست · جاكيط · جاكيت · كبوط · معطف · بلوزون · كوستيم · بدلة · جيليه · دوديون … (+٣٦) |
 | `garment_top` | قميجة وتيشيرت | قمصان وتيشيرتات · قميجة وتيشيرت · Hauts / T-shirts · Tops & shirts · قميجة · قميص · تيشيرت · تي شيرت · مايوه · بولو · سويتشيرت · سويت شيرت · كنزة · تريكو … (+٤٤) |
-| `general_practitioner` | طبيب | طبيب عام · طبيب · Médecin généraliste · General practitioner · طبيب · دكتور · جنراليست · médecin généraliste · طبيب عام · médecin généraliste · general practitioner · gp |
+| `general_practitioner` | طبيب | طبيب عام · طبيب · Médecin généraliste · General practitioner · gp |
 | `greengrocer` | خضار | بائع خضر وفواكه · خضار · Primeur / Marchand de fruits et légumes · Greengrocer · خضار · مول الخضرة · خضر وفواكه · primeur · بائع خضر وفواكه · primeur / marchand de fruits et légumes · greengrocer |
 | `grocer` | حانوتي | بقال · حانوتي · Épicier · Grocer · حانوت · بقال · مول الحانوت · تبقالت · هري · حانوتي · دكان · صبي · hanout · 7anot … (+١٧) |
-| `grocery_store` | الحانوت | بقالة · الحانوت · Épicerie · Grocery Store · الحانوت · البقال · مول الحانوت · تابقالت · هري · بقالة · épicerie · grocery store |
-| `grocery_store_convenience_store` | حانوت | بقالة / محل مواد غذائية · حانوت · Épicerie / Alimentation générale · Grocery Store / Convenience Store · حانوت · بقال · مول الحانوت · تبقالت · مواد غذائية · épicerie · بقالة · تبقالة · دكان · هري … (+٤) |
+| `grocery_store` | الحانوت | بقالة · الحانوت · Épicerie · Grocery Store · الحانوت · البقال · تابقالت |
+| `grocery_store_convenience_store` | حانوت | بقالة / محل مواد غذائية · حانوت · Épicerie / Alimentation générale · Grocery Store / Convenience Store · مواد غذائية · تبقالة · بقالة / محل مواد غذائية · بقالة ومتجر مواد غذائية · épicerie / alimentation générale · grocery store / convenience store |
 | `gym` | جيم | قاعة رياضة · جيم · Salle de sport · Gym · جيم · salle de sport · قاعة الرياضة · كوتش · coach sportif · قاعة رياضة · مدرب لياقة · salle de sport · coach sportif · gym … (+١) |
-| `hammam` | حمام | حمام وسبا · حمام · Hammam · Hammam · حمام · حمام بلدي · spa · massage · كيس · حمام وسبا · hammam · spa · hammam · spa |
-| `hardware_household_supplies` | دروگري | متجر أدوات ومواد منزلية · دروگري · Droguerie / Quincaillerie · Hardware & Household Supplies · دروگري · دروكري · كينكايري · مواد التنظيف · quincaillerie · متجر أدوات ومواد منزلية · droguerie / quincaillerie · hardware & household supplies |
-| `hardware_store` | دروڭري | متجر أدوات منزلية · دروڭري · Droguerie · Hardware Store · دروڭري · دروكري · محل دروڭري · متجر أدوات منزلية · أجهزة وأواني · droguerie · quincaillerie · hardware store · household supplies |
+| `hammam` | حمام | حمام وسبا · حمام · Hammam · Hammam · حمام · spa · massage · حمام وسبا · hammam · spa · hammam · spa |
+| `hardware_household_supplies` | دروگري | متجر أدوات ومواد منزلية · دروگري · Droguerie / Quincaillerie · Hardware & Household Supplies · دروگري · مواد التنظيف · متجر أدوات ومواد منزلية · droguerie / quincaillerie · hardware & household supplies |
+| `hardware_store` | دروڭري | متجر أدوات منزلية · دروڭري · Droguerie · Hardware Store · دروڭري · دروكري · محل دروڭري · كينكايري · متجر أدوات منزلية · أجهزة وأواني · droguerie · quincaillerie · hardware store · household supplies |
 | `herbalist` | عطار | عطار · عطار · Herboriste · Herbalist · عطار · عطار · متجر أعشاب وتوابل · herboriste · épices · herbalist · spice shop |
 | `home_appliance_repair` | تصليح الثلاجة | إصلاح الأجهزة المنزلية · تصليح الثلاجة · Réparation électroménager · Home Appliance Repair · تصليح الثلاجة · تصليح الغسالة · إلكتروميناجي · électroménager · الغسالة · غسالة · ماكينة الغسيل · ماشينة ديال الغسيل · الطياشة · لاماشين … (+٢٥) |
 | `home_appliance_repair_technician` | كيصلح الآلات | مصلح أجهزة منزلية · كيصلح الآلات · Réparateur d'électroménager · Home appliance repair technician · كيصلح الآلات · تصليح الغسالات · كيصلح الثلاجة · مصلح électroménager · مصلح أجهزة منزلية · تصليح الغسالات والثلاجات · réparateur d'électroménager · dépanneur · home appliance repair technician |
@@ -478,44 +481,44 @@
 | `home_nurse` | ممرض | ممرض · ممرض · Infirmier à domicile · Home nurse · ممرض · infirmier · لافيرمي · كيدير الإبر · ممرض · ممرض منزلي · infirmier à domicile · home nurse |
 | `hotel` | أوطيل | فندق · أوطيل · Hôtel · Hotel · أوطيل · رياض · دار الضيافة · auberge · hotel · فندق · رياض · دار ضيافة · hôtel · riad … (+٤) |
 | `house_cleaner` | خدامة | عاملة تنظيف المنازل · خدامة · Femme/Homme de ménage · House cleaner · خدامة · femme de ménage · كتنظف البيوت · خدم بيوت · تسيق · كتسيق · نسيق · تسيّق · سيق ليا · تسيق ليا … (+٣٤) |
-| `house_painter` | مبيض | دهان منازل · مبيض · Peintre en bâtiment · House Painter · مبيض · صباغ ديال البيوت · كيدهن البيوت · كنبيض الحيوط · صباغ · كيصبغ البيوت · peinture · دهان منازل · طلاء الجدران · peintre en bâtiment … (+١) |
+| `house_painter` | مبيض | دهان منازل · مبيض · Peintre en bâtiment · House Painter · كيدهن البيوت · كنبيض الحيوط · كيصبغ البيوت · peinture · دهان منازل · طلاء الجدران |
 | `hvac_technician_air_conditioning_technician` | فريݣو | فني تكييف وتبريد · فريݣو · Technicien climatisation et réfrigération · HVAC technician / Air-conditioning technician · فريݣو · كليماتيزار · تقني الكليم · كيصلح الكليم · froid industriel · فني تكييف وتبريد · technicien climatisation et réfrigération · hvac technician / air-conditioning technician |
 | `ice_cream_shop` | گلاص | محل مثلجات · گلاص · Glacier · Ice cream shop · گلاص · الگلاص · كلاص · جيلاطي · جيلاتي · مثلجات · ايس كريم · ايسكريم · glace · glass … (+١٣) |
 | `insurance_agency` | أصورونس | وكالة تأمين · أصورونس · Agence d’assurance · Insurance Agency · أصورونس · تأمين · assurance · مول التأمين · وكالة تأمين · agence d’assurance · insurance agency |
 | `interior_designer_decorator` | ديزاينور | مصمم داخلي / منسق ديكور · ديزاينور · Décorateur d’intérieur / Architecte d’intérieur · Interior designer / Decorator · ديزاينور · ديكوراسيون · كيدير الديكور · مهندس ديكور · décorateur · مصمم داخلي / منسق ديكور · décorateur d’intérieur / architecte d’intérieur · interior designer / decorator |
-| `it_support` | تركيب ويندوز | تركيب نظام التشغيل · تركيب ويندوز · Installation système · OS install · نركب ويندوز · ويندوز · تنصيب النظام · نصبت النظام · لينكس · اوفيس · تقني معلوميات · معلوميات · انفورماتيك · مساعدة تقنية … (+٣٠) |
+| `it_support` | تركيب ويندوز | تركيب نظام التشغيل · تركيب ويندوز · Installation système · OS install · نركب ويندوز · ويندوز · تنصيب النظام · نصبت النظام · لينكس · اوفيس · تقني معلوميات · معلوميات · مساعدة تقنية · فيروسات … (+٢٢) |
 | `jeweler` | صايغ | صائغ · صايغ · Bijoutier · Jeweler · صايغ · بياع الدهب · مجوهراتي · كيصلح الدهب · صائغ · بائع مجوهرات · bijoutier · joaillier · jeweler · goldsmith |
 | `key_maker` | مول السوارت | صانع مفاتيح · مول السوارت · Serrurier · Key Maker · مول السوارت · كيصايب السوارت · صانع المفاتيح · صانع مفاتيح · serrurier · fabricant de clés · key maker · locksmith |
 | `kids_clothing` | حوايج ديال الدراري | ملابس الأطفال · حوايج ديال الدراري · Vêtements enfant · Kids clothing · حوايج ديال الدراري · دراري · الدراري · كسوة ديال الدراري · حوايج الصغار · حوايج الدراري · كسوة الدراري · لباس الاطفال · حوايج صغار · drari … (+١٣) |
 | `kitchenware_store` | محل الأواني | متجر أواني منزلية · محل الأواني · Magasin d'articles ménagers · Kitchenware store · محل الأواني · أواني المطبخ · كيباع الطناجر · أواني · كيسريات · أدوات الطبخ · متجر أواني منزلية · أدوات مطبخ · magasin d'articles ménagers · ustensiles de cuisine … (+٢) |
 | `language_training_center` | سنتر ديال اللغات | مركز لغات وتكوين · سنتر ديال اللغات · Centre de langues et formation · Language & Training Center · سنتر ديال اللغات · formation · كورسات · anglais · français · مركز لغات وتكوين · centre de langues et formation · language & training center |
 | `laundry` | براسينڭ | مغسلة ملابس · براسينڭ · Pressing · Laundry · براسينڭ · مغسلة الحوايج · كيغسل الملابس · pressing · lavage habits · مصبغة · كيغسل الحوايج · غسيل الملابس · النشافة · مغسلة ملابس … (+٩) |
-| `laundry_dry_cleaner` | براسينگ | مغسلة ملابس / مصبغة · براسينگ · Pressing / Blanchisserie / Laverie · Laundry / Dry Cleaner · براسينگ · مصبغة · مغسلة الحوايج · pressing · laverie · مغسلة ملابس / مصبغة · pressing / blanchisserie / laverie · laundry / dry cleaner |
+| `laundry_dry_cleaner` | براسينگ | مغسلة ملابس / مصبغة · براسينگ · Pressing / Blanchisserie / Laverie · Laundry / Dry Cleaner · براسينگ · مغسلة ملابس / مصبغة · pressing / blanchisserie / laverie · laundry / dry cleaner |
 | `lavage_automobile_station_de_lavage` | لافاج السيارات | محل لافاج · لافاج السيارات · غسل السيارات / مغسلة سيارات · Lavage automobile / Station de lavage · لافاج السيارات · غسل السيارات / مغسلة سيارات · محل لافاج · غسل الطوموبيلات · لافاج طوموبيلات · lavage automobile / station de lavage |
 | `lawyer` | محامي | محامٍ · محامي · Avocat · Lawyer · محامي · أفوكا · avocat · محامٍ · avocat · lawyer · attorney |
-| `locksmith_key_maker` | مول السوارت | صانع مفاتيح / أقفال · مول السوارت · Serrurier / Reproduction de clés · Locksmith / Key Maker · مول السوارت · كيصايب السوارت · ساروت · مفاتيح · serrurier · صانع مفاتيح / أقفال · serrurier / reproduction de clés · locksmith / key maker |
+| `locksmith_key_maker` | مول السوارت | صانع مفاتيح / أقفال · مول السوارت · Serrurier / Reproduction de clés · Locksmith / Key Maker · ساروت · مفاتيح · صانع مفاتيح / أقفال · serrurier / reproduction de clés · locksmith / key maker |
 | `luxury_car_rental` | كراء طوموبيلات فخمة | تأجير السيارات الفاخرة · كراء طوموبيلات فخمة · Location de voitures de luxe · Luxury car rental · كراء طوموبيلات فخمة · location voiture de luxe · سيارات فاخرة · تأجير السيارات الفاخرة · location de voitures de luxe · luxury car rental |
 | `makeup_artist` | ماكييرة | خبيرة مكياج · ماكييرة · Maquilleuse · Makeup Artist · ماكييرة · مكياج · ميكاب · makeup · maquilleuse · خبيرة مكياج · maquilleuse · makeup artist |
-| `marble_granite_worker` | رخامي | عامل رخام وجرانيت · رخامي · Marbrier · Marble & Granite Worker · رخامي · مرمري · رخام · گرانيت · marbre · عامل رخام وجرانيت · marbrier · marble & granite worker |
-| `mason` | معلم | بناء · معلم · Maçon · Mason · بناء · مول البني · ماكون · شيخ البناء · معلم ديال البني · كيبني الديور · معلم البني · maçon · m3allem · bana … (+١٥) |
+| `marble_granite_worker` | رخامي | عامل رخام وجرانيت · رخامي · Marbrier · Marble & Granite Worker · رخامي · مرمري · رخام · گرانيت · marbre · عامل رخام وجرانيت · marbrier · marbre · marble & granite worker |
+| `mason` | معلم | بناء · معلم · Maçon · Mason · بناء · مول البني · ماكون · شيخ البناء · معلم ديال البني · كيبني الديور · معلم البني · maçon · m3allem · bana … (+١٤) |
 | `mechanic` | ميكانيك | ميكانيكي سيارات · ميكانيك · Mécanicien · Mechanic · ميكانيك · ميكانيسيان · مصلح طوموبيلات · مول ميكانيك · گاراج · كراج · مصلح سيارات · mecanik · mikanik · mekanik … (+٢٢) |
 | `medical_laboratory` | لابو | مختبر تحاليل طبية · لابو · Laboratoire d’analyses médicales · Medical Laboratory · لابو · تحاليل · analyses · laboratoire · تحليل الدم · مختبر تحاليل طبية · laboratoire d’analyses médicales · medical laboratory |
 | `mens_clothing` | حوايج ديال الرجال | ملابس رجالية · حوايج ديال الرجال · Vêtements homme · Menswear · حوايج ديال الرجال · كسوة ديال الرجال · حوايج رجالية · حوايج الرجال · كسوة الرجال · لباس رجال · rjal · ملابس رجالية · ملابس للرجال · أزياء رجالية … (+٩) |
 | `mobile_phone` | تلفون | هاتف محمول · تلفون · Téléphone · Mobile phone · تلفون · التلفون · سمارتفون · السمارتفون · telefone · smartphone · هاتف محمول · هاتف ذكي · smartphone · mobile phone … (+١) |
 | `mobile_phone_repair` | تصليح البورطابل | إصلاح الهواتف · تصليح البورطابل · Réparation téléphones · Mobile Phone Repair · تصليح البورطابل · مصلح التيليفونات · réparation téléphone · كيصلح البورطابل · تصليح الشاشة · تيليفون · بورطابل · الشاشة مهرسة · البطارية كتفرغ · ما كيشارجيش … (+٢١) |
-| `mobile_phone_repair_technician` | كيصلح التيليفونات | تصليح الهواتف · كيصلح التيليفونات · Réparateur téléphones portables · Mobile Phone Repair Technician · كيصلح التيليفونات · تصليح البورطابل · مصلح الهواتف · réparation téléphone · تصليح الهواتف · صيانة جوالات · réparateur téléphones portables · mobile phone repair technician |
+| `mobile_phone_repair_technician` | كيصلح التيليفونات | تصليح الهواتف · كيصلح التيليفونات · Réparateur téléphones portables · Mobile Phone Repair Technician · كيصلح التيليفونات · مصلح الهواتف · تصليح الهواتف · صيانة جوالات · réparateur téléphones portables · mobile phone repair technician |
 | `modest_wear` | حجاب | ملابس محتشمة وحجاب · حجاب · Voile et mode modeste · Modest wear · حجاب · الحجاب · خمار · الخمار · سبنية · إيشارب · طرحة · بوني · حوايج محتشمة · hijab … (+٢٢) |
 | `money_transfer_bill_payment` | كاش بلوس | خدمات تحويل الأموال والأداء · كاش بلوس · Transfert d’argent / Paiement de factures · Money Transfer / Bill Payment · كاش بلوس · وفاكاش · تحويل فلوس · أداء الفواتير · transfert d’argent · خدمات تحويل الأموال والأداء · transfert d’argent / paiement de factures · money transfer / bill payment |
 | `motorcycle` | موطور | درّاجة ناريّة · موطور · Moto · Motorcycle · موطور · الموطور · موتور · دراجة نارية · الدراجة النارية · سكوتر · تريبورتور · moto · scooter · دراجة نارية … (+٨) |
 | `motorcycle_mechanic` | ميكانيك موطور | ميكانيكي دراجات نارية · ميكانيك موطور · Mécanicien moto · Motorcycle Mechanic · ميكانيك موطور · ميكانيك موطورات · كيصلح الموتورات · موطورات · ميكانيكي دراجات نارية · mécanicien moto · motorcycle mechanic |
-| `moving_company` | ديميناجور | نقل الأثاث · ديميناجور · Société de déménagement · Moving Company · ديميناجور · شركة نقل الفرش · نقل الأثاث · déménagement · كيهزو الفرش · نقل الأثاث · شركة نقل عفش · société de déménagement · déménageur · moving company … (+١) |
-| `moving_company_furniture_transport` | ترحيل | نقل الأثاث · ترحيل · Déménagement · Moving company / Furniture transport · ترحيل · déménagement · كينقل العفش · كيهز الأثاث · نقل الأثاث · شركة ترحيل · déménagement · moving company / furniture transport |
+| `moving_company` | ديميناجور | نقل الأثاث · ديميناجور · Société de déménagement · Moving Company · ديميناجور · شركة نقل الفرش · نقل الأثاث · déménagement · كيهزو الفرش · نقل الأثاث · شركة نقل عفش · société de déménagement · déménageur · déménagement … (+٢) |
+| `moving_company_furniture_transport` | ترحيل | نقل الأثاث · ترحيل · Déménagement · Moving company / Furniture transport · ترحيل · كينقل العفش · كيهز الأثاث · شركة ترحيل · moving company / furniture transport |
 | `nail_salon` | أونگل | صالون أظافر · أونگل · Onglerie · Nail Salon · أونگل · ongles · manicure · pédicure · صالون أظافر · صالون أظافر · onglerie · manucure · nail salon · nail technician |
 | `network_technician` | تقني شبكات | تقني شبكات · تقني شبكات · Technicien réseau · Network technician · تقني شبكات · كابلاج · الكابلاج · سيرفر · السيرفر · سويتش · الشبكة الداخلية · فيبر · شبكة · reseau … (+٢٣) |
 | `notary_legal_notary` | نوتير | موثق / عدل · نوتير · Notaire / Adoul · Notary / Legal notary · نوتير · موثق · عدول · توثيق العقود · notaire · موثق / عدل · notaire / adoul · notary / legal notary |
-| `nursery_daycare_preschool` | كريش | حضانة وروض أطفال · كريش · Crèche / Jardin d’enfants · Nursery / Daycare / Preschool · كريش · حضانة · روض · ماتيرنيل · crèche · jardin d’enfants · حضانة وروض أطفال · crèche / jardin d’enfants · nursery / daycare / preschool |
+| `nursery_daycare_preschool` | كريش | حضانة وروض أطفال · كريش · Crèche / Jardin d’enfants · Nursery / Daycare / Preschool · روض · ماتيرنيل · jardin d’enfants · حضانة وروض أطفال · crèche / jardin d’enfants · nursery / daycare / preschool |
 | `optician` | أوبتيكيان | محل نظارات · أوبتيكيان · Opticien · Optician · أوبتيكيان · opticien · نظارات · عدسات · lunettes · محل نظارات · أخصائي بصريات · opticien · optician |
-| `optician_optical_store` | أوبتيك | محل نظارات / أخصائي بصريات · أوبتيك · Opticien / Lunetterie · Optician / Optical store · أوبتيك · محل النظاضر · نظارات · lunetterie · opticien · محل نظارات / أخصائي بصريات · opticien / lunetterie · optician / optical store |
+| `optician_optical_store` | أوبتيك | محل نظارات / أخصائي بصريات · أوبتيك · Opticien / Lunetterie · Optician / Optical store · أوبتيك · محل النظاضر · lunetterie · محل نظارات / أخصائي بصريات · opticien / lunetterie · optician / optical store |
 | `oriental_perfumes_and_incense_seller` | بياع العطور | بائع عطور شرقية وبخور · بياع العطور · Marchand de parfums orientaux et d'encens · Oriental perfumes and incense seller · بياع العطور · عطور شرقية · عود · بخور · عود كمبودي · مسك · بائع عطور شرقية وبخور · marchand de parfums orientaux et d'encens · oriental perfumes and incense seller |
 | `painter` | صباغ | دهان · صباغ · Peintre · Painter · صباغ · مبيض · كيصبغ · كيدهن · صباغ ديال البيوت · مطلي · sbagh · mbiyad · peintre · sbagha … (+١٥) |
 | `pastry_chef` | حلواني | حلواني · حلواني · Pâtissier · Pastry Chef · حلواني · مول الحلويات · كيصايب الحلوى · معلم الحلويات · محنبة · حلواني · صانع حلويات · pâtissier · confiseur · pastry chef … (+١) |
@@ -524,45 +527,45 @@
 | `photographer` | مصور | مصور · مصور · Photographe · Photographer · مصور · فوتوغراف · photographe · مصور · photographe · photographer |
 | `physiotherapist` | كيني | أخصائي علاج طبيعي · كيني · Kinésithérapeute · Physiotherapist · كيني · kiné · ترويض طبي · kinésithérapie · rééducation · أخصائي علاج طبيعي · kinésithérapeute · physiotherapist |
 | `physiotherapist_physical_therapist` | فيزيو | أخصائي علاج طبيعي وتأهيل · فيزيو · Kinésithérapeute / Physiothérapeute · Physiotherapist / Physical therapist · فيزيو · كينيزيتيرابي · علاج طبيعي · كيدير الماساج الطبي · أخصائي علاج طبيعي وتأهيل · kinésithérapeute / physiothérapeute · physiotherapist / physical therapist |
-| `plasterer` | مبيض | مبيض محارة · مبيض · Plâtrier · Plasterer · مبيض · جباس · plâtrier · كيدير الجبس · محارة · مبيض محارة · جصاص · plâtrier · plasterer |
+| `plasterer` | مبيض | مبيض محارة · مبيض · Plâtrier · Plasterer · جباس · plâtrier · كيدير الجبس · محارة · مبيض محارة · جصاص · plâtrier · plasterer |
 | `plumber` | بلومبي | سباك · بلومبي · Plombier · Plumber · بلومبي · سباك · صحي · كيصلح الماء · مصلح الصرف · مصلح المواسير · كيصلح الصرف · كنصلح الماء · plomberie · روبيني … (+٣٣) |
 | `pottery_and_traditional_cookware_seller` | بياع الفخار | بائع أواني فخارية وتقليدية · بياع الفخار · Marchand de poteries · Pottery and traditional cookware seller · بياع الفخار · براد · خزف · بائع أواني فخارية وتقليدية · marchand de poteries · pottery and traditional cookware seller |
 | `poultry_seller` | قصابة ديال الدجاج | بائع دواجن · قصابة ديال الدجاج · Volailler · Poultry Seller · قصابة ديال الدجاج · مول الدجاج · بياع الدجاج · كيباع الدجاج بالتفصيل · بائع دواجن · قصابة دواجن · volailler · marchand de volailles · poultry seller |
-| `poultry_shop` | مول الدجاج | محل دواجن · مول الدجاج · Volailler / Marchand de volailles · Poultry Shop · مول الدجاج · قصابة الدجاج · volailles · محل دواجن · volailler / marchand de volailles · poultry shop |
-| `print_shop` | مطبعة | مطبعة · مطبعة · Imprimerie · Print shop · مطبعة · طباعة · تصوير ورق · imprimerie · photocopie · فلاش · بانر · مطبعة · خدمات طباعة وتصوير · imprimerie … (+٤) |
+| `poultry_shop` | مول الدجاج | محل دواجن · مول الدجاج · Volailler / Marchand de volailles · Poultry Shop · قصابة الدجاج · volailles · محل دواجن · volailler / marchand de volailles · poultry shop |
+| `print_shop` | مطبعة | مطبعة · مطبعة · Imprimerie · Print shop · مطبعة · طباعة · تصوير ورق · imprimerie · photocopie · فلاش · بانر · مطبعة · خدمات طباعة وتصوير · imprimerie … (+٥) |
 | `printer_repair` | تصليح الإمبريمانت | إصلاح الطابعات · تصليح الإمبريمانت · Réparation imprimante · Printer repair · إصلاح طابعة · صيانة طابعات · تعبئة حبر · تصليح الإمبريمانت · الطابعة خربانة · تعمير الحبر · reparation imprimante · toner · printer repair · toner refill … (+٢) |
-| `printing_shop_copy_center` | مطبعة | مطبعة وخدمات نسخ · مطبعة · Imprimerie / Photocopie · Printing shop / Copy center · مطبعة · طباعة · فوتوكوبي · كيطبع · impression · photocopie · مطبعة وخدمات نسخ · imprimerie / photocopie · printing shop / copy center |
+| `printing_shop_copy_center` | مطبعة | مطبعة وخدمات نسخ · مطبعة · Imprimerie / Photocopie · Printing shop / Copy center · فوتوكوبي · كيطبع · مطبعة وخدمات نسخ · imprimerie / photocopie · printing shop / copy center |
 | `private_ambulance` | أمبولانس | سيارة إسعاف خاصة · أمبولانس · Ambulance privée · Private Ambulance · أمبولانس · ambulance · نقل المرضى · سيارة إسعاف · سيارة إسعاف خاصة · نقل صحي · ambulance privée · transport sanitaire · private ambulance · medical transport |
 | `private_tutor` | أستاذ | مدرس خصوصي · أستاذ · Enseignant · Private tutor · أستاذ · مدرس خصوصي · soutien scolaire · كيعطي الدروس · أستاذ خصوصي · soutien · دروس الدعم · يراجع مع · كيراجع مع · يراجع معاه … (+١٦) |
 | `real_estate_agency` | سمسار | سمسار عقاري · سمسار · Agence immobilière · Real Estate Agency · سمسار · وكالة عقارية · كراء · immobilier · سمسار عقاري · وكالة عقارية · agence immobilière · courtier immobilier · real estate agency · broker |
-| `real_estate_agent` | سيمان | وكيل عقاري / وسيط عقارات · سيمان · Agent immobilier / Agence immobilière · Real estate agent · سيمان · أجان عقاري · كيقلب على الديور · وسيط العقار · agence immobilière · وكيل عقاري / وسيط عقارات · agent immobilier / agence immobilière · real estate agent |
-| `restaurant` | ماكلة | مطعم · ماكلة · Restaurant · Restaurant · ماكلة · سناك · مطعم · وجبات · الماكلة · بوفية · طاكوس · سندويتش · واش كاين · المأكولات … (+١٧٩) |
+| `real_estate_agent` | سيمان | وكيل عقاري / وسيط عقارات · سيمان · Agent immobilier / Agence immobilière · Real estate agent · سيمان · أجان عقاري · كيقلب على الديور · وسيط العقار · وكيل عقاري / وسيط عقارات · agent immobilier / agence immobilière · real estate agent |
+| `restaurant` | ماكلة | مطعم · ماكلة · Restaurant · Restaurant · ماكلة · مطعم · وجبات · الماكلة · بوفية · واش كاين · المأكولات · جاني جوع · جاني الجوع · جعت … (+١٧١) |
 | `satellite_receiver` | البارابول | البارابول والريسيفر · البارابول · Parabole · Satellite · بارابول · البارابول · ريسيفر · الريسيفر · ديمو · التلفزة ما شاعلاش · القنوات تقطعات · دمو · قنوات · parabole … (+١٥) |
-| `satellite_tv_installer` | بارابول | تركيب وصيانة الأقمار الصناعية · بارابول · Installateur parabole et satellite · Satellite TV Installer · بارابول · ريسيفر · parabole · satellite · تركيب القنوات · تركيب وصيانة الأقمار الصناعية · installateur parabole et satellite · satellite tv installer |
+| `satellite_tv_installer` | بارابول | تركيب وصيانة الأقمار الصناعية · بارابول · Installateur parabole et satellite · Satellite TV Installer · تركيب القنوات · تركيب وصيانة الأقمار الصناعية · installateur parabole et satellite · satellite tv installer |
 | `sewing_machine_repair` | كنصلح الماكينة | إصلاح ماكينات الخياطة · كنصلح الماكينة · Réparation de machines à coudre · Sewing Machine Repair · كنصلح الماكينة · كنصلح ماكينة الخياطة · ماكينات · ماكن · إصلاح ماكينات الخياطة · réparation de machines à coudre · sewing machine repair |
-| `shoe_seller` | مول الصباط | بائع أحذية · مول الصباط · Chausseur · Shoe Seller · مول الصباط · كيباع الصبط · بيّاع السبابط · chausseur · بائع أحذية · محل أحذية · chausseur · magasin de chaussures · shoe seller · shoe shop |
+| `shoe_seller` | مول الصباط | بائع أحذية · مول الصباط · Chausseur · Shoe Seller · مول الصباط · كيباع الصبط · بيّاع السبابط · chausseur · محل أحذية · chausseur · shoe seller · shoe shop |
 | `shoe_store` | بياع الصبطات | بائع أحذية · بياع الصبطات · Marchand de chaussures · Shoe Store · بياع الصبطات · مول الصبابط · محل الأحذية · صبابط · بوتيي · صباط · بلغة · بابوش · سباردينة · سبرديلة … (+٢٩) |
-| `shoemaker` | خراز | إسكافي · خراز · Cordonnier · Shoemaker · خراز · إسكافي · صانع أحذية جلدية · cordonnier · shoemaker · cobbler |
+| `shoemaker` | خراز | إسكافي · خراز · Cordonnier · Shoemaker · إسكافي · صانع أحذية جلدية · shoemaker · cobbler |
 | `sleepwear` | بيجامة | ملابس النوم · بيجامة · Pyjamas · Sleepwear · بيجامة · البيجامة · بيجاما · حوايج النعاس · لبسة النعاس · روب دو شامبر · pyjama · pijama · bijama · بيجامة … (+١٢) |
-| `snack_bar_restaurant` | سناك | مطعم / وجبات سريعة · سناك · Snack / Restaurant · Snack Bar / Restaurant · سناك · مطعم · ماكلة · سندويتش · طاكوس · snack · مطعم / وجبات سريعة · snack / restaurant · snack bar / restaurant |
+| `snack_bar_restaurant` | سناك | مطعم / وجبات سريعة · سناك · Snack / Restaurant · Snack Bar / Restaurant · سناك · سندويتش · طاكوس · snack · مطعم / وجبات سريعة · snack / restaurant · snack · restauration rapide · snack bar / restaurant · snack … (+٢) |
 | `sportswear` | تراكسي | ملابس رياضية · تراكسي · Vêtements de sport · Sportswear · تراكسي · طراكسي · سورفيتمو · جوغينغ · حوايج الرياضة · لباس رياضي · مايو الرياضة · التراكسي · ترينينغ · الترينينغ … (+٢٥) |
 | `tailor` | خياط | خياط · خياط · Tailleur · Tailor · خياط · ترزي · كيخيط · مصمم · خياط الحوايج · موديست · كيخيط الحوايج · كيصايب القشاشة · تفصيل حسب الطلب · couture … (+١٩) |
 | `tea_and_herbs_wholesaler` | بياع أتاي | بائع الشاي والأعشاب · بياع أتاي · Marchand de thé et de plantes · Tea and herbs wholesaler · بياع أتاي · مول الشاي · أتاي · أعشاب · thé · tisane · بائع الشاي والأعشاب · marchand de thé et de plantes · tea and herbs wholesaler |
 | `telecom_mobile_recharge` | تعبئة | محل اتصالات وتعبئة · تعبئة · Téléboutique / Recharge mobile · Telecom & Mobile Recharge · تعبئة · ريشارج · تليكوم · إنوي · أورنج · recharge · téléboutique · محل اتصالات وتعبئة · téléboutique / recharge mobile · telecom & mobile recharge |
-| `tiler` | زلايجي | مبلط · زلايجي · Carreleur · Tiler · زلايجي · زليجي · كيركب السيراميك · مول الزليج · كارلاج · سيراميك · زليج · كيخدم الزليج · zlayji · zellige … (+١٦) |
+| `tiler` | زلايجي | مبلط · زلايجي · Carreleur · Tiler · زلايجي · زليجي · كيركب السيراميك · مول الزليج · كارلاج · سيراميك · زليج · كيخدم الزليج · zlayji · zellige … (+١٥) |
 | `tire_shop` | مول الرويضات | محل إطارات السيارات · مول الرويضات · Pneumatique · Tire Shop · مول الرويضات · پنو · بنو · عجلات · كريڤيزون · vulcanisateur · بنيو · بنوات · البنيو · عجلة … (+٢٦) |
 | `towing` | ديباناج | خدمة جر السيارات والمساعدة على الطريق · ديباناج · Dépannage auto · Towing · ديباناج · ديپاناج · dépanneuse · جر السيارة · سحب السيارة · سطافيط · خدمة جر السيارات والمساعدة على الطريق · dépannage auto · remorquage · towing … (+١) |
 | `traditional_clothing` | جلابة وقفطان | اللباس التقليدي المغربي · جلابة وقفطان · Habit traditionnel · Traditional wear · جلابة · جلابه · الجلابة · قفطان · القفطان · طاكشيطة · تاكشيطة · قندورة · سلهام · برنوس … (+٤٧) |
 | `traditional_hammam` | حمام | حمام بلدي · حمام · Hammam traditionnel · Traditional Hammam · حمام · حمام بلدي · كيس · حمام شعبي · hammam · حمام بلدي · hammam traditionnel · traditional hammam |
-| `traditional_moroccan_bath_hammam` | حمّام | حمّام تقليدي / حمّام مغربي · حمّام · Hammam traditionnel / Hammam marocain · Traditional Moroccan bath / Hammam · حمّام · الحمّام البلدي · حمام شعبي · كندوش · الحمّام المغربي · حمّام تقليدي / حمّام مغربي · hammam traditionnel / hammam marocain · traditional moroccan bath / hammam |
-| `traditional_tent_maker` | خياط الخيام | صانع الخيام التقليدية · خياط الخيام · Fabricant de tentes traditionnelles · Traditional tent maker · خياط الخيام · كيصايب الخيام · خيام تقليدية · قبة · خيمة · صانع الخيام التقليدية · fabricant de tentes traditionnelles · traditional tent maker |
+| `traditional_moroccan_bath_hammam` | حمّام | حمّام تقليدي / حمّام مغربي · حمّام · Hammam traditionnel / Hammam marocain · Traditional Moroccan bath / Hammam · حمّام · الحمّام البلدي · كندوش · الحمّام المغربي · حمّام تقليدي / حمّام مغربي · hammam traditionnel / hammam marocain · traditional moroccan bath / hammam |
+| `traditional_tent_maker` | خياط الخيام | صانع الخيام التقليدية · خياط الخيام · Fabricant de tentes traditionnelles · Traditional tent maker · خياط الخيام · كيصايب الخيام · خيام تقليدية · قبة · صانع الخيام التقليدية · fabricant de tentes traditionnelles · traditional tent maker |
 | `travel_agency` | وكالة الأسفار | وكالة سفر · وكالة الأسفار · Agence de voyages · Travel agency · وكالة الأسفار · كيباع الرحلات · voyage · سياحة · حجز الطيارة · أجونس ديال السفر · billet · visa · وكالة سفر · وكالة سياحة … (+٥) |
 | `tv_and_audio_repair_technician` | مصلح التلفزة | مصلح أجهزة سمعية بصرية · مصلح التلفزة · Réparateur TV · TV and audio repair technician · مصلح التلفزة · كيصلح الـ TV · تصليح الشاشات · réparateur TV · مصلح أجهزة سمعية بصرية · réparateur tv · audio · vidéo · tv and audio repair technician |
 | `tv_repair` | التلفازة | إصلاح التلفاز · التلفازة · Réparation TV · TV repair · تلفازة · التلفازة · تلفزة · التلفزة · تيلي · التيلي · تلفاز · التلفاز · tv · television … (+١٣) |
 | `underwear_socks` | سلاوي وتريكو | ملابس داخلية وجوارب · سلاوي وتريكو · Sous-vêtements · Underwear & socks · تقاشر · سلاوي · ملابس داخلية · كيلوط · مايوه دياخل · chaussettes · sous vetement · slip · جوارب · ملابس داخلية … (+٤) |
 | `used_clothing` | جوطية | سوق الملابس المستعملة · جوطية · Marché aux puces · Flea market · جوطية · الجوطية · جوطيه · سوق البالي · فريب · فريپ · حوايج بالية · بالة · البالة · الفريب … (+٢٦) |
-| `used_furniture_seller` | بائع الأثاث المستعمل | بائع أثاث مستعمل · بائع الأثاث المستعمل · Vendeur de meubles d'occasion · Used Furniture Seller · بائع الأثاث المستعمل · كيباع الفرش القدام · marché aux puces · مول الفرش · بائع أثاث مستعمل · سوق الأثاث المستعمل · vendeur de meubles d'occasion · brocante · used furniture seller · secondhand furniture |
-| `vegetable_fruit_seller` | خضار | بائع الخضر والفواكه · خضار · Marchand de légumes · Vegetable & Fruit Seller · خضار · مول الخضر · بائع الخضر والفواكه · marchand de légumes · vegetable & fruit seller |
+| `used_furniture_seller` | بائع الأثاث المستعمل | بائع أثاث مستعمل · بائع الأثاث المستعمل · Vendeur de meubles d'occasion · Used Furniture Seller · بائع الأثاث المستعمل · كيباع الفرش القدام · marché aux puces · بائع أثاث مستعمل · سوق الأثاث المستعمل · vendeur de meubles d'occasion · brocante · used furniture seller · secondhand furniture |
+| `vegetable_fruit_seller` | خضار | بائع الخضر والفواكه · خضار · Marchand de légumes · Vegetable & Fruit Seller · مول الخضر · بائع الخضر والفواكه · marchand de légumes · vegetable & fruit seller |
 | `vehicle_inspection_center` | فيزيت تكنيك | مركز الفحص التقني للسيارات · فيزيت تكنيك · Centre de visite technique · Vehicle Inspection Center · فيزيت تكنيك · visite technique · كونترول تقني · فحص تقني · مركز الفحص التقني للسيارات · centre de visite technique · vehicle inspection center |
 | `veterinarian` | طبيب الحيوانات | طبيب بيطري · طبيب الحيوانات · Vétérinaire · Veterinarian · طبيب الحيوانات · بيطري · دكتور ديال البهائم · فيتيرينير · vétérinaire · دكتور البهايم · طبيب بيطري · vétérinaire · veterinarian |
 | `video_game_store` | محل الألعاب | متجر ألعاب فيديو · محل الألعاب · Magasin de jeux vidéo · Video game store · محل الألعاب · jeux vidéo · PlayStation · Xbox · Nintendo · متجر ألعاب فيديو · magasin de jeux vidéo · video game store |
