@@ -4,6 +4,7 @@ const auth   = require('../middleware/auth');
 const aiQuota = require('../middleware/ai-quota'); // H-5
 const https  = require('https');
 const { db } = require('../database');
+const { learnVariant } = require('../lib/conceptLearning');
 
 /* ══════════════════════════════════════════════
    PRODUCT SEARCH — by name, SKU, or description
@@ -954,9 +955,39 @@ router.post('/suggest-unknown', async (req, res) => {
 /** حكمُ الإنسان — محميّ. لا معرفةَ تدخل بلا اعتماد. */
 router.post('/judge-unknown', auth, async (req, res) => {
   try {
-    const ok = await db.judgeUnknown(req.body?.text, req.body?.status);
-    return res.json({ ok });
-  } catch { return res.status(500).json({ error: 'judge failed' }); }
+    const text = String(req.body?.text || '').trim();
+    const status = req.body?.status;
+
+    // ── **الاعتمادُ يجب أن يُنتج معرفةً تُقرأ** ──────────────────────
+    //   كان هذا الباب يُبدّل عمودَ حالةٍ ثمّ ينتهي: يسأل الذكاءُ، ويفهم،
+    //   ويُخزَّن فهمُه، ويضغط المشغّلُ «اعتمد» — **ولا يتغيّر سلوكُ التطبيق**.
+    //   فتُصعَّد الكلمةُ نفسُها غدًا وتستهلك حصّةً ومالًا من جديد، والتعلّمُ
+    //   الظاهرُ في الشاشة وَهْم.
+    //
+    //   ويُستدعى نفسُ المنطق الذي يستعمله `/knowledge/misses/:id/resolve` —
+    //   لا نسخةٌ ثانيةٌ تتباعد عنه.
+    if (status === 'approved') {
+      const row = await db.getUnknownByText(text);
+      const conceptId = String(req.body?.conceptId || row?.aiConcept || '').trim();
+      if (!conceptId) {
+        return res.status(400).json({
+          error: 'اعتمادٌ بلا مفهوم — أيُّ مفهومٍ تنتمي إليه هذه الكلمة؟',
+          code: 'CONCEPT_REQUIRED',
+        });
+      }
+      const learned = await learnVariant({
+        conceptId, terms: [text], lang: req.body?.lang,
+        reason: `ai-approve:${text.slice(0, 60)}`, byUserId: req.user.id,
+        category: req.body?.category,
+      });
+      if (!learned.ok) return res.status(409).json({ error: learned.errors[0], errors: learned.errors });
+      const ok = await db.judgeUnknown(text, status);
+      return res.json({ ok, learned: { conceptId, term: text } });
+    }
+
+    const ok = await db.judgeUnknown(text, status);
+    return res.json({ ok, learned: null });
+  } catch (e) { console.error('[ai/judge-unknown]', e.message); return res.status(500).json({ error: 'judge failed' }); }
 });
 
 module.exports = router;

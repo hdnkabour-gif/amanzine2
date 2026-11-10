@@ -127,71 +127,8 @@ router.get('/coverage', auth, admin, async (req, res) => {
 // ── مفاهيم الأدمن (custom_concepts) ───────────────────────────
 // نفس ضمانات مستورد CSV، لكن من الواجهة: لا يُحفَظ مفهومٌ يسرق مرادفًا من آخر،
 // لأنّ ذلك يجعل الفهم عشوائيًّا بلا رسالة خطأ.
-const normTerm = (x) => String(x || '').toLowerCase().trim()
-  .replace(/[\u064B-\u065F]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
-
-const LANGS = ['ar', 'darija', 'fr', 'en', 'arabizi'];
-const arr = (v) => (Array.isArray(v) ? v.map(x => String(x).trim()).filter(Boolean) : []);
-
-// المفاهيمُ المدمجة (١٨٣ مفهومًا في src/lib/akg/kb) — يولّدها
-// `npm run gen:variants`. بدونها كان الحارسُ أدناه يقارن بـ custom_concepts
-// وحدها، فيسمح لمفهومٍ جديدٍ بسرقة «سبّاك» من `plumber` المدمج بلا اعتراض.
-let BUILTIN = null;
-function builtinVariants() {
-  if (BUILTIN) return BUILTIN;
-  try { BUILTIN = require('../generated/builtin-variants.json'); }
-  catch { BUILTIN = {}; console.warn('[knowledge] ⚠️  لا فهرسَ للمرادفات المدمجة — شغّل `npm run gen:variants`'); }
-  return BUILTIN;
-}
-
-// حارسُ التعارض — مصدرٌ واحد. كان مكرَّرًا في POST وPUT، وكان يفحص
-// custom_concepts فقط. المرادفُ الذي يملكه مفهومان يجعل الفهم عشوائيًّا:
-// فهرسُ التنفيذ عالميٌّ عبر اللغات، وأوّلُ إصابةٍ تفوز — فالمفهومُ الثاني
-// يصير غيرَ قابلٍ للوصول إليه بتلك الكلمة، بلا أيّ رسالةٍ لأحد.
-async function conceptConflicts(c, selfId) {
-  const terms = (o) => {
-    const out = new Set();
-    for (const k of LANGS) for (const w of (o?.[k] || [])) out.add(normTerm(w));
-    return out;
-  };
-  const mine = terms(c.variants);
-  for (const v of Object.values(c.concept || {})) if (v) mine.add(normTerm(String(v)));
-
-  const errors = [];
-  const bi = builtinVariants();
-  for (const w of mine) {
-    const ownerId = bi[w];
-    if (ownerId && ownerId !== selfId) errors.push(`«${w}» يملكه المفهوم المدمج «${ownerId}» — أضِفه إليه بدل إنشاء مفهومٍ ينازعه`);
-  }
-  for (const row of await db.listCustomConcepts()) {
-    if (row.id === selfId) continue;   // تعديلُ النفس ليس تعارضًا
-    const theirs = terms(row.variants);
-    for (const v of Object.values(row.concept || {})) if (v) theirs.add(normTerm(String(v)));
-    for (const w of mine) if (theirs.has(w)) errors.push(`«${w}» يستعمله المفهوم «${row.id}» (اسمًا أو مرادفًا) — اختر كلمةً أدقّ`);
-  }
-  return errors;
-}
-
-function normalizeConcept(body) {
-  const variants = {};
-  for (const l of LANGS) { const v = arr(body?.variants?.[l]); if (v.length) variants[l] = v; }
-  const pair = (o) => {
-    const out = {};
-    for (const k of ['offer', 'seek']) { const v = arr(o?.[k]); if (v.length) out[k] = v; }
-    return out;
-  };
-  const links = {};
-  for (const k of ['related', 'needs', 'sells', 'near']) { const v = arr(body?.links?.[k]); if (v.length) links[k] = v; }
-  const concept = {};
-  for (const l of ['ar', 'darija', 'fr', 'en']) { const v = String(body?.concept?.[l] || '').trim(); if (v) concept[l] = v; }
-  return {
-    id: String(body?.id || '').trim().toLowerCase(),
-    category: String(body?.category || '').trim(),
-    concept, variants, stance: pair(body?.stance), asks: pair(body?.asks), links,
-    services: arr(body?.services), examples: arr(body?.examples),
-    status: body?.status === 'published' ? 'published' : 'draft',
-  };
-}
+const { LANGS, arr, normTerm, builtinVariants, conceptConflicts, normalizeConcept, learnVariant }
+  = require('../lib/conceptLearning');
 
 // GET عامّ — المفاهيم **المنشورة** فقط، لكلّ زائر بلا حساب.
 // السبب: الفهم يخصّ الناس لا الأدمن. كان الإقلاع يستدعي المسار المحميّ أدناه

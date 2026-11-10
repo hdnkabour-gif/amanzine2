@@ -1571,6 +1571,22 @@ db.topDemand = async (limit = 100) => {
 };
 
 /** حكمُ الإنسان: `approved` أو `rejected`. لا شيءَ سواهما يُقبَل. */
+/**
+ * صفُّ مجهولٍ واحدٍ بنصّه — يقرؤه بابُ الاعتماد ليعرف أيَّ مفهومٍ اقترحه
+ * الذكاء، فلا يُطالَب المشغّلُ بإعادة كتابته.
+ */
+db.getUnknownByText = async (text) => {
+  const t = String(text || '').trim().slice(0, 200);
+  if (t.length < 2) return null;
+  const { rows } = await pool.query(
+    `SELECT text, count, COALESCE(ai_suggestion,'') AS ai_suggestion,
+            COALESCE(ai_concept,'') AS ai_concept, status
+       FROM learning_unknowns WHERE text = $1 LIMIT 1`, [t]);
+  if (!rows[0]) return null;
+  const r = rows[0];
+  return { text: r.text, count: r.count, aiSuggestion: r.ai_suggestion, aiConcept: r.ai_concept, status: r.status };
+};
+
 db.judgeUnknown = async (text, status) => {
   const s = status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : '';
   if (!s) return false;
