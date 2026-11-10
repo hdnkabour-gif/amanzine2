@@ -208,6 +208,19 @@ async function migrate() {
          ON orders(user_id, idempotency_key)
          WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`);
 
+    // ── **تتبُّعُ الزبون: فهرسٌ لِما يُبحَث به فعلًا** ──────────────
+    //   `GET /api/orders/track/:phone` بابٌ **عامٌّ بلا مصادقة**، وكان
+    //   يُحمّل كلَّ طلبات التاجر إلى الذاكرة ثمّ يُصفّي في جافاسكربت. تاجرٌ
+    //   بعشرين ألفَ طلبٍ ⇒ عشرون ألفَ صفٍّ (بحقل `items` من نوع JSONB) في
+    //   كلّ نداءٍ من أيّ زائر. والحدُّ العامُّ ٦٠٠ نداءٍ لكلّ ربع ساعة ⇒
+    //   اثنا عشر مليونَ صفٍّ من عنوانٍ واحد. هذا بابُ إغراقٍ لا ميزةُ تتبّع.
+    //
+    //   والمطابقةُ بآخر تسع خاناتٍ لأنّ «0655…» و«+212655…» رقمٌ واحد —
+    //   فيُفهرَس **التعبيرُ نفسُه** الذي يُبحَث به، وإلّا بقي الفحصُ كاملًا.
+    await soft('idx_orders_phone9',
+      `CREATE INDEX IF NOT EXISTS idx_orders_phone9
+         ON orders (user_id, right(regexp_replace(customer_phone, '\\D', '', 'g'), 9))`);
+
     await soft('orders.delivery_retry_at', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_retry_at TIMESTAMPTZ`);
     await soft('orders.delivery_attempts', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_attempts INTEGER DEFAULT 0`);
     // فهرسٌ جزئيّ: المُعيدُ يسأل كلَّ خمس دقائق عن صفوفٍ قليلةٍ جدًّا.

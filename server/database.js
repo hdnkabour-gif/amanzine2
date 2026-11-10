@@ -422,6 +422,26 @@ const db = {
     );
     return rows.map(_mapOrder);
   },
+  /**
+   * **تتبُّعُ الزبون — تصفيةٌ في القاعدة لا في الذاكرة.**
+   *
+   *   كان البابُ العامُّ يستدعي `getOrders(userId)` بلا حدٍّ ثمّ يُصفّي في
+   *   جافاسكربت: كلُّ طلبات التاجر (بحقل `items`) تعبر الشبكةَ وتُبنى
+   *   كائناتٍ، ثمّ يُرمى ٩٩٪ منها. هنا تُطابَق آخرُ تسعِ خاناتٍ **بنفس
+   *   التعبير المُفهرَس** (`idx_orders_phone9`)، ويُسقَف العددُ لأنّ زبونًا
+   *   واحدًا لا يتتبّع مئةَ طلبٍ دفعةً واحدة.
+   */
+  async findOrdersByPhone(userId, last9, limit = 50) {
+    const { rows } = await pool.query(
+      `SELECT * FROM orders
+        WHERE user_id = $1
+          AND right(regexp_replace(customer_phone, '\\D', '', 'g'), 9) = $2
+        ORDER BY created_at DESC
+        LIMIT $3`,
+      [userId, String(last9), Math.min(Math.max(+limit || 50, 1), 100)]
+    );
+    return rows.map(_mapOrder);
+  },
   async getOrder(id) {
     const { rows } = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
     return _mapOrder(rows[0]) || null;

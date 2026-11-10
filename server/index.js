@@ -229,6 +229,12 @@ app.use('/api/orders/public',       rateLimit({ windowMs: 60 * 60 * 1000, max: 1
 // بابُ كتابةٍ مجهولٌ يقبل رقمَ هاتف. وبلا حدٍّ يصير عدّادَ تخمينٍ بلا كلفة.
 app.use('/api/customers/public',    rateLimit({ windowMs: 60 * 60 * 1000, max: 15, message: { error: 'محاولات كثيرة من هذا الجهاز — حاول بعد قليل' } }));
 app.use('/api/ai/public-reply',     rateLimit({ windowMs: 10 * 60 * 1000, max: 30, message: { error: 'رسائل كثيرة — انتظر قليلاً ثم أعد المحاولة' } }));
+// تتبُّعُ الزبون بابٌ **عامٌّ يقرأ طلباتٍ حقيقيّة**: الحالةُ والمبلغُ
+// والقطعُ ورقمُ الشحنة. ومعرّفُ التاجر ظاهرٌ في رابط متجره، فالبابُ مفتوحٌ
+// لمن يملك رقمَ هاتفٍ ويريد أن يعرف ماذا اشترى صاحبُه. والحدُّ العامُّ
+// (٦٠٠/ربعِ ساعة) يكفي لتعدادٍ صبور. زبونٌ حقيقيٌّ يتتبّع طلبَه مرّاتٍ
+// معدودةً في الساعة، لا ستّين.
+app.use('/api/orders/track',        rateLimit({ windowMs: 10 * 60 * 1000, max: 30, message: { error: 'محاولات تتبّع كثيرة — انتظر قليلاً' } }));
 app.use('/api/coupons/validate',    rateLimit({ windowMs: 10 * 60 * 1000, max: 40, message: { error: 'محاولات تحقق كثيرة — انتظر قليلاً' } }));
 app.use('/api/track',               rateLimit({ windowMs: 5 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false })); // أحداث view/click متكرّرة
 app.use('/api/bookings/public',     rateLimit({ windowMs: 60 * 60 * 1000, max: 20, message: { error: 'محاولات حجز كثيرة — حاول بعد قليل' } })); // alloservix

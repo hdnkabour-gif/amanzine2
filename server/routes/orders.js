@@ -617,10 +617,8 @@ router.get('/track/:phone', async (req, res) => {
   if (digits.length < 9) return res.status(400).json({ error: 'أدخل رقم الهاتف كاملاً للتتبّع' });
   const last9 = digits.slice(-9);
   try {
-    const orders = (await db.getOrders(userId)).filter(o => {
-      const ph = (o.customerPhone || '').replace(/\D/g, '');
-      return ph.length >= 9 && ph.slice(-9) === last9;
-    });
+    // تصفيةٌ في القاعدة على الفهرس — لا تحميلَ كاملٍ ثمّ رميٌ في الذاكرة.
+    const orders = await db.findOrdersByPhone(userId, last9);
     const STATUS_AR = { pending:'⏳ بانتظار التأكيد', approved:'✅ تم التأكيد', processing:'⚙️ جارٍ التحضير', shipped:'🚚 في الطريق', delivered:'📦 وصل', cancelled:'❌ ملغي' };
     res.json(orders.map(o => ({
       id: o.id, status: o.status, statusAr: STATUS_AR[o.status] || o.status,
