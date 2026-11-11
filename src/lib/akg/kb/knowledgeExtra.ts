@@ -59,7 +59,9 @@ export const DISOWNED: Record<string, string[]> = {
   //   «coffee house». فالعبارةُ الإنجليزيّةُ لصاحبِها الوحيد.
   cafe: ['coffee shop'],
   house_painter: ['صباغ ديال البيوت', 'صباغ', 'peintre en bâtiment', 'house painter', 'مبيض'],
-  laundry_dry_cleaner: ['مصبغة', 'مغسلة الحوايج', 'pressing', 'laverie'],
+  //   و«براسينگ» بالگاف = «براسينڭ» بالكاف المعجّمة عند `normArabic`،
+  //   و`laundry` أغنى بـ١٩ لفظًا مقابل ٤. (نفسُ عطبِ شكلِ الحرف أدناه.)
+  laundry_dry_cleaner: ['مصبغة', 'مغسلة الحوايج', 'pressing', 'laverie', 'براسينگ'],
 
   // ── ب · ليست تكرارًا: تقسيمٌ لا دمج ───────────────────────────
   //   دمجُها كان سيمحو تمييزًا يعرفه الزبونُ المغربيّ.
@@ -141,7 +143,11 @@ export const DISOWNED: Record<string, string[]> = {
 
   // ── تجارةٌ ومحلّات ───────────────────────────────────────────
   //   «كينكايري» (quincaillerie) كان يذهب إلى بائعِ الإسمنتِ والرمل.
-  hardware_household_supplies: ['دروكري', 'كينكايري', 'quincaillerie'],
+  //   و«دروگري» بالگاف تُنزَع أيضًا: هي و«دروڭري» بالكاف المعجّمة لفظٌ
+  //   واحد، يطبّعهما `normArabic` إلى «دروكري» — فالتنازعُ قائمٌ وقتَ
+  //   التشغيل، ولا يراه قياسٌ يقارن الحروفَ كما كُتبت. (الفائزُ اليوم
+  //   صحيحٌ بالصدفة: ترتيبُ الفهرس، لا حكمٌ مكتوب.)
+  hardware_household_supplies: ['دروكري', 'دروگري', 'كينكايري', 'quincaillerie'],
   building_materials_store: ['كينكايري', 'quincaillerie'],
   vegetable_fruit_seller: ['خضار'],
   fishmonger_fish_shop: ['بياسري', 'مول الحوت', 'بائع سمك'],

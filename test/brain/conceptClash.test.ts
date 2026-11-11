@@ -17,7 +17,25 @@ const ROOT = process.cwd();
 import { CONCEPTS } from '../../src/lib/akg/kb/concepts';
 import { resolveConcept } from '../../src/lib/akg/kb/knowledge';
 
-const norm = (x: string) => String(x || '').toLowerCase().trim();
+/**
+ * **ويُطبَّع شكلُ الحرف، وإلّا كذب العدد.**
+ *
+ *   الدارجةُ تكتب الصوتَ الواحدَ بأشكالٍ عدّة: «دروگري» و«دروڭري»
+ *   و«دروكري» · «براسينگ» و«براسينڭ» · «پراسينك». و`normArabic` — وهو
+ *   ما يُبنى به فهرسُ `resolveConcept` — يَطويها كلَّها إلى الكاف، فيراها
+ *   التطبيقُ لفظًا واحدًا.
+ *
+ *   فقياسٌ يقارن الحروفَ كما كُتبت يُعلن «٤ تنازعات» وفي الواقعِ ٦:
+ *   «دروكري» (`hardware_store` ⟷ `hardware_household_supplies`) و
+ *   «براسينك» (`laundry` ⟷ `laundry_dry_cleaner`) كانا يختبئان في شكلِ
+ *   الحرف. وكان الفائزُ فيهما صحيحًا **بالصدفة**: ترتيبُ الفهرس لا حكمٌ
+ *   مكتوب. وهذا هو صنفُ «المقاييسِ التي تكذب» بعينه: الحارسُ أخضرُ
+ *   والعطبُ قائم.
+ */
+const norm = (x: string) => String(x || '').toLowerCase().trim()
+  .replace(/[گڭ]/g, 'ك')   // گ · ڭ ⇒ ك
+  .replace(/ڤ/g, 'ف')            // ڤ ⇒ ف
+  .replace(/پ/g, 'ب');           // پ ⇒ ب
 
 /** كلُّ لفظٍ ⇒ المفاهيمُ التي تدّعيه. */
 function clashes(): Map<string, string[]> {
@@ -119,7 +137,9 @@ test('**كلُّ لفظٍ مفضوضٍ يُحسَم لمفهومٍ واحدٍ ب
   const still: string[] = [];
   for (const [term, expected] of Object.entries(RESOLVED)) {
     const owners = CONCEPTS.filter(c =>
-      Object.values(c.variants || {}).some(l => (l || []).some(t => norm(t) === term))
+      // الطرفان يُطبَّعان: لو طُبِّع أحدُهما وحدَه لصار الحارسُ يبحث عن
+      //   مفتاحٍ لا وجودَ له فيمرُّ وهو أعمى — ومن ثمّ شرطُ «اختفى تمامًا».
+      Object.values(c.variants || {}).some(l => (l || []).some(t => norm(t) === norm(term)))
     ).map(c => c.id);
     if (owners.length === 0) { still.push(`«${term}» اختفى تمامًا — نُزع من الجميع`); continue; }
     if (owners.length > 1) { still.push(`«${term}» ما زال متنازَعًا: ${owners.join(' ⟷ ')}`); continue; }
@@ -275,7 +295,9 @@ test('**وفهرسُ الخادم يُحيل كلَّ لفظٍ محسومٍ إل
   //   غيرَ موجودةٍ ويمرُّ وهو أعمى. ولذلك يُشترَط أدناه ألّا يغيب مفتاح.
   const norm = (s: string) => String(s || '').toLowerCase().trim()
     .replace(/[ً-ٟ]/g, '').replace(/[أإآ]/g, 'ا')
-    .replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ');
+    .replace(/ى/g, 'ي').replace(/ة/g, 'ه')
+    .replace(/\u06AF|\u06AD/g, 'ك').replace(/\u06A4/g, 'ف').replace(/\u067E/g, 'ب')
+    .replace(/\s+/g, ' ');
   const map: Record<string, string> =
     JSON.parse(readFileSync(join(ROOT, 'server/generated/builtin-variants.json'), 'utf8'));
   assert.ok(Object.keys(map).length > 1000, 'لم يُقرأ فهرسُ الخادم أصلًا — الحارسُ يقيس الفراغ');

@@ -3,7 +3,7 @@
 > **مُولَّدٌ آليًّا** بـ`npm run report:lexicon` — لا يُحرَّر بيد.
 > يُقرأ من نفس المصادر التي يقرؤها التطبيقُ في التشغيل، فلا يكذب بعد تعديل.
 
-آخرُ توليد: 2026-11-10
+آخرُ توليد: 2026-11-11
 
 ## ① الخلاصةُ بالأرقام
 
@@ -296,7 +296,7 @@
 
 | الفئة | المفاهيم | مصطلحات |
 |---|---|---|
-| (بلا فئة) | ٩٩ | ١٣٥٣ |
+| (بلا فئة) | ٩٩ | ١٣٥١ |
 | fashion | ٢٠ | ٧٢٠ |
 | automotive | ١١ | ٣٨١ |
 | electronics | ٧ | ٢١٠ |
@@ -472,7 +472,7 @@
 | `grocery_store_convenience_store` | حانوت | بقالة / محل مواد غذائية · حانوت · Épicerie / Alimentation générale · Grocery Store / Convenience Store · مواد غذائية · تبقالة · بقالة / محل مواد غذائية · بقالة ومتجر مواد غذائية · épicerie / alimentation générale · grocery store / convenience store |
 | `gym` | جيم | قاعة رياضة · جيم · Salle de sport · Gym · جيم · salle de sport · قاعة الرياضة · كوتش · coach sportif · قاعة رياضة · مدرب لياقة · salle de sport · coach sportif · gym … (+١) |
 | `hammam` | حمام | حمام وسبا · حمام · Hammam · Hammam · حمام · spa · massage · حمام وسبا · hammam · spa · hammam · spa |
-| `hardware_household_supplies` | دروگري | متجر أدوات ومواد منزلية · دروگري · Droguerie / Quincaillerie · Hardware & Household Supplies · دروگري · مواد التنظيف · متجر أدوات ومواد منزلية · droguerie / quincaillerie · hardware & household supplies |
+| `hardware_household_supplies` | دروگري | متجر أدوات ومواد منزلية · دروگري · Droguerie / Quincaillerie · Hardware & Household Supplies · مواد التنظيف · متجر أدوات ومواد منزلية · droguerie / quincaillerie · hardware & household supplies |
 | `hardware_store` | دروڭري | متجر أدوات منزلية · دروڭري · Droguerie · Hardware Store · دروڭري · دروكري · محل دروڭري · كينكايري · متجر أدوات منزلية · أجهزة وأواني · droguerie · quincaillerie · hardware store · household supplies |
 | `herbalist` | عطار | عطار · عطار · Herboriste · Herbalist · عطار · عطار · متجر أعشاب وتوابل · herboriste · épices · herbalist · spice shop |
 | `home_appliance_repair` | تصليح الثلاجة | إصلاح الأجهزة المنزلية · تصليح الثلاجة · Réparation électroménager · Home Appliance Repair · تصليح الثلاجة · تصليح الغسالة · إلكتروميناجي · électroménager · الغسالة · غسالة · ماكينة الغسيل · ماشينة ديال الغسيل · الطياشة · لاماشين … (+٢٥) |
@@ -493,7 +493,7 @@
 | `kitchenware_store` | محل الأواني | متجر أواني منزلية · محل الأواني · Magasin d'articles ménagers · Kitchenware store · محل الأواني · أواني المطبخ · كيباع الطناجر · أواني · كيسريات · أدوات الطبخ · متجر أواني منزلية · أدوات مطبخ · magasin d'articles ménagers · ustensiles de cuisine … (+٢) |
 | `language_training_center` | سنتر ديال اللغات | مركز لغات وتكوين · سنتر ديال اللغات · Centre de langues et formation · Language & Training Center · سنتر ديال اللغات · formation · كورسات · anglais · français · مركز لغات وتكوين · centre de langues et formation · language & training center |
 | `laundry` | براسينڭ | مغسلة ملابس · براسينڭ · Pressing · Laundry · براسينڭ · مغسلة الحوايج · كيغسل الملابس · pressing · lavage habits · مصبغة · كيغسل الحوايج · غسيل الملابس · النشافة · مغسلة ملابس … (+٩) |
-| `laundry_dry_cleaner` | براسينگ | مغسلة ملابس / مصبغة · براسينگ · Pressing / Blanchisserie / Laverie · Laundry / Dry Cleaner · براسينگ · مغسلة ملابس / مصبغة · pressing / blanchisserie / laverie · laundry / dry cleaner |
+| `laundry_dry_cleaner` | براسينگ | مغسلة ملابس / مصبغة · براسينگ · Pressing / Blanchisserie / Laverie · Laundry / Dry Cleaner · مغسلة ملابس / مصبغة · pressing / blanchisserie / laverie · laundry / dry cleaner |
 | `lavage_automobile_station_de_lavage` | لافاج السيارات | محل لافاج · لافاج السيارات · غسل السيارات / مغسلة سيارات · Lavage automobile / Station de lavage · لافاج السيارات · غسل السيارات / مغسلة سيارات · محل لافاج · غسل الطوموبيلات · لافاج طوموبيلات · lavage automobile / station de lavage |
 | `lawyer` | محامي | محامٍ · محامي · Avocat · Lawyer · محامي · أفوكا · avocat · محامٍ · avocat · lawyer · attorney |
 | `locksmith_key_maker` | مول السوارت | صانع مفاتيح / أقفال · مول السوارت · Serrurier / Reproduction de clés · Locksmith / Key Maker · ساروت · مفاتيح · صانع مفاتيح / أقفال · serrurier / reproduction de clés · locksmith / key maker |
