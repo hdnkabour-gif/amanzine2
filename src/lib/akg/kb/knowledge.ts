@@ -14,6 +14,7 @@ import { deArabizi } from './arabizi';
 import { normArabic, normLatin, matchWord } from '../../normalize';
 import { resolvePlace } from './places';
 import { isContainerWithContents, resolveMerchandise } from './merchandise';
+import { senseConcept, senseGap } from './senses';
 
 // التطبيعُ من `lib/normalize.ts` — مصدرٌ واحدٌ للمشروع كلِّه. كان هنا نسخةٌ
 // كاملة، وكانت أحدَ عشرَ ملفًّا آخرَ تحمل نسخًا **أضعفَ منها** بصمت.
@@ -163,7 +164,7 @@ export interface ConceptResolution {
    * أسودَ: نعرف أنّ «تراكسي» صارت `sportswear` ولا نعرف لماذا — فلا نستطيع
    * تصحيحَ خطأٍ ولا شرحَ قرارٍ للتاجر.
    */
-  matched?: { term: string; via: 'composite' | 'exact' | 'latin' | 'tokens' | 'container' };
+  matched?: { term: string; via: 'composite' | 'exact' | 'latin' | 'tokens' | 'container' | 'sense' };
 }
 
 // قواعد تركيبيّة: مجموعاتٌ يجب أن تُصيب كلُّها (فعل + مفعول…) ⇒ خدمة. تحلّ ترتيب
@@ -351,6 +352,35 @@ export function resolveConcept(text: string): ConceptResolution | null {
   const tda = normArabic(deArabizi(text));           // مطابقة الدارجة اللاتينيّة (bghit sbak)
   const tl = normLatin(text);                         // مطابقة fr/en/arabizi
   const blob = `${ta} ${tda} ${tl}`;
+
+  // **اللفظُ المشترك إن أكملته الجملةُ يسبق الفهرسَ كلَّه.**
+  //
+  //   الفهرسُ يختار **أطولَ لفظٍ يعرفه**، لا أدقَّ معنًى. فـ«بغيت نبدل الثوب
+  //   ديال الطوموبيل» كانت تُحسَم لـ`car` لأنّ «طوموبيل» أطولُ ما يعرفه،
+  //   و«سكانير ديال الوراق» لـ`car_diagnostics` لأنّ «سكانير» وحدَها عنده.
+  //   فالمُكمِّلُ الذي حسم المعنى يُقرأ **قبل** أن يتكلّم الفهرس.
+  //
+  //   ولا يقع هذا إلّا على حاسّةٍ **لها مفهوم**: الحاسّةُ بلا مفهومٍ تُترَك
+  //   لـ`parseNeed` ليقولَ الصدقَ («ما عندناش هاد المجال») بدل أن يُجيب هنا
+  //   جوابًا لا وجودَ له.
+  // **وحاسّةٌ فُهِمت ولا مفهومَ لها ⇒ لا جواب.**
+  //
+  //   أمسكه حارسٌ لحظةَ العمل: «سكانير ديال التحاليل» تُقرأ طبّيّةً صحيحةً،
+  //   ثمّ يسقط الأمرُ إلى الفهرس فيُجيب `car_diagnostics`. ففهمٌ لا يُغيّر
+  //   الجوابَ فهمٌ ميّت. و`null` هنا ليست صمتًا: تُنزل النيّةَ إلى `unknown`
+  //   فيأخذها مسارُ التعلّم القائم — ويُقال للإنسان الصدقُ بدل أن يُرسَل
+  //   إلى ميكانيكيٍّ وهو يطلب تحليلًا طبّيًّا.
+  if (senseGap(text)) return null;
+
+  const sense = senseConcept(text);
+  const senseData = sense ? CONCEPTS.find(c => c.id === sense.id) : undefined;
+  if (sense && senseData) {
+    return {
+      id: sense.id, category: categoryFor(sense.id, senseData.category), concept: conceptById(sense.id),
+      language: hasArabic ? 'darija' : 'en', ...knowledgeOf(sense.id),
+      matched: { term: `${sense.sense.id} ← ${sense.cue}`, via: 'sense' },
+    };
+  }
 
   // القواعد التركيبيّة أوّلًا (كلّ مجموعةٍ يجب أن تُصيب). نتجاهل التطبيعات الفارغة.
   const hits = (terms: string[]) => terms.some(w => {
