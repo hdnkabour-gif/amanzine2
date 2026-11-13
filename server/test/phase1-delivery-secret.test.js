@@ -27,6 +27,7 @@ const APIKEY = 'outbound-' + crypto.randomBytes(10).toString('hex');
 const SECRET = 'inbound-' + crypto.randomBytes(10).toString('hex');
 let PID = '';   // المُعرِّفُ من الخادم دائمًا — لا يُملى من العميل.
 let PROMO_ID = ''; // Disposable Promo row for credential-at-rest regression.
+let LEGACY_PROMO_ID = '';
 
 before(async () => {
   if (SKIP) return;
@@ -39,6 +40,7 @@ after(async () => {
   if (SKIP) return;
   await pool.query('DELETE FROM delivery_providers WHERE id = $1', [PID]).catch(() => {});
   await pool.query('DELETE FROM delivery_providers WHERE id = $1', [PROMO_ID]).catch(() => {});
+  await pool.query('DELETE FROM delivery_providers WHERE id = $1', [LEGACY_PROMO_ID]).catch(() => {});
   await pool.end?.();
 });
 
@@ -132,4 +134,31 @@ test('Promo API Token entered in fields is encrypted in api_key, never stored in
     assert.equal(out.success, true);
     assert.equal(new URLSearchParams(calls[0]).get('token'), incoming);
   } finally { global.fetch = original; }
+});
+
+
+test('Promo legacy plaintext token migrates once into encrypted api_key on authorized read', async () => {
+  const legacyToken = 'legacy-promo-' + crypto.randomBytes(10).toString('hex');
+  LEGACY_PROMO_ID = 'legacy-promo-' + crypto.randomBytes(6).toString('hex');
+  await pool.query(
+    'INSERT INTO delivery_providers(id,user_id,name,api_type,api_key,fields) VALUES ($1,$2,$3,$4,$5,$6)',
+    [LEGACY_PROMO_ID, USER, 'Legacy Promo QA', 'promo_livraison', '',
+      JSON.stringify({ token: legacyToken, testTracking: 'DZ-OLD-QA' })]
+  );
+  const rows = await db.getDeliveryProviders(USER);
+  const migrated = rows.find(p => p.id === LEGACY_PROMO_ID);
+  assert.ok(migrated);
+  assert.equal(migrated.apiKey, legacyToken);
+  assert.equal(migrated.fields.token, undefined);
+  assert.equal(migrated.fields.testTracking, 'DZ-OLD-QA');
+  const saved = await pool.query(
+    'SELECT api_key, fields FROM delivery_providers WHERE id=$1 AND user_id=$2',
+    [LEGACY_PROMO_ID, USER]);
+  assert.match(saved.rows[0].api_key, /^enc:v1:/);
+  assert.equal(saved.rows[0].fields.token, undefined);
+  assert.ok(!JSON.stringify(saved.rows[0].fields).includes(legacyToken));
+  // Idempotent: next retrieval must preserve the same identity and ciphertext.
+  await db.getDeliveryProviders(USER);
+  const again = await pool.query('SELECT api_key FROM delivery_providers WHERE id=$1', [LEGACY_PROMO_ID]);
+  assert.equal(again.rows[0].api_key, saved.rows[0].api_key);
 });
