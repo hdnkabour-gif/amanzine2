@@ -209,7 +209,7 @@ async function main() {
     browser = await chromium.launch({ headless: true });
     context = await browser.newContext({ viewport: { width: 1280, height: 760 }, locale: 'ar-MA' });
     // Skip the 5.5s cinematic before asserting page contents, rather than reading splash text.
-    await context.addInitScript(() => sessionStorage.setItem('amanzine_splash', '1'));
+    await context.addInitScript(() => { try { sessionStorage.setItem('amanzine_splash', '1'); } catch { /* isolated page */ } });
     page = await context.newPage();
     page.on('pageerror', err => browserNotes.push(String(err.message || err).slice(0, 160)));
   }, 'browser');
@@ -227,12 +227,14 @@ async function main() {
         '/orders': 'الطلبات',
         '/customers': 'الزبائن',
       }[path] || '';
-      await page.waitForFunction(({ route, expected }) => {
+      const requiresPlatformAdmin = ['/moderation', '/knowledge-studio', '/field-visit'].includes(path);
+      await page.waitForFunction(({ route, expected, restricted }) => {
         const text = document.body.innerText;
-        return location.pathname === route && text.length >= 220 &&
-          !text.includes('تخطّي ✕') && !text.includes('جاري تحميل متجرك...') &&
+        if (location.pathname !== route || text.includes('تخطّي ✕')) return false;
+        if (restricted) return text.includes('هاد الصفحة ديال أدمن المنصّة');
+        return text.length >= 220 && !text.includes('جاري تحميل متجرك...') &&
           (!expected || text.includes(expected));
-      }, { route: path, expected }, { timeout: 15000 });
+      }, { route: path, expected, restricted: requiresPlatformAdmin }, { timeout: 15000 });
       const body = await page.locator('body').innerText();
       ensure(!body.includes('تخطّي ✕'), 'Splash still covers the route ' + path);
       ensure(!body.includes('هاد الصفحة ديال أدمن المنصّة') || ['/moderation', '/knowledge-studio', '/field-visit'].includes(path),
