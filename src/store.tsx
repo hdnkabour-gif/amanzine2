@@ -47,6 +47,8 @@ export interface ShipResult {
   retryAt?: string | null;
   /** هل يلزم إدخالٌ يدويّ؟ فشلٌ دائمٌ وحدَه يوجبه. */
   needsManual?: boolean;
+  /** Webhook accepted transport but did not confirm a carrier shipment reference. */
+  acceptedUnconfirmed?: boolean;
 }
 
 interface StoreValue {
@@ -664,9 +666,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           result = { real: !!d?.real, tracking: trk, provider: prov, via: d?.via,
             apiError: d?.apiError, openUrl: d?.openUrl || d?.manual?.openUrl,
             steps: d?.steps, manualCopy: d?.manual?.copyText,
-            retryAt: d?.retryAt || null, needsManual: !!d?.needsManual };
+            retryAt: d?.retryAt || null, needsManual: !!d?.needsManual,
+            acceptedUnconfirmed: !!d?.acceptedUnconfirmed };
           if (d?.real) {
             shipMsg = { type: 'success', text: `🚚 شُحن الطلب — ✅ شحنة حقيقية لدى ${prov} (تتبع: ${trk})` };
+          } else if (d?.acceptedUnconfirmed) {
+            shipMsg = { type: 'warning', text: `⚠️ ${prov} استجابت لكن لم تؤكد رقم شحنة. تحقق من لوحة الشركة قبل إعادة الإرسال لتجنب التكرار؛ لا تنشئ طلبًا ثانيًا الآن.` };
           } else if (d?.retryAt) {
             const at = new Date(d.retryAt).toLocaleTimeString('ar-MA', { hour: '2-digit', minute: '2-digit' });
             shipMsg = { type: 'info', text: `🔁 ${prov} ما جاوباتش دابا — غانعاودو بوحدنا على ${at}. ما تدير والو.` };
@@ -674,12 +679,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             shipMsg = { type: 'warning', text: `⚠️ لم يُرسَل الطلبُ لـ${prov} — سجّله في موقع الشركة وألصق رقمَ التتبّع هنا${d?.apiError ? ` · السبب: ${d.apiError}` : ''}` };
           }
         } catch (e: any) {
-          // لا شركة مهيأة أو فشل المسار — نكمل الشحن برقم داخلي مع توضيح
+          // فشل طلب الربط؛ لا نُنشئ رقم تتبع داخليًا ولا نُعلن شحنًا.
           const noProv = /provider/i.test(e?.message || '');
           result = { real: false, tracking: trk, provider: prov,
             apiError: noProv ? 'لا توجد شركة توصيل مفعّلة' : (e?.message || 'تعذر الاتصال'),
             steps: [{ label: 'إنشاء شحنة لدى شركة التوصيل', ok: false, error: noProv ? 'لا توجد شركة توصيل مفعّلة — أضف واحدة من صفحة التوصيل' : (e?.message || '') }] };
-          shipMsg = { type: 'info', text: `🚚 شُحن الطلب برقم تتبع داخلي ${trk} — ${noProv ? 'لا توجد شركة توصيل مفعّلة (أضف واحدة من صفحة التوصيل)' : `تعذر إنشاء الشحنة لدى الشركة: ${e?.message || ''}`}` };
+          shipMsg = { type: 'warning', text: `⚠️ لم تُنشأ شحنة مؤكدة لدى ${prov || 'شركة توصيل'}. ${noProv ? 'أضف شركة مفعّلة من صفحة التوصيل' : `سبب الخطأ: ${e?.message || 'تعذّر الاتصال'}`}` };
         }
       }
       // ── الخطوة ٢: «مشحون» تُقال حين يُشحَن ─────────────────────
