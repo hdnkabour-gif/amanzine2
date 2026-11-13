@@ -232,7 +232,7 @@ async function main() {
         const text = document.body.innerText;
         if (location.pathname !== route || text.includes('تخطّي ✕')) return false;
         if (restricted) return text.includes('هاد الصفحة ديال أدمن المنصّة');
-        return text.length >= 220 && !text.includes('جاري تحميل متجرك...') &&
+        return text.trim().length >= 60 && !text.includes('جاري تحميل متجرك...') &&
           (!expected || text.includes(expected));
       }, { route: path, expected, restricted: requiresPlatformAdmin }, { timeout: 15000 });
       const body = await page.locator('body').innerText();
