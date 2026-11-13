@@ -26,6 +26,7 @@ let USER = '';
 const APIKEY = 'outbound-' + crypto.randomBytes(10).toString('hex');
 const SECRET = 'inbound-' + crypto.randomBytes(10).toString('hex');
 let PID = '';   // المُعرِّفُ من الخادم دائمًا — لا يُملى من العميل.
+let PROMO_ID = ''; // Disposable Promo row for credential-at-rest regression.
 
 before(async () => {
   if (SKIP) return;
@@ -37,6 +38,7 @@ before(async () => {
 after(async () => {
   if (SKIP) return;
   await pool.query('DELETE FROM delivery_providers WHERE id = $1', [PID]).catch(() => {});
+  await pool.query('DELETE FROM delivery_providers WHERE id = $1', [PROMO_ID]).catch(() => {});
   await pool.end?.();
 });
 
@@ -93,4 +95,41 @@ test('**والتحديثُ يحفظ السرَّ كما يحفظه الإنشا�
   const row = await db.getDeliveryProviderRow(PID);
   assert.equal(row.webhookSecret, NEW, 'التحديثُ لا يحفظ سرَّ الوارد');
   assert.equal(row.apiKey, APIKEY, 'التحديثُ أفسد مفتاحَ الصادر');
+});
+
+
+test('Promo API Token entered in fields is encrypted in api_key, never stored in JSONB', async () => {
+  const incoming = 'promo-qa-' + crypto.randomBytes(10).toString('hex');
+  PROMO_ID = await db.upsertDeliveryProvider({
+    userId: USER, name: 'Promo Livraison QA', enabled: true, apiType: 'promo_livraison',
+    apiEndpoint: 'https://promo-livraison.ma/seller/api-parcels',
+    fields: { token: incoming, testTracking: 'DZ-QA-OLD', sellerId: 'legacy-only' },
+  });
+  const { rows } = await pool.query(
+    'SELECT api_key, fields FROM delivery_providers WHERE id = $1', [PROMO_ID]);
+  assert.equal(rows.length, 1);
+  assert.match(String(rows[0].api_key), /^enc:v1:/, 'Token was stored without encryption');
+  assert.ok(!JSON.stringify(rows[0].fields).includes(incoming),
+    'Promo Token leaked into plaintext fields JSONB');
+  assert.equal(rows[0].fields.token, undefined);
+  assert.equal(rows[0].fields.testTracking, 'DZ-QA-OLD');
+  const merchantRow = await db.getDeliveryProviderRow(PROMO_ID);
+  assert.equal(merchantRow.apiKey, incoming, 'encrypted key is not usable by Promo provider');
+  const promo = require('../services/delivery/providers/promo_livraison.provider');
+  const original = global.fetch;
+  const calls = [];
+  global.fetch = async (url, opts) => {
+    calls.push(opts.body);
+    return { ok: true, status: 200,
+      json: async () => ({ status: 200, tracking: 'DZ-QA-CREATED' }) };
+  };
+  try {
+    const out = await promo.createShipment({
+      id: 'QA-PROMO-CRED', customerName: 'QA', customerPhone: '0600000000',
+      city: 'Casablanca', address: 'QA', total: 90,
+      items: [{ sku: 'QA-PRODUCT', productName: 'QA', quantity: 1 }],
+    }, merchantRow);
+    assert.equal(out.success, true);
+    assert.equal(new URLSearchParams(calls[0]).get('token'), incoming);
+  } finally { global.fetch = original; }
 });
