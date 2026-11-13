@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-11-13T22:08:56.663Z",
+ "generatedAt": "2026-11-13T23:03:29.502Z",
  "totals": {
-  "tracked": 784,
+  "tracked": 785,
   "code": 484,
   "orphans": 3,
   "appOnly": 107,
@@ -322,7 +322,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "scripts/run-pulse.mjs",
@@ -498,7 +498,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 94
+   "ageDays": 95
   },
   {
    "file": "server/defaults.js",
@@ -1467,7 +1467,7 @@
    "anys": 1,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 100
+   "ageDays": 101
   },
   {
    "file": "server/lib/verify/channels/email.channel.js",
@@ -1591,7 +1591,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 94
+   "ageDays": 95
   },
   {
    "file": "server/lib/whatsapp.js",
@@ -1699,7 +1699,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 94
+   "ageDays": 95
   },
   {
    "file": "server/middleware/validate.js",
@@ -1979,7 +1979,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 94
+   "ageDays": 95
   },
   {
    "file": "server/routes/delivery-auto.js",
@@ -2211,7 +2211,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 100
+   "ageDays": 101
   },
   {
    "file": "server/routes/needs.js",
@@ -2344,7 +2344,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 1,
-   "ageDays": 94
+   "ageDays": 95
   },
   {
    "file": "server/routes/push.js",
@@ -2370,7 +2370,7 @@
    "logs": 6,
    "emptyCatch": 1,
    "looseExports": [],
-   "ageDays": 94
+   "ageDays": 95
   },
   {
    "file": "server/routes/recommend.js",
@@ -2524,7 +2524,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 94
+   "ageDays": 95
   },
   {
    "file": "server/services/delivery/adapters/browser.adapter.js",
@@ -3443,7 +3443,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 94
+   "ageDays": 95
   },
   {
    "file": "server/test/phase1-security.test.js",
@@ -3485,7 +3485,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 94
+   "ageDays": 95
   },
   {
    "file": "server/test/phase5-db-invariants.test.js",
@@ -3744,7 +3744,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 100
+   "ageDays": 101
   },
   {
    "file": "server/test/validate.test.js",
@@ -3836,7 +3836,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 94
+   "ageDays": 95
   },
   {
    "file": "src/App.tsx",
@@ -4138,7 +4138,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 94
+   "ageDays": 95
   },
   {
    "file": "src/components/DeferredAuthBanner.tsx",
@@ -4260,7 +4260,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/components/FeedbackButton.tsx",
@@ -4417,7 +4417,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/components/JourneyAnalytics.tsx",
@@ -4492,7 +4492,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/components/LiveSentence.tsx",
@@ -4791,7 +4791,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/components/PageEngine.tsx",
@@ -5029,7 +5029,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/components/Threshold.tsx",
@@ -5594,7 +5594,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/lib/akg/dna.ts",
@@ -5679,7 +5679,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/lib/akg/kb/actions.ts",
@@ -5817,7 +5817,7 @@
     "Capability",
     "allCapabilities"
    ],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/lib/akg/kb/categories.ts",
@@ -6374,7 +6374,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/lib/akg/kb/merchandise.ts",
@@ -7080,7 +7080,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/lib/akg/uiContract.ts",
@@ -7789,7 +7789,7 @@
    "looseExports": [
     "EntityType"
    ],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/lib/evidence.ts",
@@ -8829,7 +8829,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 100
+   "ageDays": 101
   },
   {
    "file": "src/lib/visitKind.ts",
@@ -9266,7 +9266,7 @@
    "logs": 0,
    "emptyCatch": 1,
    "looseExports": [],
-   "ageDays": 94
+   "ageDays": 95
   },
   {
    "file": "src/pages/Explore.tsx",
@@ -9854,7 +9854,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/pages/LandingPage.tsx",
@@ -11203,7 +11203,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 99
+   "ageDays": 100
   },
   {
    "file": "test/brain/conversation.test.ts",
@@ -11313,7 +11313,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "test/brain/destinationOwner.test.ts",
@@ -11424,7 +11424,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "test/brain/escalation.test.ts",
@@ -11614,7 +11614,7 @@
    "anys": 2,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 99
+   "ageDays": 100
   },
   {
    "file": "test/brain/humanIntent.test.ts",
@@ -11988,7 +11988,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "test/brain/merchandise.test.ts",
@@ -12490,7 +12490,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 94
+   "ageDays": 95
   },
   {
    "file": "test/brain/stance.test.ts",
@@ -12556,7 +12556,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "test/brain/tenSentences.test.ts",
