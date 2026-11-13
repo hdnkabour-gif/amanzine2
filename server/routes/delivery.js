@@ -381,9 +381,16 @@ router.post('/verify/:providerRowId', auth, async (req, res) => {
         add('auth', 'الشركة تقبل المفتاح', false, 'لا اعتمادَ كاملًا ليُجرَّب');
       } else {
         try {
-          const ok = await plugin.testConnection(row);
-          add('auth', 'الشركة تقبل المفتاح', !!ok,
-            ok ? 'ردَّت الشركةُ بالقبول' : 'رفضت الشركةُ المفتاح أو انتهت صلاحيّتُه');
+          const verdict = await plugin.testConnection(row);
+          // Providers return { success, error }, not a bare boolean.
+          // !!{success:false} is TRUE and used to certify rejected API keys.
+          // Do not mark a connection healthy unless the provider explicitly
+          // confirms acceptance; a string/object is not proof of authentication.
+          const accepted = verdict === true || verdict?.success === true;
+          const detail = accepted
+            ? 'صادقت الشركةُ فعليًّا على المفتاح'
+            : (verdict?.error || 'رفضت الشركةُ المفتاح أو انتهت صلاحيّتُه');
+          add('auth', 'الشركة تقبل المفتاح', accepted, detail);
         } catch (e) {
           add('auth', 'الشركة تقبل المفتاح', false, e.message);
         }
