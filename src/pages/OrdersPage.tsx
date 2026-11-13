@@ -321,7 +321,7 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [view, setView] = useState<'list' | 'kanban'>('list');
-  const [autoShipState, setAutoShipState] = useState<{id: string, step: number, msg: string, steps?: {label:string; ok:boolean; detail?:string; error?:string}[], real?: boolean, /** إعادةٌ مجدوَلة: لا عملَ يدويًّا على التاجر الآن. */ retrying?: boolean} | null>(null);
+  const [autoShipState, setAutoShipState] = useState<{id: string, step: number, msg: string, steps?: {label:string; ok:boolean; detail?:string; error?:string}[], real?: boolean, /** إعادةٌ مجدوَلة: لا عملَ يدويًّا على التاجر الآن. */ retrying?: boolean, acceptedUnconfirmed?: boolean} | null>(null);
   const [manualTrk, setManualTrk] = useState('');
   // نتيجةُ أتمتة موقع الشركة — البابُ الذي لم يكن (انظر `runUrlRecipe`).
   const [autoRecipe, setAutoRecipe] = useState<{ id: string; busy: boolean; r?: AutoShipResult } | null>(null);
@@ -372,6 +372,10 @@ export default function OrdersPage() {
     if (r.real) {
       setAutoShipState({ id: order.id, step: 4, real: true, steps: r.steps,
         msg: `✅ شحنة حقيقية لدى ${r.provider} — رقم التتبع من الشركة: ${r.tracking}` });
+    } else if (r.acceptedUnconfirmed) {
+      setAutoShipState({ id: order.id, step: 4, real: false,
+        acceptedUnconfirmed: true, steps: r.steps,
+        msg: '⚠️ الشركة تلقت طلب الربط لكنها لم تؤكّد إنشاء شحنة. افحص لوحة الشركة برقم الطلب قبل أي إعادة إرسال لتجنب التكرار.' });
     } else if (r.retryAt) {
       // عطبٌ عابرٌ لدى الشركة — لا عملَ على التاجر. كان كلُّ فشلٍ يُطالبه
       // بالإدخال اليدويّ ولو كان الانقطاعُ دقيقتَين، فيتحوّل عطبُ الشركة
@@ -631,13 +635,31 @@ export default function OrdersPage() {
                       ولا يُعرَض حين تكون إعادةُ المحاولة مجدوَلة: الطلبُ في الطابور
                       وسيُرسَل وحدَه، وعرضُ العمل اليدويّ هنا يدفع التاجرَ لتسجيلِ
                       الشحنة مرّتين — مرّةً بيده ومرّةً بالإعادة. */}
-                  {(order.status === 'approved' || (autoShipState?.id === order.id && autoShipState.real === false))
-                    && !(autoShipState?.id === order.id && autoShipState.retrying) && (
+                  {(order.status === 'approved' || (order as any).deliveryStatus === 'confirmation_required'
+                    || (autoShipState?.id === order.id && autoShipState.real === false))
+                    && !(autoShipState?.id === order.id && (autoShipState.retrying || autoShipState.acceptedUnconfirmed))
+                    && (order as any).deliveryStatus !== 'retry_scheduled'
+                    && (
                     <div style={{ padding: 14, borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px dashed var(--clr-border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--txt-1)' }}>📋 الإدخال اليدوي لدى شركة بدون ربط API</p>
-                      <p style={{ fontSize: 11.5, color: 'var(--txt-3)', lineHeight: 1.7 }}>انسخ بيانات الشحنة، أدخلها في موقع شركة التوصيل بنفسك، ثم ألصق هنا <b>رقم التتبع الحقيقي</b> الذي أعطتك إياه الشركة — يُحفظ في الطلب ويظهر للزبون في صفحة التتبع.</p>
+                      {(order as any).deliveryStatus === 'confirmation_required' ? (
+                        <>
+                          <p style={{ fontSize: 12, fontWeight: 800, color: '#fbbf24' }}>⚠️ الشحنة تنتظر تأكيد الشركة</p>
+                          <p style={{ fontSize: 11.5, color: 'var(--txt-3)', lineHeight: 1.7 }}>
+                            افحص لوحة الشركة بالرجوع إلى رقم الطلب أولًا. <b>لا تنشئ شحنة ثانية.</b>
+                            إذا وجدت الشحنة، ألصق رقم التتبع الحقيقي الذي أصدرته الشركة أدناه.
+                            وإن لم تجدها، راجع إعداد الاتصال والرد قبل إعادة المحاولة.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--txt-1)' }}>📋 الإدخال اليدوي لدى شركة بدون ربط API</p>
+                          <p style={{ fontSize: 11.5, color: 'var(--txt-3)', lineHeight: 1.7 }}>انسخ بيانات الشحنة، أدخلها في موقع شركة التوصيل بنفسك، ثم ألصق هنا <b>رقم التتبع الحقيقي</b> الذي أعطتك إياه الشركة — يُحفظ في الطلب ويظهر للزبون في صفحة التتبع.</p>
+                        </>
+                      )}
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button onClick={() => copyShipmentData(order)} className="btn btn-ghost btn-sm" style={{ flex: 1, minWidth: 150, justifyContent: 'center' }}>📋 نسخ بيانات الشحنة</button>
+                        {(order as any).deliveryStatus !== 'confirmation_required' && (
+                          <button onClick={() => copyShipmentData(order)} className="btn btn-ghost btn-sm" style={{ flex: 1, minWidth: 150, justifyContent: 'center' }}>📋 نسخ بيانات الشحنة</button>
+                        )}
                         <input
                           value={expanded === order.id ? manualTrk : ''}
                           onChange={e => setManualTrk(e.target.value)}
