@@ -270,3 +270,86 @@ function mailerSrc() {
   return require('node:fs').readFileSync(
     require('node:path').join(__dirname, '..', 'lib', 'mailer.js'), 'utf8');
 }
+
+
+// Purpose-bound reset through the existing verification engine: REAL HTTP,
+// disposable PostgreSQL, and no external email, shipping, or actual accounts.
+test('password recovery: purpose, guess limit, one-time use, concurrency and isolation', async t => {
+  const express = require('express');
+  const bcrypt = require('bcryptjs');
+  const app = express();
+  app.use(express.json());
+  app.use('/api/auth', require('../routes/auth'));
+  const server = await new Promise(resolve => {
+    const listener = app.listen(0, () => resolve(listener));
+  });
+  const base = 'http://127.0.0.1:' + server.address().port;
+  const testPass = 'QA-Reset-Password-2026!';
+  const secondaryEmail = 'verify-other-' + Date.now() + '@example.invalid';
+  await db.createUser({ name: 'Other QA', email: secondaryEmail,
+    password: await bcrypt.hash('QAOriginal!2026', 4), role: 'user' });
+  const issue = async (purpose, code, ttl = 300000) => {
+    await db.invalidateVerifications(EMAIL, purpose);
+    await db.createVerification({ identifier: EMAIL, purpose, userId: USER_ID,
+      channel: 'email', code, expiresAt: new Date(Date.now() + ttl).toISOString() });
+  };
+  const reset = async (email, code, newPassword = testPass) => {
+    const response = await fetch(base + '/api/auth/reset-password', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, code, newPassword }),
+    });
+    return { status: response.status, body: await response.json().catch(() => ({})) };
+  };
+  try {
+    await t.test('login OTP cannot change password but remains valid for login', async () => {
+      await issue('login', '111222');
+      assert.equal((await reset(EMAIL, '111222')).status, 400);
+      assert.equal((await verify.check({ identifier: EMAIL, purpose: 'login',
+        code: '111222' })).valid, true, 'wrong purpose consumed login OTP');
+    });
+    await t.test('another account cannot use a reset code for this one', async () => {
+      await issue('password_reset', '345678');
+      assert.equal((await reset(secondaryEmail, '345678')).status, 400);
+      assert.equal(await bcrypt.compare('QAOriginal!2026',
+        (await db.getUserByEmail(secondaryEmail)).password), true);
+    });
+    await t.test('five wrong guesses invalidate the correct OTP', async () => {
+      await issue('password_reset', '445566');
+      for (let i = 0; i < 5; i++) assert.equal((await reset(EMAIL, '000000')).status, 400);
+      const { rows } = await pool.query(
+        "SELECT used, attempts FROM otp_tokens WHERE identifier=$1 AND purpose='password_reset' ORDER BY created_at DESC LIMIT 1",
+        [EMAIL]);
+      assert.equal(rows[0]?.used, true, 'code remained valid after five failed attempts');
+      assert.ok(Number(rows[0]?.attempts) >= 5);
+      assert.equal((await reset(EMAIL, '445566')).status, 400, 'locked-out OTP accepted');
+    });
+    await t.test('new code succeeds once, changes password and blocks replay', async () => {
+      await issue('password_reset', '556677');
+      const result = await reset(EMAIL, '556677');
+      assert.equal(result.status, 200, JSON.stringify(result.body));
+      assert.equal(result.body.success, true);
+      assert.equal(await bcrypt.compare(testPass, (await db.getUserByEmail(EMAIL)).password), true);
+      assert.equal((await reset(EMAIL, '556677')).status, 400, 'OTP replay accepted');
+    });
+    await t.test('expired reset code does not mutate password', async () => {
+      await issue('password_reset', '667788', -2000);
+      const original = (await db.getUserByEmail(EMAIL)).password;
+      assert.equal((await reset(EMAIL, '667788', 'QANotAccepted!')).status, 400);
+      assert.equal((await db.getUserByEmail(EMAIL)).password, original);
+    });
+    await t.test('two parallel reset HTTP requests cannot consume same code twice', async () => {
+      await issue('password_reset', '778899');
+      const results = await Promise.all([
+        reset(EMAIL, '778899', 'QAConcurrent-A!2026'),
+        reset(EMAIL, '778899', 'QAConcurrent-B!2026'),
+      ]);
+      assert.equal(results.filter(x => x.status === 200).length, 1,
+        'concurrent OTP replay: ' + results.map(x => x.status));
+      assert.equal(results.filter(x => x.status === 400).length, 1);
+    });
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    await db.invalidateVerifications(EMAIL, 'password_reset');
+    await db.invalidateVerifications(EMAIL, 'login');
+  }
+});
