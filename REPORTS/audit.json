@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-13T20:28:28.904Z",
+ "generatedAt": "2026-11-13T21:55:08.381Z",
  "totals": {
   "tracked": 775,
   "code": 484,
@@ -53,7 +53,7 @@
    "anys": 0,
    "logs": 1,
    "emptyCatch": 0,
-   "ageDays": 133
+   "ageDays": 134
   },
   {
    "file": "public/sw.js",
@@ -814,7 +814,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/lib/engines/ai.js",
@@ -882,7 +882,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/lib/engines/graph.js",
@@ -904,7 +904,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/lib/engines/knowledge.js",
@@ -968,7 +968,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/lib/engines/notification.js",
@@ -1034,7 +1034,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/lib/engines/ranking.js",
@@ -1076,7 +1076,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/lib/engines/rules.js",
@@ -1096,7 +1096,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/lib/engines/search.js",
@@ -1400,7 +1400,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/lib/shipmentAttempt.js",
@@ -1629,7 +1629,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/middleware/auth.js",
@@ -1675,7 +1675,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/middleware/platformAdmin.js",
@@ -1870,7 +1870,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 1,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/routes/broadcast.js",
@@ -1912,7 +1912,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/routes/conversations.js",
@@ -1956,7 +1956,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 1,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/routes/customers.js",
@@ -2069,7 +2069,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/routes/insights.js",
@@ -2188,7 +2188,7 @@
    "anys": 0,
    "logs": 1,
    "emptyCatch": 0,
-   "ageDays": 133
+   "ageDays": 134
   },
   {
    "file": "server/routes/memory.js",
@@ -2390,7 +2390,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/routes/search.js",
@@ -3671,7 +3671,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "server/test/shipment-retry.test.js",
@@ -4889,7 +4889,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "src/components/QRCode.tsx",
@@ -5279,7 +5279,7 @@
    "looseExports": [
     "translations"
    ],
-   "ageDays": 149
+   "ageDays": 150
   },
   {
    "file": "src/i18n/public.ts",
@@ -6564,7 +6564,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 99
+   "ageDays": 100
   },
   {
    "file": "src/lib/akg/kb/senses.ts",
@@ -9123,7 +9123,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "src/pages/ControlCenter.tsx",
@@ -10066,7 +10066,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 128
+   "ageDays": 129
   },
   {
    "file": "src/pages/NavBar.tsx",
@@ -11382,7 +11382,7 @@
    "anys": 3,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 99
+   "ageDays": 100
   },
   {
    "file": "test/brain/doors.test.ts",
