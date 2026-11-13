@@ -1,18 +1,24 @@
 name: Operational Staging Audit
 
+# Execute against staging only after code deployment. Never on docs-only updates.
 on:
-  pull_request:
+  push:
     branches: ["staging/pre-production"]
     paths:
-      - "test/audit-live-staging.mjs"
-      - ".github/workflows/audit-live-staging.yml"
+      - "server/routes/orders.js"
+      - "server/routes/ai.js"
+      - "server/routes/auth.js"
+      - "server/routes/delivery-auto.js"
+      - "src/pages/Storefront.tsx"
+      - "src/pages/TrackOrder.tsx"
+      - "src/pages/WalletPage.tsx"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   staging-smoke:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'audit/amanzine-full-feature-map-20261113'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
