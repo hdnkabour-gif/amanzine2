@@ -286,7 +286,8 @@ router.post('/forgot-password', sanitizeBody, async (req, res) => {
     const storeName = settings.brand?.name || 'AMANZINE';
     await sendOTP(user.email, storeName);
     await db.addLog({ userId: user.id, user: 'System', action: 'Password reset requested', details: user.email, type: 'auth', severity: 'warning' });
-    res.json({ sent: true, email: user.email.replace(/(.{2}).*(@)/, '$1***$2') });
+    // Identical response regardless of account existence: no email enumeration.
+    res.json({ sent: true });
   } catch (e) { console.error('[Auth forgot]', e); res.status(500).json({ error: 'Server error' }); }
 });
 

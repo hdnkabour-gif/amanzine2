@@ -66,7 +66,7 @@ router.post('/:orderId', auth, async (req, res) => {
       }
 
       // 5. Extract tracking
-      let tracking = 'TRK-' + require('crypto').randomBytes(3).toString('hex').toUpperCase();
+      let tracking = '';  // no fabricated provider reference
       if (recipe.trackingSelector) {
         try {
           const text = await page.$eval(recipe.trackingSelector, el => el.textContent || '');
@@ -75,6 +75,22 @@ router.post('/:orderId', auth, async (req, res) => {
       }
 
       await browser.close();
+
+      // Browser navigation is not proof that the carrier accepted a shipment.
+      // Without an actual carrier tracking reference, require human review.
+      if (!tracking) {
+        await db.updateOrder(order.id, {
+          status: 'processing', trackingNumber: '', deliveryProvider: prov.name,
+          deliveryStatus: 'manual_required',
+        });
+        await db.addLog({ userId: req.user.id, user: 'System',
+          action: 'Delivery needs confirmation: ' + order.id,
+          details: 'No provider reference extracted', type: 'delivery', severity: 'warning' });
+        return res.json({
+          success: true, real: false, needsManual: true,
+          tracking: '', provider: prov.name, method: 'puppeteer-unconfirmed',
+        });
+      }
 
       await db.updateOrder(order.id, { status: 'processing', trackingNumber: tracking, deliveryProvider: prov.name });
       await db.addLog({ userId: req.user.id, user: 'System', action: `URL automation delivery: ${order.id}`, details: tracking, type: 'delivery', severity: 'success' });

@@ -58,10 +58,10 @@ export default function WalletPage() {
   const { earned, pending } = useMemo(() => {
     let earned = 0, pending = 0;
     for (const o of orders) {
-      if (o.status === 'delivered' || o.status === 'approved') earned += o.total || 0;
-      // `approved` محسوبةٌ في `earned` أعلاه، فلا تُعاد هنا. وأُسقطت
+      if (o.status === 'delivered') earned += o.total || 0;
+      // `approved` ليست تحصيلاً ولا تسليمًا: تُحسب مع الطلبات المعلّقة. وأُسقطت
       //   `pending_confirmation`: حالةٌ لا يكتبها أيُّ مسارِ خادم.
-      else if (o.status === 'pending' || o.status === 'processing' || o.status === 'shipped') pending += o.total || 0;
+      else if (o.status === 'pending' || o.status === 'approved' || o.status === 'processing' || o.status === 'shipped') pending += o.total || 0;
     }
     return { earned, pending };
   }, [orders]);
@@ -128,7 +128,7 @@ export default function WalletPage() {
             </div>
           )}
           <div style={{ display: 'flex', gap: 18, marginTop: 14 }}>
-            <div><div style={{ fontSize: 11, color: 'rgba(255,255,255,.7)' }}>مداخيل مسلَّمة</div><div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{DH(earned)}</div></div>
+            <div><div style={{ fontSize: 11, color: 'rgba(255,255,255,.7)' }}>قيمة طلبات مسلَّمة (ليس إثبات تحصيل)</div><div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{DH(earned)}</div></div>
             <div><div style={{ fontSize: 11, color: 'rgba(255,255,255,.7)' }}>معلّق ف الطلبات</div><div style={{ fontSize: 16, fontWeight: 800, color: '#ffe6a3' }}>{DH(pending)}</div></div>
           </div>
         </div>
