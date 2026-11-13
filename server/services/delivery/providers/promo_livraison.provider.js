@@ -228,12 +228,22 @@ async function createShipment(order, cfg) {
     });
 
     const { res, data } = await _post(fields, cfg);
-    if (!res.ok || !_ok(data)) return {
-      success: false, error: _err(data, res),
-      // A contradictory HTTP failure + carrier success body may mean a parcel
-      // was created; do not replay an irreversible COD creation.
-      ...(!res.ok && _ok(data) ? { acceptedUnconfirmed: true } : {}),
-    };
+    if (!res.ok || !_ok(data)) {
+      const error = _err(data, res);
+      const explicitRejection = data?.status === 401 || data?.status === false ||
+        /token invalide|token.*expir|unauthori[sz]ed/i.test(error);
+      // HTTP 2xx carrying HTML, an empty body, or unexpected JSON after
+      // action=add leaves an UNKNOWN carrier outcome, not a safe retry.
+      // A contradictory HTTP error with a success JSON is also ambiguous.
+      const unknown = !explicitRejection && (res.ok || _ok(data));
+      return {
+        success: false,
+        error: unknown
+          ? 'Promo Livraison لم تؤكد إنشاء الشحنة برد صالح. تحقّق من لوحة البائع قبل إعادة المحاولة.'
+          : error,
+        ...(unknown ? { acceptedUnconfirmed: true } : {}),
+      };
+    }
 
     const tracking = String(data.tracking || '').trim();
     // رقمُ التتبّع هو الأثرُ الوحيد الذي يربط طلبَنا بشحنتهم. بلا رقمٍ لا
