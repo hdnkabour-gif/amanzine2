@@ -221,3 +221,60 @@ test('carrier HTTP create route rejects unknown choice and blocks duplicate subm
     await new Promise(resolve => listener.close(resolve));
   }
 });
+
+
+test('chosen carrier B is the only webhook target even when A is configured as default', async () => {
+  const express = require('express');
+  const jwt = require('jsonwebtoken');
+  const app = express();
+  app.use(express.json());
+  app.use('/api/delivery', require('../routes/delivery'));
+  const listener = await new Promise(resolve => { const srv = app.listen(0, () => resolve(srv)); });
+  const base = 'http://127.0.0.1:' + listener.address().port;
+  const token = jwt.sign({ id: USER_ID, role: 'user', email: 'retry@test.ma' },
+    process.env.JWT_SECRET, { expiresIn: '1h' });
+  const originals = {
+    fetch: global.fetch,
+    providers: db.getDeliveryProviders,
+    settings: db.getSettings,
+  };
+  const calls = [];
+  db.getSettings = async () => ({ delivery: { defaultProvider: 'Carrier A' },
+    brand: { currency: 'MAD' } });
+  db.getDeliveryProviders = async () => [
+    { id: 'qa-carrier-a', name: 'Carrier A', apiType: 'webhook', enabled: true,
+      webhookUrl: 'https://carrier.example.invalid/a' },
+    { id: 'qa-carrier-b', name: 'Carrier B', apiType: 'webhook', enabled: true,
+      webhookUrl: 'https://carrier.example.invalid/b' },
+  ];
+  global.fetch = async (url, options) => {
+    if (String(url).startsWith('https://carrier.example.invalid/')) {
+      calls.push(String(url));
+      return { ok: true, status: 201,
+        json: async () => ({ shipmentId: 'QA-REMOTE-B', trackingNumber: 'QA-TRACK-B' }) };
+    }
+    return originals.fetch(url, options);
+  };
+  try {
+    await mkOrder('retry-test-carrier-route', { status: 'approved', trackingNumber: '', deliveryStatus: '' });
+    const response = await originals.fetch(base + '/api/delivery/create/retry-test-carrier-route', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ provider: 'Carrier B' }),
+    });
+    const out = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(out));
+    assert.equal(out.real, true);
+    assert.equal(out.tracking, 'QA-TRACK-B');
+    assert.deepEqual(calls, ['https://carrier.example.invalid/b'],
+      'explicit carrier choice ignored: shipment sent to the default / first carrier');
+    const saved = await db.getOrder('retry-test-carrier-route');
+    assert.equal(saved.deliveryProvider, 'Carrier B');
+    assert.equal(saved.trackingNumber, 'QA-TRACK-B');
+  } finally {
+    global.fetch = originals.fetch;
+    db.getDeliveryProviders = originals.providers;
+    db.getSettings = originals.settings;
+    await new Promise(resolve => listener.close(resolve));
+  }
+});
