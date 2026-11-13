@@ -284,7 +284,10 @@ router.post('/forgot-password', sanitizeBody, async (req, res) => {
     if (!user) return res.json({ sent: true });
     const settings  = await db.getSettings(user.id) || {};
     const storeName = settings.brand?.name || 'AMANZINE';
-    await sendOTP(user.email, storeName);
+    // A login code must never unlock password recovery. Dedicated purpose also
+    // provides expiry, attempt counters and single-use enforcement.
+    await verify.start({ identifier: user.email, purpose: 'password_reset',
+      userId: user.id, storeName });
     await db.addLog({ userId: user.id, user: 'System', action: 'Password reset requested', details: user.email, type: 'auth', severity: 'warning' });
     // Identical response regardless of account existence: no email enumeration.
     res.json({ sent: true });
@@ -299,7 +302,8 @@ router.post('/reset-password', sanitizeBody, async (req, res) => {
     if (newPassword.length < 6) return res.status(400).json({ error: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' });
     const user = await db.getUserByEmail(email.toLowerCase().trim());
     if (!user) return res.status(400).json({ error: 'رمز التحقق غير صحيح' });
-    const result = await verifyOTP(user.email, String(code).trim());
+    const result = await verify.check({ identifier: user.email, purpose: 'password_reset',
+      code: String(code).trim() });
     if (!result.valid) {
       const msg = result.reason === 'expired'
         ? 'انتهت صلاحية الرمز — اطلب رمزاً جديداً'
