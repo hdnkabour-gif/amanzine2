@@ -1,3 +1,14 @@
+# أحدث استئناف — Promo Livraison API (2026-11-13)
+
+- **قدّم المستخدم رابط لوحة البائع** `https://promo-livraison.ma/seller/login` ونسخة من **وثيقة Add Order / Track Order API**. تم تثبيت هذا المرجع كما هو في [AUDIT/92-PROMO-LIVRAISON-API-CONTRACT-2026-11-13.md](./92-PROMO-LIVRAISON-API-CONTRACT-2026-11-13.md)؛ لا تخلط `seller/login` مع `seller/api-parcels`.
+- **الطلب الفعلي المُعتمد:** `POST https://promo-livraison.ma/seller/api-parcels`، `Content-Type:application/x-www-form-urlencoded`، `action=add`، `token` في الجسم، وحقول `name,phone,marchandise,marchandise_qty,ville,adresse,note,stock,products[i][sku],products[i][qty],price`. نجاح إضافة `status:200` مع `tracking`، فشل Token `status:401`. التتبع `action=track` و`status:true` وتاريخ في `msg[]`. لا `seller_id` في الوثيقة المقدمة.
+- **PR #19 محدث**: https://github.com/hdnkabour-gif/amanzine2/pull/19 — الفرع `repair/amanzine-delivery-connection-truth-20261113`، آخر SHA بعد أمثلة وثائق Promo واختبار HTML 200 غير المعروف `ed99729367d9dba891fde404ed1f5cef231dac95`. أضيفت حماية من `seller/login` كـAPI، منع `seller_id` غير الموثق، اختبار read-only برقم تتبع سابق، رد غير مؤكد بلا tracking أو بعد timeout، وحماية Token من التخزين الواضح في JSONB مع ترحيل مرة واحدة واختبارات PostgreSQL.
+- **النتيجة الحالية:** الاختبارات الأخيرة على SHA الجديد لا تزال `pending` / قيد التشغيل (GitHub run `43527581996`) ولا تُعتبر ناجحة؛ **لا دمج ولا نشر** لإصلاح Promo حتى يكتمل CI. لا شحنة حقيقية ولا اتصال بحساب Promo قد أُجري؛ كل الاختبارات تستخدم مُحاكٍ أو PostgreSQL معزولة.
+- **خطة المتابعة:** اقرأ سجل تشغيل CI على SHA الأخير وحده؛ أصلح أي فشل؛ ادمج PR #19 إلى Staging فقط بعد Green؛ تأكد من Railway SUCCESS لنفس SHA؛ ثم اختبار واجهة/REST مع mock أو Promo sandbox. إنشاء طرود حقيقية يستلزم إذنًا صريحًا لأن له أثرًا ماليًا. لا تضع Token البائع في دردشة أو Commit أو تقرير.
+- **Production ما زال على `main` ولم يُعدّل هنا.**
+
+---
+
 # آخر استئناف — بلاغ التوصيل (2026-11-13 23:05Z)
 
 **البلاغ:** التاجر أدخل شركة التوصيل وجرّب شراء منتج، لكن الشحنة لم تظهر في موقع الشركة. **لا تُفترض شركة بعينها؛ لم يقدّم المستخدم اسمها بعد.**
