@@ -108,3 +108,13 @@
 - [PR #14 — مفاتيح VAPID الدائمة](https://github.com/hdnkabour-gif/amanzine2/pull/14): يستعمل `/data/vapid.json` على Railway مع فحص ثبات المفتاح عبر عمليتي Node؛ لا تعلن CI ناجحًا قبل رؤية النتيجة.
 
 **سياسة الحفظ:** سجل PASS/FAIL وSHA والروابط هنا دائمًا؛ Artifacts على GitHub قابلة للانتهاء. إذا لزم إعادة إنشاء لقطات بعد تاريخ انتهاء صلاحيتها، لا تعِد اختبار وظائف سبق توثيقها إلا بعد تغيير SHA منشور أو حاجة للتحقق من الإصلاح.
+
+## 2026-11-13 21:59Z — **بعد دمج P0 ونشره: 59 PASS / 0 FAIL**
+
+- **Railway Deployment:** `0445b594-f55e-4383-a7d8-69277cb611b4`, البيئة `staging`، SHA `bcffa870ab3f9d6495258d18151fcfc00a607bae`، الحالة `SUCCESS`، الخدمة `amanzine-staging` `Online` (1/1).
+- **GitHub Actions rerun:** https://github.com/hdnkabour-gif/amanzine2/actions/runs/43500545608 — **Attempt 2، PASS جميع الـ59**، سجل CLI `Summary: { pass: 59, fail: 0 }`، وStep `Run live public, tenant-isolation and browser smoke` `SUCCESS`.
+- **الاختبار الذي كان أحمر وأصبح أخضر:** `Public phone lookup must not disclose order line items without proof` → **PASS**. باقي فحوص REST والعزل وChromium المحمية والعامة والهاتف والـcleanup بقيت PASS.
+- **دليل دائم في GitHub:** [سجل JSON والصور الجديدة](./evidence/staging-p0-fixed-2026-11-13/README.md)، [JSON 59/0](./evidence/staging-p0-fixed-2026-11-13/staging-audit-smoke.json)، 5 صور لصفحات التاجر + لقطة هاتف. Workflow [Archive P0 staging security fix evidence](https://github.com/hdnkabour-gif/amanzine2/actions/runs/43515633806) `SUCCESS`؛ تم فتح ملف JSON فعليًا والتأكد من `pass=59`, `fail=0`, `securityCase=PASS`.
+- **دليل ما قبل الإصلاح محفوظ كذلك**: [JSON والصور 58/1](./evidence/live-2026-11-13/staging-audit-smoke.json)، لا يُستبدل كي تبقى المقارنة قابلة للإثبات.
+- **CI ومراحل الدمج اللاحقة:** [PR #12](https://github.com/hdnkabour-gif/amanzine2/pull/12)، [PR #14](https://github.com/hdnkabour-gif/amanzine2/pull/14)، [PR #15](https://github.com/hdnkabour-gif/amanzine2/pull/15) اجتازت CI كاملة (بناء، PostgreSQL، Server tests، Sabotage، Golden Journeys 12، TypeScript)، ثم دُمجت في `staging/pre-production` بالـSHAs `083eef32364802b31da030f9f19417201a019758`, `97f2bd3f4dc8fbb8b8063b9263c177212fa65f0d`, `b508733502db92c591a8dd9e0378eba905b724db` على التوالي. **هذا لا يثبت بعد نجاح آخر نشر Railway لهذه الدفعة**؛ يلزم Deployment `SUCCESS` على SHA الأخير ثم تجربة المستجدات المعنية.
+- **متبقي مستقل:** [PR #16](https://github.com/hdnkabour-gif/amanzine2/pull/16) يمنع طباعة OTP؛ [PR #17](https://github.com/hdnkabour-gif/amanzine2/pull/17) يضيف واجهة استرجاع كلمة المرور عبر OTP ورحلة Chromium J13. لا تدمجهما حتى CI `SUCCESS`.
