@@ -6,7 +6,7 @@ const { db } = require('../database');
 
 // سجلُّ المزوّدين — يكتشفهم بمسح المجلّد. لا استيرادَ باسم شركةٍ هنا.
 const registry = require('../services/delivery/registry');
-const { missingCredentials } = require('../services/delivery/contract');
+const { missingCredentials, connectionAccepted } = require('../services/delivery/contract');
 const cityEngine = require('../lib/cityEngine');
 const pricing = require('../lib/pricingEngine');
 const { resolveDeliveryFee } = require('../lib/deliveryPricing');
@@ -386,7 +386,7 @@ router.post('/verify/:providerRowId', auth, async (req, res) => {
           // !!{success:false} is TRUE and used to certify rejected API keys.
           // Do not mark a connection healthy unless the provider explicitly
           // confirms acceptance; a string/object is not proof of authentication.
-          const accepted = verdict === true || verdict?.success === true;
+          const accepted = connectionAccepted(verdict);
           const detail = accepted
             ? 'صادقت الشركةُ فعليًّا على المفتاح'
             : (verdict?.error || 'رفضت الشركةُ المفتاح أو انتهت صلاحيّتُه');
