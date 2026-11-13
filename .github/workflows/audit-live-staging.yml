@@ -1,0 +1,41 @@
+name: Operational Staging Audit
+
+on:
+  pull_request:
+    branches: ["staging/pre-production"]
+    paths:
+      - "test/audit-live-staging.mjs"
+      - ".github/workflows/audit-live-staging.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  staging-smoke:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'audit/amanzine-full-feature-map-20261113'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AMZ_LIVE_BASE: https://triumphant-courage-staging.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run live public, tenant-isolation and browser smoke
+        timeout-minutes: 12
+        run: node test/audit-live-staging.mjs
+      - name: Upload sanitized QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: amanzine-operational-staging-smoke
+          path: |
+            tmp/staging-audit-smoke.json
+            tmp/staging-browser-last-page.png
+          if-no-files-found: warn
+          retention-days: 14
