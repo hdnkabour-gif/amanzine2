@@ -24,7 +24,7 @@ interface TrackedOrder {
   id: string;
   status: string;
   statusAr: string;
-  total: number;
+  total?: number;
   customerCode?: string;
   trackingNumber?: string;
   deliveryProvider?: string;
@@ -51,19 +51,21 @@ export default function TrackOrder() {
   const { userId = '' } = useParams();
   const [params] = useSearchParams();
   const [query, setQuery] = useState(params.get('code') || '');
+  const [proof, setProof] = useState(params.get('phone') || '');
   const [mode, setMode] = useState<'code' | 'phone'>('code');
   const [orders, setOrders] = useState<TrackedOrder[] | null>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const lookup = useCallback(async (q: string, how: 'code' | 'phone') => {
+  const lookup = useCallback(async (q: string, how: 'code' | 'phone', secondFactor = '') => {
     const v = q.trim();
     if (!v) return;
+    if (how === 'phone' && !secondFactor.trim()) { setErr('باش نحميو خصوصيتك، دخّل كود الطلب مع رقم الهاتف.'); return; }
     setBusy(true); setErr(''); setOrders(null);
     try {
       const url = how === 'code'
-        ? `/api/orders/track-code/${encodeURIComponent(v)}?userId=${encodeURIComponent(userId)}`
-        : `/api/orders/track/${encodeURIComponent(v)}?userId=${encodeURIComponent(userId)}`;
+        ? `/api/orders/track-code/${encodeURIComponent(v)}?userId=${encodeURIComponent(userId)}${secondFactor.trim() ? `&phone=${encodeURIComponent(secondFactor.trim())}` : ''}`
+        : `/api/orders/track/${encodeURIComponent(v)}?userId=${encodeURIComponent(userId)}&code=${encodeURIComponent(secondFactor.trim().toUpperCase())}`;
       const r = await fetch(url);
       const d = await r.json();
       if (!r.ok) throw new Error(d?.error || 'ما لقيناش الطلب');
@@ -81,7 +83,7 @@ export default function TrackOrder() {
   // على «تتبّع» عملٌ بلا معنى.
   useEffect(() => {
     const c = params.get('code');
-    if (c) lookup(c, 'code');
+    if (c) lookup(c, 'code', params.get('phone') || '');
   }, [params, lookup]);
 
   const inp: React.CSSProperties = {
@@ -97,7 +99,7 @@ export default function TrackOrder() {
         <div style={{ textAlign: 'center', marginBottom: 22 }}>
           <Package size={30} style={{ color: 'var(--ember,#FF6A00)' }} />
           <h1 style={{ fontSize: 22, fontWeight: 900, margin: '10px 0 4px' }}>فين وصل طلبي؟</h1>
-          <p style={{ fontSize: 13, color: 'var(--ink3)' }}>دخّل كود التتبّع اللي توصّلتي بيه، ولا نمرة تيليفونك.</p>
+          <p style={{ fontSize: 13, color: 'var(--ink3)' }}>الكود كيبين الحالة. باش تشوف الثمن والمنتجات خاصك الكود ورقم الهاتف بجوج.</p>
         </div>
 
         <div style={{ display: 'flex', gap: 7, marginBottom: 11, justifyContent: 'center' }}>
@@ -115,12 +117,12 @@ export default function TrackOrder() {
 
         <div style={{ display: 'flex', gap: 8 }}>
           <input value={query} onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') lookup(query, mode); }}
+            onKeyDown={e => { if (e.key === 'Enter') lookup(query, mode, proof); }}
             placeholder={mode === 'code' ? 'مثلاً A1B2C3D4' : '06XXXXXXXX'}
             dir={mode === 'phone' ? 'ltr' : undefined}
             aria-label={mode === 'code' ? 'كود التتبّع' : 'نمرة التيليفون'}
             style={inp} />
-          <button onClick={() => lookup(query, mode)} disabled={busy || !query.trim()}
+          <button onClick={() => lookup(query, mode, proof)} disabled={busy || !query.trim() || (mode === 'phone' && !proof.trim())}
             style={{ padding: '0 18px', borderRadius: 13, border: 'none', fontFamily: 'inherit',
               background: query.trim() ? 'var(--ember,#FF6A00)' : 'var(--panel2,rgba(255,255,255,.06))',
               color: query.trim() ? '#fff' : 'var(--ink3)', fontWeight: 800,
@@ -128,6 +130,12 @@ export default function TrackOrder() {
             {busy ? <Loader2 size={16} className="spin" /> : <Search size={16} />}
           </button>
         </div>
+
+        <input value={proof} onChange={e => setProof(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') lookup(query, mode, proof); }}
+          placeholder={mode === 'code' ? 'رقم الهاتف (لإظهار الثمن والمشتريات)' : 'كود الطلب (إجباري لحماية الخصوصية)'}
+          aria-label={mode === 'code' ? 'رقم هاتف صاحب الطلب' : 'كود الطلب'}
+          dir="ltr" style={{ ...inp, display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 9 }} />
 
         {err && (
           <div style={{ marginTop: 14, padding: '12px 15px', borderRadius: 13, fontSize: 13, fontWeight: 700,
@@ -171,7 +179,7 @@ export default function TrackOrder() {
                 </div>
               )}
 
-              <div style={{ fontSize: 13, fontWeight: 800 }}>{(o.total || 0).toLocaleString()} درهم</div>
+              {o.total != null ? <div style={{ fontSize: 13, fontWeight: 800 }}>{o.total.toLocaleString()} درهم</div> : <div style={{ fontSize: 12, color: 'var(--ink3)' }}>لإظهار تفاصيل المبلغ والمنتجات دخّل رقم الهاتف.</div>}
 
               {/* رقمُ التتبّع يُعرَض **حين يكون حقيقيًّا** وحدَه: الحقلُ معناه
                   واحدٌ لا ثانيَ له — رقمٌ جاء من شركة توصيل. */}
