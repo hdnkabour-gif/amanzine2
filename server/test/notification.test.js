@@ -98,3 +98,46 @@ test('البريد: يُعلن تهيّؤه ولا يدّعي إرسالًا ب�
   }
   assert.ok(mailer.wrap('عنوان', 'متن').includes('عنوان'));
 });
+
+
+// ── Persistence across real Node process restarts ────────────────────────────
+// The old deploy image path regenerated VAPID keys every Railway restart.
+// Use a disposable path to prove persistence without touching /data or secrets.
+test('VAPID survives two independent Node starts on the same volume path', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { execFileSync } = require('node:child_process');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amanzine-vapid-'));
+  const file = path.join(dir, 'vapid.json');
+  const env = { ...process.env, VAPID_KEY_FILE: file, JWT_SECRET: 'qa-vapid-secret-longer-than-32-characters' };
+  // Never let existing environment keys bypass this regression.
+  delete env.VAPID_PUBLIC_KEY;
+  delete env.VAPID_PRIVATE_KEY;
+  const script = [
+    "require('./routes/push');",
+    "const fs = require('node:fs');",
+    "const k = JSON.parse(fs.readFileSync(process.env.VAPID_KEY_FILE, 'utf8'));",
+    "process.stdout.write('\\nVAPID_PUBLIC_CHECK=' + k.publicKey + '\\n');",
+  ].join('\n');
+  const run = () => execFileSync(process.execPath, ['-e', script], {
+    cwd: path.resolve(__dirname, '..'), env, encoding: 'utf8', timeout: 10000,
+  });
+  try {
+    const first = run();
+    const raw = fs.readFileSync(file, 'utf8');
+    const parsed = JSON.parse(raw);
+    assert.ok(parsed.publicKey && parsed.privateKey, 'new VAPID key pair is missing');
+    const publicKey = parsed.publicKey;
+    assert.equal(fs.statSync(file).mode & 0o777, 0o600, 'private key must be owner-only');
+    assert.match(first, /VAPID_PUBLIC_CHECK=/);
+    assert.ok(!first.includes(parsed.privateKey), 'private key was printed in server logs');
+    const second = run();
+    const readBack = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert.equal(readBack.publicKey, publicKey, 'public key rotated after simulated restart');
+    assert.equal(readBack.privateKey, parsed.privateKey, 'private key rotated after restart');
+    assert.ok(!second.includes('Generated new VAPID keys'), 'second start should reuse stored keys');
+  } finally {
+    fs.rmSync(dir, { force: true, recursive: true });
+  }
+});
