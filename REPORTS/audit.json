@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-11-13T23:09:58.665Z",
+ "generatedAt": "2026-11-13T23:27:54.861Z",
  "totals": {
-  "tracked": 785,
+  "tracked": 786,
   "code": 484,
   "orphans": 3,
   "appOnly": 107,
@@ -4285,7 +4285,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/components/FocusedEdit.tsx",
@@ -4317,7 +4317,7 @@
    "looseExports": [
     "FOCUSABLE"
    ],
-   "ageDays": 98
+   "ageDays": 99
   },
   {
    "file": "src/components/GlobalSearch.tsx",
@@ -4344,7 +4344,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/components/icons.tsx",
@@ -8337,7 +8337,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 116
+   "ageDays": 117
   },
   {
    "file": "src/lib/money.ts",
@@ -11492,7 +11492,7 @@
    "anys": 8,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 98
+   "ageDays": 99
   },
   {
    "file": "test/brain/fashion.test.ts",
@@ -11567,7 +11567,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 98
+   "ageDays": 99
   },
   {
    "file": "test/brain/food.test.ts",
@@ -12011,7 +12011,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 99
+   "ageDays": 100
   },
   {
    "file": "test/brain/merchantSuccess.test.ts",
@@ -12189,7 +12189,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 98
+   "ageDays": 99
   },
   {
    "file": "test/brain/persona.test.ts",
@@ -12849,7 +12849,7 @@
    "looseExports": [
     "OWNER"
    ],
-   "ageDays": 99
+   "ageDays": 100
   },
   {
    "file": "test/disconnected.test.mjs",
