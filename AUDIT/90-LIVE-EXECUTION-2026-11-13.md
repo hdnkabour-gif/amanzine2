@@ -78,3 +78,14 @@
 3. لا تكرر اختبارًا ناجحًا على نفس SHA دون سبب؛ أعد اختبار الانحدار بعد تغيير كود المسار أو Middleware أو API contracts، أو بعد نشر جديد.
 4. احتفظ بروابط تشغيل CI + الخطوة الفاشلة + نتيجة HTTP + وقت + SHA؛ لا تفترض أن المحادثة تحفظ السجلات نيابة عن GitHub.
 5. عند أول تعديل لأي ملف مؤثر على قائمة الملفات، شغّل مولّد الجرد قبل إعلان اكتمال CI.
+
+## تصحيحٌ إلزاميّ بعد فتح Artifact نفسه — 2026-11-13
+
+**لا تُفسّر 22/23 على أنها 22 رحلة أعمال ناجحة.** ملفات الأدلة الأصلية فُتحت مباشرةً، لا عبر نص سجل CI فقط:
+
+- `staging-audit-smoke.json`: `browserNotes` أظهر `SPA:/:chars=1550`، `SPA:/market:chars=570`، `SPA:/explore:chars=565`، `SPA:/login:chars=221`، لكن **جميع** صفحات التاجر الخمس كانت `MERCHANT:/home:chars=142` و`/dashboard` و`/products` و`/orders` و`/customers` = 142 حرفًا بالضبط.
+- `staging-browser-last-page.png` (في [artifact الأصل](https://github.com/hdnkabour-gif/amanzine2/actions/runs/43496388845/artifacts/14072755489)) يعرض **SplashScreen بخلفية خضراء وزر «تخطّي»**، وليس واجهة صفحة العملاء. معنى `PASS Public SPA renders actual Chromium interface` الوارد في السجل ضعيف ومضلّل؛ الاختبار أثبت إنشاء DOM وHTTP 200 فقط **ولم يثبت ظهور صفحات التاجر**.
+- `src/App.tsx` يخفي Splash تلقائيًا خلال 5.5 ثوانٍ أو عند `sessionStorage.amanzine_splash='1'`. كود Playwright القديم انتظر 700–900ms فقط بعد `DOMContentLoaded`، ثم التقط الصورة. حسابات QA الجديدة قد تظهر Onboarding أيضًا حتى `settings.onboardingDone=true`.
+- **التصحيح المطلوب للاختبار:** حفظ `sessionStorage.amanzine_splash='1'` مسبقًا؛ استعمال كوكيز HttpOnly الفعلية و`ai_commerce_user`، إكمال Onboarding داخل بيانات QA فقط، ثم التأكد من route الحالي ومحتوى خاص بكل صفحة (heading/action) لا مجرد أي نص. أي إعادة توجيه إلى /login أو بقاء Loading/Onboarding/Splash يجب أن تُسقط اختبار صفحات التاجر.
+- **التصنيف الصحيح:** 22 `PASS` و1 `FAIL` سجّلها المشغّل؛ **21 PASS موثوقًا على مستوى فحصه، 1 PASS متصفح غير كافٍ / NOT VERIFIED، و1 FAIL أمني مؤكّد**. ليست شهادة اكتمال 26 صفحة.
+- يجب حفظ هذا التصحيح للأجيال التالية: *لا تعتمد مخرجات PASS وحدها دون فحص artifact والتأكد من معنى assertion*.
