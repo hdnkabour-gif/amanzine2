@@ -264,8 +264,17 @@ function missingCredentials(cfg, spec) {
     .map(f => f.label);
 }
 
+/**
+ * The carrier connection test is authoritative only when it explicitly
+ * reports success. A returned object is truthy even if it says success:false.
+ * Treat unrecognised shapes as inconclusive/failure (never as verified).
+ */
+function connectionAccepted(verdict) {
+  return verdict === true || verdict?.success === true;
+}
+
 module.exports = {
   REQUIRED_METHODS, OPTIONAL_METHODS, DEFAULT_CAPABILITIES, CREDENTIAL_COLUMNS,
   validateProvider, normalizeCapabilities, makeQuote, pickArray, pickObject,
-  readCredentials, missingCredentials,
+  readCredentials, missingCredentials, connectionAccepted,
 };
