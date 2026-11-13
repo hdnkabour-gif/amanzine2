@@ -660,7 +660,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       } else {
         // الخطوة 1: محاولة إنشاء شحنة فعلية لدى شركة التوصيل (API/Webhook)
         try {
-          const d = await api.deliveryAPI.create(id);
+          // Honor the merchant's chosen carrier instead of silently sending
+          // to the backend default / first enabled carrier.
+          const d = await api.deliveryAPI.create(id, provider ? { provider } : undefined);
           if (d?.tracking) trk = d.tracking;
           if (d?.provider) prov = d.provider;
           result = { real: !!d?.real, tracking: trk, provider: prov, via: d?.via,
