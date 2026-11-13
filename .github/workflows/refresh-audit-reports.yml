@@ -7,6 +7,9 @@ on:
     branches: ["audit/amanzine-full-feature-map-20261113"]
     paths:
       - ".github/workflows/refresh-audit-reports.yml"
+      - "test/audit-live-staging.mjs"
+      - ".github/workflows/audit-live-staging.yml"
+      - "AUDIT/**"
 
 permissions:
   contents: write
