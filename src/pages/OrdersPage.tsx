@@ -637,7 +637,7 @@ export default function OrdersPage() {
                       الشحنة مرّتين — مرّةً بيده ومرّةً بالإعادة. */}
                   {(order.status === 'approved' || (order as any).deliveryStatus === 'confirmation_required'
                     || (autoShipState?.id === order.id && autoShipState.real === false))
-                    && !(autoShipState?.id === order.id && (autoShipState.retrying || autoShipState.acceptedUnconfirmed))
+                    && !(autoShipState?.id === order.id && autoShipState.retrying)
                     && (order as any).deliveryStatus !== 'retry_scheduled'
                     && (
                     <div style={{ padding: 14, borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px dashed var(--clr-border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
