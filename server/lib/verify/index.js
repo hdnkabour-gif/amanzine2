@@ -163,7 +163,10 @@ async function check({ identifier, purpose, code }) {
   // النجاحُ يُعلَّم بوقتٍ صريح: `used = TRUE` وحدَها تُوضَع أيضًا عند الإبطال
   // بعد استنفاد المحاولات، فلا تُميّز «تأكّد» من «فشل». والفرقُ يهمّ حين
   // يسأل الخادمُ لاحقًا: أتأكّدت هذه النمرةُ فعلًا قبل قبول الطلب؟
-  await db.markVerified(row.id);
+  // Verification must be consumed atomically in PostgreSQL: two parallel
+  // password-reset requests must not both succeed on the same six-digit OTP.
+  const consumed = await db.markVerified(row.id);
+  if (!consumed) return { valid: false, reason: 'used' };
   await db.invalidateVerifications(id, purpose);
   return { valid: true };
 }
