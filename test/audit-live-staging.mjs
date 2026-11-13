@@ -193,40 +193,60 @@ async function main() {
       status(r, 404, 'cross tenant customer');
     });
   }
-  await check('Public SPA renders actual Chromium interface', async () => {
+  // Real Chromium checks, one result per route so a broken page does not hide others.
+  let context = null;
+  let page = null;
+  await check('Launch Chromium against Staging', async () => {
     const { chromium } = await import('playwright');
     browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({ viewport: { width: 1280, height: 760 }, locale: 'ar-MA' });
-    const page = await context.newPage();
+    context = await browser.newContext({ viewport: { width: 1280, height: 760 }, locale: 'ar-MA' });
+    page = await context.newPage();
     page.on('pageerror', err => browserNotes.push(String(err.message || err).slice(0, 160)));
-    for (const path of ['/', '/market', '/explore', '/login']) {
+  }, 'browser');
+
+  if (page) {
+    const visit = async path => {
+      const errorsAtStart = browserNotes.length;
       const response = await page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 25000 });
-      ensure(response && response.status() === 200, 'bad SPA route ' + path + ': ' + (response && response.status()));
-      await page.waitForTimeout(700);
-      const found = await page.locator('body').innerText();
-      ensure(found.trim().length >= 20, 'empty visual content on ' + path);
-      browserNotes.push('SPA:' + path + ':chars=' + found.trim().length);
+      ensure(response && response.status() === 200, 'bad route ' + path + ': ' + (response && response.status()));
+      await page.waitForTimeout(650);
+      const body = await page.locator('body').innerText();
+      ensure(body.trim().length >= 20, 'empty visual page ' + path);
+      const newErrors = browserNotes.slice(errorsAtStart);
+      ensure(newErrors.length === 0, 'JavaScript error on ' + path + ': ' + newErrors.slice(0, 2).join(' | '));
+      return 'textLength=' + body.trim().length;
+    };
+
+    for (const path of ['/', '/landing', '/market', '/explore', '/feed', '/login', '/register']) {
+      await check('Chromium public ' + path, () => visit(path), 'browser');
     }
+
     if (A) {
+      await check('Chromium public QA storefront', () => visit('/store/' + encodeURIComponent(A.user.id)), 'browser');
       await context.addCookies([
         { name: 'token', value: A.token, url: BASE, httpOnly: true, secure: true, sameSite: 'Lax' },
         { name: 'refreshToken', value: A.refresh, url: BASE, httpOnly: true, secure: true, sameSite: 'Lax' },
       ]);
       await page.addInitScript(user => { localStorage.setItem('ai_commerce_user', JSON.stringify(user)); }, A.user);
-      for (const path of ['/home', '/dashboard', '/products', '/orders', '/customers']) {
-        const response = await page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 25000 });
-        ensure(response && response.status() === 200, 'bad merchant route ' + path);
-        await page.waitForTimeout(900);
-        const body = await page.locator('body').innerText();
-        ensure(body.trim().length >= 20, 'empty merchant page ' + path);
-        browserNotes.push('MERCHANT:' + path + ':chars=' + body.trim().length);
+      const allMerchantPages = [
+        '/home', '/dashboard', '/products', '/services', '/orders', '/messages',
+        '/customers', '/analytics', '/insights', '/connections', '/delivery',
+        '/notifications', '/settings', '/studio', '/editor', '/import', '/coupons',
+        '/guide', '/moderation', '/bookings', '/knowledge-studio', '/wallet',
+        '/profile', '/assistant', '/publish', '/field-visit',
+      ];
+      for (const path of allMerchantPages) {
+        await check('Chromium merchant ' + path, () => visit(path), 'browser');
       }
+      await check('Chromium mobile 390px /home and /market', async () => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await visit('/home');
+        await visit('/market');
+        await page.screenshot({ path: 'tmp/staging-browser-last-page.png', fullPage: false });
+      }, 'browser');
     }
-    await page.screenshot({ path: 'tmp/staging-browser-last-page.png', fullPage: false });
-    ensure(browserNotes.filter(x => !x.startsWith('SPA:') && !x.startsWith('MERCHANT:')).length === 0,
-      'Browser JavaScript errors: ' + browserNotes.filter(x => !x.startsWith('SPA:') && !x.startsWith('MERCHANT:')).slice(0, 3).join(' | '));
     await context.close();
-  }, 'browser');
+  }
   if (A && customerId) await check('Cleanup disposable QA customer', async () => {
     const r = await req('/api/customers/' + encodeURIComponent(customerId), { method: 'DELETE', token: A.token });
     status(r, 200, 'customer delete');
