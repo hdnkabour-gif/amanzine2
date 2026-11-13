@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-11-13T20:02:00.000Z",
+ "generatedAt": "2026-11-13T20:10:00.000Z",
  "totals": {
-  "tracked": 765,
+  "tracked": 766,
   "code": 484,
   "orphans": 3,
   "appOnly": 107,
@@ -10,7 +10,7 @@
   "deadExports": 220,
   "looseExports": 68,
   "todos": 8,
-  "lines": 92295
+  "lines": 92315
  },
  "files": [
   {
@@ -10864,8 +10864,8 @@
   },
   {
    "file": "test/audit-live-staging.mjs",
-   "lines": 257,
-   "bytes": 14826,
+   "lines": 277,
+   "bytes": 15400,
    "imports": [],
    "importers": [],
    "exports": [],
