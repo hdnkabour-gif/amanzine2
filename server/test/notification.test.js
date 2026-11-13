@@ -146,6 +146,13 @@ test('OTP: absent provider never issues a code; failed Brevo revokes it; success
     assert.equal(created, 2, 'successful delivery creates a fresh OTP');
     assert.equal(revoked, 3, 'success must not immediately revoke delivered OTP');
     assert.equal(sent[1].to, 'qa-secret@example.invalid');
+
+    const welcome = await otp.sendWelcome('qa-secret@example.invalid', '<img src=x>', '<b>Store</b>');
+    assert.deepEqual(welcome, { sent: true, method: 'brevo' });
+    assert.equal(sent[2].to, 'qa-secret@example.invalid');
+    assert.match(sent[2].html, /&lt;img src=x&gt;/, 'welcome name must be HTML-safe');
+    assert.match(sent[2].html, /&lt;b&gt;Store&lt;\/b&gt;/, 'welcome store name must be HTML-safe');
+
     assert.doesNotMatch(logs.join('\n'), /OTP for|qa-secret@example\.invalid|\b\d{6}\b/, 'never expose secret or email in diagnostic logs');
   } finally {
     mailer.available = before.available;
