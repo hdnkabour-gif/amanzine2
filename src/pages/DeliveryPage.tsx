@@ -1170,7 +1170,7 @@ export default function DeliveryPage() {
                 <div className="anim-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div style={{ padding: '12px 15px', borderRadius: 12, background: 'rgba(37,211,102,0.09)', border: '1px solid rgba(37,211,102,0.25)', fontSize: 12.5, color: 'rgba(74,222,128,0.9)', lineHeight: 1.7 }}>
                     📱 <strong>توصيل عبر واتساب</strong><br />
-                    أضف رقم واتساب شركة التوصيل. عند إنشاء طلب سيتم إرسال تفاصيله تلقائياً عبر واتساب.
+                    أضف رقم واتساب شركة التوصيل لفتح محادثة وإرسال التفاصيل يدويًا. لا يوجد إرسال آلي إلى الشركة عبر واتساب ما دام WhatsApp API غير مربوط.
                   </div>
 
                   <Input label="اسم الشركة *" value={waName} onChange={setWaName} ph="Amana / شركة التوصيل" dir="rtl" mono={false} />
