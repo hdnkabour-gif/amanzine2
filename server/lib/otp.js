@@ -20,8 +20,14 @@ async function generateOTP(email) {
 }
 
 async function sendOTP(email, storeName) {
-  const code      = await generateOTP(email);
   const transport = getTransport();
+  // OTP is a secret: never create or print one without a configured delivery channel.
+  // Missing SMTP is not a successful email delivery, even in development.
+  if (!transport) {
+    console.warn('[OTP] Email transport unavailable; no verification code issued.');
+    return { sent: false, method: 'not-configured' };
+  }
+  const code = await generateOTP(email);
 
   if (transport) {
     const from = process.env.SMTP_FROM || `"${storeName || 'AMANZINE'}" <${process.env.SMTP_USER}>`;
@@ -46,9 +52,9 @@ async function sendOTP(email, storeName) {
     }
   }
 
-  // Console fallback for dev / no SMTP
-  console.warn(`[OTP] ⚠️  No SMTP configured — OTP for ${email}: ${code}`);
-  return { sent: true, method: 'console' };
+  // A delivery failure must not leave a live, undelivered secret in the database.
+  await db.invalidateOTPs(email);
+  return { sent: false, method: 'email-error' };
 }
 
 async function sendWelcome(email, name, storeName) {
