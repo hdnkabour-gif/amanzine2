@@ -1223,7 +1223,14 @@ db.bumpVerificationAttempts = async (id) => {
 
 /** يُعلَّم صفُّ الرمز ناجحًا — الوقتُ صريحٌ كي يُميَّز النجاحُ من الإبطال. */
 db.markVerified = async (id) => {
-  await pool.query(`UPDATE otp_tokens SET used = TRUE, verified_at = NOW() WHERE id = $1`, [id]);
+  // Exactly one concurrent request can consume an OTP. A stale, expired,
+  // locked-out or already-consumed token must never be accepted on re-read.
+  const r = await pool.query(
+    `UPDATE otp_tokens SET used = TRUE, verified_at = NOW()
+     WHERE id = $1 AND used = FALSE AND expires_at > NOW()
+       AND COALESCE(attempts, 0) < 5
+     RETURNING id`, [id]);
+  return r.rowCount === 1;
 };
 
 /**
