@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-13T22:00:46.284Z",
+ "generatedAt": "2026-11-13T22:08:39.924Z",
  "totals": {
   "tracked": 784,
   "code": 484,
@@ -8399,7 +8399,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 102
+   "ageDays": 103
   },
   {
    "file": "src/lib/needEngine.ts",
@@ -10095,7 +10095,7 @@
    "logs": 0,
    "emptyCatch": 1,
    "looseExports": [],
-   "ageDays": 102
+   "ageDays": 103
   },
   {
    "file": "src/pages/NotificationsPage.tsx",
@@ -12075,7 +12075,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 102
+   "ageDays": 103
   },
   {
    "file": "test/brain/normalize.test.ts",
