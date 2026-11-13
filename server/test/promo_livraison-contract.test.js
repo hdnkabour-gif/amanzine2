@@ -178,6 +178,7 @@ test('انقطاعُ الشبكة يُعاد فشلًا موصوفًا — لا 
   try {
     const r = await pl.createShipment(ORDER, CFG);
     assert.equal(r.success, false);
+    assert.equal(r.acceptedUnconfirmed, true, 'unknown transport outcome must not trigger automatic duplicate shipment');
     assert.match(r.error, /ECONNREFUSED/);
   } finally { global.fetch = real; }
 });
@@ -292,6 +293,7 @@ test('نجاح JSON فوق HTTP 500 مرفوض — لا نثق بحقل status �
   try {
     const result = await pl.createShipment(ORDER, CFG);
     assert.equal(result.success, false);
+    assert.equal(result.acceptedUnconfirmed, true, 'contradictory success payload must not be retried');
   } finally { st.restore(); }
 });
 
