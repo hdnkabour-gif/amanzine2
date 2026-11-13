@@ -72,7 +72,7 @@ const TEMPLATES = [
   // الاسمُ هنا يجب أن يطابق `meta.name` في المزوّد حرفيًّا: الضغطةُ تبحث به
   // في سجلّ الخادم لتضبط `apiType` تلقائيًّا. اختلافُ حرفٍ يعني قالبًا يملأ
   // الحقولَ ويترك المزوّدَ فارغًا — فتُنشَأ شحنةٌ محاكاةٌ والتاجرُ يظنّها حقيقيّة.
-  { name: 'Promo Livraison', logo: '🚛', url: 'https://promo-livraison.ma', loginUrl: 'https://promo-livraison.ma/seller', addOrder: '', apiEndpoint: 'https://promo-livraison.ma/seller/api-parcels', guide: 'انسخ الرمز (Token) من لوحة البائع — الحقل «مفتاح API»' },
+  { name: 'Promo Livraison', logo: '🚛', url: 'https://promo-livraison.ma', loginUrl: 'https://promo-livraison.ma/seller/login', addOrder: '', apiEndpoint: 'https://promo-livraison.ma/seller/api-parcels', guide: 'صفحة /seller/login للدخول فقط؛ API يتطلب Token ورقم تتبع سابق لاختبار الربط' },
   { name: 'أخرى', logo: '🏢', url: '', loginUrl: '', addOrder: '', guide: 'أدخل بيانات شركتك يدوياً' },
 ];
 
@@ -702,15 +702,29 @@ export default function DeliveryPage() {
   // ── API Mode save ──────────────────────────────────────────────────────────
   const saveApi = async () => {
     // شركةٌ بمفتاح REST (مثل Livo) لا تحتاج صفحة دخولٍ ولا كلمة مرور، والعكس صحيح.
-    const hasKey  = !!(config.apiKey && config.apiEndpoint);
+    const registered = knownProviders.find(k => k.id === (config.apiType || '').toLowerCase());
+    // A registered carrier declares its own credentials and default API URL.
+    // Requiring an *editable* apiEndpoint here while hiding it for known
+    // carriers made saving a valid Promo/Livo config fail at the UI.
+    const missingRequired = (registered?.credentials || []).filter(field => {
+      if (!field.required) return false;
+      const value = config.fields?.[field.key] || (field.maps ? (config as any)[field.maps] : '') || '';
+      return !String(value).trim();
+    }).map(field => field.label);
+    const recognizedReady = !!registered && missingRequired.length === 0;
+    const hasKey = !!(config.apiKey && config.apiEndpoint);
     const hasLogin = !!(config.loginUrl && config.username && config.password);
-    if (!config.name || (!hasKey && !hasLogin)) {
-      notify('error', 'املأ الاسم، ثم إمّا (مفتاح API + نقطة النهاية) أو (رابط الدخول + المستخدم + كلمة المرور)');
+    if (!config.name || (registered ? !recognizedReady : (!hasKey && !hasLogin))) {
+      notify('error', registered
+        ? `املأ الحقول الإلزامية لشركة ${registered.name}: ${missingRequired.join('، ') || 'اسم الشركة'}`
+        : 'املأ الاسم، ثم إمّا (مفتاح API + نقطة النهاية) أو بيانات حساب الموقع.');
       return;
     }
     let saved: DeliveryProviderConfig[] = [];
     try {
       saved = await saveDeliveryProvider({
+        // Preserve row ID on edit; otherwise a second carrier is created.
+        id: config.id,
         name: config.name!, logo: config.logo || '🚚',
         enabled: true, mode: 'api',
         websiteUrl: config.websiteUrl || '', loginUrl: config.loginUrl || '',
@@ -999,6 +1013,19 @@ export default function DeliveryPage() {
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <button onClick={e => { e.stopPropagation(); testConn(p); }} disabled={testingId === p.id} className="btn btn-ghost btn-sm" style={{ gap: 5 }}>
                       <Zap size={13} /> {testingId === p.id ? 'جارٍ الفحص...' : 'اختبار'}
+                    </button>
+                    <button type="button" className="btn btn-ghost btn-sm"
+                      onClick={e => {
+                        e.stopPropagation();
+                        const match = knownProviders.find(k =>
+                          k.id === (p.apiType || '').toLowerCase() ||
+                          k.name.toLowerCase() === p.name.toLowerCase());
+                        setConfig({ ...p, apiType: p.apiType || match?.id || '', fields: { ...(p.fields || {}) } });
+                        setAddMode('api');
+                        setShowAdd(true);
+                      }}
+                      title="تعديل إعدادات الشركة دون إنشاء صف مكرر">
+                      ✏️ تعديل
                     </button>
                     <button onClick={e => { e.stopPropagation(); remove(p.id); }} className="btn btn-danger btn-sm" style={{ paddingInline: 10 }}><Trash2 size={13} /></button>
                     <button onClick={e => {
