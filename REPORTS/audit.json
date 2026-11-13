@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-13T20:13:46.183Z",
+ "generatedAt": "2026-11-13T20:20:44.296Z",
  "totals": {
   "tracked": 767,
   "code": 484,
@@ -10,7 +10,7 @@
   "deadExports": 220,
   "looseExports": 68,
   "todos": 8,
-  "lines": 92348
+  "lines": 92355
  },
  "files": [
   {
@@ -10864,14 +10864,14 @@
   },
   {
    "file": "test/audit-live-staging.mjs",
-   "lines": 310,
-   "bytes": 17606,
+   "lines": 317,
+   "bytes": 18276,
    "imports": [],
    "importers": [],
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1794600746,
+   "touched": 1794601188,
    "todos": 0,
    "anys": 0,
    "logs": 3,
