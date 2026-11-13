@@ -126,14 +126,29 @@ router.post('/create/:orderId', auth, async (req, res) => {
     // فيُنشئ الشحنةَ لدى شركةٍ غير التي اختارها التاجر.
     const preSettings = await db.getSettings(req.user.id) || {};
     const wanted = String(req.body?.provider || req.body?.providerId || '').trim().toLowerCase();
-    const prov =
-      (wanted && providers.find(p => p.id === req.body?.providerId
-                                  || String(p.name).toLowerCase() === wanted
-                                  || String(p.apiType).toLowerCase() === wanted)) ||
-      providers.find(p => p.name === preSettings.delivery?.defaultProvider) ||
-      providers[0];
+    const requestedProvider = wanted ? providers.find(p =>
+      String(p.id).toLowerCase() === wanted ||
+      String(p.name).toLowerCase() === wanted ||
+      String(p.apiType).toLowerCase() === wanted
+    ) : null;
+    // An explicit merchant choice must not fall back to a different carrier.
+    if (wanted && !requestedProvider) return res.status(400).json({
+      error: 'شركة التوصيل المختارة غير موجودة أو غير مفعّلة. لن نرسل الطلب لشركة أخرى.',
+      code: 'CARRIER_NOT_FOUND',
+    });
+    const configuredDefault = String(preSettings.delivery?.defaultProvider || '').trim().toLowerCase();
+    const defaultProvider = configuredDefault
+      ? providers.find(p => String(p.name).toLowerCase() === configuredDefault
+        || String(p.id).toLowerCase() === configuredDefault
+        || String(p.apiType).toLowerCase() === configuredDefault)
+      : null;
+    if (!wanted && configuredDefault && !defaultProvider) return res.status(400).json({
+      error: 'شركة التوصيل الافتراضية غير مفعّلة أو تغير اسمها. راجع صفحة التوصيل أولاً.',
+      code: 'DEFAULT_CARRIER_NOT_FOUND',
+    });
+    const prov = requestedProvider || defaultProvider || providers[0];
 
-    console.log(`[Delivery] Using provider: ${prov.name} (apiType: ${prov.apiType})`);
+    console.log(`[Delivery] Selected carrier plugin: ${prov.apiType || 'unresolved'}`);
 
     const settings = preSettings;
     const steps = [{
