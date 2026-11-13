@@ -405,38 +405,40 @@ router.post('/public-reply', async (req, res) => {
     const slim = p => ({ id: p.id, name: p.name, price: p.price, emoji: p.emoji || '', imageUrl: p.imageUrl || (p.images || [])[0] || '', type: p.type });
     const STATUS_AR = { pending: '⏳ بانتظار التأكيد', approved: '✅ مؤكد', processing: '⚙️ قيد التحضير', shipped: '🚚 في الطريق', delivered: '📦 تم التوصيل', cancelled: '❌ ملغي', rejected: '❌ مرفوض' };
 
-    // ── تتبع حقيقي من قاعدة البيانات: نلتقط هاتفاً أو كوداً من الرسالة ──
+    // Public assistant tracking is a protected flow. Neither a phone number
+    // nor an order ID/tracking number alone proves the caller owns the order.
+    // Only match the random customer code AND the customer's phone.
     const msgStr = String(message || '');
-    const phoneM = msgStr.match(/(?:\+?212|0)[\s.-]?[67](?:[\s.-]?\d){8}/);
-    const tokens = (msgStr.toUpperCase().match(/\b[A-Z0-9][A-Z0-9-]{5,19}\b/g) || []);
     const trackIntent = /(طلبي|طلباتي|تتبع|فين وصل|وصل الطلب|حالة الطلب|كود التتبع|tracking)/i.test(msgStr);
+    const phoneM = msgStr.match(/(?:\+?212|0)[\s.-]?[67](?:[\s.-]?\d){8}/);
+    const codes = (msgStr.toUpperCase().match(/\b[A-F0-9]{8}\b/g) || []).slice(0, 3);
     let orderContext = '';
-    if (phoneM || tokens.length) {
-      const norm = s => String(s || '').replace(/\D/g, '').slice(-9);
-      const all = await db.getOrders(userId);
-      let mine = [];
-      if (phoneM) {
-        const tail = norm(phoneM[0]);
-        if (tail.length === 9) mine = all.filter(o => norm(o.customerPhone) === tail);
+    if (trackIntent) {
+      if (!phoneM || !codes.length) {
+        return res.json({
+          reply: 'باش نحمي خصوصية الطلب ديالك، صيفط ليا بجوج: رقم الهاتف اللي طلبتي به وكود الطلب المكوّن من 8 رموز. ما نقدرش نكشف التفاصيل برقم الهاتف بوحدو.',
+          model: 'order-tracking-verification',
+        });
       }
-      if (!mine.length && tokens.length) {
-        mine = all.filter(o =>
-          tokens.includes(String(o.customerCode || '').toUpperCase()) ||
-          tokens.includes(String(o.trackingNumber || '').toUpperCase()) ||
-          tokens.includes(String(o.id || '').toUpperCase()));
+      const phoneDigits = phoneM[0].replace(/\D/g, '').slice(-9);
+      let verifiedOrder = null;
+      for (const code of codes) {
+        const candidate = await db.findOrderByCode(userId, code);
+        if (candidate && String(candidate.customerPhone || '').replace(/\D/g, '').slice(-9) === phoneDigits) {
+          verifiedOrder = candidate;
+          break;
+        }
       }
-      if (mine.length) {
-        mine = mine.slice(-3); // أحدث 3 طلبات
-        const lines = mine.map(o => `• طلب ${o.customerCode || o.id}: ${STATUS_AR[o.status] || o.status} — المجموع ${o.total} ${cur}${o.trackingNumber ? `\n  رقم التتبع: ${o.trackingNumber}` : ''}${o.deliveryProvider ? ` (${o.deliveryProvider})` : ''}`).join('\n');
-        const direct = `لقيت ${mine.length > 1 ? 'الطلبات ديالك' : 'الطلب ديالك'} ✅\n\n${lines}\n\n${mine.some(o => o.status === 'shipped') ? 'الطلب في الطريق ليك 🚚' : 'إلا حتاجيتي شي حاجة أخرى أنا هنا 😊'}`;
-        // سؤال تتبع صريح → رد مباشر ببيانات حقيقية بدون توليد
-        if (trackIntent || !hasAnyKey) return res.json({ reply: direct, model: 'order-tracking' });
-        orderContext = `\n\nطلبات هذا الزبون الحقيقية (من قاعدة البيانات الآن):\n${lines}\nإذا سأل عن طلبه أعطه هذه الحالة الحقيقية حرفياً ولا تخترع غيرها.`;
-      } else if (trackIntent) {
-        return res.json({ reply: 'ما لقيتش طلب بهاد المعلومات 😕\nتأكد من رقم الهاتف اللي درتي به الطلب (مثال: 06XXXXXXXX) أو كود التتبع اللي وصلك، وعاود صيفطو ليا.', model: 'order-tracking' });
-      }
-    } else if (trackIntent) {
-      return res.json({ reply: 'باش نتبع ليك الطلب 🚚\nصيفط ليا رقم الهاتف اللي درتي به الطلب (06... أو 07...) أو كود التتبع، ونجيب ليك الحالة الحقيقية دابا.', model: 'order-tracking' });
+      if (!verifiedOrder) return res.json({
+        reply: 'ما لقيناش طلب بهاد الكود ورقم الهاتف. تأكّد من بجوج وعاود جرّب.',
+        model: 'order-tracking-verification',
+      });
+      const safeText = 'لقيت الطلب ديالك ✅\n\n' +
+        '• الحالة: ' + (STATUS_AR[verifiedOrder.status] || verifiedOrder.status) +
+        '\n• المجموع: ' + verifiedOrder.total + ' ' + cur +
+        (verifiedOrder.trackingNumber ? '\n• رقم التتبع: ' + verifiedOrder.trackingNumber : '') +
+        (verifiedOrder.deliveryProvider ? '\n• شركة التوصيل: ' + verifiedOrder.deliveryProvider : '');
+      return res.json({ reply: safeText, model: 'order-tracking-verified' });
     }
 
     // Product search first
@@ -482,7 +484,7 @@ ${svcLines || 'لا خدمات حالياً'}
 - أنت صاحب المتجر — تكلم كأنك شخصياً تبيع للزبون
 - أعطِ السعر والتفاصيل مباشرة عند السؤال عن منتج
 - للخدمات: اشرح نمط الحجز — «استعجالية» يعني اتصال فوري بالهاتف المباشر، و«بموعد» يعني الحجز من بطاقة الخدمة في المتجر (اختيار اليوم والساعة والمكان)
-- إذا سأل الزبون عن حالة طلبه: اطلب منه رقم الهاتف الذي طلب به أو كود التتبع
+- إذا سأل الزبون عن حالة طلبه: اطلب رقم هاتف الطلب وكود الطلب معًا، ولا تكشف أي تفاصيل قبل مطابقتهما على الخادم
 - عند اقتراح منتج أو خدمة اذكر اسمه الدقيق حرفياً كما هو في القائمة
 - إذا أراد الطلب: اطلب الاسم الكامل، رقم الهاتف، المدينة، العنوان — أو وجّهه يضيف المنتج للسلة ويكمل من المتجر
 - كن إيجابياً، مقنعاً، ومشجعاً على الشراء

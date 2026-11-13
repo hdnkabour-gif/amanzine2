@@ -609,44 +609,61 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
   }
 });
 
+// Public tracking: a phone number identifies a person, it does NOT authenticate them.
+// Full order details require BOTH the random customer code and matching phone.
+// A customer code alone permits only a minimal shipment/status summary.
+const TRACK_STATUS_AR = { pending:'⏳ بانتظار التأكيد', approved:'✅ تم التأكيد', processing:'⚙️ جارٍ التحضير', shipped:'🚚 في الطريق', delivered:'📦 وصل', cancelled:'❌ ملغي' };
+function trackingPhoneMatches(order, phone) {
+  const provided = String(phone || '').replace(/\D/g, '');
+  const stored = String(order?.customerPhone || '').replace(/\D/g, '');
+  return provided.length >= 9 && stored.length >= 9 && provided.slice(-9) === stored.slice(-9);
+}
+
 router.get('/track/:phone', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   const { phone } = req.params;
-  const { userId } = req.query;
+  const userId = String(req.query.userId || '');
+  const code = String(req.query.code || '').trim();
   if (!phone || !userId) return res.status(400).json({ error: 'phone and userId required' });
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length < 9) return res.status(400).json({ error: 'أدخل رقم الهاتف كاملاً للتتبّع' });
-  const last9 = digits.slice(-9);
+  if (String(phone).replace(/\D/g, '').length < 9) return res.status(400).json({ error: 'أدخل رقم الهاتف كاملاً للتتبّع' });
+  // Do not query any orders for phone-only callers. No disclosure, even of count.
+  if (!/^[a-fA-F0-9]{8}$/.test(code)) return res.status(403).json({ error: 'للحفاظ على خصوصيتك، أدخل كود الطلب مع رقم الهاتف' });
   try {
-    // تصفيةٌ في القاعدة على الفهرس — لا تحميلَ كاملٍ ثمّ رميٌ في الذاكرة.
-    const orders = await db.findOrdersByPhone(userId, last9);
-    const STATUS_AR = { pending:'⏳ بانتظار التأكيد', approved:'✅ تم التأكيد', processing:'⚙️ جارٍ التحضير', shipped:'🚚 في الطريق', delivered:'📦 وصل', cancelled:'❌ ملغي' };
-    res.json(orders.map(o => ({
-      id: o.id, status: o.status, statusAr: STATUS_AR[o.status] || o.status,
-      total: o.total,
-      trackingNumber: o.trackingNumber, deliveryProvider: o.deliveryProvider,
-      deliveryStatus: o.deliveryStatus || '',
-      createdAt: o.createdAt, items: o.items,
-    })));
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    const order = await db.findOrderByCode(userId, code);
+    if (!order || !trackingPhoneMatches(order, phone)) return res.json([]);
+    res.json([{
+      id: order.id, status: order.status, statusAr: TRACK_STATUS_AR[order.status] || order.status,
+      total: order.total, trackingNumber: order.trackingNumber,
+      deliveryProvider: order.deliveryProvider, deliveryStatus: order.deliveryStatus || '',
+      createdAt: order.createdAt, items: order.items,
+    }]);
+  } catch (e) { res.status(500).json({ error: 'تعذّر التتبّع حالياً' }); }
 });
 
 router.get('/track-code/:code', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   const { code } = req.params;
-  const { userId } = req.query;
+  const userId = String(req.query.userId || '');
   if (!code || !userId) return res.status(400).json({ error: 'code and userId required' });
+  if (!/^[a-fA-F0-9]{8}$/.test(String(code))) return res.status(404).json({ error: 'لم نجد طلباً بهذا الكود' });
   try {
     const order = await db.findOrderByCode(userId, code);
     if (!order) return res.status(404).json({ error: 'لم نجد طلباً بهذا الكود' });
-    const STATUS_AR = { pending:'⏳ بانتظار التأكيد', approved:'✅ تم التأكيد', processing:'⚙️ جارٍ التحضير', shipped:'🚚 في الطريق', delivered:'📦 وصل', cancelled:'❌ ملغي' };
-    res.json({
-      id: order.id, status: order.status, statusAr: STATUS_AR[order.status] || order.status,
-      total: order.total, customerCode: order.customerCode,
+    const phone = String(req.query.phone || '');
+    if (phone && !trackingPhoneMatches(order, phone)) return res.status(404).json({ error: 'لم نجد طلباً بهذه المعلومات' });
+    const result = {
+      id: order.id, status: order.status,
+      statusAr: TRACK_STATUS_AR[order.status] || order.status,
       trackingNumber: order.trackingNumber, deliveryProvider: order.deliveryProvider,
-      deliveryStatus: order.deliveryStatus || '',
-      createdAt: order.createdAt, items: order.items,
-      customerName: order.customerName, city: order.city,
+      deliveryStatus: order.deliveryStatus || '', createdAt: order.createdAt,
+    };
+    // Full order contents and total only after the second factor matches.
+    if (phone) Object.assign(result, {
+      total: order.total, customerCode: order.customerCode,
+      items: order.items, customerName: order.customerName, city: order.city,
     });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: 'تعذّر التتبّع حالياً' }); }
 });
 
 // ── دفترُ أحداث الطلب ────────────────────────────────────────────────────────
