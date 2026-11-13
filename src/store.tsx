@@ -707,14 +707,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         } catch { /* العرضُ يبقى على ما هو، والرسالةُ قالت الحقيقة */ }
       }
     } else {
-      setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'shipped' as OrderStatus, trackingNumber: trk, deliveryProvider: prov } : o) }));
-      shipMsg = { type: 'info', text: `🚚 شُحن محلياً (بدون اتصال) — تتبع: ${trk}` };
-      result = { real: false, tracking: trk, provider: prov, apiError: 'بدون اتصال' };
+      // Offline UI cannot establish a real carrier shipment. Leave the order
+      // approved / processing until the backend can confirm creation.
+      shipMsg = { type: 'warning', text: '⚠️ لا يمكن إنشاء شحنة عند شركة التوصيل دون اتصال بالخادم. لم تتغيّر حالة الطلب.' };
+      result = { real: false, tracking: '', provider: prov, apiError: 'بدون اتصال بالخادم' };
     }
 
-    notify(shipMsg.type, shipMsg.text || `🚚 تم الشحن — رقم التتبع: ${trk}`);
-    try { Sounds.shipped(); } catch {}
-    log('النظام', `شحن طلب: ${id}`, trk, 'delivery', 'success');
+    notify(shipMsg.type, shipMsg.text || 'تعذّر تأكيد الشحنة');
+    if (result.real) { try { Sounds.shipped(); } catch {} }
+    log('النظام', result.real ? `شحن طلب: ${id}` : `محاولة شحن غير مؤكّدة: ${id}`,
+      result.real ? trk : (result.apiError || ''), 'delivery', result.real ? 'success' : 'warning');
     result.tracking = trk; result.provider = prov;
     return result;
   };
