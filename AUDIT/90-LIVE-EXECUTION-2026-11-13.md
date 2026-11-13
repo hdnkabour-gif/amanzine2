@@ -89,3 +89,22 @@
 - **التصحيح المطلوب للاختبار:** حفظ `sessionStorage.amanzine_splash='1'` مسبقًا؛ استعمال كوكيز HttpOnly الفعلية و`ai_commerce_user`، إكمال Onboarding داخل بيانات QA فقط، ثم التأكد من route الحالي ومحتوى خاص بكل صفحة (heading/action) لا مجرد أي نص. أي إعادة توجيه إلى /login أو بقاء Loading/Onboarding/Splash يجب أن تُسقط اختبار صفحات التاجر.
 - **التصنيف الصحيح:** 22 `PASS` و1 `FAIL` سجّلها المشغّل؛ **21 PASS موثوقًا على مستوى فحصه، 1 PASS متصفح غير كافٍ / NOT VERIFIED، و1 FAIL أمني مؤكّد**. ليست شهادة اكتمال 26 صفحة.
 - يجب حفظ هذا التصحيح للأجيال التالية: *لا تعتمد مخرجات PASS وحدها دون فحص artifact والتأكد من معنى assertion*.
+
+## التشغيل التشغيلي الموسّع — 58 PASS / 1 FAIL (المرجع النهائي الحالي)
+
+- **المصدر:** [GitHub Actions Operational Staging Audit #43500545608](https://github.com/hdnkabour-gif/amanzine2/actions/runs/43500545608)؛ SHA الاختبار `1e3b25597dd1e2f71b3a52e17ec96e8e71c95a36`.
+- **المقاس:** `58 PASS`, `1 FAIL`، والفشل الوحيد: `Public phone lookup must not disclose order line items without proof` — تسريب عناصر الطلب الهاتفي غير المصادَق في **Staging المنشور الذي لم يستلم الإصلاح بعد**.
+- **واجهة المتصفح:** Chromium شغّل صفحات `/` و`/landing` و`/market` و`/explore` و`/feed` و`/login` و`/register` و`/store/:userId`، ثم جميع **26** مسارًا داخليًا مع فحص `main.innerText` والنصوص المطلوبة للصفحات الرئيسية، بعد تجاوز Splash وإكمال Onboarding لحساب تجريبي فقط. صفحات `/moderation` و`/knowledge-studio` و`/field-visit` ظهرت للمستخدم العادي مع رسالة الصلاحية الصحيحة؛ هذا **لا** يثبت تجربة أدوات مدير المنصة الفعلية.
+- **العمليات الموثقة عبر REST:** تسجيل متجرين QA، دخول، طلب مع Idempotency، تعديل منتج وحفظه في PostgreSQL، ظهور المنتج عامًا، إضافة زبون، عزل منتج/طلب/زبون بين حسابين، حذف المنتج والزبون بعد الاختبار. بقي حسابا QA والطلب التجريبي في Staging؛ لا ترسل رسائل لأرقام QA، ولا تدفع/تشحن فعليًا.
+- **الهاتف:** 390×844 px، فحص `/home` و`/market`، سجل PASS. لا يثبت توافق أجهزة iOS وAndroid المختلفة كلها.
+- **اللقطات الأصلية**: [Artifact #14073956293](https://github.com/hdnkabour-gif/amanzine2/actions/runs/43500545608/artifacts/14073956293) ويضم `staging-audit-smoke.json` و`screens/home.png` و`screens/dashboard.png` و`screens/products.png` و`screens/orders.png` و`screens/customers.png` و`staging-browser-last-page.png`؛ **تنتهي صلاحية Artifact بعد 14 يومًا**.
+- **مدى النجاح:** 58 اختبارًا في Smoke واحد؛ ليس معناها 58 ميزة مكتملة أو اختبار كل زر، ولا اختبار الدفع والتوصيل الحقيقي ولا صلاحيات Platform Admin داخليًا. اختبار الخصوصية ما زال أحمر حتى نشر PR #11 على Staging ثم إعادة نفس التشغيل.
+
+### CI وبوابات الإصلاح — متابعة آخر تقرير
+
+- [PR #11 — أمن التتبع](https://github.com/hdnkabour-gif/amanzine2/pull/11): كود التصحيح واختبارات الانحدار جاهزة على فرع مستقل، **لم ينشر إلى Staging** عند تشغيل 58/1.
+- [PR #12 — أمان/صدق الاستعادة والشحن والمالية](https://github.com/hdnkabour-gif/amanzine2/pull/12): Draft يتطلب اختبارًا كاملًا.
+- [PR #13 — عزل أثر اختبارات التخريب عن Golden Journeys](https://github.com/hdnkabour-gif/amanzine2/pull/13): يضيف تنظيف وإعادة ترحيل قاعدة بيانات CI التجريبية فقط (مع التحقق الصارم من عنوان `127.0.0.1:5432/amz`). **المسبب المقاس لفشل J12**: بعد `npm run sabotage`، `POST /api/orders` يفشل 500 بسبب فهرس تعارض غير مطابق؛ السجل [CI #43497629733](https://github.com/hdnkabour-gif/amanzine2/actions/runs/43497629733) يثبت 11/12 رحلات ناجحة قبل هذا العطب.
+- [PR #14 — مفاتيح VAPID الدائمة](https://github.com/hdnkabour-gif/amanzine2/pull/14): يستعمل `/data/vapid.json` على Railway مع فحص ثبات المفتاح عبر عمليتي Node؛ لا تعلن CI ناجحًا قبل رؤية النتيجة.
+
+**سياسة الحفظ:** سجل PASS/FAIL وSHA والروابط هنا دائمًا؛ Artifacts على GitHub قابلة للانتهاء. إذا لزم إعادة إنشاء لقطات بعد تاريخ انتهاء صلاحيتها، لا تعِد اختبار وظائف سبق توثيقها إلا بعد تغيير SHA منشور أو حاجة للتحقق من الإصلاح.
