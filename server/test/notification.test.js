@@ -98,3 +98,46 @@ test('البريد: يُعلن تهيّؤه ولا يدّعي إرسالًا ب�
   }
   assert.ok(mailer.wrap('عنوان', 'متن').includes('عنوان'));
 });
+
+
+test('OTP transport missing: no secret issued, no OTP logged, honest failure result', async () => {
+  const otp = require('../lib/otp');
+  const { db } = require('../database');
+  const before = {
+    getTransport: mailer.getTransport,
+    createOTP: db.createOTP,
+    invalidateOTPs: db.invalidateOTPs,
+    warn: console.warn,
+    error: console.error,
+  };
+  let issued = 0;
+  let invalidated = 0;
+  const logs = [];
+  try {
+    db.createOTP = async () => { issued++; };
+    db.invalidateOTPs = async () => { invalidated++; };
+    console.warn = (...args) => logs.push(args.join(' '));
+    console.error = (...args) => logs.push(args.join(' '));
+
+    mailer.getTransport = () => null;
+    const missing = await otp.sendOTP('qa-secret@example.invalid', 'QA');
+    assert.deepEqual(missing, { sent: false, method: 'not-configured' });
+    assert.equal(issued, 0, 'must not generate/store a token with no delivery');
+    assert.equal(invalidated, 0, 'do not touch OTP records if delivery is not configured');
+    assert.ok(!logs.some(x => /six-digit|OTP for|qa-secret@example.invalid/.test(x)), 'no secret or address in no-SMTP logs');
+
+    // Failure *after* issuing a token invalidates the undelivered code.
+    mailer.getTransport = () => ({ sendMail: async () => { throw Error('QA SMTP unavailable'); } });
+    const down = await otp.sendOTP('qa-secret@example.invalid', 'QA');
+    assert.deepEqual(down, { sent: false, method: 'email-error' });
+    assert.equal(issued, 1, 'SMTP attempt should generate exactly one code');
+    assert.ok(invalidated >= 2, 'failed delivery must revoke issued OTP');
+    assert.ok(logs.every(x => !/OTP for .+: \d{6}/.test(x)), 'six-digit OTP leaked in logs');
+  } finally {
+    mailer.getTransport = before.getTransport;
+    db.createOTP = before.createOTP;
+    db.invalidateOTPs = before.invalidateOTPs;
+    console.warn = before.warn;
+    console.error = before.error;
+  }
+});
