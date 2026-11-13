@@ -88,6 +88,13 @@ jobs:
         timeout-minutes: 25
         run: npm run sabotage
 
+      # Sabotage deliberately resets and mutates the disposable DB schema.
+      # Never start E2E on the final mutated fixture: rebuild clean local CI DB.
+      - name: Restore clean disposable PostgreSQL after sabotage
+        run: |
+          node -e "const u=new URL(process.env.DATABASE_URL); if (!['127.0.0.1','localhost'].includes(u.hostname) || u.pathname !== '/amz') { console.error('Refusing reset outside ephemeral CI database'); process.exit(2); } const p=require('./server/db'); p.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public').then(()=>p.end()).catch(e=>{console.error(e.message);process.exit(1)});"
+          node server/migrate.js
+
       - name: Install Chromium for journeys
         run: npx playwright install --with-deps chromium
 
