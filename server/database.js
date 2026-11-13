@@ -771,6 +771,24 @@ const db = {
     const { rows } = await pool.query(
       'SELECT * FROM delivery_providers WHERE user_id = $1 ORDER BY name', [userId]
     );
+    // One-time, tenant-scoped legacy credential migration. Old Promo rows
+    // stored fields.token as plaintext JSONB despite api_key being encrypted.
+    // Move it into the protected column before exposing providers to UI/jobs.
+    for (const row of rows) {
+      if (String(row.api_type || '').toLowerCase() !== 'promo_livraison' ||
+          !row.fields || typeof row.fields !== 'object' ||
+          !Object.hasOwn(row.fields, 'token')) continue;
+      const fields = { ...row.fields };
+      const token = String(fields.token || '').trim();
+      delete fields.token;
+      const encryptedKey = token ? secrets.encrypt(token) : (row.api_key || '');
+      await pool.query(
+        'UPDATE delivery_providers SET api_key=$1, fields=$2 WHERE id=$3 AND user_id=$4',
+        [encryptedKey, JSON.stringify(fields), row.id, userId]
+      );
+      row.api_key = encryptedKey;
+      row.fields = fields;
+    }
     return rows.map(_mapDelivery);
   },
   async upsertDeliveryProvider(p) {
