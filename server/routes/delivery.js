@@ -102,6 +102,22 @@ router.post('/create/:orderId', auth, async (req, res) => {
     const order = await db.getOrder(req.params.orderId);
     if (!order || order.userId !== req.user.id) return res.status(404).json({ error: 'Order not found' });
 
+    // A previous submission may have succeeded at the carrier while its
+    // response omitted a reference. Never blindly submit again: duplicate
+    // COD shipments create real costs. Check carrier dashboard first.
+    if (order.deliveryStatus === 'confirmation_required') {
+      return res.status(409).json({
+        error: 'الشركة لم تؤكد إنشاء الشحنة بعد. تحقّق من لوحة الشركة قبل إعادة الإرسال لتجنب إنشاء شحنتين',
+        code: 'CARRIER_CONFIRMATION_REQUIRED',
+      });
+    }
+    if (order.providerShipmentId || order.trackingNumber) {
+      return res.status(409).json({
+        error: 'للطلب مرجع شحنة محفوظ بالفعل — لن ننشئ شحنة ثانية',
+        code: 'SHIPMENT_ALREADY_EXISTS',
+      });
+    }
+
     const providers = (await db.getDeliveryProviders(req.user.id)).filter(p => p.enabled);
     if (!providers.length) return res.status(400).json({ error: 'No delivery provider configured' });
 
@@ -159,6 +175,7 @@ router.post('/create/:orderId', auth, async (req, res) => {
       // إعادةٌ مجدوَلة ⇒ لا عملَ على التاجر الآن. كان كلُّ فشلٍ يُطالبه
       // بالإدخال اليدويّ ولو كان الانقطاعُ دقيقتَين.
       needsManual: !!out.needsManual, retryAt: out.retryAt || null,
+      acceptedUnconfirmed: !!out.acceptedUnconfirmed,
       apiError: out.apiError, openUrl, steps, manual: { copyText: manualCopy, openUrl },
     });
   } catch (e) { console.error('[delivery/create]', e.message); res.status(500).json({ error: 'Server error' }); }
@@ -471,9 +488,20 @@ router.post('/verify/:providerRowId', auth, async (req, res) => {
           : 'الشركةُ ما كتعطيش مدنها عبر API — الشحنُ كيصيفط اسم المدينة نصًّا، وهاداك هو الصحيح عندها');
     } catch { /* الخرائطُ اختياريّة */ }
 
+    // A saved API key is not evidence that the carrier accepted it. For
+    // plugins without an authentication check, at least one real read from
+    // the carrier is required; otherwise label the result UNVERIFIED.
+    const externalProof = checks.some(c => ['auth', 'data', 'tariffs'].includes(c.key) && c.ok === true);
+    if (!externalProof) {
+      add('proof', 'تأكيد الاتصال من شركة التوصيل', false,
+        'لم تُؤكّد الشركة الاعتماد بأي رد موثوق؛ نجاح حفظ الإعدادات لا يكفي لإثبات الربط');
+    }
     const failed = checks.filter(c => c.ok === false);
-    // المدنُ التي لم يفهمها المحرّك تخرج صراحةً: تُعرَض هنا لا عند أوّل شحنةٍ فاشلة.
-    res.json({ success: failed.length === 0, provider: row.name, checks, unmatched: unmatchedCities, tariffs });
+    // نجاح فحص القراءة لا يعني بعد نجاح إنشاء شحنة: ذلك يُثبت باستجابة
+    // createShipment تتضمن رقمًا صادرًا من الشركة، لا بمجرد اتصال API.
+    res.json({ success: failed.length === 0, provider: row.name,
+      verified: externalProof && failed.length === 0,
+      checks, unmatched: unmatchedCities, tariffs });
   } catch (e) {
     console.error('[delivery/verify]', e.message);
     res.status(500).json({ error: 'Server error' });
