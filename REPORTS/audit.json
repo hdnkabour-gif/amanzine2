@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-11-13T19:00:00.000Z",
+ "generatedAt": "2026-11-13T20:02:00.000Z",
  "totals": {
-  "tracked": 763,
-  "code": 483,
+  "tracked": 765,
+  "code": 484,
   "orphans": 3,
   "appOnly": 107,
-  "testOnly": 161,
+  "testOnly": 162,
   "untested": 132,
   "deadExports": 220,
   "looseExports": 68,
   "todos": 8,
-  "lines": 92038
+  "lines": 92295
  },
  "files": [
   {
@@ -10861,6 +10861,22 @@
    "logs": 0,
    "emptyCatch": 0,
    "ageDays": 97
+  },
+  {
+   "file": "test/audit-live-staging.mjs",
+   "lines": 257,
+   "bytes": 14826,
+   "imports": [],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 1794599579,
+   "todos": 0,
+   "anys": 0,
+   "logs": 3,
+   "emptyCatch": 0,
+   "ageDays": 0
   },
   {
    "file": "test/brain/actionConfidence.test.ts",
