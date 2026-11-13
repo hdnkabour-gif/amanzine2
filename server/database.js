@@ -4,6 +4,14 @@ const crypto  = require('crypto');
 const secrets = require('./lib/secrets');
 const idem    = require('./lib/idempotency');
 
+const deliveryRegistry = require('./services/delivery/registry');
+
+function mapsTokenToApiKey(apiType) {
+  return deliveryRegistry.get(apiType)?.meta.credentials?.some(field =>
+    field.key === 'token' && field.secret && field.maps === 'apiKey'
+  );
+}
+
 function uid() { return crypto.randomUUID(); }
 function now() { return new Date().toISOString(); }
 
@@ -771,9 +779,36 @@ const db = {
     const { rows } = await pool.query(
       'SELECT * FROM delivery_providers WHERE user_id = $1 ORDER BY name', [userId]
     );
+    // One-time, tenant-scoped legacy credential migration. Old Promo rows
+    // stored fields.token as plaintext JSONB despite api_key being encrypted.
+    // Move it into the protected column before exposing providers to UI/jobs.
+    for (const row of rows) {
+      if (!mapsTokenToApiKey(row.api_type) ||
+          !row.fields || typeof row.fields !== 'object' ||
+          !Object.hasOwn(row.fields, 'token')) continue;
+      const fields = { ...row.fields };
+      const token = String(fields.token || '').trim();
+      delete fields.token;
+      const encryptedKey = token ? secrets.encrypt(token) : (row.api_key || '');
+      await pool.query(
+        'UPDATE delivery_providers SET api_key=$1, fields=$2 WHERE id=$3 AND user_id=$4',
+        [encryptedKey, JSON.stringify(fields), row.id, userId]
+      );
+      row.api_key = encryptedKey;
+      row.fields = fields;
+    }
     return rows.map(_mapDelivery);
   },
   async upsertDeliveryProvider(p) {
+    // Promo's Token is mapped to the encrypted api_key column, never to
+    // plaintext JSONB fields.token. Older clients may still submit both.
+    // Do not mutate the caller's fields object.
+    if (mapsTokenToApiKey(p.apiType)) {
+      const fields = { ...(p.fields || {}) };
+      const token = String(fields.token || '').trim();
+      delete fields.token;
+      p = { ...p, fields, apiKey: token || p.apiKey || '' };
+    }
     // ملكيّةُ الصفّ تُفحص دائمًا: بدون قيد user_id كان أيُّ تاجرٍ يستطيع تمرير
     // مُعرِّف صفِّ تاجرٍ آخر فيعيد كتابة api_endpoint/webhook_url عنده ويحوّل
     // طلباته إلى خادمه. الفحصُ هنا وفي جملة UPDATE معًا — لا في أحدهما.

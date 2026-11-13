@@ -72,7 +72,7 @@ const TEMPLATES = [
   // الاسمُ هنا يجب أن يطابق `meta.name` في المزوّد حرفيًّا: الضغطةُ تبحث به
   // في سجلّ الخادم لتضبط `apiType` تلقائيًّا. اختلافُ حرفٍ يعني قالبًا يملأ
   // الحقولَ ويترك المزوّدَ فارغًا — فتُنشَأ شحنةٌ محاكاةٌ والتاجرُ يظنّها حقيقيّة.
-  { name: 'Promo Livraison', logo: '🚛', url: 'https://promo-livraison.ma', loginUrl: 'https://promo-livraison.ma/seller', addOrder: '', apiEndpoint: 'https://promo-livraison.ma/seller/api-parcels', guide: 'انسخ الرمز (Token) من لوحة البائع — الحقل «مفتاح API»' },
+  { name: 'Promo Livraison', logo: '🚛', url: 'https://promo-livraison.ma', loginUrl: 'https://promo-livraison.ma/seller/login', addOrder: '', apiEndpoint: 'https://promo-livraison.ma/seller/api-parcels', guide: 'صفحة /seller/login للدخول فقط؛ API يتطلب Token ورقم تتبع سابق لاختبار الربط' },
   { name: 'أخرى', logo: '🏢', url: '', loginUrl: '', addOrder: '', guide: 'أدخل بيانات شركتك يدوياً' },
 ];
 
@@ -702,15 +702,29 @@ export default function DeliveryPage() {
   // ── API Mode save ──────────────────────────────────────────────────────────
   const saveApi = async () => {
     // شركةٌ بمفتاح REST (مثل Livo) لا تحتاج صفحة دخولٍ ولا كلمة مرور، والعكس صحيح.
-    const hasKey  = !!(config.apiKey && config.apiEndpoint);
+    const registered = knownProviders.find(k => k.id === (config.apiType || '').toLowerCase());
+    // A registered carrier declares its own credentials and default API URL.
+    // Requiring an *editable* apiEndpoint here while hiding it for known
+    // carriers made saving a valid Promo/Livo config fail at the UI.
+    const missingRequired = (registered?.credentials || []).filter(field => {
+      if (!field.required) return false;
+      const value = config.fields?.[field.key] || (field.maps ? (config as any)[field.maps] : '') || '';
+      return !String(value).trim();
+    }).map(field => field.label);
+    const recognizedReady = !!registered && missingRequired.length === 0;
+    const hasKey = !!(config.apiKey && config.apiEndpoint);
     const hasLogin = !!(config.loginUrl && config.username && config.password);
-    if (!config.name || (!hasKey && !hasLogin)) {
-      notify('error', 'املأ الاسم، ثم إمّا (مفتاح API + نقطة النهاية) أو (رابط الدخول + المستخدم + كلمة المرور)');
+    if (!config.name || (registered ? !recognizedReady : (!hasKey && !hasLogin))) {
+      notify('error', registered
+        ? `املأ الحقول الإلزامية لشركة ${registered.name}: ${missingRequired.join('، ') || 'اسم الشركة'}`
+        : 'املأ الاسم، ثم إمّا (مفتاح API + نقطة النهاية) أو بيانات حساب الموقع.');
       return;
     }
     let saved: DeliveryProviderConfig[] = [];
     try {
       saved = await saveDeliveryProvider({
+        // Preserve row ID on edit; otherwise a second carrier is created.
+        id: config.id,
         name: config.name!, logo: config.logo || '🚚',
         enabled: true, mode: 'api',
         websiteUrl: config.websiteUrl || '', loginUrl: config.loginUrl || '',
@@ -798,7 +812,7 @@ export default function DeliveryPage() {
       return;
     }
     updateSettings('delivery', { ...settings.delivery, defaultProvider: co.name });
-    notify('success', `تم إضافة ${co.name}`);
+    notify('warning', `تم حفظ ${co.name} للمساعدة اليدوية فقط. تسجيل دخول لوحة الشركة لا يفعّل إرسال الشحنات عبر API. للربط الآلي أضف Token في تبويب «متقدم».`);
     setShowAdd(false);
     setSimpleCompany(null); setSimpleCreds({ username: '', password: '' }); setSimpleCustomUrl({ url: '', loginUrl: '' });
   };
@@ -852,8 +866,11 @@ export default function DeliveryPage() {
       setVerdict(v => ({ ...v, [prov.id]: { success: r.success, checks: r.checks || [], unmatched: r.unmatched || [] } }));
       setSelected(prov.id);
       const failed = (r.checks || []).filter(c => c.ok === false);
+      const reason = failed.map(c => c.detail || c.label).join(' · ').slice(0, 350);
       notify(r.success ? 'success' : 'warning',
-        r.success ? `✅ ${prov.name}: الربط سليم` : `⚠️ ${prov.name}: ${failed.map(c => c.label).join(' · ') || 'بعض الفحوص لم تنجح'}`);
+        r.success
+          ? `✅ ${prov.name}: تم التحقق من الاتصال؛ إرسال شحنة فعلية يحتاج تأكيدًا مستقلًا`
+          : `⚠️ ${prov.name}: ${reason || 'لم تؤكّد الشركة صلاحية الربط'}`);
       // المزوّدُ قد يكون عُرِّف تلقائيًّا أثناء التحقّق ⇒ نُحدّث القائمة.
       if ((r.checks || []).some(c => c.key === 'adopted')) refreshProviders?.();
     } catch (e: any) {
@@ -925,7 +942,7 @@ export default function DeliveryPage() {
         <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.9 }}>
           <b style={{ color: 'var(--ink1)' }}>إضافة الشركة هنا تحفظ بياناتها فقط — لا تُنشئ أي شحنة.</b> الشحنة تُنشأ عند ضغط «شحن» على طلب في صفحة الطلبات، وحينها يخبرك النظام بصدق بإحدى حالتين:<br/>
           <span style={{ color: '#34d399', fontWeight: 700 }}>✅ شحنة حقيقية</span> — فقط إذا هيأتَ للشركة: مفتاح API (أمانة/جيبلي/Livo) أو رابط Webhook أو وصفة أتمتة URL. عندها يُرسل الطلب فعلياً لنظام الشركة ويعود رقم تتبع حقيقي منها.<br/>
-          <span style={{ color: '#fbbf24', fontWeight: 700 }}>⚠️ محاكاة</span> — إذا أضفت الشركة بالاسم والرابط فقط (بدون API). يُولَّد رقم تتبع داخلي للتنظيم، <b>وعليك إدخال الطلب يدوياً في موقع الشركة</b>. ستصلك رسالة تحذير صريحة بذلك مع سبب عدم الإرسال.<br/>
+          <span style={{ color: '#fbbf24', fontWeight: 700 }}>⚠️ لم تُنشأ شحنة مؤكّدة</span> — حفظ اسم الشركة ورابطها فقط لا يربطها آليًا؛ بلا API صالح يلزم الإدخال اليدوي. وإذا قبل رابط Webhook الطلب دون رقم شحنة، يجب مراجعة لوحة الشركة قبل إعادة الإرسال، حتى لا تُنشأ شحنتان. <b>لا نصنع رقم تتبع داخليًا وندّعي أنه من شركة التوصيل.</b><br/>
           والسجل أدناه يعرض تاريخ كل شحنة وما حدث فيها بالضبط.
         </div>
       </div>
@@ -997,6 +1014,19 @@ export default function DeliveryPage() {
                     <button onClick={e => { e.stopPropagation(); testConn(p); }} disabled={testingId === p.id} className="btn btn-ghost btn-sm" style={{ gap: 5 }}>
                       <Zap size={13} /> {testingId === p.id ? 'جارٍ الفحص...' : 'اختبار'}
                     </button>
+                    <button type="button" className="btn btn-ghost btn-sm"
+                      onClick={e => {
+                        e.stopPropagation();
+                        const match = knownProviders.find(k =>
+                          k.id === (p.apiType || '').toLowerCase() ||
+                          k.name.toLowerCase() === p.name.toLowerCase());
+                        setConfig({ ...p, apiType: p.apiType || match?.id || '', fields: { ...(p.fields || {}) } });
+                        setAddMode('api');
+                        setShowAdd(true);
+                      }}
+                      title="تعديل إعدادات الشركة دون إنشاء صف مكرر">
+                      ✏️ تعديل
+                    </button>
                     <button onClick={e => { e.stopPropagation(); remove(p.id); }} className="btn btn-danger btn-sm" style={{ paddingInline: 10 }}><Trash2 size={13} /></button>
                     <button onClick={e => {
                       e.stopPropagation();
@@ -1011,7 +1041,7 @@ export default function DeliveryPage() {
 
                 {selected === p.id && (
                   <div className="anim-fade-in" style={{ borderTop: '1px solid var(--clr-border)', padding: '14px 18px' }}>
-                    {/* نتيجةُ «اختبار» — كلُّ سطرٍ فحصٌ نُفِّذ فعلًا على الشركة */}
+                    {/* نتيجةُ «اختبار» — لا تعني أن الشحنة ظهرت لدى الشركة حتى نحصل على رقم مرجعي منها. */}
                     {verdict[p.id] && (
                       <div style={{ marginBottom: 12, padding: 11, borderRadius: 10,
                         background: verdict[p.id].success ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.1)',
@@ -1096,7 +1126,7 @@ export default function DeliveryPage() {
               {/* ── Top mode tabs ─────────────────────────────────────────────────── */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                 {[
-                  { key: 'simple',    icon: '🏢', label: 'شركة معروفة',  desc: 'بريد + كلمة مرور فقط' },
+                  { key: 'simple',    icon: '🏢', label: 'شركة معروفة',  desc: 'حفظ بيانات الحساب (ليس API)' },
                   { key: 'whatsapp',  icon: '📱', label: 'واتساب',        desc: 'أرسل الطلب بواتساب' },
                   { key: 'api',       icon: '⚙️', label: 'متقدم',          desc: 'API أو موقع مخصص' },
                 ].map(m => {
@@ -1137,7 +1167,7 @@ export default function DeliveryPage() {
                       {simpleCompany !== 'أخرى' ? (
                         <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.22)', fontSize: 12.5, color: 'rgba(52,211,153,0.9)', display: 'flex', gap: 8, alignItems: 'center' }}>
                           <CheckCircle size={14} />
-                          <span>جميع روابط <strong>{simpleCompany}</strong> جاهزة — أدخل فقط بيانات حسابك التجاري</span>
+                          <span>روابط <strong>{simpleCompany}</strong> جاهزة للحفظ والمساعدة اليدوية فقط. إنشاء شحنة في لوحة الشركة تلقائيًا يتطلب API Token صالحًا من قسم «متقدم»؛ كلمة المرور وحدها لا تكفي.</span>
                         </div>
                       ) : (
                         <>
@@ -1167,7 +1197,7 @@ export default function DeliveryPage() {
                 <div className="anim-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div style={{ padding: '12px 15px', borderRadius: 12, background: 'rgba(37,211,102,0.09)', border: '1px solid rgba(37,211,102,0.25)', fontSize: 12.5, color: 'rgba(74,222,128,0.9)', lineHeight: 1.7 }}>
                     📱 <strong>توصيل عبر واتساب</strong><br />
-                    أضف رقم واتساب شركة التوصيل. عند إنشاء طلب سيتم إرسال تفاصيله تلقائياً عبر واتساب.
+                    أضف رقم واتساب شركة التوصيل لفتح محادثة وإرسال التفاصيل يدويًا. لا يوجد إرسال آلي إلى الشركة عبر واتساب ما دام WhatsApp API غير مربوط.
                   </div>
 
                   <Input label="اسم الشركة *" value={waName} onChange={setWaName} ph="Amana / شركة التوصيل" dir="rtl" mono={false} />

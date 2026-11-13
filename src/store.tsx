@@ -47,6 +47,8 @@ export interface ShipResult {
   retryAt?: string | null;
   /** هل يلزم إدخالٌ يدويّ؟ فشلٌ دائمٌ وحدَه يوجبه. */
   needsManual?: boolean;
+  /** Webhook accepted transport but did not confirm a carrier shipment reference. */
+  acceptedUnconfirmed?: boolean;
 }
 
 interface StoreValue {
@@ -658,15 +660,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       } else {
         // الخطوة 1: محاولة إنشاء شحنة فعلية لدى شركة التوصيل (API/Webhook)
         try {
-          const d = await api.deliveryAPI.create(id);
+          // Honor the merchant's chosen carrier instead of silently sending
+          // to the backend default / first enabled carrier.
+          const d = await api.deliveryAPI.create(id, provider ? { provider } : undefined);
           if (d?.tracking) trk = d.tracking;
           if (d?.provider) prov = d.provider;
           result = { real: !!d?.real, tracking: trk, provider: prov, via: d?.via,
             apiError: d?.apiError, openUrl: d?.openUrl || d?.manual?.openUrl,
             steps: d?.steps, manualCopy: d?.manual?.copyText,
-            retryAt: d?.retryAt || null, needsManual: !!d?.needsManual };
+            retryAt: d?.retryAt || null, needsManual: !!d?.needsManual,
+            acceptedUnconfirmed: !!d?.acceptedUnconfirmed };
           if (d?.real) {
             shipMsg = { type: 'success', text: `🚚 شُحن الطلب — ✅ شحنة حقيقية لدى ${prov} (تتبع: ${trk})` };
+          } else if (d?.acceptedUnconfirmed) {
+            shipMsg = { type: 'warning', text: `⚠️ ${prov} استجابت لكن لم تؤكد رقم شحنة. تحقق من لوحة الشركة قبل إعادة الإرسال لتجنب التكرار؛ لا تنشئ طلبًا ثانيًا الآن.` };
           } else if (d?.retryAt) {
             const at = new Date(d.retryAt).toLocaleTimeString('ar-MA', { hour: '2-digit', minute: '2-digit' });
             shipMsg = { type: 'info', text: `🔁 ${prov} ما جاوباتش دابا — غانعاودو بوحدنا على ${at}. ما تدير والو.` };
@@ -674,12 +681,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             shipMsg = { type: 'warning', text: `⚠️ لم يُرسَل الطلبُ لـ${prov} — سجّله في موقع الشركة وألصق رقمَ التتبّع هنا${d?.apiError ? ` · السبب: ${d.apiError}` : ''}` };
           }
         } catch (e: any) {
-          // لا شركة مهيأة أو فشل المسار — نكمل الشحن برقم داخلي مع توضيح
+          // فشل طلب الربط؛ لا نُنشئ رقم تتبع داخليًا ولا نُعلن شحنًا.
           const noProv = /provider/i.test(e?.message || '');
           result = { real: false, tracking: trk, provider: prov,
             apiError: noProv ? 'لا توجد شركة توصيل مفعّلة' : (e?.message || 'تعذر الاتصال'),
             steps: [{ label: 'إنشاء شحنة لدى شركة التوصيل', ok: false, error: noProv ? 'لا توجد شركة توصيل مفعّلة — أضف واحدة من صفحة التوصيل' : (e?.message || '') }] };
-          shipMsg = { type: 'info', text: `🚚 شُحن الطلب برقم تتبع داخلي ${trk} — ${noProv ? 'لا توجد شركة توصيل مفعّلة (أضف واحدة من صفحة التوصيل)' : `تعذر إنشاء الشحنة لدى الشركة: ${e?.message || ''}`}` };
+          shipMsg = { type: 'warning', text: `⚠️ لم تُنشأ شحنة مؤكدة لدى ${prov || 'شركة توصيل'}. ${noProv ? 'أضف شركة مفعّلة من صفحة التوصيل' : `سبب الخطأ: ${e?.message || 'تعذّر الاتصال'}`}` };
         }
       }
       // ── الخطوة ٢: «مشحون» تُقال حين يُشحَن ─────────────────────
@@ -702,14 +709,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         } catch { /* العرضُ يبقى على ما هو، والرسالةُ قالت الحقيقة */ }
       }
     } else {
-      setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'shipped' as OrderStatus, trackingNumber: trk, deliveryProvider: prov } : o) }));
-      shipMsg = { type: 'info', text: `🚚 شُحن محلياً (بدون اتصال) — تتبع: ${trk}` };
-      result = { real: false, tracking: trk, provider: prov, apiError: 'بدون اتصال' };
+      // Offline UI cannot establish a real carrier shipment. Leave the order
+      // approved / processing until the backend can confirm creation.
+      shipMsg = { type: 'warning', text: '⚠️ لا يمكن إنشاء شحنة عند شركة التوصيل دون اتصال بالخادم. لم تتغيّر حالة الطلب.' };
+      result = { real: false, tracking: '', provider: prov, apiError: 'بدون اتصال بالخادم' };
     }
 
-    notify(shipMsg.type, shipMsg.text || `🚚 تم الشحن — رقم التتبع: ${trk}`);
-    try { Sounds.shipped(); } catch {}
-    log('النظام', `شحن طلب: ${id}`, trk, 'delivery', 'success');
+    notify(shipMsg.type, shipMsg.text || 'تعذّر تأكيد الشحنة');
+    if (result.real) { try { Sounds.shipped(); } catch {} }
+    log('النظام', result.real ? `شحن طلب: ${id}` : `محاولة شحن غير مؤكّدة: ${id}`,
+      result.real ? trk : (result.apiError || ''), 'delivery', result.real ? 'success' : 'warning');
     result.tracking = trk; result.provider = prov;
     return result;
   };

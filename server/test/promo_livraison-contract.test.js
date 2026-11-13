@@ -106,7 +106,8 @@ test('نجاحٌ بلا رقم تتبّعٍ يُرفَض — «تمّ» بلا �
   try {
     const r = await pl.createShipment(ORDER, CFG);
     assert.equal(r.success, false);
-    assert.match(r.error, /رقمَ تتبّع/);
+    assert.equal(r.acceptedUnconfirmed, true, 'avoid blindly resubmitting a possibly created parcel');
+    assert.match(r.error, /رقم تتبع/);
   } finally { s.restore(); }
 });
 
@@ -177,24 +178,19 @@ test('انقطاعُ الشبكة يُعاد فشلًا موصوفًا — لا 
   try {
     const r = await pl.createShipment(ORDER, CFG);
     assert.equal(r.success, false);
+    assert.equal(r.acceptedUnconfirmed, true, 'unknown transport outcome must not trigger automatic duplicate shipment');
     assert.match(r.error, /ECONNREFUSED/);
   } finally { global.fetch = real; }
 });
 
-test('مُعرِّفُ البائع يُرسَل إن مُلئ — ويُحذَف إن تُرك فارغًا', async () => {
-  // حقلٌ اختياريٌّ لا يُرسَل فارغًا: بعضُ الواجهات ترفض المفتاحَ الفارغَ
-  // بدل تجاهله، فيصير حقلٌ لم يملأه التاجرُ سببَ رفضٍ لا يفهمه.
-  let s = stub({ status: 200, msg: 'ok', tracking: 'T1' });
+test('معرّف البائع ليس في عقد API المقدم — لا نضيف seller_id غير موثق', async () => {
+  const st = stub({ status: 200, msg: 'ok', tracking: 'T1' });
   try {
     await pl.createShipment(ORDER, { ...CFG, fields: { sellerId: 'S-42' } });
-    assert.equal(parse(s.calls[0].body).seller_id, 'S-42');
-  } finally { s.restore(); }
-
-  s = stub({ status: 200, msg: 'ok', tracking: 'T1' });
-  try {
-    await pl.createShipment(ORDER, CFG);
-    assert.equal('seller_id' in parse(s.calls[0].body), false);
-  } finally { s.restore(); }
+    const payload = parse(st.calls[0].body);
+    assert.equal('seller_id' in payload, false);
+    assert.equal(payload.token, CFG.apiKey);
+  } finally { st.restore(); }
 });
 
 test('الرمزُ يُقرأ من الحقيبة كما يُقرأ من العمود القديم', async () => {
@@ -215,4 +211,122 @@ test('المزوّدُ يطابق العقدَ ويُسجَّل تلقائيًّ
   assert.equal(found.meta.name, 'Promo Livraison');
   // الاستدلالُ بالنطاق: صفٌّ قديمٌ بلا api_type يُعرَف من رابطه.
   assert.equal(registry.suggest({ apiEndpoint: 'https://promo-livraison.ma/seller/api-parcels' }), 'promo_livraison');
+});
+
+
+test('مُسبار Promo برمز عشوائي ليس دليل اتصال — نحتاج شحنة موجودة فعلاً', async () => {
+  const real = global.fetch;
+  global.fetch = async () => { throw Error('must not contact Promo without a known shipment'); };
+  try {
+    const r = await pl.testConnection(CFG);
+    assert.equal(r.success, false);
+    assert.equal(r.inconclusive, true);
+    assert.match(r.error, /رقم تتبع موجود/);
+  } finally { global.fetch = real; }
+});
+
+test('Promo: رد HTTP 200 بخطأ Token لا يعني قبول الاعتماد', async () => {
+  const s = stub({ status: 401, msg: 'Token invalide ou expiré' }, 200);
+  try {
+    const r = await pl.testConnection({ ...CFG, fields: { testTracking: 'DZ-DEMO-000123' } });
+    assert.equal(r.success, false);
+    assert.match(r.error, /Token invalide/);
+    const sent = parse(s.calls[0].body);
+    assert.equal(sent.action, 'track');
+    assert.equal(sent.tracking, 'DZ-DEMO-000123');
+  } finally { s.restore(); }
+});
+
+test('Promo: HTTP 404 / JSON غير معروف ليس إثباتاً لملكية الحساب', async () => {
+  const s = stub({ status: 404, msg: 'Not found' }, 404);
+  try {
+    const r = await pl.testConnection({ ...CFG, fields: { testTracking: 'DZ-DEMO-000123' } });
+    assert.equal(r.success, false);
+  } finally { s.restore(); }
+});
+
+test('Promo: رقم تتبع موجود ومعه تاريخ مطابق يُثبت القراءة فقط بلا إنشاء شحنة', async () => {
+  const s = stub({ status: true, tracking: 'DZ-DEMO-000123',
+    msg: [{ code: 'DZ-DEMO-000123', status: 'Livré', etat: 'Payé' }] });
+  try {
+    const cfg = { ...CFG, fields: { testTracking: 'DZ-DEMO-000123' } };
+    const r = await pl.testConnection(cfg);
+    assert.equal(r.success, true);
+    assert.equal(s.calls.length, 1);
+    const sent = parse(s.calls[0].body);
+    assert.equal(sent.action, 'track');
+    assert.equal(sent.tracking, 'DZ-DEMO-000123');
+    assert.equal(sent.name, undefined, 'test must never create a parcel');
+  } finally { s.restore(); }
+});
+
+test('Promo: تتبع مختلف عن المطلوب لا يُثبت الربط', async () => {
+  const s = stub({ status: true, tracking: 'SOMEONE-ELSE',
+    msg: [{ code: 'SOMEONE-ELSE', status: 'Livré' }] });
+  try {
+    const r = await pl.testConnection({ ...CFG, fields: { testTracking: 'DZ-DEMO-000123' } });
+    assert.equal(r.success, false);
+    assert.equal(r.inconclusive, true);
+  } finally { s.restore(); }
+});
+
+test('Promo: لا يُرسل Token إلى نموذج الدخول أو نطاق خارجي أو HTTP', async () => {
+  for (const endpoint of [
+    'https://promo-livraison.ma/seller/login',
+    'https://attacker.example.invalid/collect',
+    'http://promo-livraison.ma/seller/api-parcels',
+    'https://notpromo-livraison.ma/seller/api-parcels',
+  ]) {
+    const orig = global.fetch;
+    global.fetch = async () => { throw Error('should be rejected before any fetch'); };
+    try {
+      const result = await pl.createShipment(ORDER, { ...CFG, apiEndpoint: endpoint });
+      assert.equal(result.success, false, endpoint);
+      assert.match(result.error, /API|HTTPS|رابط/, endpoint);
+    } finally { global.fetch = orig; }
+  }
+});
+
+
+test('نجاح JSON فوق HTTP 500 مرفوض — لا نثق بحقل status وحده', async () => {
+  const st = stub({ status: 200, msg: 'Commande ajoutée avec succès', tracking: 'DZ-NO' }, 500);
+  try {
+    const result = await pl.createShipment(ORDER, CFG);
+    assert.equal(result.success, false);
+    assert.equal(result.acceptedUnconfirmed, true, 'contradictory success payload must not be retried');
+  } finally { st.restore(); }
+});
+
+test('حالة تتبع status=false بلا معلومات ليست دليلًا على مفتاح فاسد', async () => {
+  const st = stub({ status: false, msg: 'Aucune information trouvée pour ce code' }, 200);
+  try {
+    const result = await pl.trackShipment('DZ-NO-SUCH', CFG);
+    assert.equal(result.success, false);
+    assert.match(result.error, /Aucune information/);
+  } finally { st.restore(); }
+});
+
+
+test('Promo HTTP 200 بجسم HTML بدل JSON: نتيجة غير مؤكّدة لا إعادة تلقائية', async () => {
+  const original = global.fetch;
+  global.fetch = async () => ({
+    ok: true, status: 200,
+    json: async () => { throw new SyntaxError('Unexpected token < in JSON'); },
+  });
+  try {
+    const out = await pl.createShipment(ORDER, CFG);
+    assert.equal(out.success, false);
+    assert.equal(out.acceptedUnconfirmed, true);
+    assert.match(out.error, /لوحة البائع/);
+  } finally { global.fetch = original; }
+});
+
+test('Promo رفض Token الموثق 401 ليس نجاحًا ولا حالة شحن مؤكدة', async () => {
+  const st = stub({ status: 401, msg: 'Token invalide ou expiré' }, 200);
+  try {
+    const out = await pl.createShipment(ORDER, CFG);
+    assert.equal(out.success, false);
+    assert.notEqual(out.acceptedUnconfirmed, true);
+    assert.match(out.error, /Token invalide/);
+  } finally { st.restore(); }
 });

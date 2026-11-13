@@ -91,8 +91,33 @@ async function runShipment({ userId, order, prov, settings, attempts = 0 }) {
         },
         prov
       );
-      if (result.success) {
-        const realTracking = result.trackingNumber || result.shipmentId || '';
+      const realTracking = String(result?.trackingNumber || result?.shipmentId || '').trim();
+      if (result?.acceptedUnconfirmed || (result?.success === true && !realTracking)) {
+        // A carrier or generic webhook may accept the HTTP request without
+        // creating a shipment. Never fabricate a reference, mark it shipped,
+        // or automatically retry: doing so could create a duplicate shipment.
+        const reason = result?.error ||
+          'وصل طلب الربط لكن لم يرجع رقم شحنة من الشركة؛ تحقّق من لوحتها قبل أي محاولة جديدة';
+        steps.push({ label: 'إرسال غير مؤكّد لدى شركة التوصيل', ok: false, error: reason });
+        await db.updateOrder(order.id, {
+          status: 'processing', deliveryProvider: prov.name,
+          deliveryStatus: 'confirmation_required', deliveryRetryAt: null,
+          trackingNumber: '',
+        });
+        await db.addLog({
+          userId, user: 'System',
+          action: `⚠️ الشحنة تحتاج تأكيد الشركة: ${order.id}`,
+          details: `${prov.name} — ${reason}`,
+          type: 'delivery', severity: 'warning',
+        });
+        await db.addNotification({
+          userId, type: 'warning',
+          message: `⚠️ طلب ${order.id}: الشركة لم ترجع رقم شحنة — تحقق من لوحتها قبل إعادة الإرسال لتجنب التكرار`,
+        });
+        return { real: false, tracking: '', steps, acceptedUnconfirmed: true,
+          needsManual: false, apiError: reason };
+      }
+      if (result?.success === true && realTracking) {
         steps.push({ label, ok: true, detail: plugin.meta.id });
         steps.push({ label: 'استلام رقم التتبع من الشركة', ok: true, detail: realTracking });
         await db.updateOrder(order.id, {
