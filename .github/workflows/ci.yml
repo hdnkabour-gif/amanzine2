@@ -88,11 +88,27 @@ jobs:
         timeout-minutes: 25
         run: npm run sabotage
 
-      # Sabotage deliberately resets and mutates the disposable DB schema.
-      # Never start E2E on the final mutated fixture: rebuild clean local CI DB.
-      - name: Restore clean disposable PostgreSQL after sabotage
+      # Sabotage intentionally drops/rebuilds public schema many times; its final
+      # mutation leaves PostgreSQL in a broken schema for the next E2E step.
+      # Reset ONLY the disposable GitHub CI database, never Railway.
+      - name: Restore fresh disposable PostgreSQL after sabotage
         run: |
-          node -e "const u=new URL(process.env.DATABASE_URL); if (!['127.0.0.1','localhost'].includes(u.hostname) || u.pathname !== '/amz') { console.error('Refusing reset outside ephemeral CI database'); process.exit(2); } const p=require('./server/db'); p.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public').then(()=>p.end()).catch(e=>{console.error(e.message);process.exit(1)});"
+          node - <<'NODE'
+          const pool = require('./server/db');
+          (async () => {
+            const uri = new URL(process.env.DATABASE_URL || '');
+            const allowed = process.env.GITHUB_ACTIONS === 'true'
+              && uri.protocol === 'postgresql:'
+              && uri.hostname === '127.0.0.1'
+              && uri.port === '5432'
+              && uri.username === 'amz'
+              && uri.pathname === '/amz';
+            if (!allowed) throw new Error('REFUSED: reset is allowed only on the CI disposable PostgreSQL');
+            await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public');
+            await pool.end();
+            console.log('CI sandbox schema reset to empty baseline');
+          })().catch(e => { console.error(e.message); process.exitCode = 1; });
+          NODE
           node server/migrate.js
 
       - name: Install Chromium for journeys
