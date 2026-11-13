@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-13T21:55:08.381Z",
+ "generatedAt": "2026-11-13T21:58:56.017Z",
  "totals": {
   "tracked": 775,
   "code": 484,
@@ -1015,7 +1015,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 102
+   "ageDays": 103
   },
   {
    "file": "server/lib/engines/presentation.js",
@@ -2167,7 +2167,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 102
+   "ageDays": 103
   },
   {
    "file": "server/routes/media.js",
@@ -3190,7 +3190,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 102
+   "ageDays": 103
   },
   {
    "file": "server/test/memory-sync.test.js",
@@ -3424,7 +3424,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 102
+   "ageDays": 103
   },
   {
    "file": "server/test/phase1-delivery-secret.test.js",
@@ -3999,7 +3999,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 102
+   "ageDays": 103
   },
   {
    "file": "src/components/CityPicker.tsx",
@@ -4540,7 +4540,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 102
+   "ageDays": 103
   },
   {
    "file": "src/components/MapView.tsx",
@@ -4639,7 +4639,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 102
+   "ageDays": 103
   },
   {
    "file": "src/components/MySpaceSections.tsx",
@@ -9208,7 +9208,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 102
+   "ageDays": 103
   },
   {
    "file": "src/pages/DashboardPage.tsx",
@@ -10228,7 +10228,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 102
+   "ageDays": 103
   },
   {
    "file": "src/pages/SettingsPage.tsx",
