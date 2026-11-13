@@ -81,7 +81,84 @@ import { useState, useEffect } from 'react';
 import React from 'react';
 import { useStore } from '../store';
 import { Search, ChevronDown, ChevronUp, CheckCircle, XCircle, Package, AlertTriangle, Bot, Loader2, ExternalLink } from 'lucide-react';
-import { deliveryAutoAPI, type AutoShipResult } from '../services/api';
+import { deliveryAutoAPI, ordersAPI, type AutoShipResult, type OrderTimelineResponse } from '../services/api';
+
+// Existing server-side order_events ledger was not reachable from the merchant UI.
+// Read-only by design: no invented events, and no client-side mutation of audit history.
+function OrderTimelinePanel({ orderId, currency }: { orderId: string; currency: string }) {
+  const [revision, setRevision] = useState(0);
+  const [state, setState] = useState<{
+    loading: boolean; data?: OrderTimelineResponse; error?: string;
+  }>({ loading: true });
+
+  useEffect(() => {
+    let current = true;
+    setState({ loading: true });
+    ordersAPI.timeline(orderId)
+      .then(data => { if (current) setState({ loading: false, data }); })
+      .catch(err => { if (current) setState({
+        loading: false, error: err?.message || 'تعذّر قراءة سجل الطلب',
+      }); });
+    return () => { current = false; };
+  }, [orderId, revision]);
+
+  const panel = {
+    padding: 14, borderRadius: 12, background: 'var(--panel2)',
+    border: '1px solid var(--border)', display: 'flex',
+    flexDirection: 'column' as const, gap: 9,
+  };
+  return (
+    <section aria-label="سجل أحداث الطلب" style={panel}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <span style={{ fontWeight: 900, color: 'var(--ink1)', fontSize: 13 }}>🧾 سجل أحداث الطلب الحقيقي</span>
+        <button className="btn btn-ghost btn-xs" type="button" disabled={state.loading}
+          onClick={() => setRevision(n => n + 1)}>تحديث</button>
+      </div>
+      {state.loading && <div style={{ color: 'var(--ink3)', fontSize: 12 }} role="status">جاري تحميل أحداث الطلب…</div>}
+      {state.error && <div role="alert" style={{ color: '#f87171', fontSize: 12 }}>
+        {state.error} — حاول تحديث السجل.</div>}
+      {state.data && (
+        <>
+          <div style={{ color: 'var(--ink1)', fontSize: 12.5 }}>
+            المبلغ الواجب حسب الدفتر: <strong>{Number(state.data.facts.amountDue || 0).toLocaleString('ar-MA')} {currency}</strong>
+            {state.data.facts.partiallyReturned && <span style={{ marginInlineStart: 8, color: '#fbbf24' }}>
+              ↩ مرجوع جزئي ({state.data.facts.returnedQty}/{state.data.facts.totalQty})
+            </span>}
+          </div>
+          {!!state.data.facts.pendingRequests?.length && (
+            <div style={{ color: '#fbbf24', fontSize: 11.5 }}>
+              طلبات مفتوحة: {state.data.facts.pendingRequests.join('، ')}
+            </div>
+          )}
+          {state.data.events.length === 0
+            ? <div style={{ color: 'var(--ink3)', fontSize: 11.5 }}>
+                لا توجد أحداث مسجلة لهذا الطلب. حالته الحالية معروضة أعلاه؛ لا نختلق تاريخًا سابقًا.
+              </div>
+            : (
+              <ol style={{ margin: 0, paddingInlineStart: 22, color: 'var(--ink2)' }}>
+                {state.data.events.map(ev => (
+                  <li key={ev.id} style={{ marginBottom: 9, fontSize: 12, lineHeight: 1.6 }}>
+                    <span style={{ fontWeight: 800, direction: 'ltr', display: 'inline-block' }}>{ev.type}</span>
+                    {ev.note && <span> — {ev.note}</span>}
+                    {Number(ev.amountDelta) !== 0 && (
+                      <span style={{ marginInlineStart: 7, color: ev.amountDelta < 0 ? '#fbbf24' : '#34d399' }}>
+                        {ev.amountDelta > 0 ? '+' : ''}{ev.amountDelta.toLocaleString('ar-MA')} {currency}
+                      </span>
+                    )}
+                    <div style={{ fontSize: 10.5, color: 'var(--ink3)' }}>
+                      {new Date(ev.createdAt).toLocaleString('ar-MA')}
+                      {ev.actor && <span> · {ev.actor}</span>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+        </>
+      )}
+    </section>
+  );
+}
+
 
 const STATUS_AR: Record<string, string> = { pending: 'بانتظار', approved: 'موافقة', processing: 'جارٍ', shipped: 'شُحن', delivered: 'وُصّل', cancelled: 'ملغي' };
 // تبويباتُ التصفية تشتقُّ أسماءَها من الحالات — لا قائمةَ ثانيةً تتباعد عنها.
@@ -520,6 +597,7 @@ export default function OrdersPage() {
 
               {expanded === order.id && (
                 <div className="anim-fade-in" style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--clr-border)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <OrderTimelinePanel orderId={order.id} currency={currency} />
                   
                   {/* 🚚 معالج الشحن الصادق — خطوات حقيقية من الخادم، لا تمثيل */}
                   {autoShipState?.id === order.id && (
