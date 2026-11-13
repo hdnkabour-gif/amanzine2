@@ -812,7 +812,7 @@ export default function DeliveryPage() {
       return;
     }
     updateSettings('delivery', { ...settings.delivery, defaultProvider: co.name });
-    notify('success', `تم إضافة ${co.name}`);
+    notify('warning', `تم حفظ ${co.name} للمساعدة اليدوية فقط. تسجيل دخول لوحة الشركة لا يفعّل إرسال الشحنات عبر API. للربط الآلي أضف Token في تبويب «متقدم».`);
     setShowAdd(false);
     setSimpleCompany(null); setSimpleCreds({ username: '', password: '' }); setSimpleCustomUrl({ url: '', loginUrl: '' });
   };
@@ -1126,7 +1126,7 @@ export default function DeliveryPage() {
               {/* ── Top mode tabs ─────────────────────────────────────────────────── */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                 {[
-                  { key: 'simple',    icon: '🏢', label: 'شركة معروفة',  desc: 'بريد + كلمة مرور فقط' },
+                  { key: 'simple',    icon: '🏢', label: 'شركة معروفة',  desc: 'حفظ بيانات الحساب (ليس API)' },
                   { key: 'whatsapp',  icon: '📱', label: 'واتساب',        desc: 'أرسل الطلب بواتساب' },
                   { key: 'api',       icon: '⚙️', label: 'متقدم',          desc: 'API أو موقع مخصص' },
                 ].map(m => {
@@ -1167,7 +1167,7 @@ export default function DeliveryPage() {
                       {simpleCompany !== 'أخرى' ? (
                         <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.22)', fontSize: 12.5, color: 'rgba(52,211,153,0.9)', display: 'flex', gap: 8, alignItems: 'center' }}>
                           <CheckCircle size={14} />
-                          <span>جميع روابط <strong>{simpleCompany}</strong> جاهزة — أدخل فقط بيانات حسابك التجاري</span>
+                          <span>روابط <strong>{simpleCompany}</strong> جاهزة للحفظ والمساعدة اليدوية فقط. إنشاء شحنة في لوحة الشركة تلقائيًا يتطلب API Token صالحًا من قسم «متقدم»؛ كلمة المرور وحدها لا تكفي.</span>
                         </div>
                       ) : (
                         <>
