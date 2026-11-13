@@ -176,3 +176,48 @@ rawTest('delivery creation endpoint blocks resending already submitted or unconf
   assert.match(src, /order\.providerShipmentId \|\| order\.trackingNumber/);
   assert.match(src, /SHIPMENT_ALREADY_EXISTS/);
 });
+
+
+test('carrier HTTP create route rejects unknown choice and blocks duplicate submission (PostgreSQL)', async () => {
+  const express = require('express');
+  const jwt = require('jsonwebtoken');
+  const app = express();
+  app.use(express.json());
+  app.use('/api/delivery', require('../routes/delivery'));
+  const listener = await new Promise(resolve => { const s = app.listen(0, () => resolve(s)); });
+  const base = 'http://127.0.0.1:' + listener.address().port;
+  const token = jwt.sign({ id: USER_ID, email: 'retry@test.ma', role: 'user' },
+    process.env.JWT_SECRET, { expiresIn: '1h' });
+  const send = async (id, provider) => {
+    const r = await fetch(base + '/api/delivery/create/' + id, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ provider }),
+    });
+    return { status: r.status, data: await r.json() };
+  };
+  const old = db.getDeliveryProviders;
+  db.getDeliveryProviders = async () => [
+    { id: 'qa-carrier-1', name: 'Carrier A', apiType: 'webhook', enabled: true,
+      webhookUrl: 'https://carrier.example.invalid/create' },
+  ];
+  try {
+    await mkOrder('retry-test-selection', { status: 'approved', deliveryStatus: '', trackingNumber: '' });
+    const invalid = await send('retry-test-selection', 'Wrong Carrier');
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.data.code, 'CARRIER_NOT_FOUND');
+    assert.equal((await db.getOrder('retry-test-selection')).trackingNumber || '', '');
+
+    await mkOrder('retry-test-locked', { deliveryStatus: 'confirmation_required', trackingNumber: '' });
+    const locked = await send('retry-test-locked', 'Carrier A');
+    assert.equal(locked.status, 409);
+    assert.equal(locked.data.code, 'CARRIER_CONFIRMATION_REQUIRED');
+
+    await mkOrder('retry-test-already', { deliveryStatus: '', trackingNumber: 'REAL-ALREADY-EXISTS' });
+    const duplicate = await send('retry-test-already', 'Carrier A');
+    assert.equal(duplicate.status, 409);
+    assert.equal(duplicate.data.code, 'SHIPMENT_ALREADY_EXISTS');
+  } finally {
+    db.getDeliveryProviders = old;
+    await new Promise(resolve => listener.close(resolve));
+  }
+});
