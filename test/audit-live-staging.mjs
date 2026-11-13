@@ -228,13 +228,20 @@ async function main() {
         '/customers': 'الزبائن',
       }[path] || '';
       const requiresPlatformAdmin = ['/moderation', '/knowledge-studio', '/field-visit'].includes(path);
-      await page.waitForFunction(({ route, expected, restricted }) => {
-        const text = document.body.innerText;
-        if (location.pathname !== route || text.includes('تخطّي ✕')) return false;
-        if (restricted) return text.includes('هاد الصفحة ديال أدمن المنصّة');
-        return text.trim().length >= 60 && !text.includes('جاري تحميل متجرك...') &&
-          (!expected || text.includes(expected));
-      }, { route: path, expected, restricted: requiresPlatformAdmin }, { timeout: 15000 });
+      const merchant = /^\/(?:home|dashboard|products|services|orders|messages|customers|analytics|insights|connections|delivery|notifications|settings|studio|editor|import|coupons|guide|moderation|bookings|knowledge-studio|wallet|profile|assistant|publish|field-visit)$/.test(path);
+      await page.waitForFunction(({ route, expected, restricted, merchant }) => {
+        const bodyText = document.body.innerText;
+        const mainText = document.querySelector('main')?.innerText || '';
+        if (location.pathname !== route || bodyText.includes('تخطّي ✕')) return false;
+        // Nav text or lazy loading skeleton is not the actual page.
+        if (merchant && restricted) return mainText.includes('هاد الصفحة ديال أدمن المنصّة');
+        if (merchant) return mainText.length >= 100 &&
+          !mainText.includes('جاري تحميل متجرك...') &&
+          (!expected || mainText.includes(expected));
+        // Sparse public pages (/login, /register, /feed) may have little copy.
+        return bodyText.trim().length >= 60;
+      }, { route: path, expected, restricted: requiresPlatformAdmin, merchant }, { timeout: 15000 });
+      await page.waitForTimeout(350);
       const body = await page.locator('body').innerText();
       ensure(!body.includes('تخطّي ✕'), 'Splash still covers the route ' + path);
       ensure(!body.includes('هاد الصفحة ديال أدمن المنصّة') || ['/moderation', '/knowledge-studio', '/field-visit'].includes(path),
