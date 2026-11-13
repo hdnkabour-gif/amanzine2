@@ -154,11 +154,22 @@ async function _post(fields, cfg) {
   const creds = readCredentials(cfg, meta.credentials);
   body.append('token', creds.token || '');
   // Do not send undocumented seller_id: only token is required here.
-  const res = await fetch(_url(cfg), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
+  // Validate the destination BEFORE attempting an outbound request. Then
+  // distinguish a transport timeout from API rejection: after a timeout we
+  // cannot know if Promo created the parcel and must not retry blindly.
+  const endpoint = _url(cfg);
+  let res;
+  try {
+    res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+      signal: AbortSignal.timeout(20000),
+    });
+  } catch (err) {
+    err.promoOutcomeUnknown = true;
+    throw err;
+  }
   const data = await res.json().catch(() => ({}));
   return { res, data };
 }
@@ -217,7 +228,12 @@ async function createShipment(order, cfg) {
     });
 
     const { res, data } = await _post(fields, cfg);
-    if (!res.ok || !_ok(data)) return { success: false, error: _err(data, res) };
+    if (!res.ok || !_ok(data)) return {
+      success: false, error: _err(data, res),
+      // A contradictory HTTP failure + carrier success body may mean a parcel
+      // was created; do not replay an irreversible COD creation.
+      ...(!res.ok && _ok(data) ? { acceptedUnconfirmed: true } : {}),
+    };
 
     const tracking = String(data.tracking || '').trim();
     // رقمُ التتبّع هو الأثرُ الوحيد الذي يربط طلبَنا بشحنتهم. بلا رقمٍ لا
@@ -228,7 +244,12 @@ async function createShipment(order, cfg) {
     };
     return { success: true, shipmentId: tracking, trackingNumber: tracking };
   } catch (e) {
-    return { success: false, error: e.message };
+    return {
+      success: false, error: String(e.message || 'فشل الاتصال'),
+      ...(e.promoOutcomeUnknown ? {
+        acceptedUnconfirmed: true,
+      } : {}),
+    };
   }
 }
 
