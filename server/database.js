@@ -4,6 +4,14 @@ const crypto  = require('crypto');
 const secrets = require('./lib/secrets');
 const idem    = require('./lib/idempotency');
 
+const deliveryRegistry = require('./services/delivery/registry');
+
+function mapsTokenToApiKey(apiType) {
+  return deliveryRegistry.get(apiType)?.meta.credentials?.some(field =>
+    field.key === 'token' && field.secret && field.maps === 'apiKey'
+  );
+}
+
 function uid() { return crypto.randomUUID(); }
 function now() { return new Date().toISOString(); }
 
@@ -775,7 +783,7 @@ const db = {
     // stored fields.token as plaintext JSONB despite api_key being encrypted.
     // Move it into the protected column before exposing providers to UI/jobs.
     for (const row of rows) {
-      if (String(row.api_type || '').toLowerCase() !== 'promo_livraison' ||
+      if (!mapsTokenToApiKey(row.api_type) ||
           !row.fields || typeof row.fields !== 'object' ||
           !Object.hasOwn(row.fields, 'token')) continue;
       const fields = { ...row.fields };
@@ -795,7 +803,7 @@ const db = {
     // Promo's Token is mapped to the encrypted api_key column, never to
     // plaintext JSONB fields.token. Older clients may still submit both.
     // Do not mutate the caller's fields object.
-    if (String(p.apiType || '').toLowerCase() === 'promo_livraison') {
+    if (mapsTokenToApiKey(p.apiType)) {
       const fields = { ...(p.fields || {}) };
       const token = String(fields.token || '').trim();
       delete fields.token;
