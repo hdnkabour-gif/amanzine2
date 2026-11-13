@@ -20,20 +20,15 @@ async function generateOTP(email) {
 }
 
 async function sendOTP(email, storeName) {
-  const transport = getTransport();
-  // OTP is a secret: never create or print one without a configured delivery channel.
-  // Missing SMTP is not a successful email delivery, even in development.
-  if (!transport) {
-    console.warn('[OTP] Email transport unavailable; no verification code issued.');
+  // The shared mailer chooses SMTP or the already-configured Brevo API.
+  // Do not mistake "no SMTP" for "no email": Railway has BREVO_API_KEY.
+  if (!mailer.available()) {
+    console.warn('[OTP] No email provider configured; no verification code issued.');
     return { sent: false, method: 'not-configured' };
   }
   const code = await generateOTP(email);
-
-  if (transport) {
-    const from = process.env.SMTP_FROM || `"${storeName || 'AMANZINE'}" <${process.env.SMTP_USER}>`;
-    try {
-      await transport.sendMail({
-        from,
+  try {
+    const result = await mailer.send({
         to: email,
         subject: '🔐 رمز التحقق — AMANZINE',
         html: `
@@ -45,11 +40,11 @@ async function sendOTP(email, storeName) {
             </div>
             <p style="color:#888;font-size:13px;text-align:center">صالح لمدة 5 دقائق — لا تشاركه مع أحد</p>
           </div>`,
-      });
-      return { sent: true, method: 'email' };
-    } catch (err) {
-      console.error('[OTP] Email send failed:', err.message);
-    }
+    });
+    if (result.sent) return { sent: true, method: mailer.transportKind() };
+    console.error('[OTP] Email provider rejected verification email:', result.reason || 'unknown');
+  } catch (err) {
+    console.error('[OTP] Email provider error:', err.message);
   }
 
   // A delivery failure must not leave a live, undelivered secret in the database.
