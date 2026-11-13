@@ -130,55 +130,55 @@
 
 المسار المشترك src/components؛ القائمة شاملة لأسماء ملفات المكوّنات في SHA، ولا تدعي تشغيلًا فرديًا لكل منها:
 
-1. ActivityTimeline .tsx
-2. AddConceptPanel .tsx
-3. AppKnowledgePanel .tsx
-4. BetaMonitorPanel .tsx
-5. CapabilityBar .tsx
-6. CityPicker .tsx
-7. CommandCenter .tsx
-8. ConceptPicker .tsx
-9. CreateFlow .tsx
-10. DeferredAuthBanner .tsx
-11. DeliveryOpsPanel .tsx
-12. DiscoverSections .tsx
-13. ErrorBoundary .tsx
-14. ExplainPanel .tsx
-15. FeedbackButton .tsx
-16. FocusedEdit .tsx
-17. GlobalSearch .tsx
-18. JourneyAnalytics .tsx
-19. KeyboardShortcuts .tsx
-20. LiveBrainPanel .tsx
-21. LiveSentence .tsx
-22. LoyaltyPanel .tsx
-23. MapView .tsx
-24. MasterBackground .tsx
-25. Mirror .tsx
-26. MyActivities .tsx
-27. MySpaceSections .tsx
-28. NeedCapture .tsx
-29. NeedDemandPanel .tsx
-30. NextStepHint .tsx
-31. NotificationToast .tsx
-32. OwnerConsolePanel .tsx
-33. PageEngine .tsx
-34. PlaceImport .tsx
-35. PlatformPulsePanel .tsx
-36. ProvidersBooking .tsx
-37. QRCode .tsx
-38. ReadinessPanel .tsx
-39. ShareShop .tsx
-40. Sparkline .tsx
-41. SystemCheck .tsx
-42. SystemMapPanel .tsx
-43. Threshold .tsx
-44. TourGuide .tsx
-45. UnderstandingCard .tsx
-46. UniversalRenderer .tsx
-47. UnknownReview .tsx
-48. VerifyCode .tsx
-49. VisitFlow .tsx
+1. ActivityTimeline.tsx
+2. AddConceptPanel.tsx
+3. AppKnowledgePanel.tsx
+4. BetaMonitorPanel.tsx
+5. CapabilityBar.tsx
+6. CityPicker.tsx
+7. CommandCenter.tsx
+8. ConceptPicker.tsx
+9. CreateFlow.tsx
+10. DeferredAuthBanner.tsx
+11. DeliveryOpsPanel.tsx
+12. DiscoverSections.tsx
+13. ErrorBoundary.tsx
+14. ExplainPanel.tsx
+15. FeedbackButton.tsx
+16. FocusedEdit.tsx
+17. GlobalSearch.tsx
+18. JourneyAnalytics.tsx
+19. KeyboardShortcuts.tsx
+20. LiveBrainPanel.tsx
+21. LiveSentence.tsx
+22. LoyaltyPanel.tsx
+23. MapView.tsx
+24. MasterBackground.tsx
+25. Mirror.tsx
+26. MyActivities.tsx
+27. MySpaceSections.tsx
+28. NeedCapture.tsx
+29. NeedDemandPanel.tsx
+30. NextStepHint.tsx
+31. NotificationToast.tsx
+32. OwnerConsolePanel.tsx
+33. PageEngine.tsx
+34. PlaceImport.tsx
+35. PlatformPulsePanel.tsx
+36. ProvidersBooking.tsx
+37. QRCode.tsx
+38. ReadinessPanel.tsx
+39. ShareShop.tsx
+40. Sparkline.tsx
+41. SystemCheck.tsx
+42. SystemMapPanel.tsx
+43. Threshold.tsx
+44. TourGuide.tsx
+45. UnderstandingCard.tsx
+46. UniversalRenderer.tsx
+47. UnknownReview.tsx
+48. VerifyCode.tsx
+49. VisitFlow.tsx
 50. componentRegistry.tsx
 51. icons.tsx
 
