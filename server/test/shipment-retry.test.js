@@ -113,3 +113,66 @@ test('عدّادُ المحاولات وموعدُها يُحفظان ويُقر
   assert.equal(o.deliveryAttempts, 1, 'عدّادُ المحاولات لا يُقرأ');
   assert.ok(o.deliveryRetryAt, 'موعدُ الإعادة لا يُقرأ');
 });
+
+
+test('carrier ACK without reference: PostgreSQL status requires confirmation, no tracking, no auto retry', async () => {
+  const { runShipment } = require('../lib/shipmentAttempt');
+  await mkOrder('retry-test-unconfirmed', { deliveryStatus: '', trackingNumber: '' });
+  const order = await db.getOrder('retry-test-unconfirmed');
+  const originalFetch = global.fetch;
+  let called = 0;
+  global.fetch = async () => { called++; return {
+    ok: true, status: 202, json: async () => ({ received: true }),
+  }; };
+  try {
+    const result = await runShipment({
+      userId: USER_ID, order,
+      prov: { id: 'qa-provider-row', name: 'QA Carrier', apiType: 'webhook',
+        webhookUrl: 'https://carrier.example.invalid/webhook', apiKey: 'TEST-ONLY' },
+      settings: { brand: { currency: 'MAD' } },
+    });
+    assert.equal(called, 1);
+    assert.equal(result.real, false, 'unverified carrier ACK recorded as shipment');
+    assert.equal(result.acceptedUnconfirmed, true);
+    assert.equal(result.needsManual, false, 'unknown state must not prompt duplicate manual submission');
+    assert.equal(result.retryAt, undefined, 'blind retry could create duplicate COD parcel');
+    const saved = await db.getOrder(order.id);
+    assert.equal(saved.deliveryStatus, 'confirmation_required');
+    assert.equal(saved.trackingNumber || '', '');
+    assert.equal(saved.status, 'processing');
+    const due = await db.getOrdersDueForDeliveryRetry();
+    assert.ok(!due.some(x => x.id === order.id), 'unconfirmed parcel automatically re-scheduled');
+  } finally { global.fetch = originalFetch; }
+});
+
+test('carrier returns a real reference: persisted tracking comes from provider, not generated internally', async () => {
+  const { runShipment } = require('../lib/shipmentAttempt');
+  await mkOrder('retry-test-carrier-confirmed', { deliveryStatus: '', trackingNumber: '' });
+  const order = await db.getOrder('retry-test-carrier-confirmed');
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({ ok: true, status: 201,
+    json: async () => ({ shipmentId: 'QA-REMOTE-55', trackingNumber: 'QA-TRACK-55' }) });
+  try {
+    const out = await runShipment({
+      userId: USER_ID, order,
+      prov: { id: 'qa-provider-row', name: 'QA Carrier', apiType: 'webhook',
+        webhookUrl: 'https://carrier.example.invalid/webhook' },
+      settings: { brand: { currency: 'MAD' } },
+    });
+    assert.equal(out.real, true);
+    assert.equal(out.tracking, 'QA-TRACK-55');
+    const updated = await db.getOrder(order.id);
+    assert.equal(updated.trackingNumber, 'QA-TRACK-55');
+    assert.equal(updated.providerShipmentId, 'QA-REMOTE-55');
+  } finally { global.fetch = originalFetch; }
+});
+
+rawTest('delivery creation endpoint blocks resending already submitted or unconfirmed orders', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '../routes/delivery.js'), 'utf8');
+  assert.match(src, /order\.deliveryStatus === 'confirmation_required'/);
+  assert.match(src, /CARRIER_CONFIRMATION_REQUIRED/);
+  assert.match(src, /order\.providerShipmentId \|\| order\.trackingNumber/);
+  assert.match(src, /SHIPMENT_ALREADY_EXISTS/);
+});
