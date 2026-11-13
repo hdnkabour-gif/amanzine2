@@ -106,7 +106,8 @@ test('نجاحٌ بلا رقم تتبّعٍ يُرفَض — «تمّ» بلا �
   try {
     const r = await pl.createShipment(ORDER, CFG);
     assert.equal(r.success, false);
-    assert.match(r.error, /رقمَ تتبّع/);
+    assert.equal(r.acceptedUnconfirmed, true, 'avoid blindly resubmitting a possibly created parcel');
+    assert.match(r.error, /رقم تتبع/);
   } finally { s.restore(); }
 });
 
@@ -181,20 +182,14 @@ test('انقطاعُ الشبكة يُعاد فشلًا موصوفًا — لا 
   } finally { global.fetch = real; }
 });
 
-test('مُعرِّفُ البائع يُرسَل إن مُلئ — ويُحذَف إن تُرك فارغًا', async () => {
-  // حقلٌ اختياريٌّ لا يُرسَل فارغًا: بعضُ الواجهات ترفض المفتاحَ الفارغَ
-  // بدل تجاهله، فيصير حقلٌ لم يملأه التاجرُ سببَ رفضٍ لا يفهمه.
-  let s = stub({ status: 200, msg: 'ok', tracking: 'T1' });
+test('معرّف البائع ليس في عقد API المقدم — لا نضيف seller_id غير موثق', async () => {
+  const st = stub({ status: 200, msg: 'ok', tracking: 'T1' });
   try {
     await pl.createShipment(ORDER, { ...CFG, fields: { sellerId: 'S-42' } });
-    assert.equal(parse(s.calls[0].body).seller_id, 'S-42');
-  } finally { s.restore(); }
-
-  s = stub({ status: 200, msg: 'ok', tracking: 'T1' });
-  try {
-    await pl.createShipment(ORDER, CFG);
-    assert.equal('seller_id' in parse(s.calls[0].body), false);
-  } finally { s.restore(); }
+    const payload = parse(st.calls[0].body);
+    assert.equal('seller_id' in payload, false);
+    assert.equal(payload.token, CFG.apiKey);
+  } finally { st.restore(); }
 });
 
 test('الرمزُ يُقرأ من الحقيبة كما يُقرأ من العمود القديم', async () => {
@@ -289,4 +284,22 @@ test('Promo: لا يُرسل Token إلى نموذج الدخول أو نطاق 
       assert.match(result.error, /API|HTTPS|رابط/, endpoint);
     } finally { global.fetch = orig; }
   }
+});
+
+
+test('نجاح JSON فوق HTTP 500 مرفوض — لا نثق بحقل status وحده', async () => {
+  const st = stub({ status: 200, msg: 'Commande ajoutée avec succès', tracking: 'DZ-NO' }, 500);
+  try {
+    const result = await pl.createShipment(ORDER, CFG);
+    assert.equal(result.success, false);
+  } finally { st.restore(); }
+});
+
+test('حالة تتبع status=false بلا معلومات ليست دليلًا على مفتاح فاسد', async () => {
+  const st = stub({ status: false, msg: 'Aucune information trouvée pour ce code' }, 200);
+  try {
+    const result = await pl.trackShipment('DZ-NO-SUCH', CFG);
+    assert.equal(result.success, false);
+    assert.match(result.error, /Aucune information/);
+  } finally { st.restore(); }
 });
