@@ -646,7 +646,55 @@ async function J12() {
   record({ id: 'J12', title: 'حالةُ طلبٍ مخترَعةٌ تُرفَض والمشروعةُ تمرّ', cells, pass, why });
 }
 
-for (const j of [J1, J2, J3, J4, J5, J6, J7, J8, J9, J10, J11, J12]) {
+
+// ── ⑬ رحلةُ استرجاعِ كلمة المرور — اختبارُ واجهةٍ بلا بريدٍ حقيقيّ ──────────
+// The mocked endpoints validate the browser contract; server OTP & DB are
+// separately covered by backend tests. No email, OTP or account is sent outside CI.
+async function J13() {
+  const { ctx, page } = await fresh();
+  const cells = {}; let pass = false, why = '';
+  try {
+    const email = 'qa-reset-flow@example.invalid';
+    const nextPassword = 'QARecovery!2026';
+    let requested = false, confirmed = false;
+    await page.route('**/api/auth/forgot-password', async route => {
+      const payload = route.request().postDataJSON();
+      requested = payload.email === email;
+      await route.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ sent: true }) });
+    });
+    await page.route('**/api/auth/reset-password', async route => {
+      const payload = route.request().postDataJSON();
+      confirmed = payload.email === email && payload.code === '123456' && payload.newPassword === nextPassword;
+      await route.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ success: true, message: 'تم إعادة تعيين كلمة المرور' }) });
+    });
+    cells['المدخل'] = '/login ← نسيت كلمة المرور ← كود OTP ← كلمة مرور جديدة';
+    cells['الفهم'] = 'الخادم يُرسل رمزًا لا رابطًا — لا إفصاح عن وجود الحساب';
+    cells['القدرة'] = 'PASSWORD_RESET';
+    cells['الحكم'] = 'واجهة OTP حقيقية، طلبا API مُحاكيان مع تدقيق الحمولة';
+    await land(page, '/login');
+    await page.locator('input[type="email"]').fill(email);
+    await page.getByRole('button', { name: /نسيت كلمة المرور/ }).click();
+    await page.getByRole('textbox', { name: 'رمز التحقق' }).waitFor({ state: 'visible', timeout: 10000 });
+    const wrongText = await text(page);
+    if (wrongText.includes('تم إرسال رابط إعادة التعيين')) throw new Error('UI still promises nonexistent reset link');
+    await page.getByRole('textbox', { name: 'رمز التحقق' }).fill('123456');
+    await page.locator('input[aria-label="كلمة المرور الجديدة"]').fill(nextPassword);
+    await page.getByRole('button', { name: /تأكيد تغيير كلمة المرور/ }).click();
+    await page.getByText(/تم تغيير كلمة المرور/).waitFor({ state: 'visible', timeout: 10000 });
+    cells['عبورُ الدخول'] = 'لا تسجيل دخول تلقائي؛ رسالة تغيير كلمة المرور تظهر';
+    cells['الوجهة'] = page.url();
+    cells['النتيجةُ المرئيّة'] = 'رمز OTP + كلمة مرور + تأكيد ناجح داخل /login';
+    cells['تنظيفُ الحالة'] = 'لا إرسال بريد/تغيير مستخدم حقيقي؛ المتصفح يُغلق';
+    pass = requested && confirmed && page.url().includes('/login');
+    if (!pass) why = 'واجهة الاسترجاع لم ترسل الحقول الصحيحة: طلب=' + requested + ' تأكيد=' + confirmed;
+  } catch (e) { why = String(e).slice(0, 240); }
+  finally { await ctx.close(); }
+  record({ id: 'J13', title: 'استرجاعُ كلمة المرور بالكود لا برابطٍ وهميّ', cells, pass, why });
+}
+
+for (const j of [J1, J2, J3, J4, J5, J6, J7, J8, J9, J10, J11, J12, J13]) {
   try { await j(); } catch (e) { console.log('‼ سقطت رحلةٌ خارج الحساب:', String(e).slice(0, 200)); }
 }
 await browser.close();
