@@ -38,6 +38,11 @@ const meta = {
       help: 'لوحة البائع في promo-livraison.ma ← قسم API',
     },
     {
+      key: 'testTracking', label: 'رقم تتبع قديم من حساب Promo (لاختبار الربط)', required: false,
+      placeholder: 'مثال: رقم شحنة موجودة سابقًا في لوحة Promo',
+      help: 'يُستعمل للتحقق من أن API يقرأ شحنة في حسابك فقط. لا ننشئ طلبًا أو نفرض أي رسوم أثناء الفحص.',
+    },
+    {
       key: 'sellerId', label: 'مُعرِّف البائع (ID)', required: false,
       placeholder: 'مثال: 277',
       // كُتب «اختياريّ» أوّلًا لأنّ الوثيقةَ لا تذكره. ثمّ أرى المالكُ لوحتَه:
@@ -103,7 +108,17 @@ const ENDPOINT = 'https://promo-livraison.ma/seller/api-parcels';
 /** العنوانُ من إعداد التاجر إن غيّرته الشركةُ يومًا، وإلّا الافتراضيّ. */
 const _url = (cfg) => {
   const raw = String(cfg?.apiEndpoint || '').trim() || ENDPOINT;
-  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+  // The API token belongs to Promo Livraison: never send it to an
+  // arbitrary user-entered URL, an HTTP endpoint or the login form.
+  if (url.protocol !== 'https:' ||
+      !(url.hostname === 'promo-livraison.ma' || url.hostname.endsWith('.promo-livraison.ma'))) {
+    throw new Error('رابط API غير آمن: يجب أن يكون HTTPS ضمن نطاق promo-livraison.ma');
+  }
+  if (/\/(login|register)(?:\/|$)/i.test(url.pathname)) {
+    throw new Error('رابط تسجيل الدخول ليس API للشحن: استعمل رابط API الرسمي وليس /seller/login');
+  }
+  return url.toString();
 };
 
 /**
@@ -261,11 +276,27 @@ async function trackShipment(shipmentId, cfg) {
  */
 async function testConnection(cfg) {
   try {
-    const { res, data } = await _post({ action: 'track', tracking: '__ping__' }, cfg);
-    const msg = _err(data, res);
-    if (data?.status === 401 || /token/i.test(msg)) {
-      return { success: false, error: msg || 'الرمز غيرُ صالحٍ أو منتهٍ' };
-    }
+    const { token, testTracking } = readCredentials(cfg, meta.credentials);
+    if (!token?.trim()) return { success: false, error: 'رمز API (Token) غير مُدخل' };
+    // A random __ping__ may return HTML, HTTP 404 or a generic JSON message
+    // even with an invalid token. None prove this seller can read shipments.
+    // Use a previously known shipment: read-only, no package creation.
+    const known = String(testTracking || '').trim();
+    if (!known) return {
+      success: false, inconclusive: true,
+      error: 'لا يمكن إثبات اتصال Promo دون رقم تتبع موجود مسبقًا في حسابك. أضفه في إعدادات الشركة ثم أعد اختبار الربط. لن ننشئ شحنة اختبارية.',
+    };
+    const { res, data } = await _post({ action: 'track', tracking: known }, cfg);
+    if (!res.ok || !_ok(data)) return {
+      success: false, error: _err(data, res),
+    };
+    const events = pickArray(data, ['msg']);
+    const confirmed = String(data?.tracking || '').trim() === known
+      || events.some(e => String(e?.code || e?.tracking || '').trim() === known);
+    if (!confirmed || !events.length) return {
+      success: false, inconclusive: true,
+      error: 'ردّ Promo لا يثبت أن رقم التتبع يخص حسابك أو لم يرجع تاريخه. راجع رقم التتبع وبيانات API.',
+    };
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
