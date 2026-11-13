@@ -680,7 +680,7 @@ async function J13() {
     const wrongText = await text(page);
     if (wrongText.includes('تم إرسال رابط إعادة التعيين')) throw new Error('UI still promises nonexistent reset link');
     await page.getByRole('textbox', { name: 'رمز التحقق' }).fill('123456');
-    await page.getByRole('textbox', { name: 'كلمة المرور الجديدة' }).fill(nextPassword);
+    await page.locator('input[aria-label="كلمة المرور الجديدة"]').fill(nextPassword);
     await page.getByRole('button', { name: /تأكيد تغيير كلمة المرور/ }).click();
     await page.getByText(/تم تغيير كلمة المرور/).waitFor({ state: 'visible', timeout: 10000 });
     cells['عبورُ الدخول'] = 'لا تسجيل دخول تلقائي؛ رسالة تغيير كلمة المرور تظهر';
