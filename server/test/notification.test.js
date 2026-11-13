@@ -100,41 +100,57 @@ test('البريد: يُعلن تهيّؤه ولا يدّعي إرسالًا ب�
 });
 
 
-test('OTP transport missing: no secret issued, no OTP logged, honest failure result', async () => {
+test('OTP: absent provider never issues a code; failed Brevo revokes it; success uses shared mailer', async () => {
   const otp = require('../lib/otp');
   const { db } = require('../database');
   const before = {
-    getTransport: mailer.getTransport,
+    available: mailer.available,
+    send: mailer.send,
+    transportKind: mailer.transportKind,
     createOTP: db.createOTP,
     invalidateOTPs: db.invalidateOTPs,
     warn: console.warn,
     error: console.error,
   };
-  let issued = 0;
-  let invalidated = 0;
+  let created = 0;
+  let revoked = 0;
   const logs = [];
+  const sent = [];
   try {
-    db.createOTP = async () => { issued++; };
-    db.invalidateOTPs = async () => { invalidated++; };
+    db.createOTP = async () => { created++; };
+    db.invalidateOTPs = async () => { revoked++; };
     console.warn = (...args) => logs.push(args.join(' '));
     console.error = (...args) => logs.push(args.join(' '));
 
-    mailer.getTransport = () => null;
+    mailer.available = () => false;
     const missing = await otp.sendOTP('qa-secret@example.invalid', 'QA');
     assert.deepEqual(missing, { sent: false, method: 'not-configured' });
-    assert.equal(issued, 0, 'must not generate/store a token with no delivery');
-    assert.equal(invalidated, 0, 'do not touch OTP records if delivery is not configured');
-    assert.ok(!logs.some(x => /six-digit|OTP for|qa-secret@example.invalid/.test(x)), 'no secret or address in no-SMTP logs');
+    assert.equal(created, 0, 'no undeliverable OTP is created');
+    assert.equal(revoked, 0);
 
-    // Failure *after* issuing a token invalidates the undelivered code.
-    mailer.getTransport = () => ({ sendMail: async () => { throw Error('QA SMTP unavailable'); } });
-    const down = await otp.sendOTP('qa-secret@example.invalid', 'QA');
-    assert.deepEqual(down, { sent: false, method: 'email-error' });
-    assert.equal(issued, 1, 'SMTP attempt should generate exactly one code');
-    assert.ok(invalidated >= 2, 'failed delivery must revoke issued OTP');
-    assert.ok(logs.every(x => !/OTP for .+: \d{6}/.test(x)), 'six-digit OTP leaked in logs');
+    // Brevo is configured in Railway even when SMTP is absent. A rejected
+    // provider must not leave a valid undelivered code in the database.
+    mailer.available = () => true;
+    mailer.transportKind = () => 'brevo';
+    mailer.send = async (payload) => { sent.push(payload); return { sent: false, reason: 'QA-rejected' }; };
+    const rejected = await otp.sendOTP('qa-secret@example.invalid', 'QA');
+    assert.deepEqual(rejected, { sent: false, method: 'email-error' });
+    assert.equal(created, 1);
+    assert.equal(revoked, 2, 'generation invalidation + rejection revocation');
+    assert.equal(sent[0].to, 'qa-secret@example.invalid');
+    assert.match(sent[0].html, /رمز التحقق/);
+
+    mailer.send = async (payload) => { sent.push(payload); return { sent: true }; };
+    const success = await otp.sendOTP('qa-secret@example.invalid', 'QA');
+    assert.deepEqual(success, { sent: true, method: 'brevo' });
+    assert.equal(created, 2, 'successful delivery creates a fresh OTP');
+    assert.equal(revoked, 3, 'success must not immediately revoke delivered OTP');
+    assert.equal(sent[1].to, 'qa-secret@example.invalid');
+    assert.doesNotMatch(logs.join('\n'), /OTP for|qa-secret@example\.invalid|\b\d{6}\b/, 'never expose secret or email in diagnostic logs');
   } finally {
-    mailer.getTransport = before.getTransport;
+    mailer.available = before.available;
+    mailer.send = before.send;
+    mailer.transportKind = before.transportKind;
     db.createOTP = before.createOTP;
     db.invalidateOTPs = before.invalidateOTPs;
     console.warn = before.warn;
