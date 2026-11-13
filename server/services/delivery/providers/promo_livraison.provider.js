@@ -42,15 +42,9 @@ const meta = {
       placeholder: 'مثال: رقم شحنة موجودة سابقًا في لوحة Promo',
       help: 'يُستعمل للتحقق من أن API يقرأ شحنة في حسابك فقط. لا ننشئ طلبًا أو نفرض أي رسوم أثناء الفحص.',
     },
-    {
-      key: 'sellerId', label: 'مُعرِّف البائع (ID)', required: false,
-      placeholder: 'مثال: 277',
-      // كُتب «اختياريّ» أوّلًا لأنّ الوثيقةَ لا تذكره. ثمّ أرى المالكُ لوحتَه:
-      // **«Votre ID» معروضٌ بجانب المفتاح** لكلّ بائع. فهو معطًى حقيقيٌّ
-      // يملكه التاجر — يُرسَل إن مُلئ. وأُبقيه غيرَ إجباريٍّ لأنّ الوثيقةَ
-      // لا تشترطه: منعُ الربط بحقلٍ لا تطلبه الشركةُ صراحةً منعٌ بلا سند.
-      help: 'تجده في لوحة البائع بجانب مفتاح API — «Votre ID»',
-    },
+    // The seller dashboard may show an account ID, but the user-supplied
+    // official Add Order / Track Order contract does NOT accept seller_id.
+    // Keep the API payload limited to documented fields.
   ],
 };
 
@@ -159,7 +153,7 @@ async function _post(fields, cfg) {
   // `api_key`، والمزوّدُ لا يعنيه أيُّهما.
   const creds = readCredentials(cfg, meta.credentials);
   body.append('token', creds.token || '');
-  if (creds.sellerId) body.append('seller_id', creds.sellerId);
+  // Do not send undocumented seller_id: only token is required here.
   const res = await fetch(_url(cfg), {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -223,12 +217,15 @@ async function createShipment(order, cfg) {
     });
 
     const { res, data } = await _post(fields, cfg);
-    if (!_ok(data)) return { success: false, error: _err(data, res) };
+    if (!res.ok || !_ok(data)) return { success: false, error: _err(data, res) };
 
     const tracking = String(data.tracking || '').trim();
     // رقمُ التتبّع هو الأثرُ الوحيد الذي يربط طلبَنا بشحنتهم. بلا رقمٍ لا
     // نُعلن نجاحًا: التاجرُ يرى «تمّ» ولا يجد الشحنةَ عندهم — أسوأُ من فشلٍ صريح.
-    if (!tracking) return { success: false, error: 'لم تُرجع Promo Livraison رقمَ تتبّع' };
+    if (!tracking) return {
+      success: false, acceptedUnconfirmed: true,
+      error: 'Promo Livraison أعادت status=200 دون رقم تتبع: ربما أُنشئت الشحنة بالفعل. راجع لوحة البائع قبل إعادة الإرسال لمنع طلبين.',
+    };
     return { success: true, shipmentId: tracking, trackingNumber: tracking };
   } catch (e) {
     return { success: false, error: e.message };
@@ -238,7 +235,7 @@ async function createShipment(order, cfg) {
 async function trackShipment(shipmentId, cfg) {
   try {
     const { res, data } = await _post({ action: 'track', tracking: shipmentId }, cfg);
-    if (!_ok(data)) return { success: false, error: _err(data, res) };
+    if (!res.ok || !_ok(data)) return { success: false, error: _err(data, res) };
 
     // `msg` هنا **مصفوفةُ تاريخ** لا رسالة. `pickArray` تفحص الشكلَ ولا
     // تفترضه، فلو غلّفتها الشركةُ يومًا في `data` بقي الأمرُ يعمل.
