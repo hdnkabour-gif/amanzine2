@@ -774,6 +774,15 @@ const db = {
     return rows.map(_mapDelivery);
   },
   async upsertDeliveryProvider(p) {
+    // Promo's Token is mapped to the encrypted api_key column, never to
+    // plaintext JSONB fields.token. Older clients may still submit both.
+    // Do not mutate the caller's fields object.
+    if (String(p.apiType || '').toLowerCase() === 'promo_livraison') {
+      const fields = { ...(p.fields || {}) };
+      const token = String(fields.token || '').trim();
+      delete fields.token;
+      p = { ...p, fields, apiKey: token || p.apiKey || '' };
+    }
     // ملكيّةُ الصفّ تُفحص دائمًا: بدون قيد user_id كان أيُّ تاجرٍ يستطيع تمرير
     // مُعرِّف صفِّ تاجرٍ آخر فيعيد كتابة api_endpoint/webhook_url عنده ويحوّل
     // طلباته إلى خادمه. الفحصُ هنا وفي جملة UPDATE معًا — لا في أحدهما.
