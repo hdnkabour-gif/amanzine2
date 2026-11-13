@@ -1,3 +1,42 @@
+# نقطة الاستئناف الفعلية — AMANZINE (تحديث 2026-11-13)
+
+> **اقرأ هذا الجزء أوّلًا.** الجدول التاريخي A..Z أسفل هذه الفقرة سجل قديم لوكلاء لم نثبت استمرار تشغيلهم؛ لا تعامله كمهام لا تزال RUNNING. هذه نقطة استئناف قابلة للمراجعة على GitHub بعد توقف المحادثة أو نفاد التوكن.
+
+## ما أُنجز وثُبّت في المستودع
+
+- **الجرد الشامل:** [AMANZINE_FULL_FEATURE_INVENTORY_AND_FIX_PLAN_2026-11-13.md](./AMANZINE_FULL_FEATURE_INVENTORY_AND_FIX_PLAN_2026-11-13.md) — 26 صفحة، 14 مسار عام، 33 وحدة API، 196 تعريف HTTP، 51 مكوّنًا، 45 جدولًا، 19 نتيجة ومصفوفة اختبارات.
+- **نتائج تشغيل Staging محفوظة نصيًا:** [90-LIVE-EXECUTION-2026-11-13.md](./90-LIVE-EXECUTION-2026-11-13.md). تشغيل `43496388845`: 22 PASS مسجلة و1 FAIL خصوصية. **تنبيه:** واحدة من 22 PASS (Chromium) كانت False Positive؛ لقطة الشاشة تُظهر Splash «تخطّي». تم تصحيح معيار الاختبار في `test/audit-live-staging.mjs`.
+- **PR #10 (Documentation + QA):** https://github.com/hdnkabour-gif/amanzine2/pull/10 — Draft، هدفه staging، لا main.
+- **PR #11 (P0 Tracking Privacy):** https://github.com/hdnkabour-gif/amanzine2/pull/11 — Draft، إصلاح خادم + مساعد + TrackOrder/Storefront واختبارات HTTP؛ يجب أن تنجح جميع CI قبل الدمج.
+- **PR #12 (P1 Truth & Safety):** https://github.com/hdnkabour-gif/amanzine2/pull/12 — Draft، يستهدف استرجاع كلمة السر وصدق التوصيل والحساب المالي؛ راجع نتائجه قبل الدمج.
+- **ضمان طزاجة التقارير:** `.github/workflows/refresh-audit-reports.yml` شُغّل كعامل منفصل على فرع التدقيق وأنتج `REPORTS/audit.json` و`REPORTS/REPO_AUDIT.md` من ملفات Git الفعلية (Tracked=767، Code=484، Lines=92348 في آخر توليد 2026-11-13T20:13:46Z). يبقى الحارس `test/architecture-freshness.test.mjs` مفعّلًا.
+- **متصفح تفاعلي حقيقي:** `.github/workflows/audit-live-staging.yml` و`test/audit-live-staging.mjs` — وجهة مسموحة وحيدة Staging، Playwright Chromium، اختبارات هوية وعزل وشاشة، وحفظ JSON ولقطات كـArtifact. لا تكرر تشغيله عند تحديث تقرير.
+- **Production لم يتغير.** جميع التغييرات محفوظة في الفروع وPRs، ولم يتم دمجها إلى staging أو main في نقطة الاستئناف هذه. تأكد من حالة الفروع الفعلية قبل أي إعلان جديد.
+
+## توزيع العمل إلى مسارات مستقلة، بلا تعارض
+
+| المسؤولية | المرجع/الفرع | بوابة القبول |
+|---|---|---|
+| التحقق والوثائق واستعادة السياق | audit/amanzine-full-feature-map-20261113 | Inventory + evidence + freshness |
+| أمن خصوصية الطلبات والمجيب | repair/amanzine-p0-tracking-privacy-20261113 | Tests HTTP + tenant isolation + Chromium |
+| دقة سلوك التوصيل/الدفع/الاسترجاع | repair/amanzine-p1-truth-and-safety-20261113 | Tests separate + CI |
+| PostgreSQL والمهام الثقيلـة والتخريب | .github/workflows/ci.yml | CI green؛ لا Skipped غير مبرر |
+| اختبار واجهات Staging الفعلي | .github/workflows/audit-live-staging.yml | لقطات لصفحات حقيقية لا Splash |
+| اعتماد الدمج والرجوع | PR review gate | merge staging أولًا، Production فقط بعد موافقة/استعادة |
+
+لا تدّع وجود وكلاء AI مستقلين يعملون في الخلفية إلا إذا كانت هناك مهمات Agent حقيقية مسجلة. GitHub Actions يستعمل عمّال CI مستقلين؛ نتائجهم مرئية في تبويب Actions.
+
+## التالي دون إعادة أعمال سابقة
+
+1. تابع نتائج تشغيل **Operational Staging Audit** المعدّل (فتح صفحات 26 + هاتف + API)، واحفظ artifact في سجل التنفيذ مع SHA.
+2. تابع CI للفرعين #11 و#12، وبخاصة `Server tests` و`Golden Journeys` و`Typecheck`. راجع `skipped` قبل أي دمج.
+3. أصلح ما يفشل من الاختبارات الحقيقية على الفرع الخاص به؛ لا تعدّل فروع الآخرين عشوائيًا، ولا تفترض نجاح الكود من وجود PR.
+4. بعد نجاح CI وبدون تعارضات، استكمل مراجعة ودمج الوثائق ثم الإصلاحات إلى staging، وانتظر نشر Railway SUCCESS ثم أعد smoke على SHA المنشور.
+5. انتقل إلى P1 المتبقي: مسار تعلّم unknown-approved → custom_concepts، دفتر أحداث الطلب في الواجهة، VAPID ثابت، Event persistence، offsite backup/restore، و26 صفحة بتجارب فعلية.
+6. احفظ فشلًا جديدًا أو نتيجة نجاح في `AUDIT/90-LIVE-EXECUTION-2026-11-13.md` ثم حدّث هذه النقطة. لا تعِد تشغيل حالة PASS على نفس SHA بلا داع.
+
+---
+
 # تدقيقُ AMANZINE المستقلّ — لوحةُ الحالة
 
 > **عقدُ الاستئناف.** هذا الملفُّ هو المصدرُ الوحيدُ لِما أُنجز وما بقي.
