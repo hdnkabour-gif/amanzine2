@@ -305,3 +305,28 @@ test('حالة تتبع status=false بلا معلومات ليست دليلًا
     assert.match(result.error, /Aucune information/);
   } finally { st.restore(); }
 });
+
+
+test('Promo HTTP 200 بجسم HTML بدل JSON: نتيجة غير مؤكّدة لا إعادة تلقائية', async () => {
+  const original = global.fetch;
+  global.fetch = async () => ({
+    ok: true, status: 200,
+    json: async () => { throw new SyntaxError('Unexpected token < in JSON'); },
+  });
+  try {
+    const out = await pl.createShipment(ORDER, CFG);
+    assert.equal(out.success, false);
+    assert.equal(out.acceptedUnconfirmed, true);
+    assert.match(out.error, /لوحة البائع/);
+  } finally { global.fetch = original; }
+});
+
+test('Promo رفض Token الموثق 401 ليس نجاحًا ولا حالة شحن مؤكدة', async () => {
+  const st = stub({ status: 401, msg: 'Token invalide ou expiré' }, 200);
+  try {
+    const out = await pl.createShipment(ORDER, CFG);
+    assert.equal(out.success, false);
+    assert.notEqual(out.acceptedUnconfirmed, true);
+    assert.match(out.error, /Token invalide/);
+  } finally { st.restore(); }
+});
