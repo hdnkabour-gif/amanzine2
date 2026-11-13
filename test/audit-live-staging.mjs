@@ -193,6 +193,14 @@ async function main() {
       status(r, 404, 'cross tenant customer');
     });
   }
+  // Prepare disposable merchant only; never modify another user's onboarding.
+  if (A) await check('Complete onboarding in QA merchant only', async () => {
+    const r = await req('/api/settings', { method: 'PUT', token: A.token, body: { onboardingDone: true } });
+    status(r, 200, 'QA onboarding settings');
+    ensure(r.data && r.data.onboardingDone === true, 'QA onboarding was not persisted');
+    A.user = { ...A.user, onboardingCompleted: true };
+  });
+
   // Real Chromium checks, one result per route so a broken page does not hide others.
   let context = null;
   let page = null;
@@ -200,6 +208,8 @@ async function main() {
     const { chromium } = await import('playwright');
     browser = await chromium.launch({ headless: true });
     context = await browser.newContext({ viewport: { width: 1280, height: 760 }, locale: 'ar-MA' });
+    // Skip the 5.5s cinematic before asserting page contents, rather than reading splash text.
+    await context.addInitScript(() => sessionStorage.setItem('amanzine_splash', '1'));
     page = await context.newPage();
     page.on('pageerror', err => browserNotes.push(String(err.message || err).slice(0, 160)));
   }, 'browser');
@@ -209,12 +219,33 @@ async function main() {
       const errorsAtStart = browserNotes.length;
       const response = await page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 25000 });
       ensure(response && response.status() === 200, 'bad route ' + path + ': ' + (response && response.status()));
-      await page.waitForTimeout(650);
+      const expected = {
+        '/home': 'شنو محتاج اليوم؟',
+        '/dashboard': 'إضافة منتج',
+        '/products': 'المنتجات',
+        '/services': 'الخدمات',
+        '/orders': 'الطلبات',
+        '/customers': 'الزبائن',
+      }[path] || '';
+      await page.waitForFunction(({ route, expected }) => {
+        const text = document.body.innerText;
+        return location.pathname === route && text.length >= 220 &&
+          !text.includes('تخطّي ✕') && !text.includes('جاري تحميل متجرك...') &&
+          (!expected || text.includes(expected));
+      }, { route: path, expected }, { timeout: 15000 });
       const body = await page.locator('body').innerText();
-      ensure(body.trim().length >= 20, 'empty visual page ' + path);
+      ensure(!body.includes('تخطّي ✕'), 'Splash still covers the route ' + path);
+      ensure(!body.includes('هاد الصفحة ديال أدمن المنصّة') || ['/moderation', '/knowledge-studio', '/field-visit'].includes(path),
+        'Forbidden instead of merchant page ' + path);
+      ensure(page.url().split('?')[0] === BASE + path, 'unexpected route redirect from ' + path + ': ' + page.url());
       const newErrors = browserNotes.slice(errorsAtStart);
       ensure(newErrors.length === 0, 'JavaScript error on ' + path + ': ' + newErrors.slice(0, 2).join(' | '));
-      return 'textLength=' + body.trim().length;
+      if (path === '/home' || path === '/dashboard' || path === '/products' || path === '/orders' || path === '/customers') {
+        await mkdir('tmp/screens', { recursive: true });
+        await page.screenshot({ path: 'tmp/screens/' + path.slice(1) + '.png', fullPage: false });
+      }
+      browserNotes.push('VERIFIED_ROUTE:' + path + ':chars=' + body.length);
+      return 'route=' + path + ',textLength=' + body.trim().length;
     };
 
     for (const path of ['/', '/landing', '/market', '/explore', '/feed', '/login', '/register']) {
