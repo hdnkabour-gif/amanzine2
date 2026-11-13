@@ -1,0 +1,67 @@
+name: Archive P0 staging security fix evidence
+# One-time trusted archive; no deployment credentials or customer data.
+on:
+  push:
+    branches: ["audit/amanzine-full-feature-map-20261113"]
+    paths: [".github/workflows/archive-p0-staging-success.yml"]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  preserve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Fetch the exact 59-pass artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/amanzine-fixed
+          curl --fail --silent --show-error --location \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/14079189721/zip" \
+            -o /tmp/amanzine-fixed.zip
+          unzip -q /tmp/amanzine-fixed.zip -d /tmp/amanzine-fixed
+          node - <<'NODE'
+          const fs = require('fs');
+          const f = '/tmp/amanzine-fixed/staging-audit-smoke.json';
+          const j = JSON.parse(fs.readFileSync(f, 'utf8'));
+          if (j.base !== 'https://triumphant-courage-staging.up.railway.app') throw Error('Incorrect audit host');
+          if (j.summary.pass !== 59 || j.summary.fail !== 0) throw Error('Expected 59/59, got ' + JSON.stringify(j.summary));
+          const p = j.checks.find(x => x.name === 'Public phone lookup must not disclose order line items without proof');
+          if (p?.status !== 'PASS') throw Error('P0 privacy fix has not passed its live HTTP assertion');
+          if (fs.readdirSync('/tmp/amanzine-fixed/screens').filter(x => x.endsWith('.png')).length < 5) throw Error('Chromium evidence missing');
+          console.log('Verified: exact staging target, 59 PASS, 0 FAIL, and P0 privacy check PASSED');
+          NODE
+      - name: Commit the permanent results (do not overwrite pre-fix evidence)
+        run: |
+          mkdir -p AUDIT/evidence/staging-p0-fixed-2026-11-13
+          cp /tmp/amanzine-fixed/staging-audit-smoke.json AUDIT/evidence/staging-p0-fixed-2026-11-13/
+          cp /tmp/amanzine-fixed/screens/*.png AUDIT/evidence/staging-p0-fixed-2026-11-13/
+          cp /tmp/amanzine-fixed/staging-browser-last-page.png AUDIT/evidence/staging-p0-fixed-2026-11-13/
+          cat > AUDIT/evidence/staging-p0-fixed-2026-11-13/README.md <<'EOF'
+          # Staging privacy remediation — 59 PASS / 0 FAIL
+          - Date: 2026-11-13 (UTC)
+          - Railway staging deployment status: SUCCESS
+          - Railway deployment ID: 0445b594-f55e-4383-a7d8-69277cb611b4
+          - Railway deployed commit: bcffa870ab3f9d6495258d18151fcfc00a607bae
+          - GitHub operational test run: https://github.com/hdnkabour-gif/amanzine2/actions/runs/43500545608 (rerun, attempt 2)
+          - GitHub artifact ID: 14079189721
+          - Checks: 59 PASS; 0 FAIL; security regression for anonymous phone-only tracking passed
+          - This is not a certification of all 196 HTTP routes, third-party shipping/payments or every UI button
+          - Previous failing evidence is retained separately in AUDIT/evidence/live-2026-11-13/
+          EOF
+          git add AUDIT/evidence/staging-p0-fixed-2026-11-13
+          node scripts/audit.mjs
+          git add REPORTS/audit.json REPORTS/REPO_AUDIT.md
+          git -c user.name="amanzine-audit-bot" -c user.email="audit-bot@users.noreply.github.com" \
+            commit -m "docs(audit): archive verified 59-pass staging P0 privacy remediation"
+          git push origin HEAD:refs/heads/audit/amanzine-full-feature-map-20261113

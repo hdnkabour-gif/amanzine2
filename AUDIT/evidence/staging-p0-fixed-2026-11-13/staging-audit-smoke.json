@@ -1,0 +1,468 @@
+{
+  "at": "2026-11-13T21:58:41.568Z",
+  "base": "https://triumphant-courage-staging.up.railway.app",
+  "gitSha": "1e3b25597dd1e2f71b3a52e17ec96e8e71c95a36",
+  "checks": [
+    {
+      "name": "Health + DB migration",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 199,
+      "detail": "version=3.2.0 env=production"
+    },
+    {
+      "name": "Auth configuration public",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 164,
+      "detail": ""
+    },
+    {
+      "name": "Marketplace stats and public catalog",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 131,
+      "detail": ""
+    },
+    {
+      "name": "Payment methods report external adapters honestly",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 68,
+      "detail": ""
+    },
+    {
+      "name": "Marketplace phone OTP configuration",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 52,
+      "detail": "enabled=false"
+    },
+    {
+      "name": "Protected endpoints reject anonymous requests",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 190,
+      "detail": ""
+    },
+    {
+      "name": "Register disposable merchant A",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 149,
+      "detail": "QA-only account created"
+    },
+    {
+      "name": "Register disposable merchant B (tenant isolation fixture)",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 120,
+      "detail": "QA-only account created"
+    },
+    {
+      "name": "Login with QA account and read /me",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 165,
+      "detail": ""
+    },
+    {
+      "name": "Merchant settings, wallet, orders and customers are DB-backed",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 314,
+      "detail": ""
+    },
+    {
+      "name": "Create test product in STAGING only",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 61,
+      "detail": ""
+    },
+    {
+      "name": "Product persists and can be updated",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 146,
+      "detail": ""
+    },
+    {
+      "name": "Tenant B cannot view or change tenant A product",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 147,
+      "detail": ""
+    },
+    {
+      "name": "Public catalog shows published QA product",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 51,
+      "detail": ""
+    },
+    {
+      "name": "Create order with one item (no external delivery or payment)",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 56,
+      "detail": ""
+    },
+    {
+      "name": "Duplicate order idempotency key replays original order",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 56,
+      "detail": ""
+    },
+    {
+      "name": "Tenant B cannot access tenant A order",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 46,
+      "detail": ""
+    },
+    {
+      "name": "Public phone lookup must not disclose order line items without proof",
+      "category": "security",
+      "status": "PASS",
+      "ms": 45,
+      "detail": ""
+    },
+    {
+      "name": "Create and retrieve QA customer",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 98,
+      "detail": ""
+    },
+    {
+      "name": "Cross-tenant customer cannot be read",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 46,
+      "detail": ""
+    },
+    {
+      "name": "Complete onboarding in QA merchant only",
+      "category": "functional",
+      "status": "PASS",
+      "ms": 65,
+      "detail": ""
+    },
+    {
+      "name": "Launch Chromium against Staging",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 924,
+      "detail": ""
+    },
+    {
+      "name": "Chromium public /",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1002,
+      "detail": "route=/,textLength=1542"
+    },
+    {
+      "name": "Chromium public /landing",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 736,
+      "detail": "route=/landing,textLength=1542"
+    },
+    {
+      "name": "Chromium public /market",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 595,
+      "detail": "route=/market,textLength=562"
+    },
+    {
+      "name": "Chromium public /explore",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 583,
+      "detail": "route=/explore,textLength=557"
+    },
+    {
+      "name": "Chromium public /feed",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 560,
+      "detail": "route=/feed,textLength=188"
+    },
+    {
+      "name": "Chromium public /login",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 607,
+      "detail": "route=/login,textLength=213"
+    },
+    {
+      "name": "Chromium public /register",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 579,
+      "detail": "route=/register,textLength=213"
+    },
+    {
+      "name": "Chromium public QA storefront",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 586,
+      "detail": "route=/store/2d6f5fb0-2185-4432-b4c7-90493f176d57,textLength=538"
+    },
+    {
+      "name": "Chromium merchant /home",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1324,
+      "detail": "route=/home,textLength=1048"
+    },
+    {
+      "name": "Chromium merchant /dashboard",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1322,
+      "detail": "route=/dashboard,textLength=1537"
+    },
+    {
+      "name": "Chromium merchant /products",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1250,
+      "detail": "route=/products,textLength=655"
+    },
+    {
+      "name": "Chromium merchant /services",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1105,
+      "detail": "route=/services,textLength=812"
+    },
+    {
+      "name": "Chromium merchant /orders",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1189,
+      "detail": "route=/orders,textLength=709"
+    },
+    {
+      "name": "Chromium merchant /messages",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1083,
+      "detail": "route=/messages,textLength=575"
+    },
+    {
+      "name": "Chromium merchant /customers",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1237,
+      "detail": "route=/customers,textLength=803"
+    },
+    {
+      "name": "Chromium merchant /analytics",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1082,
+      "detail": "route=/analytics,textLength=1056"
+    },
+    {
+      "name": "Chromium merchant /insights",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1128,
+      "detail": "route=/insights,textLength=1056"
+    },
+    {
+      "name": "Chromium merchant /connections",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1109,
+      "detail": "route=/connections,textLength=1896"
+    },
+    {
+      "name": "Chromium merchant /delivery",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1099,
+      "detail": "route=/delivery,textLength=1896"
+    },
+    {
+      "name": "Chromium merchant /notifications",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1086,
+      "detail": "route=/notifications,textLength=1266"
+    },
+    {
+      "name": "Chromium merchant /settings",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1045,
+      "detail": "route=/settings,textLength=1372"
+    },
+    {
+      "name": "Chromium merchant /studio",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1236,
+      "detail": "route=/studio,textLength=545"
+    },
+    {
+      "name": "Chromium merchant /editor",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1071,
+      "detail": "route=/editor,textLength=741"
+    },
+    {
+      "name": "Chromium merchant /import",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1115,
+      "detail": "route=/import,textLength=1009"
+    },
+    {
+      "name": "Chromium merchant /coupons",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1120,
+      "detail": "route=/coupons,textLength=1018"
+    },
+    {
+      "name": "Chromium merchant /guide",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1086,
+      "detail": "route=/guide,textLength=2113"
+    },
+    {
+      "name": "Chromium merchant /moderation",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 839,
+      "detail": "route=/moderation,textLength=547"
+    },
+    {
+      "name": "Chromium merchant /bookings",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1156,
+      "detail": "route=/bookings,textLength=715"
+    },
+    {
+      "name": "Chromium merchant /knowledge-studio",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 836,
+      "detail": "route=/knowledge-studio,textLength=547"
+    },
+    {
+      "name": "Chromium merchant /wallet",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1171,
+      "detail": "route=/wallet,textLength=702"
+    },
+    {
+      "name": "Chromium merchant /profile",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1299,
+      "detail": "route=/profile,textLength=685"
+    },
+    {
+      "name": "Chromium merchant /assistant",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1333,
+      "detail": "route=/assistant,textLength=618"
+    },
+    {
+      "name": "Chromium merchant /publish",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1085,
+      "detail": "route=/publish,textLength=680"
+    },
+    {
+      "name": "Chromium merchant /field-visit",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 753,
+      "detail": "route=/field-visit,textLength=547"
+    },
+    {
+      "name": "Chromium mobile 390px /home and /market",
+      "category": "browser",
+      "status": "PASS",
+      "ms": 1689,
+      "detail": ""
+    },
+    {
+      "name": "Cleanup disposable QA customer",
+      "category": "cleanup",
+      "status": "PASS",
+      "ms": 190,
+      "detail": ""
+    },
+    {
+      "name": "Cleanup disposable QA product",
+      "category": "cleanup",
+      "status": "PASS",
+      "ms": 145,
+      "detail": ""
+    }
+  ],
+  "browserNotes": [
+    "VERIFIED_ROUTE:/:chars=1542",
+    "VERIFIED_ROUTE:/landing:chars=1542",
+    "VERIFIED_ROUTE:/market:chars=562",
+    "VERIFIED_ROUTE:/explore:chars=557",
+    "VERIFIED_ROUTE:/feed:chars=188",
+    "VERIFIED_ROUTE:/login:chars=213",
+    "VERIFIED_ROUTE:/register:chars=213",
+    "VERIFIED_ROUTE:/store/2d6f5fb0-2185-4432-b4c7-90493f176d57:chars=538",
+    "VERIFIED_ROUTE:/home:chars=1048",
+    "VERIFIED_ROUTE:/dashboard:chars=1537",
+    "VERIFIED_ROUTE:/products:chars=655",
+    "VERIFIED_ROUTE:/services:chars=812",
+    "VERIFIED_ROUTE:/orders:chars=709",
+    "VERIFIED_ROUTE:/messages:chars=575",
+    "VERIFIED_ROUTE:/customers:chars=803",
+    "VERIFIED_ROUTE:/analytics:chars=1056",
+    "VERIFIED_ROUTE:/insights:chars=1056",
+    "VERIFIED_ROUTE:/connections:chars=1896",
+    "VERIFIED_ROUTE:/delivery:chars=1896",
+    "VERIFIED_ROUTE:/notifications:chars=1266",
+    "VERIFIED_ROUTE:/settings:chars=1372",
+    "VERIFIED_ROUTE:/studio:chars=545",
+    "VERIFIED_ROUTE:/editor:chars=741",
+    "VERIFIED_ROUTE:/import:chars=1009",
+    "VERIFIED_ROUTE:/coupons:chars=1018",
+    "VERIFIED_ROUTE:/guide:chars=2113",
+    "VERIFIED_ROUTE:/moderation:chars=547",
+    "VERIFIED_ROUTE:/bookings:chars=715",
+    "VERIFIED_ROUTE:/knowledge-studio:chars=547",
+    "VERIFIED_ROUTE:/wallet:chars=702",
+    "VERIFIED_ROUTE:/profile:chars=685",
+    "VERIFIED_ROUTE:/assistant:chars=618",
+    "VERIFIED_ROUTE:/publish:chars=680",
+    "VERIFIED_ROUTE:/field-visit:chars=547",
+    "VERIFIED_ROUTE:/home:chars=680",
+    "VERIFIED_ROUTE:/market:chars=589"
+  ],
+  "qaArtifacts": {
+    "usersCreated": 2,
+    "orderCreated": true,
+    "customerCleanupComplete": true,
+    "productCleanupComplete": true
+  },
+  "summary": {
+    "pass": 59,
+    "fail": 0
+  }
+}

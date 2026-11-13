@@ -1,0 +1,42 @@
+name: Regenerate AMANZINE Audit Reports
+
+# One-shot, trusted branch-only writer. No secrets, no Railway deployments.
+# Path filter avoids recursion after the generated REPORTS/ commit.
+on:
+  push:
+    branches: ["audit/amanzine-full-feature-map-20261113"]
+    paths:
+      - ".github/workflows/refresh-audit-reports.yml"
+      - "test/audit-live-staging.mjs"
+      - ".github/workflows/audit-live-staging.yml"
+      - "AUDIT/**"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Regenerate exact tracked-file and reachable-code audit
+        run: node scripts/audit.mjs
+      - name: Commit generated reports only
+        run: |
+          git add REPORTS/audit.json REPORTS/REPO_AUDIT.md
+          if git diff --cached --quiet; then
+            echo "Reports are already fresh"
+            exit 0
+          fi
+          git -c user.name="amanzine-audit-bot" -c user.email="audit-bot@users.noreply.github.com" \
+            commit -m "docs(audit): regenerate current repository inventory"
+          git push origin HEAD:refs/heads/audit/amanzine-full-feature-map-20261113
+      - name: Verify architecture freshness on committed snapshot
+        run: node --test test/architecture-freshness.test.mjs
