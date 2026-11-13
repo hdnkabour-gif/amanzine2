@@ -3,8 +3,10 @@ name: Operational Staging Audit
 # Execute against staging only after code deployment. Never on docs-only updates.
 on:
   push:
-    branches: ["staging/pre-production"]
+    branches: ["staging/pre-production", "audit/amanzine-full-feature-map-20261113"]
     paths:
+      - "test/audit-live-staging.mjs"
+      - ".github/workflows/audit-live-staging.yml"
       - "server/routes/orders.js"
       - "server/routes/ai.js"
       - "server/routes/auth.js"
@@ -43,5 +45,6 @@ jobs:
           path: |
             tmp/staging-audit-smoke.json
             tmp/staging-browser-last-page.png
+            tmp/screens/*.png
           if-no-files-found: warn
           retention-days: 14
