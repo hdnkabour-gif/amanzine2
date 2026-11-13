@@ -14,7 +14,7 @@ const test = (n, f) => rawTest(n, { skip: SKIP && 'لا DATABASE_URL' }, f);
 const { db } = require('../database');
 const pool = require('../db');
 
-let U = '';
+let U = '', CODE = '', server = null, base = '';
 const PH = '0655123456';          // الرقمُ المقصود
 before(async () => {
   if (SKIP) return;
@@ -25,11 +25,19 @@ before(async () => {
   await pool.query('DELETE FROM orders WHERE user_id=$1', [U]);
   // نفسُ الرقم بثلاثِ صيغ — كلُّها زبونٌ واحد
   for (const p of [PH, '+212655123456', '00212 655 12 34 56']) {
-    await db.createOrder({ userId: U, customerName: 'زبون', customerPhone: p, total: 10, items: [] });
+    const order = await db.createOrder({ userId: U, customerName: 'زبون', customerPhone: p, total: 10,
+      items: [{ productName: 'QA-private-line-item', quantity: 1, price: 10 }] });
+    if (p === PH) CODE = order.customerCode;
   }
   await db.createOrder({ userId: U, customerName: 'آخر', customerPhone: '0677000000', total: 99, items: [] });
+  const express = require('express');
+  const app = express(); app.use(express.json());
+  app.use('/api/orders', require('../routes/orders'));
+  app.use('/api/ai', require('../routes/ai'));
+  await new Promise(resolve => { server = app.listen(0, resolve); });
+  base = `http://127.0.0.1:${server.address().port}`;
 });
-after(async () => { if (SKIP) return; await pool.end?.(); });
+after(async () => { if (SKIP) return; await new Promise(r => server?.close(r)); await pool.end?.(); });
 
 test('**الصيغُ الثلاثُ للرقم نفسِه تُطابَق — والغريبُ لا يُطابَق**', async () => {
   const rows = await db.findOrdersByPhone(U, '655123456');
@@ -53,5 +61,55 @@ test('**والتصفيةُ تقع في القاعدة لا في الذاكرة**
   const src = require('fs').readFileSync(require('path').join(__dirname, '../routes/orders.js'), 'utf8');
   const h = src.slice(src.indexOf("router.get('/track/:phone'"), src.indexOf("router.get('/track-code/"));
   assert.doesNotMatch(h, /db\.getOrders\(/, 'عاد البابُ العامُّ يُحمّل كلَّ الطلبات');
-  assert.match(h, /findOrdersByPhone/, 'لم يعد يستعمل الاستعلامَ المحدود');
+  assert.match(h, /findOrderByCode/, 'تسربت قراءة الهاتف دون مطابقة كود الطلب');
+  assert.match(h, /trackingPhoneMatches/, 'غاب عامل التحقق الثاني برقم الهاتف');
+});
+
+
+const get = async (url) => {
+  const response = await fetch(base + url);
+  return { status: response.status, body: await response.json() };
+};
+
+test('**الرقمُ وحدَه لا يكشف طلبًا — HTTP حقيقيّ**', async () => {
+  const r = await get('/api/orders/track/' + PH + '?userId=' + U);
+  assert.equal(r.status, 403);
+  assert.ok(!JSON.stringify(r.body).includes('QA-private-line-item'));
+});
+
+test('**الكودُ وحدَه يكشف الحالة لا المبلغَ ولا المشتريات**', async () => {
+  const r = await get('/api/orders/track-code/' + CODE + '?userId=' + U);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.status, 'pending');
+  assert.ok(!('total' in r.body));
+  assert.ok(!('items' in r.body));
+  assert.ok(!('customerName' in r.body));
+});
+
+test('**الهاتف الخطأ مع كود صحيح لا يكشف شيئًا**', async () => {
+  const r = await get('/api/orders/track-code/' + CODE + '?userId=' + U + '&phone=0677999999');
+  assert.equal(r.status, 404);
+  assert.ok(!JSON.stringify(r.body).includes('QA-private-line-item'));
+});
+
+test('**الهاتف الصحيح والكود الصحيح معًا يكشفان تفاصيل الطلب لصاحبه**', async () => {
+  const url = '/api/orders/track/' + PH + '?userId=' + U + '&code=' + CODE;
+  const r = await get(url);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.length, 1);
+  assert.equal(+r.body[0].total, 10);
+  assert.equal(r.body[0].items[0].productName, 'QA-private-line-item');
+});
+
+test('**المساعد العمومي لا يكشف المبلغ أو المشتريات برقم الهاتف وحده**', async () => {
+  const r = await fetch(base + '/api/ai/public-reply', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ userId: U, message: 'فين وصل طلبي ' + PH }),
+  });
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.model, 'order-tracking-verification');
+  assert.ok(!JSON.stringify(body).includes('QA-private-line-item'));
+  assert.ok(!JSON.stringify(body).includes(CODE));
 });
