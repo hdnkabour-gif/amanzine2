@@ -852,8 +852,11 @@ export default function DeliveryPage() {
       setVerdict(v => ({ ...v, [prov.id]: { success: r.success, checks: r.checks || [], unmatched: r.unmatched || [] } }));
       setSelected(prov.id);
       const failed = (r.checks || []).filter(c => c.ok === false);
+      const reason = failed.map(c => c.detail || c.label).join(' · ').slice(0, 350);
       notify(r.success ? 'success' : 'warning',
-        r.success ? `✅ ${prov.name}: الربط سليم` : `⚠️ ${prov.name}: ${failed.map(c => c.label).join(' · ') || 'بعض الفحوص لم تنجح'}`);
+        r.success
+          ? `✅ ${prov.name}: تم التحقق من الاتصال؛ إرسال شحنة فعلية يحتاج تأكيدًا مستقلًا`
+          : `⚠️ ${prov.name}: ${reason || 'لم تؤكّد الشركة صلاحية الربط'}`);
       // المزوّدُ قد يكون عُرِّف تلقائيًّا أثناء التحقّق ⇒ نُحدّث القائمة.
       if ((r.checks || []).some(c => c.key === 'adopted')) refreshProviders?.();
     } catch (e: any) {
@@ -925,7 +928,7 @@ export default function DeliveryPage() {
         <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.9 }}>
           <b style={{ color: 'var(--ink1)' }}>إضافة الشركة هنا تحفظ بياناتها فقط — لا تُنشئ أي شحنة.</b> الشحنة تُنشأ عند ضغط «شحن» على طلب في صفحة الطلبات، وحينها يخبرك النظام بصدق بإحدى حالتين:<br/>
           <span style={{ color: '#34d399', fontWeight: 700 }}>✅ شحنة حقيقية</span> — فقط إذا هيأتَ للشركة: مفتاح API (أمانة/جيبلي/Livo) أو رابط Webhook أو وصفة أتمتة URL. عندها يُرسل الطلب فعلياً لنظام الشركة ويعود رقم تتبع حقيقي منها.<br/>
-          <span style={{ color: '#fbbf24', fontWeight: 700 }}>⚠️ محاكاة</span> — إذا أضفت الشركة بالاسم والرابط فقط (بدون API). يُولَّد رقم تتبع داخلي للتنظيم، <b>وعليك إدخال الطلب يدوياً في موقع الشركة</b>. ستصلك رسالة تحذير صريحة بذلك مع سبب عدم الإرسال.<br/>
+          <span style={{ color: '#fbbf24', fontWeight: 700 }}>⚠️ لم تُنشأ شحنة مؤكّدة</span> — حفظ اسم الشركة ورابطها فقط لا يربطها آليًا؛ بلا API صالح يلزم الإدخال اليدوي. وإذا قبل رابط Webhook الطلب دون رقم شحنة، يجب مراجعة لوحة الشركة قبل إعادة الإرسال، حتى لا تُنشأ شحنتان. <b>لا نصنع رقم تتبع داخليًا وندّعي أنه من شركة التوصيل.</b><br/>
           والسجل أدناه يعرض تاريخ كل شحنة وما حدث فيها بالضبط.
         </div>
       </div>
@@ -1011,7 +1014,7 @@ export default function DeliveryPage() {
 
                 {selected === p.id && (
                   <div className="anim-fade-in" style={{ borderTop: '1px solid var(--clr-border)', padding: '14px 18px' }}>
-                    {/* نتيجةُ «اختبار» — كلُّ سطرٍ فحصٌ نُفِّذ فعلًا على الشركة */}
+                    {/* نتيجةُ «اختبار» — لا تعني أن الشحنة ظهرت لدى الشركة حتى نحصل على رقم مرجعي منها. */}
                     {verdict[p.id] && (
                       <div style={{ marginBottom: 12, padding: 11, borderRadius: 10,
                         background: verdict[p.id].success ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.1)',
