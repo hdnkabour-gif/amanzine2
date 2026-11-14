@@ -86,6 +86,13 @@ export default function AuthPage() {
   const [error, setError]       = useState('');
   const [showPwd, setShowPwd]   = useState(false);
   const [logoErr, setLogoErr]   = useState(false);
+  // Real recovery requires an email OTP, not a nonexistent magic link.
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetNotice, setResetNotice] = useState('');
   const [form, setForm] = useState(() => {
     let email = '';
     try { email = String(JSON.parse(localStorage.getItem('ai_commerce_user') || '{}')?.email || ''); } catch { /* noop */ }
@@ -103,6 +110,50 @@ export default function AuthPage() {
   });
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+  // Generic public response prevents checking whether an email account exists.
+  // Always name the actual OTP method; the server never sends a reset *link*.
+  const requestPasswordReset = async () => {
+    const email = form.email.trim().toLowerCase();
+    if (!email) { setError('أدخل بريدك الإلكتروني أولاً'); return; }
+    setResetBusy(true); setError(''); setResetNotice('');
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'تعذّر طلب الاسترجاع');
+      setResetEmail(email);
+      setResetCode('');
+      setResetPassword('');
+      setResetOpen(true);
+      setResetNotice('إذا كان البريد مسجلاً وكان إرسال البريد مهيّأً، سيصلك رمز تحقق من 6 أرقام صالح لمدة 5 دقائق.');
+    } catch (e: any) {
+      setError(e?.message || 'تعذّر طلب الاسترجاع. حاول لاحقًا.');
+    } finally { setResetBusy(false); }
+  };
+
+  const confirmPasswordReset = async () => {
+    if (!/^[0-9]{6}$/.test(resetCode.trim())) { setError('أدخل رمز التحقق المكون من 6 أرقام'); return; }
+    if (resetPassword.length < 6) { setError('كلمة المرور الجديدة يجب أن تتكون من 6 أحرف على الأقل'); return; }
+    setResetBusy(true); setError('');
+    try {
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resetEmail, code: resetCode.trim(), newPassword: resetPassword }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'رمز غير صالح أو انتهت صلاحيته');
+      setResetOpen(false);
+      setResetCode('');
+      setResetPassword('');
+      setForm(f => ({ ...f, password: '' }));
+      setResetNotice('✅ تم تغيير كلمة المرور. يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.');
+    } catch (e: any) {
+      setError(e?.message || 'تعذّر تغيير كلمة المرور.');
+    } finally { setResetBusy(false); }
+  };
+
 
   useEffect(() => {
     fetch('/api/auth/config').then(r => r.json()).then(c =>
@@ -392,7 +443,7 @@ export default function AuthPage() {
             borderRadius: DS.radiusSm, padding: 4, marginBottom: 24, gap: 4,
           }}>
             {[['true', known ? 'نكمّل' : 'دخول'], ['false', known ? 'حساب آخر' : 'حساب جديد']].map(([v, label]) => (
-              <button key={v} onClick={() => { setIsLogin(v === 'true'); setError(''); }}
+              <button key={v} onClick={() => { setIsLogin(v === 'true'); setError(''); setResetOpen(false); setResetNotice(''); }}
                 style={{
                   flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 13, fontWeight: 700,
                   cursor: 'pointer', border: 'none', fontFamily: 'inherit',
@@ -448,19 +499,47 @@ export default function AuthPage() {
 
             {isLogin && (
               <div style={{ textAlign: 'left', marginTop: -4 }}>
-                <button type="button"
-                  onClick={() => {
-                    const email = form.email.trim();
-                    if (!email) { setError('أدخل بريدك الإلكتروني أولاً'); return; }
-                    setError('');
-                    fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
-                      .then(r => r.json())
-                      .then(() => setError('✅ تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني'))
-                      .catch(() => setError('✅ إذا كان البريد مسجلاً سيصلك رابط إعادة التعيين'));
-                  }}
+                <button type="button" disabled={resetBusy}
+                  onClick={requestPasswordReset}
                   style={{ background: 'none', border: 'none', color: 'rgba(18,161,80,0.85)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: 0, textDecoration: 'underline' }}>
-                  نسيت كلمة المرور؟
+                  {resetBusy ? 'جارٍ...' : 'نسيت كلمة المرور؟'}
                 </button>
+              </div>
+            )}
+
+            {isLogin && resetOpen && (
+              <section aria-label="إعادة تعيين كلمة المرور" style={{
+                border: '1px solid rgba(18,161,80,0.3)', background: 'rgba(10,143,111,0.07)',
+                borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10,
+              }}>
+                <div style={{ color: DS.text2, fontSize: 12 }}>
+                  أدخل الرمز الذي يصلك على {resetEmail} ثم كلمة المرور الجديدة.
+                </div>
+                <input type="text" aria-label="رمز التحقق" inputMode="numeric" autoComplete="one-time-code"
+                  maxLength={6} placeholder="رمز التحقق من 6 أرقام" value={resetCode}
+                  onChange={e => setResetCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                  style={{ ...inputStyle('email'), direction: 'ltr' }} />
+                <input type="password" aria-label="كلمة المرور الجديدة" autoComplete="new-password"
+                  placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)" value={resetPassword}
+                  onChange={e => setResetPassword(e.target.value)}
+                  style={{ ...inputStyle('password'), direction: 'ltr' }} />
+                <button type="button" disabled={resetBusy || resetCode.length !== 6 || resetPassword.length < 6}
+                  onClick={confirmPasswordReset} className="btn btn-primary"
+                  style={{ justifyContent: 'center', opacity: resetBusy ? 0.6 : 1 }}>
+                  {resetBusy ? 'جارٍ التحقق…' : 'تأكيد تغيير كلمة المرور'}
+                </button>
+                <button type="button" onClick={() => { setResetOpen(false); setResetNotice(''); setError(''); }}
+                  style={{ background: 'none', border: 'none', color: DS.text2, fontSize: 12, cursor: 'pointer' }}>
+                  إلغاء
+                </button>
+              </section>
+            )}
+
+            {resetNotice && isLogin && (
+              <div role="status" aria-live="polite" style={{ background: 'rgba(10,143,111,0.08)',
+                border: '1px solid rgba(10,143,111,0.25)', borderRadius: 10, padding: '10px 12px',
+                fontSize: 12, color: DS.emeraldLight, lineHeight: 1.6 }}>
+                {resetNotice}
               </div>
             )}
 

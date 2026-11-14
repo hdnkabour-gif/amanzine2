@@ -7,7 +7,9 @@ const mailer     = require('./mailer');
 
 const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-const getTransport = () => mailer.getTransport();
+// Account and store labels come from user input; never interpolate raw HTML.
+const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, c =>
+  ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
 
 async function generateOTP(email) {
   const buf  = Buffer.alloc(3);
@@ -20,53 +22,51 @@ async function generateOTP(email) {
 }
 
 async function sendOTP(email, storeName) {
-  const code      = await generateOTP(email);
-  const transport = getTransport();
-
-  if (transport) {
-    const from = process.env.SMTP_FROM || `"${storeName || 'AMANZINE'}" <${process.env.SMTP_USER}>`;
-    try {
-      await transport.sendMail({
-        from,
+  // The shared mailer chooses SMTP or the already-configured Brevo API.
+  // Do not mistake "no SMTP" for "no email": Railway has BREVO_API_KEY.
+  if (!mailer.available()) {
+    console.warn('[OTP] No email provider configured; no verification code issued.');
+    return { sent: false, method: 'not-configured' };
+  }
+  const code = await generateOTP(email);
+  try {
+    const result = await mailer.send({
         to: email,
         subject: '🔐 رمز التحقق — AMANZINE',
         html: `
           <div dir="rtl" style="font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:20px;background:#07080D;color:#E8E4DC;border-radius:12px">
             <h2 style="color:#FF6A00;text-align:center">🔐 رمز التحقق</h2>
-            <p style="text-align:center;color:#aaa">متجر <strong style="color:#FF6A00">${storeName || 'AMANZINE'}</strong></p>
+            <p style="text-align:center;color:#aaa">متجر <strong style="color:#FF6A00">${escapeHtml(storeName || 'AMANZINE')}</strong></p>
             <div style="background:#1a1b21;border-radius:8px;padding:20px;text-align:center;margin:20px 0">
               <span style="font-size:36px;font-weight:900;letter-spacing:8px;color:#FF6A00">${code}</span>
             </div>
             <p style="color:#888;font-size:13px;text-align:center">صالح لمدة 5 دقائق — لا تشاركه مع أحد</p>
           </div>`,
-      });
-      return { sent: true, method: 'email' };
-    } catch (err) {
-      console.error('[OTP] Email send failed:', err.message);
-    }
+    });
+    if (result.sent) return { sent: true, method: mailer.transportKind() };
+    console.error('[OTP] Email provider rejected verification email:', result.reason || 'unknown');
+  } catch (err) {
+    console.error('[OTP] Email provider error:', err.message);
   }
 
-  // Console fallback for dev / no SMTP
-  console.warn(`[OTP] ⚠️  No SMTP configured — OTP for ${email}: ${code}`);
-  return { sent: true, method: 'console' };
+  // A delivery failure must not leave a live, undelivered secret in the database.
+  await db.invalidateOTPs(email);
+  return { sent: false, method: 'email-error' };
 }
 
 async function sendWelcome(email, name, storeName) {
-  const transport = getTransport();
-  if (!transport) {
-    console.warn(`[Welcome] ⚠️  No SMTP configured — welcome email skipped for ${email}`);
-    return { sent: false, method: 'console' };
+  if (!mailer.available()) {
+    console.warn('[Welcome] No email provider configured; welcome email skipped.');
+    return { sent: false, method: 'not-configured' };
   }
-  const from  = process.env.SMTP_FROM || `"AMANZINE" <${process.env.SMTP_USER}>`;
-  const store = storeName || 'متجرك';
+  const store = escapeHtml(storeName || 'متجرك');
   try {
-    await transport.sendMail({
-      from,
+    const result = await mailer.send({
       to: email,
       subject: '🎉 مرحباً بك في AMANZINE',
       html: `
         <div dir="rtl" style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:28px;background:#07080D;color:#E8E4DC;border-radius:14px">
-          <h2 style="color:#FF6A00;text-align:center;margin:0 0 6px">🎉 مرحباً ${name || ''}!</h2>
+          <h2 style="color:#FF6A00;text-align:center;margin:0 0 6px">🎉 مرحباً ${escapeHtml(name || '')}!</h2>
           <p style="text-align:center;color:#aaa;margin:0 0 18px">تم إنشاء متجر <strong style="color:#FF6A00">${store}</strong> بنجاح</p>
           <div style="background:#12141c;border-radius:10px;padding:18px;margin:0 0 18px">
             <p style="color:#E8E4DC;font-weight:700;margin:0 0 10px">خطواتك الأولى:</p>
@@ -78,10 +78,12 @@ async function sendWelcome(email, name, storeName) {
           <p style="color:#777;font-size:12px;text-align:center;margin:0">AMANZINE — منصة التجارة والخدمات الذكية 🇲🇦</p>
         </div>`,
     });
-    return { sent: true, method: 'email' };
+    return result.sent
+      ? { sent: true, method: mailer.transportKind() }
+      : { sent: false, method: 'email-error' };
   } catch (err) {
-    console.error('[Welcome] Email send failed:', err.message);
-    return { sent: false, method: 'error' };
+    console.error('[Welcome] Email provider error:', err.message);
+    return { sent: false, method: 'email-error' };
   }
 }
 
