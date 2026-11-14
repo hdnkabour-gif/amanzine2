@@ -141,3 +141,69 @@ test('VAPID survives two independent Node starts on the same volume path', () =>
     fs.rmSync(dir, { force: true, recursive: true });
   }
 });
+
+
+test('OTP: absent provider never issues a code; failed Brevo revokes it; success uses shared mailer', async () => {
+  const otp = require('../lib/otp');
+  const { db } = require('../database');
+  const before = {
+    available: mailer.available,
+    send: mailer.send,
+    transportKind: mailer.transportKind,
+    createOTP: db.createOTP,
+    invalidateOTPs: db.invalidateOTPs,
+    warn: console.warn,
+    error: console.error,
+  };
+  let created = 0;
+  let revoked = 0;
+  const logs = [];
+  const sent = [];
+  try {
+    db.createOTP = async () => { created++; };
+    db.invalidateOTPs = async () => { revoked++; };
+    console.warn = (...args) => logs.push(args.join(' '));
+    console.error = (...args) => logs.push(args.join(' '));
+
+    mailer.available = () => false;
+    const missing = await otp.sendOTP('qa-secret@example.invalid', 'QA');
+    assert.deepEqual(missing, { sent: false, method: 'not-configured' });
+    assert.equal(created, 0, 'no undeliverable OTP is created');
+    assert.equal(revoked, 0);
+
+    // Brevo is configured in Railway even when SMTP is absent. A rejected
+    // provider must not leave a valid undelivered code in the database.
+    mailer.available = () => true;
+    mailer.transportKind = () => 'brevo';
+    mailer.send = async (payload) => { sent.push(payload); return { sent: false, reason: 'QA-rejected' }; };
+    const rejected = await otp.sendOTP('qa-secret@example.invalid', 'QA');
+    assert.deepEqual(rejected, { sent: false, method: 'email-error' });
+    assert.equal(created, 1);
+    assert.equal(revoked, 2, 'generation invalidation + rejection revocation');
+    assert.equal(sent[0].to, 'qa-secret@example.invalid');
+    assert.match(sent[0].html, /رمز التحقق/);
+
+    mailer.send = async (payload) => { sent.push(payload); return { sent: true }; };
+    const success = await otp.sendOTP('qa-secret@example.invalid', 'QA');
+    assert.deepEqual(success, { sent: true, method: 'brevo' });
+    assert.equal(created, 2, 'successful delivery creates a fresh OTP');
+    assert.equal(revoked, 3, 'success must not immediately revoke delivered OTP');
+    assert.equal(sent[1].to, 'qa-secret@example.invalid');
+
+    const welcome = await otp.sendWelcome('qa-secret@example.invalid', '<img src=x>', '<b>Store</b>');
+    assert.deepEqual(welcome, { sent: true, method: 'brevo' });
+    assert.equal(sent[2].to, 'qa-secret@example.invalid');
+    assert.match(sent[2].html, /&lt;img src=x&gt;/, 'welcome name must be HTML-safe');
+    assert.match(sent[2].html, /&lt;b&gt;Store&lt;\/b&gt;/, 'welcome store name must be HTML-safe');
+
+    assert.doesNotMatch(logs.join('\n'), /OTP for|qa-secret@example\.invalid|\b\d{6}\b/, 'never expose secret or email in diagnostic logs');
+  } finally {
+    mailer.available = before.available;
+    mailer.send = before.send;
+    mailer.transportKind = before.transportKind;
+    db.createOTP = before.createOTP;
+    db.invalidateOTPs = before.invalidateOTPs;
+    console.warn = before.warn;
+    console.error = before.error;
+  }
+});
