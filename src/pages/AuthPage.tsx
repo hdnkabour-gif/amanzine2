@@ -134,7 +134,7 @@ export default function AuthPage() {
   };
 
   const confirmPasswordReset = async () => {
-    if (!/^\\d{6}$/.test(resetCode.trim())) { setError('أدخل رمز التحقق المكون من 6 أرقام'); return; }
+    if (!/^[0-9]{6}$/.test(resetCode.trim())) { setError('أدخل رمز التحقق المكون من 6 أرقام'); return; }
     if (resetPassword.length < 6) { setError('كلمة المرور الجديدة يجب أن تتكون من 6 أحرف على الأقل'); return; }
     setResetBusy(true); setError('');
     try {
@@ -517,7 +517,7 @@ export default function AuthPage() {
                 </div>
                 <input type="text" aria-label="رمز التحقق" inputMode="numeric" autoComplete="one-time-code"
                   maxLength={6} placeholder="رمز التحقق من 6 أرقام" value={resetCode}
-                  onChange={e => setResetCode(e.target.value.replace(/\\D/g, '').slice(0, 6))}
+                  onChange={e => setResetCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
                   style={{ ...inputStyle('email'), direction: 'ltr' }} />
                 <input type="password" aria-label="كلمة المرور الجديدة" autoComplete="new-password"
                   placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)" value={resetPassword}
