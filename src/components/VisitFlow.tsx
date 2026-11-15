@@ -165,7 +165,7 @@ export default function VisitFlow({ draft, onChange, onSubmit, busy, error }: {
       {step === 'said' && (
         <Card title="قول ليا بجملة شنو كيدير" sub="كما قالها هو — بلا ترتيب">
           <textarea
-            autoFocus value={draft.said} onChange={e => set('said', e.target.value)}
+            autoFocus value={draft.said} onChange={e => { onChange({ ...draft, said: e.target.value, visitContext: undefined }); setExtracted(null); }}
             placeholder="مثلاً: عندي محل لافاج فالحي المحمدي، كنغسل الطوموبيلات و الزرابي"
             rows={3}
             style={{ ...field, resize: 'vertical', lineHeight: 1.9 }}
