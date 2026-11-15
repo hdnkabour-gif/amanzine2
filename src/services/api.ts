@@ -489,6 +489,14 @@ export const providersAPI = {
   // عمليّةٌ واحدة: حساب + محلّ + روابط + كلمات + أسئلة تسعير. والردّ يحمل
   // `learned` — فلا تقول الشاشةُ «تعلَّمنا» إلّا بما تعلَّمه الخادمُ فعلًا،
   // و`needsReview` تُعلن ما رُدّ بسبب تعارضٍ بدل أن يُبتلَع صامتًا.
+  visitUnderstand: (message: string, allowExternalAI: boolean) =>
+    request<{ draft: {
+      business_kind: 'shop' | 'craft' | 'service' | 'unknown';
+      business_activity: string; visitor_need: string; desired_result: string;
+      location_city: string; existing_tools: string; confidence: string;
+      source: string; questions: string[];
+    }; author: string; requiresConfirmation: boolean; knowledgePublished: boolean }>(
+      'POST', '/providers/field-visit/understand', { message, allowExternalAI }),
   fieldVisit: (v: FieldVisitInput) => request<FieldVisitResult>('POST', '/providers/field-visit', v),
   fieldVisits: () => request<{ harvest: FieldHarvest; visits: any[] }>('GET', '/providers/field-visits'),
   // «شكون سجّلت؟» — المزكِّي يرى سلسلته وحصّته. التزكيةُ اسمٌ يتحمّل.
