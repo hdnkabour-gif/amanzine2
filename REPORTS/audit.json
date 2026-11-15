@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-15T16:37:35.745Z",
+ "generatedAt": "2026-11-15T16:40:04.474Z",
  "totals": {
   "tracked": 756,
   "code": 485,
@@ -12881,13 +12881,13 @@
   {
    "file": "test/fieldVisitUX.test.mjs",
    "lines": 34,
-   "bytes": 1629,
+   "bytes": 1684,
    "imports": [],
    "importers": [],
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1794760638,
+   "touched": 1794760787,
    "todos": 0,
    "anys": 0,
    "logs": 0,
