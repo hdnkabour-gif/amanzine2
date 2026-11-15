@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-15T16:40:04.474Z",
+ "generatedAt": "2026-11-15T21:19:14.445Z",
  "totals": {
   "tracked": 756,
   "code": 485,
@@ -10,7 +10,7 @@
   "deadExports": 221,
   "looseExports": 70,
   "todos": 8,
-  "lines": 93511
+  "lines": 93528
  },
  "files": [
   {
@@ -27,7 +27,7 @@
    "anys": 0,
    "logs": 1,
    "emptyCatch": 0,
-   "ageDays": 135
+   "ageDays": 136
   },
   {
    "file": "public/sw.js",
@@ -2191,7 +2191,7 @@
    "anys": 0,
    "logs": 1,
    "emptyCatch": 0,
-   "ageDays": 135
+   "ageDays": 136
   },
   {
    "file": "server/routes/memory.js",
@@ -2842,7 +2842,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 106
+   "ageDays": 107
   },
   {
    "file": "server/test/condition-filter.test.js",
@@ -3234,7 +3234,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 101
+   "ageDays": 102
   },
   {
    "file": "server/test/misread-channel.test.js",
@@ -3908,7 +3908,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 98
+   "ageDays": 99
   },
   {
    "file": "src/components/ActivityTimeline.tsx",
@@ -4747,7 +4747,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 109
+   "ageDays": 110
   },
   {
    "file": "src/components/NextStepHint.tsx",
@@ -4773,7 +4773,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 98
+   "ageDays": 99
   },
   {
    "file": "src/components/NotificationToast.tsx",
@@ -6589,7 +6589,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 101
+   "ageDays": 102
   },
   {
    "file": "src/lib/akg/kb/senses.ts",
@@ -7935,7 +7935,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 109
+   "ageDays": 110
   },
   {
    "file": "src/lib/gateTransition.ts",
@@ -10011,7 +10011,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 98
+   "ageDays": 99
   },
   {
    "file": "src/pages/Marketplace.tsx",
@@ -11018,7 +11018,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 106
+   "ageDays": 107
   },
   {
    "file": "test/brain/catalog.test.ts",
@@ -11258,7 +11258,7 @@
    "anys": 3,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 98
+   "ageDays": 99
   },
   {
    "file": "test/brain/correction.test.ts",
@@ -11393,7 +11393,7 @@
    "anys": 3,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 101
+   "ageDays": 102
   },
   {
    "file": "test/brain/doors.test.ts",
@@ -11803,7 +11803,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 101
+   "ageDays": 102
   },
   {
    "file": "test/brain/knowledge.test.ts",
@@ -12698,7 +12698,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 101
+   "ageDays": 102
   },
   {
    "file": "test/browser/film.mjs",
@@ -12794,7 +12794,7 @@
    "anys": 0,
    "logs": 7,
    "emptyCatch": 0,
-   "ageDays": 98
+   "ageDays": 99
   },
   {
    "file": "test/constitution.test.mjs",
@@ -12876,7 +12876,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 101
+   "ageDays": 102
   },
   {
    "file": "test/fieldVisitUX.test.mjs",
@@ -12896,14 +12896,14 @@
   },
   {
    "file": "test/journeys/golden.mjs",
-   "lines": 759,
-   "bytes": 39983,
+   "lines": 776,
+   "bytes": 40835,
    "imports": [],
    "importers": [],
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1794760581,
+   "touched": 1794777534,
    "todos": 0,
    "anys": 0,
    "logs": 8,
@@ -12940,7 +12940,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 101
+   "ageDays": 102
   },
   {
    "file": "test/lexicon.test.mjs",
@@ -13022,7 +13022,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 103
+   "ageDays": 104
   },
   {
    "file": "vite.config.ts",
