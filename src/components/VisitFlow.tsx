@@ -142,7 +142,7 @@ export default function VisitFlow({ draft, onChange, onSubmit, busy, error }: {
         ...draft,
         conceptId: read?.concept || null,
         city: draft.city || read?.city || '',
-        kind: null,
+        kind: draft.visitContext?.confirmed ? draft.kind : null,
       });
       setStep('who');
       return;
