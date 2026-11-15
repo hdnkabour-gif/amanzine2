@@ -98,3 +98,112 @@ test('البريد: يُعلن تهيّؤه ولا يدّعي إرسالًا ب�
   }
   assert.ok(mailer.wrap('عنوان', 'متن').includes('عنوان'));
 });
+
+
+// ── Persistence across real Node process restarts ────────────────────────────
+// The old deploy image path regenerated VAPID keys every Railway restart.
+// Use a disposable path to prove persistence without touching /data or secrets.
+test('VAPID survives two independent Node starts on the same volume path', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { execFileSync } = require('node:child_process');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amanzine-vapid-'));
+  const file = path.join(dir, 'vapid.json');
+  const env = { ...process.env, VAPID_KEY_FILE: file, JWT_SECRET: 'qa-vapid-secret-longer-than-32-characters' };
+  // Never let existing environment keys bypass this regression.
+  delete env.VAPID_PUBLIC_KEY;
+  delete env.VAPID_PRIVATE_KEY;
+  const script = [
+    "require('./routes/push');",
+    "const fs = require('node:fs');",
+    "const k = JSON.parse(fs.readFileSync(process.env.VAPID_KEY_FILE, 'utf8'));",
+    "process.stdout.write('\\nVAPID_PUBLIC_CHECK=' + k.publicKey + '\\n');",
+  ].join('\n');
+  const run = () => execFileSync(process.execPath, ['-e', script], {
+    cwd: path.resolve(__dirname, '..'), env, encoding: 'utf8', timeout: 10000,
+  });
+  try {
+    const first = run();
+    const raw = fs.readFileSync(file, 'utf8');
+    const parsed = JSON.parse(raw);
+    assert.ok(parsed.publicKey && parsed.privateKey, 'new VAPID key pair is missing');
+    const publicKey = parsed.publicKey;
+    assert.equal(fs.statSync(file).mode & 0o777, 0o600, 'private key must be owner-only');
+    assert.match(first, /VAPID_PUBLIC_CHECK=/);
+    assert.ok(!first.includes(parsed.privateKey), 'private key was printed in server logs');
+    const second = run();
+    const readBack = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert.equal(readBack.publicKey, publicKey, 'public key rotated after simulated restart');
+    assert.equal(readBack.privateKey, parsed.privateKey, 'private key rotated after restart');
+    assert.ok(!second.includes('Generated new VAPID keys'), 'second start should reuse stored keys');
+  } finally {
+    fs.rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+
+test('OTP: absent provider never issues a code; failed Brevo revokes it; success uses shared mailer', async () => {
+  const otp = require('../lib/otp');
+  const { db } = require('../database');
+  const before = {
+    available: mailer.available,
+    send: mailer.send,
+    transportKind: mailer.transportKind,
+    createOTP: db.createOTP,
+    invalidateOTPs: db.invalidateOTPs,
+    warn: console.warn,
+    error: console.error,
+  };
+  let created = 0;
+  let revoked = 0;
+  const logs = [];
+  const sent = [];
+  try {
+    db.createOTP = async () => { created++; };
+    db.invalidateOTPs = async () => { revoked++; };
+    console.warn = (...args) => logs.push(args.join(' '));
+    console.error = (...args) => logs.push(args.join(' '));
+
+    mailer.available = () => false;
+    const missing = await otp.sendOTP('qa-secret@example.invalid', 'QA');
+    assert.deepEqual(missing, { sent: false, method: 'not-configured' });
+    assert.equal(created, 0, 'no undeliverable OTP is created');
+    assert.equal(revoked, 0);
+
+    // Brevo is configured in Railway even when SMTP is absent. A rejected
+    // provider must not leave a valid undelivered code in the database.
+    mailer.available = () => true;
+    mailer.transportKind = () => 'brevo';
+    mailer.send = async (payload) => { sent.push(payload); return { sent: false, reason: 'QA-rejected' }; };
+    const rejected = await otp.sendOTP('qa-secret@example.invalid', 'QA');
+    assert.deepEqual(rejected, { sent: false, method: 'email-error' });
+    assert.equal(created, 1);
+    assert.equal(revoked, 2, 'generation invalidation + rejection revocation');
+    assert.equal(sent[0].to, 'qa-secret@example.invalid');
+    assert.match(sent[0].html, /رمز التحقق/);
+
+    mailer.send = async (payload) => { sent.push(payload); return { sent: true }; };
+    const success = await otp.sendOTP('qa-secret@example.invalid', 'QA');
+    assert.deepEqual(success, { sent: true, method: 'brevo' });
+    assert.equal(created, 2, 'successful delivery creates a fresh OTP');
+    assert.equal(revoked, 3, 'success must not immediately revoke delivered OTP');
+    assert.equal(sent[1].to, 'qa-secret@example.invalid');
+
+    const welcome = await otp.sendWelcome('qa-secret@example.invalid', '<img src=x>', '<b>Store</b>');
+    assert.deepEqual(welcome, { sent: true, method: 'brevo' });
+    assert.equal(sent[2].to, 'qa-secret@example.invalid');
+    assert.match(sent[2].html, /&lt;img src=x&gt;/, 'welcome name must be HTML-safe');
+    assert.match(sent[2].html, /&lt;b&gt;Store&lt;\/b&gt;/, 'welcome store name must be HTML-safe');
+
+    assert.doesNotMatch(logs.join('\n'), /OTP for|qa-secret@example\.invalid|\b\d{6}\b/, 'never expose secret or email in diagnostic logs');
+  } finally {
+    mailer.available = before.available;
+    mailer.send = before.send;
+    mailer.transportKind = before.transportKind;
+    db.createOTP = before.createOTP;
+    db.invalidateOTPs = before.invalidateOTPs;
+    console.warn = before.warn;
+    console.error = before.error;
+  }
+});

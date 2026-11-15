@@ -64,6 +64,7 @@ const RUN_OWNER = brainSlice(['test/brain/destinationOwner.test.ts', 'test/brain
 const RUN_BUDGET = brainSlice(['test/brain/semanticBudget.test.ts']);
 const RUN_STATE = brainSlice(['test/brain/clientState.test.ts']);
 const RUN_ARCH = nodeTest('test/architecture.test.mjs');
+const RUN_TLS = nodeTest('server/test/phase1-security.test.js');
 /**
  * **مخطَّطٌ نظيفٌ قبل كلّ قياس.**
  *
@@ -77,14 +78,32 @@ const RUN_DB = () => {
     { cwd: R, stdio: 'pipe' });
   try { execSync(`node "${path.join(R, 'server/migrate.js')}"`, { cwd: path.join(R, 'server'), stdio: 'pipe' }); }
   catch { /* قد يسقط الترحيلُ عمدًا تحت التخريب — الاختباراتُ تقول ماذا حدث */ }
-  return count(`node --test "${path.join(R, 'server/test/phase5-db-invariants.test.js')}"`);
+  return count(`node --test "${path.join(R, 'server/test/phase5-db-invariants.test.js')}" ` +
+    `"${path.join(R, 'server/test/order-lifecycle.test.js')}" ` +
+    `"${path.join(R, 'server/test/order-events.test.js')}"`);
+};
+
+/**
+ * تفرّدُ إنشاءِ الطلب — يُقاس على قاعدةٍ نظيفةٍ كذلك: الفهرسُ الفريدُ يبقى
+ * في القاعدة بعد حذفِ سطرِ إنشائه، فيمرّ التخريبُ ويبدو الحارسُ حيًّا.
+ */
+const RUN_IDEM = () => {
+  execSync(`node -e "const p=require('${path.join(R, 'server/db.js').replace(/\\/g, '/')}');` +
+    `p.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public').then(()=>p.end()).catch(e=>{console.error(e.message);process.exit(1)})"`,
+    { cwd: R, stdio: 'pipe' });
+  try { execSync(`node "${path.join(R, 'server/migrate.js')}"`, { cwd: path.join(R, 'server'), stdio: 'pipe' }); }
+  catch { /* قد يسقط الترحيلُ عمدًا تحت التخريب */ }
+  return count(`node --test "${path.join(R, 'server/test/order-idempotency.test.js')}"`);
 };
 
 // ── العائلات ────────────────────────────────────────────────────
 const D = 'src/lib/decide.ts', LH = 'src/pages/LivingHome.tsx',
   NF = 'src/pages/Landing/sections/NeedFirst.tsx', AP = 'src/pages/AssistantPage.tsx',
   AU = 'src/pages/AuthPage.tsx', CS = 'src/lib/clientState.ts',
-  MG = 'server/migrate.js', OL = 'server/lib/orderLifecycle.js';
+  MG = 'server/migrate.js', OL = 'server/lib/orderLifecycle.js',
+  DB = 'server/database.js', OR = 'server/routes/orders.js',
+  ID = 'server/lib/idempotency.js', SF = 'src/pages/Storefront.tsx',
+  TL = 'server/lib/dbSsl.js';
 
 const FAMILIES = [
   ['RC-P1', 'مالكٌ واحدٌ للوجهة الدلاليّة', RUN_OWNER, [
@@ -206,8 +225,105 @@ const FAMILIES = [
       [OL, `  const f = canonicalState(from), t = canonicalState(to);`, `  const f = from, t = to;`]]],
     ['الترجمةُ تفتح كلَّ انتقال', [[OL, `  return (TRANSITIONS[f] || []).includes(t);`, `  return true;`]]],
     ['المرادفُ يصير موضعًا سابعًا', [
-      [OL, `const STATES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled', 'closed'];`,
-        `const STATES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled', 'closed', 'approved'];`]]],
+      [OL, `const STATES = ['pending', 'approved', 'processing', 'shipped', 'delivered', 'cancelled'];`,
+        `const STATES = ['pending', 'approved', 'processing', 'shipped', 'delivered', 'cancelled', 'confirmed'];`]]],
+
+    // ── مفرداتُ الحالة: ستٌّ مخزَّنةٌ لا تسع ──────────────────────
+    ['تعود `confirmed` مفردةً مخزَّنةً في العمود', [
+      [MG, `const ORDER_STATES = ['pending', 'approved', 'processing',`,
+        `const ORDER_STATES = ['confirmed', 'pending', 'approved', 'processing',`]]],
+    ['تعود `pending_confirmation` حالةً حيّةً في العمود', [
+      [MG, `  'shipped', 'delivered', 'cancelled'];`,
+        `  'shipped', 'delivered', 'cancelled', 'pending_confirmation'];`]]],
+    ['مسارُ الأحداث يكتب الحالةَ بيده ويتجاوز المالكَ الواحد', [
+      [DB, `    const updated = await db.updateOrder(orderId, { status: ev.status });\n    if (updated?.status) order.status = updated.status;`,
+        `    await pool.query('UPDATE orders SET status = $1 WHERE id = $2', [ev.status, orderId]);\n    order.status = ev.status;`]]],
+    ['`approved` تفقد أهليّةَ الشحن', [
+      [OL, `  approved:   ['processing', 'shipped', 'cancelled'],`, `  approved:   ['cancelled'],`]]],
+    ['الترجمةُ تُنزَع من بابِ التحديث — بابٌ يفهم وآخرُ يردّ', [
+      [DB, `      u = { ...u, status: canonicalState(u.status) };`, ``]]],
+  ]],
+
+  ['RC-P8', 'محاولةٌ واحدةٌ ⇒ طلبٌ واحد', RUN_IDEM, [
+    ['الفهرسُ الفريدُ يسقط من الترحيل', [
+      [MG, `    await soft('uniq_orders_idempotency',`, `    await soft('uniq_orders_idempotency_DISABLED',`],
+      [MG, `      \`CREATE UNIQUE INDEX IF NOT EXISTS uniq_orders_idempotency`,
+        `      \`SELECT 1 -- CREATE UNIQUE INDEX IF NOT EXISTS uniq_orders_idempotency`]]],
+    ['يُنزَع تقييدُ التفرّد بالتاجر — مفتاحُ متجرٍ يمنع متجرًا آخر', [
+      [MG, `         ON orders(user_id, idempotency_key)`, `         ON orders(idempotency_key)`],
+      [DB, `       ON CONFLICT (user_id, idempotency_key)\n         WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`,
+        `       ON CONFLICT (idempotency_key)\n         WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`]]],
+    ['القاعدةُ تكفّ عن الحكم — إدراجٌ بلا `ON CONFLICT`', [
+      [DB, `       ON CONFLICT (user_id, idempotency_key)\n         WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''\n         DO NOTHING\n       RETURNING *\`,`,
+        `       RETURNING *\`,`]]],
+    ['الطريقُ يبتلع المفتاحَ ولا يمرّره', [
+      [OR, `status: 'pending', idempotencyKey: key });`, `status: 'pending' });`]]],
+    ['المفتاحُ المشوَّهُ يُتجاهَل صمتًا بدل أن يُردّ', [
+      [ID, `const KEY_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;`, `const KEY_RE = /^[\\s\\S]*$/;`]]],
+    ['البصمةُ تُهمَل — مفتاحٌ لحمولةٍ أخرى يُعيد طلبًا لا يخصّه', [
+      [DB, `  if (rows[0].idempotency_fingerprint !== fp) throw new idem.IdempotencyConflict(rows[0].id);`, ``]]],
+    ['المحاولةُ المعادةُ تُحسَب إنشاءً جديدًا', [
+      [OR, `    if (order.idempotentReplay) return res.status(200).json(order);`, ``]]],
+    ['العَلَمُ يُطفَأ — لا يعرف الطريقُ أنّها إعادة', [
+      [ID, `  if (order) Object.defineProperty(order, 'idempotentReplay', { value: true, enumerable: false });`, ``]]],
+    ['التفرّدُ يصير بالشبَه لا بالمحاولة', [
+      [MG, `         ON orders(user_id, idempotency_key)\n         WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''\`);`,
+        `         ON orders(user_id, customer_phone, total)\`);`]]],
+  ]],
+
+  // الواجهةُ نصفُ العهد: فهرسٌ جزئيٌّ بلا مفتاحٍ لا يمنع شيئًا. ويُقاس
+  //   بلا قاعدة — لأنّ سقوطَه لا يظهر في أيّ اختبارِ خادم.
+  ['RC-P8/UI', 'الواجهةُ تُعلن المحاولة', RUN_ARCH, [
+    ['سلّةُ المتجر تكفّ عن إرسال المفتاح', [
+      [SF, `'Idempotency-Key':attemptKey('storefront-checkout')`, `'X-Attempt':''`]]],
+    ['طلبُ الخدمة يكفّ عن إرسال المفتاح', [
+      [SF, `'Idempotency-Key':attemptKey('service-order')`, `'X-Attempt':''`]]],
+    ['لوحةُ التاجر تكفّ عن إرسال المفتاح', [
+      ['src/store.tsx', `api.ordersAPI.create({ ...o, idempotencyKey: attemptKey('dashboard-order') })`,
+        `api.ordersAPI.create(o)`]]],
+    ['مفتاحٌ جديدٌ مع كلّ نقرةٍ — حمايةٌ شكلُها قائمٌ وأثرُها صفر', [
+      ['src/lib/attemptKey.ts', `const keys = new Map<string, string>();`, `const keys = { get: () => undefined, set: () => {}, delete: () => {} } as any;`]]],
+    ['المحاولةُ لا تُطوى — الطلبُ الثاني المشروع يُردّ بتعارض', [
+      ['src/lib/attemptKey.ts', `export function endAttempt(scope: string): void {`,
+        `export function _unused(scope: string): void {`]]],
+  ]],
+
+  // ── ثقةُ النقل إلى القاعدة ─────────────────────────────────────
+  //   بابٌ ضيّقٌ واحدٌ لشبكة Railway الخاصّة. وكلُّ عطبٍ هنا يفتح قاعدةً
+  //   بعيدةً على إنترنتٍ عامّة بلا هويّةٍ مُتحقَّقة — والأثرُ صامت: الوصلةُ
+  //   تعمل، ويبدو كلُّ شيءٍ سليمًا، ومن جلس في الطريق يقرأ كلَّ شيء.
+  ['RC-P9', 'نقلُ القاعدة موصوفٌ لا مُخفَّف', RUN_TLS, [
+    ['يسقط قيدُ الشبكة الخاصّة — أيُّ مضيفٍ يُقبَل', [
+      [TL, `    if (!isRailwayPrivateHost(url)) {`, `    if (false) {`]]],
+    ['المطابقةُ تصير بالنصّ لا بالتسمية — حيلةُ اللاحقة تعبر', [
+      [TL, `  return h.length > PRIVATE_SUFFIX.length && h.endsWith(PRIVATE_SUFFIX);`,
+        `  return String(url).includes('railway.internal');`]]],
+    ['لاحقةٌ بلا نقطةٍ — `evilrailway.internal` يمرّ', [
+      [TL, `const PRIVATE_SUFFIX = '.railway.internal';`, `const PRIVATE_SUFFIX = 'railway.internal';`]]],
+    ['تساهلٌ عامّ — كلُّ قاعدةٍ بعيدةٍ تقبل أيَّ شهادة', [
+      [TL, `  return { rejectUnauthorized: true };`, `  return { rejectUnauthorized: false };`]]],
+    ['الوضعُ يُقبَل خارجَ الإنتاج فيُطفَأ TLS في أيّ بيئة', [
+      [TL, `    if (env.NODE_ENV !== 'production') {`, `    if (false) {`]]],
+    ['المضيفُ يُستخرَج بتعبيرٍ نمطيٍّ لا بمحلّل URL', [
+      [TL, `    const u = new URL(String(url).replace(/^postgres(ql)?:/i, 'http:'));`,
+        `    const u = { hostname: (String(url).match(/@([^:/?#]+)/) || ['', ''])[1] };`]]],
+    ['يسقط شرطُ كوننا داخلَ Railway — إعدادٌ منسوخٌ يُطفئ TLS في أيّ خادم', [
+      [TL, `    if (!String(env.RAILWAY_ENVIRONMENT_ID || '').trim()) {`, `    if (false) {`]]],
+    ['حضورُ البيئة يُقاس بالوجود لا بالمحتوى — فراغٌ يُقرأ حضورًا', [
+      [TL, `    if (!String(env.RAILWAY_ENVIRONMENT_ID || '').trim()) {`,
+        `    if (!('RAILWAY_ENVIRONMENT_ID' in env)) {`]]],
+    ['الالتباسُ يُرجَّح صامتًا — شهادةُ جذرٍ مع نقلٍ خاصّ تُهمَل', [
+      [TL, `    if (caSet.length) {`, `    if (false) {`]]],
+    ['سياستا نقلٍ في إعدادٍ واحد — التعطيلُ الصريحُ يُبتلَع صامتًا', [
+      [TL, `    if (wantsDisable) {
+      const which = [`, `    if (false) {
+      const which = [`]]],
+    ['الوثيقةُ تعود إلى نصيحةٍ تكسر — «اضبط DATABASE_URL وحدَه»', [
+      ['server/.env.example', `# Pick exactly ONE of the following.`,
+        `# On Railway/Supabase you normally set ONLY DATABASE_URL — nothing else.\n# Pick exactly ONE of the following.`]]],
+    ['يسقط الفشلُ المغلق — الإعلانُ الخاطئُ يُخفَّض بصمتٍ بدل أن يرمي', [
+      [TL, `      throw new Error('DB TLS: أُعلن \`DB_TRANSPORT=railway-private\` لمضيفٍ خارجَ '`,
+        `      return { rejectUnauthorized: true }; /* c8 */ void ('DB TLS: أُعلن لمضيفٍ خارجَ '`]]],
   ]],
 ];
 

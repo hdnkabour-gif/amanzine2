@@ -11,7 +11,6 @@
 //   الوسيلةُ تُستعمل حين لا يوجد مزوّدٌ للشركة، ويُحفَظ اسمُ الشركة كما أدخله
 //   التاجر.
 
-const crypto = require('crypto');
 const { makeQuote } = require('../contract');
 
 const meta = {
@@ -40,16 +39,20 @@ async function calculateQuote() {
 async function createShipment(order, cfg) {
   try {
     const u = _assertSafeUrl(cfg?.webhookUrl || '');
-    // رقمُ تتبّعٍ داخليّ: الطرفُ المستقبِل لا يلتزم بإرجاع رقمٍ خاصٍّ به.
-    const tracking = 'TRK-' + crypto.randomBytes(3).toString('hex').toUpperCase();
-
+    // Sending a webhook is not proof that a shipping company created a parcel.
+    // Use the stable AMANZINE order ID for correlation; NEVER fabricate a
+    // tracking number and report it as an external carrier reference.
     const res = await fetch(u.toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': cfg?.apiKey || '' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Webhook-Secret': cfg?.apiKey || '',
+        'X-Idempotency-Key': String(order.id),
+      },
       body: JSON.stringify({
         event: 'order.created',
         orderId: order.id,
-        tracking,
+        clientReference: String(order.id),
         customer: {
           name: order.customerName, phone: order.customerPhone,
           city: order.city, address: order.address,
@@ -61,9 +64,18 @@ async function createShipment(order, cfg) {
     });
     if (!res.ok) return { success: false, error: `HTTP ${res.status}` };
 
-    const data = await res.json().catch(() => ({}));
-    const remote = data.trackingNumber || data.tracking || '';
-    return { success: true, shipmentId: data.id || remote || tracking, trackingNumber: remote || tracking };
+    const payload = await res.json().catch(() => ({}));
+    const data = payload && typeof payload.data === 'object' && payload.data ? payload.data : payload;
+    // Generic HTTP 200/202 can mean "queued" or "received" only. A carrier
+    // shipment must be identified by the remote system, not our order ID.
+    const remote = String(data?.trackingNumber || data?.tracking_number || data?.tracking || '').trim();
+    const remoteId = String(data?.shipmentId || data?.shipment_id || '').trim();
+    if (!remote && !remoteId) return {
+      success: false,
+      acceptedUnconfirmed: true,
+      error: 'Webhook استجاب لكن لم يُرجع رقم شحنة من الشركة — راجع لوحة الشركة أولاً ولا تعاود الإرسال قبل التأكد',
+    };
+    return { success: true, shipmentId: remoteId || remote, trackingNumber: remote || remoteId };
   } catch (e) {
     return { success: false, error: e.message };
   }

@@ -67,10 +67,22 @@ export const CustomerSchema = z.object({
 
 // ── Commandes ────────────────────────────────────────────────────
 
-const OrderStatusSchema = z.enum([
-  'pending', 'pending_confirmation', 'approved',
-  'processing', 'shipped', 'delivered', 'cancelled',
-]);
+/**
+ * **الاستيرادُ يقبل الأسماءَ القديمةَ ويُطبّعها** — ولا يرفض ملفَّ تاجر.
+ *
+ *   المفردةُ القانونيّةُ ستٌّ، لكنّ ملفًّا صُدِّر قبل التوحيد قد يحمل
+ *   `pending_confirmation` أو `confirmed` أو `closed`. ورفضُ الملفِّ كلِّه
+ *   لأجل اسمٍ قديمٍ عقوبةٌ على التاجر لا حراسةٌ للبيانات — فيُقرأ ويُترجَم
+ *   إلى موضعه القانونيّ عند الحدّ، ولا يعبر غيرُ القانونيِّ إلى الحالة.
+ */
+const LEGACY_STATUS: Record<string, string> = {
+  pending_confirmation: 'pending', confirmed: 'approved', closed: 'delivered',
+};
+const CANONICAL = ['pending', 'approved', 'processing', 'shipped', 'delivered', 'cancelled'] as const;
+const OrderStatusSchema = z.preprocess(
+  (v) => (typeof v === 'string' && LEGACY_STATUS[v]) || v,
+  z.enum(CANONICAL),
+);
 
 const OrderItemSchema = z.object({
   productId:   z.string(),

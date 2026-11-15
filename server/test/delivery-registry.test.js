@@ -295,3 +295,62 @@ test('العميلُ لا يخترع رقمَ تتبّعٍ ولا يَسِم «�
   assert.ok(/if \(result\.real\)/.test(ship),
     '«مشحون» تُكتَب بلا شرطِ نجاحٍ حقيقيّ — يرى التاجرُ شحنةً لا وجودَ لها');
 });
+
+
+// An HTTP 200/202 from a generic webhook does not prove a parcel exists.
+test('Webhook HTTP 202 acknowledgement without carrier reference is NOT a real shipment', async () => {
+  const webhook = registry.getAdapter('webhook');
+  const originalFetch = global.fetch;
+  const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return { ok: true, status: 202, json: async () => ({ received: true }) };
+  };
+  try {
+    const order = { id: 'AMZ-QA-001', customerName: 'QA', customerPhone: '0600000000',
+      city: 'Casablanca', address: 'QA only', items: [{ productName: 'QA', quantity: 1 }], total: 123 };
+    const out = await webhook.createShipment(order, {
+      webhookUrl: 'https://carrier.example.invalid/create', apiKey: 'TEST-ONLY',
+    });
+    assert.equal(out.success, false, 'HTTP acceptance was misreported as a real carrier shipment');
+    assert.equal(out.acceptedUnconfirmed, true, 'uncertainty must remain visible');
+    assert.equal(out.trackingNumber, undefined, 'a synthetic tracking reference was fabricated');
+    assert.equal(calls.length, 1);
+    const body = JSON.parse(calls[0].options.body);
+    assert.equal(body.orderId, order.id);
+    assert.equal(body.clientReference, order.id);
+    assert.equal(body.tracking, undefined, 'webhook payload must not invent provider tracking');
+    assert.equal(calls[0].options.headers['X-Idempotency-Key'], order.id);
+  } finally { global.fetch = originalFetch; }
+});
+
+test('Webhook success requires an explicit carrier shipment ID or tracking number', async () => {
+  const webhook = registry.getAdapter('webhook');
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true, status: 200,
+    json: async () => ({ success: true, shipmentId: 'CARRIER-SHP-22',
+      trackingNumber: 'CARRIER-TRACK-22' }),
+  });
+  try {
+    const out = await webhook.createShipment({ id: 'AMZ-QA-002', items: [], total: 99 },
+      { webhookUrl: 'https://carrier.example.invalid/create' });
+    assert.equal(out.success, true);
+    assert.equal(out.shipmentId, 'CARRIER-SHP-22');
+    assert.equal(out.trackingNumber, 'CARRIER-TRACK-22');
+    assert.equal(out.acceptedUnconfirmed, undefined);
+  } finally { global.fetch = originalFetch; }
+});
+
+test('Webhook authorization failure remains a failure and never triggers shipment confirmation', async () => {
+  const webhook = registry.getAdapter('webhook');
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({ ok: false, status: 401, json: async () => ({ error: 'Unauthorized' }) });
+  try {
+    const out = await webhook.createShipment({ id: 'AMZ-QA-003', items: [], total: 99 },
+      { webhookUrl: 'https://carrier.example.invalid/create' });
+    assert.equal(out.success, false);
+    assert.match(out.error, /401/);
+    assert.notEqual(out.acceptedUnconfirmed, true);
+  } finally { global.fetch = originalFetch; }
+});

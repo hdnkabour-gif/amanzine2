@@ -99,20 +99,29 @@ test('مزامنتان متزامنتان لا تمحو إحداهما الأخ�
   //
   //   وطلبان اثنان **لا يكفيان** لإثباته: يتسلسلان طبيعيًّا فلا يتداخلان،
   //   فيمرّ الاختبارُ ولو نُزع القفل. اثنا عشرَ طلبًا متوازيًا تُجبِر التداخل.
-  await pool.query('DELETE FROM user_memory WHERE user_id=$1 AND key=$2',
-    [USER_ID, 'amanzine_user_graph']);
-  const N = 12;
-  const results = await Promise.all(
-    Array.from({ length: N }, (_, i) =>
-      req('POST', '/api/memory/sync', { entries: { amanzine_user_graph: { [`d${i}`]: 1 } } }))
-  );
-  for (const r of results) assert.equal(r.status, 200);
+  //
+  //   ── ولا تكفي جولةٌ واحدة ──────────────────────────────────────
+  //   نافذةُ السباق ضيّقة: قِيس أنّ جولةً واحدةً تكشف نزعَ القفل في نحو
+  //   ربع المرّات فقط — أي حارسٌ ينام ثلاثةَ أرباع الوقت. عشرُ جولاتٍ
+  //   بمفاتيحَ جديدةٍ تجعل الكشفَ شبهَ مؤكَّد، والكلفةُ أجزاءُ ثانية.
+  //   وأخطرُ ما تكشفه الجولةُ الأولى لكلّ مفتاح: `FOR UPDATE` **لا يقفل
+  //   صفًّا لم يُخلَق بعد**، فأوّلُ مزامنةٍ هي أضعفُ لحظةٍ لا أقواها.
+  const N = 12, ROUNDS = 10;
+  for (let r = 0; r < ROUNDS; r++) {
+    const KEY = 'amanzine_user_graph';
+    await pool.query('DELETE FROM user_memory WHERE user_id=$1 AND key=$2', [USER_ID, KEY]);
+    const results = await Promise.all(
+      Array.from({ length: N }, (_, i) =>
+        req('POST', '/api/memory/sync', { entries: { [KEY]: { [`d${i}`]: 1 } } }))
+    );
+    for (const x of results) assert.equal(x.status, 200);
 
-  const { body } = await req('GET', '/api/memory');
-  const got = Object.keys(body.memory.amanzine_user_graph.value).sort();
-  const want = Array.from({ length: N }, (_, i) => `d${i}`).sort();
-  assert.deepEqual(got, want,
-    `ضاع ${N - got.length} من ${N} — القفلُ لا يحمي من الكتابة المتزامنة`);
+    const { body } = await req('GET', '/api/memory');
+    const got = Object.keys(body.memory[KEY].value).sort();
+    const want = Array.from({ length: N }, (_, i) => `d${i}`).sort();
+    assert.deepEqual(got, want,
+      `الجولة ${r + 1}: ضاع ${N - got.length} من ${N} — القفلُ لا يحمي من الكتابة المتزامنة`);
+  }
 });
 
 test('`rev` يتزايد — يعرف العميلُ أنّ عنده قديمًا بلا مقارنة القيمة', async () => {
