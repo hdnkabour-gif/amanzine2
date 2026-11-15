@@ -133,7 +133,20 @@ const knowledgeRoute = require('./knowledge');
 const VOUCH_QUOTA = 5;
 
 // AI extraction never publishes knowledge or decides services. Requires caller opt-in.
+const visitIntakeQuota = new Map();
 router.post('/field-visit/understand', auth, async (req, res) => {
+  if (!isPlatformAdmin(req)) {
+    const voucher = await db.getVoucher(req.user.id).catch(() => null);
+    if (!voucher?.is_verified || voucher.depth >= 2)
+      return res.status(403).json({ error: 'Not authorized for field visit extraction' });
+  }
+  const key=String(req.user.id),now=Date.now();
+  const prior=visitIntakeQuota.get(key);
+  const counter=!prior||now-prior.start>3600000?{start:now,count:0}:prior;
+  if(counter.count>=8)return res.status(429).json({error:'AI visit limit reached'});
+  counter.count++;
+  visitIntakeQuota.set(key,counter);
+  if(visitIntakeQuota.size>3000)for(const [k,v] of visitIntakeQuota)if(now-v.start>3600000)visitIntakeQuota.delete(k);
   const message=String(req.body?.message||'').trim().slice(0,700);
   if(message.length<3)return res.status(400).json({error:'Description too short'});
   if(req.body?.allowExternalAI!==true)return res.status(400).json({error:'Explicit AI consent required'});
