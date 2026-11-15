@@ -5,7 +5,7 @@ const read = p => fs.readFileSync(new URL('../'+p, import.meta.url),'utf8');
 
 test('mobile field visit CTA sits above bottom navigation and below dialogs', () => {
   const css=read('src/index.css');
-  const nav=css.match(/\.mobile-bottom-nav\s*\{[^}]+\}/)?.[0] || '';
+  const nav=[...css.matchAll(/\.mobile-bottom-nav\s*\{[^}]+\}/g)].map(x => x[0]).find(x => /height:\s*72px/.test(x)) || '';
   const action=css.match(/\.field-visit-action-bar\s*\{[^}]+\}/)?.[0] || '';
   assert.match(nav,/height:\s*72px/);
   assert.match(nav,/z-index:\s*200/);
