@@ -83,7 +83,8 @@ export default function FieldVisit() {
         .filter(x => x.val !== undefined && x.val !== '' && !(Array.isArray(x.val) && !x.val.length))
         .map(x => `${x.a.q} ${Array.isArray(x.val) ? x.val.join(' · ') : x.val === true ? 'إيه' : x.val === false ? 'لا' : x.val}`);
       const hoursAsk = asked.find(a => a.kind === 'hours');
-      const yesNo = asked.find(a => a.kind === 'yesno');
+      // A craft's mobile work and a service's appointment mode are not delivery modes.
+      const deliveryAsk = kind === 'shop' ? asked.find(a => a.id === 'delivery') : undefined;
       const r = await providersAPI.fieldVisit({
         shop: {
           name: v.name.trim(), phone: v.phone.trim(), city: v.city.trim(),
@@ -106,7 +107,7 @@ export default function FieldVisit() {
         profile: {
           kind: kind || undefined,
           hours: hoursAsk ? String(v.answers[hoursAsk.id] || '') || undefined : undefined,
-          delivers: yesNo ? (v.answers[yesNo.id] as boolean | undefined) : undefined,
+          delivers: deliveryAsk ? (v.answers[deliveryAsk.id] as boolean | undefined) : undefined,
         },
         gpsLat: gps?.lat, gpsLng: gps?.lng,
         durationSec: Math.round((Date.now() - startedAt) / 1000),
