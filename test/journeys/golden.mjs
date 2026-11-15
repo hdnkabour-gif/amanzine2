@@ -708,18 +708,35 @@ async function J14() {
         body: JSON.stringify({ email, password })
       });
       const data = await res.json().catch(() => ({}));
-      if (data?.token) localStorage.setItem('ai_commerce_token', data.token);
-      return { status: res.status, hasToken: !!data.token };
+      if (data?.token) {
+        localStorage.setItem('ai_commerce_token', data.token);
+        // The UI authorizes platform pages from /auth/me, not from the raw JWT.
+        // A test that saves only the token is not an authenticated UI session.
+        const meResponse = await fetch(base + '/api/auth/me', {
+          headers: { authorization: 'Bearer ' + data.token }
+        });
+        const me = await meResponse.json().catch(() => ({}));
+        if (me.user) localStorage.setItem('ai_commerce_user', JSON.stringify(me.user));
+        return { status: res.status, hasToken: true, platformAdmin: !!me.user?.isPlatformAdmin,
+                 userStatus: meResponse.status };
+      }
+      return { status: res.status, hasToken: false, platformAdmin: false };
     }, { base: BASE, email: process.env.ADMIN_EMAIL || 'admin@ci.local',
          password: process.env.ADMIN_PASSWORD || 'CiDisposable!2026' });
-    if (!login.hasToken) throw new Error('Admin test login did not return a token: ' + login.status);
+    if (!login.hasToken || !login.platformAdmin)
+      throw new Error('CI account cannot open field visits: ' + JSON.stringify(login));
     await page.goto(BASE + '/field-visit', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1700);
     await skipIntro(page);
     await skipOnboarding(page);
     await dismissTour(page);
     const input = page.locator('textarea[placeholder*="لافاج"]').first();
-    await input.waitFor({ state: 'visible', timeout: 12000 });
+    try {
+      await input.waitFor({ state: 'visible', timeout: 12000 });
+    } catch (e) {
+      throw new Error('Field visit textarea absent at ' + page.url() + ': ' +
+        (await text(page)).slice(0, 260) + '; ' + String(e).slice(0, 110));
+    }
     await input.fill('عندي محل لافاج كنغسل الطوموبيلات');
     const next = page.getByRole('button', { name: 'كمّل' }).last();
     await next.waitFor({ state: 'visible' });
