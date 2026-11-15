@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, Wifi, WifiOff } from 'lucide-react';
-import { resolveConcepts } from '../lib/akg/kb/index';
 import { providersAPI, type FieldVisitResult, type MyVouches } from '../services/api';
 // التدفّقُ الجديد: جملةٌ واحدةٌ ثمّ تأكيدات — لا استمارةٌ تأخذ نصفَ ساعة.
 import VisitFlow, { EMPTY_DRAFT, type VisitDraft } from '../components/VisitFlow';
@@ -70,7 +69,7 @@ export default function FieldVisit() {
   // المفاهيمُ تُقرأ من **جملة التاجر نفسِها** — لا من خانةٍ ثانيةٍ يملؤها
   //   الزائرُ بيده. وكان لها حقلٌ مستقلٌّ (`servicesRaw`) فصار الزائرُ يكتب
   //   الشيءَ مرّتَين: مرّةً كما قاله، ومرّةً «للنظام».
-  const found = useMemo(() => resolveConcepts(v.said, 12), [v.said]);
+  const confirmedConcepts = v.conceptIds || (v.conceptId ? [v.conceptId] : []);
 
   const save = async () => {
     setBusy(true); setErr(null);
@@ -92,7 +91,7 @@ export default function FieldVisit() {
           bio: v.said.trim(),
         },
         servicesRaw: v.said,
-        concepts: found.map((c, i) => ({ conceptId: c.id, isPrimary: i === 0 })),
+        concepts: confirmedConcepts.map((id, i) => ({ conceptId: id, isPrimary: i === 0 })),
         // السؤالُ الذهبيُّ: لغةُ الحرفة كما ينطقها الزبناء — أثمنُ ما في الزيارة.
         customerLines: v.golden,
         pricingAsks: lines,

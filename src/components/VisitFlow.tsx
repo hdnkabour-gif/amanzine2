@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { Check, ArrowLeft, X, Plus, Loader2 } from 'lucide-react';
-import { understand } from '../lib/akg/kb';
+import { understand, resolveConcepts } from '../lib/akg/kb';
 import { kindOfConcept, KIND_SAY, ASKS, GOLDEN, missingFor, type VisitKind, type VisitAsk } from '../lib/visitKind';
 import { CONCEPTS } from '../lib/akg/kb/concepts';
 // البحثُ يمرّ بالتطبيع نفسِه الذي تمرّ به المعرفة — «صباغه» و«صباغة» كلمةٌ واحدة.
@@ -57,6 +57,8 @@ export interface VisitDraft {
   said: string;
   name: string; phone: string; city: string;
   conceptId: string | null;
+  /** Explicitly confirmed links; never publish all fuzzy matches automatically. */
+  conceptIds?: string[];
   kind: VisitKind | null;
   answers: Record<string, string | string[] | boolean>;
   words: { term: string; conceptId: string }[];
@@ -65,7 +67,7 @@ export interface VisitDraft {
 }
 
 export const EMPTY_DRAFT: VisitDraft = {
-  said: '', name: '', phone: '', city: '', conceptId: null, kind: null,
+  said: '', name: '', phone: '', city: '', conceptId: null, conceptIds: [], kind: null,
   answers: {}, words: [], golden: [],
 };
 
@@ -128,6 +130,16 @@ export default function VisitFlow({ draft, onChange, onSubmit, busy, error }: {
     };
   }, [draft.said]);
 
+  const conceptSuggestions = useMemo(
+    () => draft.said.trim().length >= 3 ? resolveConcepts(draft.said, 6).map(c => c.id) : [],
+    [draft.said]
+  );
+  const chosen = draft.conceptIds || (draft.conceptId ? [draft.conceptId] : []);
+  const toggleConcept = (id: string) => {
+    const next = chosen.includes(id) ? chosen.filter(x => x !== id) : [...chosen, id];
+    onChange({ ...draft, conceptIds: next, conceptId: next[0] || null, kind: null, answers: {} });
+  };
+
   const conceptName = (id?: string | null) =>
     (CONCEPTS as any[]).find(x => x.id === id)?.concept?.ar || id || '';
 
@@ -140,7 +152,7 @@ export default function VisitFlow({ draft, onChange, onSubmit, busy, error }: {
       // ما قُرئ يُثبَّت في المسوّدة: القراءةُ تُعاد مع كلّ حرفٍ، والمسوّدةُ لا.
       onChange({
         ...draft,
-        conceptId: read?.concept || null,
+        conceptId: chosen[0] || null,
         city: draft.city || read?.city || '',
         kind: draft.visitContext?.confirmed ? draft.kind : null,
       });
@@ -159,13 +171,13 @@ export default function VisitFlow({ draft, onChange, onSubmit, busy, error }: {
           : true;
 
   return (
-    <div style={{ maxWidth: 620, margin: '0 auto', direction: 'rtl', paddingBottom: 90 }}>
+    <div style={{ maxWidth: 620, margin: '0 auto', direction: 'rtl', paddingBottom: 180 }}>
       <Progress step={step} />
 
       {step === 'said' && (
         <Card title="قول ليا بجملة شنو كيدير" sub="كما قالها هو — بلا ترتيب">
           <textarea
-            autoFocus value={draft.said} onChange={e => { onChange({ ...draft, said: e.target.value, visitContext: undefined }); setExtracted(null); }}
+            autoFocus value={draft.said} onChange={e => { onChange({ ...draft, said: e.target.value, conceptId: null, conceptIds: [], kind: null, answers: {}, visitContext: undefined }); setExtracted(null); }}
             placeholder="مثلاً: عندي محل لافاج فالحي المحمدي، كنغسل الطوموبيلات و الزرابي"
             rows={3}
             style={{ ...field, resize: 'vertical', lineHeight: 1.9 }}
@@ -193,6 +205,28 @@ export default function VisitFlow({ draft, onChange, onSubmit, busy, error }: {
           </div>
           {draft.visitContext?.confirmed && (
             <p style={{ fontSize: 12, color: K.green }}>✓ تمّ تأكيد فهم النشاط والحاجة والنتيجة؛ غادي يتسجلو فملف الزيارة فقط، ماشي كمعرفة عامة.</p>
+          )}
+          {conceptSuggestions.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ color: K.ink, fontSize: 13, fontWeight: 800, marginBottom: 8 }}>
+                هاد المجالات اللي فهمنا من كلامه — اختار الصحيح (يمكن أكثر من واحد):
+              </div>
+              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                {conceptSuggestions.map(id => (
+                  <button key={id} type="button" aria-pressed={chosen.includes(id)}
+                    onClick={() => toggleConcept(id)}
+                    style={{ ...bigChoice, padding: '8px 11px', fontSize: 12.5,
+                      ...(chosen.includes(id) ? { background: K.green, borderColor: K.green, color: K.onGreen } : {}) }}>
+                    {chosen.includes(id) ? '✓ ' : '+ '}{conceptName(id)}
+                  </button>
+                ))}
+              </div>
+              {!chosen.length && (
+                <div style={{ color: K.amber, fontSize: 11.5, marginTop: 7 }}>
+                  مازال ما تأكد حتى مجال. يمكن تكمّل وتراجع النشاط لاحقاً بلا ربط خاطئ بالبحث.
+                </div>
+              )}
+            </div>
           )}
           {/* المرآةُ الحيّة: يرى الزائرُ ما فُهم قبل أن يُكمل — فيصحّح الآن */}
           {read && (
@@ -268,6 +302,15 @@ export default function VisitFlow({ draft, onChange, onSubmit, busy, error }: {
         </>
       )}
 
+      {!canNext && (
+        <div role="status" aria-live="polite" style={{ color: K.amber, fontSize: 12.5, fontWeight: 700, margin: '4px 0 12px' }}>
+          {step === 'said' ? 'كتب وصف النشاط باش تقدر تكمّل.'
+            : step === 'who' ? (!draft.name.trim() ? 'دخل اسم المحل.' : 'دخل رقم هاتف مغربي صحيح.')
+              : step === 'asks' ? (!kind ? 'حدد واش محل، حرفي ولا خدمة.' : 'جاوب على: ' + missingFor(kind, draft.answers).join('، '))
+                : ''}
+        </div>
+      )}
+
       {error && (
         <div role="alert" style={{ margin: '11px 0', padding: '11px 14px', borderRadius: 12, background: 'rgba(255,123,114,.10)', border: `1px solid ${K.red}44`, color: K.red, fontSize: 13, fontWeight: 700 }}>
           {error}
@@ -275,8 +318,8 @@ export default function VisitFlow({ draft, onChange, onSubmit, busy, error }: {
       )}
 
       {/* شريطٌ ثابتٌ أسفلَ الشاشة — الإبهامُ يبلغه بلا أن يمرّر */}
-      <div style={{
-        position: 'fixed', insetInline: 0, bottom: 0, padding: '11px 15px calc(11px + env(safe-area-inset-bottom))',
+      <div className="field-visit-action-bar" role="group" aria-label="خطوات الزيارة" style={{
+        padding: '11px 15px',
         background: 'var(--glass,rgba(11,13,20,.88))', borderTop: `1px solid ${K.line}`, backdropFilter: 'blur(12px)',
         display: 'flex', gap: 9, alignItems: 'center', justifyContent: 'center',
       }}>

@@ -1,7 +1,7 @@
 name: Consolidation - regenerate exact reports
 on:
   push:
-    branches: [integration/unified-amanzine-20261115]
+    branches: [fix/field-visit-mobile-review-20261115]
     paths-ignore:
       - "REPORTS/**"
 permissions:
@@ -32,4 +32,4 @@ jobs:
           git add REPORTS/
           if git diff --cached --quiet; then exit 0; fi
           git -c user.name="amanzine-audit-bot" -c user.email="audit-bot@users.noreply.github.com" commit -m "docs: regenerate consolidated architecture and knowledge reports"
-          git push origin HEAD:refs/heads/integration/unified-amanzine-20261115
+          git push origin HEAD:refs/heads/fix/field-visit-mobile-review-20261115
