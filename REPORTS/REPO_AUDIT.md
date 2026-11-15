@@ -10,26 +10,26 @@
 
 | القياس | العدد |
 |---|--:|
-| ملفّاتٌ متتبَّعة | 741 |
-| ملفّاتُ كود | 472 |
-| أسطرُ كود | 89,430 |
+| ملفّاتٌ متتبَّعة | 755 |
+| ملفّاتُ كود | 484 |
+| أسطرُ كود | 93,362 |
 | **يتيمة** (لا يبلغها مدخل) | **2** |
-| صادراتٌ ميتةٌ بيقين | 217 |
-| صادراتٌ يُنظَر فيها | 68 |
+| صادراتٌ ميتةٌ بيقين | 221 |
+| صادراتٌ يُنظَر فيها | 70 |
 | ملفّاتٌ بلا اختبار | 132 |
 
 ## التغطية بالمنطقة
 
 | المنطقة | ملفّ | سطر | يبلغه اختبار |
 |---|--:|--:|--:|
-| عقلُ التطبيق | 93 | 15,537 | 89٪ |
-| الصفحات | 51 | 20,212 | 10٪ |
-| المكوّنات | 51 | 7,947 | 8٪ |
-| مسارات الخادم | 33 | 5,959 | 36٪ |
-| مكتباتُ الخادم | 45 | 4,151 | 93٪ |
-| خدماتُ الخادم | 10 | 1,731 | 50٪ |
-| الاختبارات | 97 | 14,655 | 100٪ |
-| النصوص | 13 | 2,055 | 8٪ |
+| عقلُ التطبيق | 95 | 16,149 | 89٪ |
+| الصفحات | 51 | 20,438 | 10٪ |
+| المكوّنات | 51 | 8,003 | 8٪ |
+| مسارات الخادم | 33 | 6,086 | 36٪ |
+| مكتباتُ الخادم | 48 | 4,555 | 94٪ |
+| خدماتُ الخادم | 10 | 1,812 | 50٪ |
+| الاختبارات | 100 | 15,516 | 100٪ |
+| النصوص | 14 | 2,244 | 7٪ |
 
 **الاختلالُ المركزيّ:** العقلُ مغطًّى بـ٨٩٪ والسطحُ بـ٩٪. وكلُّ عطبٍ رآه صاحبُ المشروع
 بعينه كان في السطح — المخُّ يعرف والشاشةُ لا تُظهر ما يعرفه.
@@ -38,8 +38,8 @@
 
 | الملفّ | أسطر | آخرُ لمسة |
 |---|--:|--:|
-| `build-package.js` | 183 | منذ 4 يومًا |
-| `sw.js` | 70 | منذ 4 يومًا |
+| `build-package.js` | 183 | منذ 135 يومًا |
+| `sw.js` | 70 | منذ 154 يومًا |
 
 وما يُحمَّل بمجلَّدٍ (`readdirSync`) **موصولٌ** ولا يُعَدّ يتيمًا: مزوّدو التوصيل ومحوّلاتُهم
 وقنواتُ التحقّق. وهو عقدٌ معماريٌّ مقصودٌ يحرسه اختبار.
@@ -49,7 +49,7 @@
 | الملفّ | ميتة | الأسماء |
 |---|--:|---|
 | `src/components/icons.tsx` | 21 | IconAmana, IconJibli, IconDress, IconShoes, IconBag … |
-| `src/services/api.ts` | 19 | healthCheck, CustomerPage, couponsAPI, mediaAPI, AvailabilityTemplate … |
+| `src/services/api.ts` | 20 | healthCheck, OrderTimelineEvent, CustomerPage, couponsAPI, mediaAPI … |
 | `src/types.ts` | 16 | ProductType, OrderItem, SalesGoal, BrandSettings, SocialConnection … |
 | `src/lib/abilities.ts` | 10 | AbilityVerb, AbilityEntity, AbilityRisk, abilitiesFor, abilitiesByVerb … |
 | `src/utils/sounds.ts` | 7 | playNewOrder, playApproved, playShipped, playDelivered, playMessage … |
@@ -67,16 +67,16 @@
 |---|--:|
 | `src/pages/ProductsPage.tsx` | 2,363 |
 | `src/pages/SettingsPage.tsx` | 1,458 |
-| `src/pages/DeliveryPage.tsx` | 1,403 |
-| `server/migrate.js` | 1,107 |
+| `src/pages/DeliveryPage.tsx` | 1,433 |
+| `server/migrate.js` | 1,153 |
 | `src/pages/LivingHome.tsx` | 1,097 |
-| `src/pages/Storefront.tsx` | 1,067 |
+| `src/pages/Storefront.tsx` | 1,073 |
+| `src/pages/OrdersPage.tsx` | 919 |
 | `src/pages/MessagesPage.tsx` | 840 |
-| `src/pages/OrdersPage.tsx` | 825 |
 | `src/pages/GuidePage.tsx` | 742 |
 | `src/pages/NavBar.tsx` | 716 |
 | `src/pages/CouponsPage.tsx` | 705 |
-| `server/index.js` | 686 |
+| `server/index.js` | 692 |
 
 ---
 
