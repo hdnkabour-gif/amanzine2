@@ -5,6 +5,7 @@ import { kindOfConcept, KIND_SAY, ASKS, GOLDEN, missingFor, type VisitKind, type
 import { CONCEPTS } from '../lib/akg/kb/concepts';
 // البحثُ يمرّ بالتطبيع نفسِه الذي تمرّ به المعرفة — «صباغه» و«صباغة» كلمةٌ واحدة.
 import { normLoose } from '../lib/normalize';
+import { providersAPI } from '../services/api';
 
 // ============================================================
 // **الزيارةُ الميدانيّة — جملةٌ واحدةٌ ثمّ تأكيدات.**
@@ -60,6 +61,7 @@ export interface VisitDraft {
   answers: Record<string, string | string[] | boolean>;
   words: { term: string; conceptId: string }[];
   golden: string[];
+  visitContext?: { businessActivity: string; visitorNeed: string; desiredResult: string; existingTools: string; confirmed: boolean };
 }
 
 export const EMPTY_DRAFT: VisitDraft = {
@@ -80,6 +82,36 @@ export default function VisitFlow({ draft, onChange, onSubmit, busy, error }: {
   error?: string | null;
 }) {
   const [step, setStep] = useState<Step>('said');
+  const [aiConsent, setAiConsent] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [extracted, setExtracted] = useState<Awaited<ReturnType<typeof providersAPI.visitUnderstand>>['draft'] | null>(null);
+  const requestExtraction = async () => {
+    if (!aiConsent || draft.said.trim().length < 3 || aiBusy) return;
+    setAiBusy(true); setAiError(''); setExtracted(null);
+    try {
+      const r = await providersAPI.visitUnderstand(draft.said.trim(), true);
+      setExtracted(r.draft);
+    } catch (e: any) { setAiError(e?.message || 'تعذّر التحليل — يمكن تكمّل بالطريقة العادية'); }
+    finally { setAiBusy(false); }
+  };
+  const confirmExtraction = () => {
+    if (!extracted) return;
+    // User validates extracted values before they enter the visit draft.
+    onChange({
+      ...draft,
+      city: draft.city || extracted.location_city,
+      kind: extracted.business_kind === 'unknown' ? draft.kind : extracted.business_kind,
+      visitContext: {
+        businessActivity: extracted.business_activity,
+        visitorNeed: extracted.visitor_need,
+        desiredResult: extracted.desired_result,
+        existingTools: extracted.existing_tools,
+        confirmed: true,
+      },
+    });
+    setExtracted(null);
+  };
   const set = <K2 extends keyof VisitDraft>(k: K2, v: VisitDraft[K2]) => onChange({ ...draft, [k]: v });
 
   // ── القراءةُ الحيّة: يكتب الزائرُ ما قاله التاجرُ فيُقرأ فورًا ──────
@@ -110,7 +142,7 @@ export default function VisitFlow({ draft, onChange, onSubmit, busy, error }: {
         ...draft,
         conceptId: read?.concept || null,
         city: draft.city || read?.city || '',
-        kind: null,
+        kind: draft.visitContext?.confirmed ? draft.kind : null,
       });
       setStep('who');
       return;
@@ -133,11 +165,35 @@ export default function VisitFlow({ draft, onChange, onSubmit, busy, error }: {
       {step === 'said' && (
         <Card title="قول ليا بجملة شنو كيدير" sub="كما قالها هو — بلا ترتيب">
           <textarea
-            autoFocus value={draft.said} onChange={e => set('said', e.target.value)}
+            autoFocus value={draft.said} onChange={e => { onChange({ ...draft, said: e.target.value, visitContext: undefined }); setExtracted(null); }}
             placeholder="مثلاً: عندي محل لافاج فالحي المحمدي، كنغسل الطوموبيلات و الزرابي"
             rows={3}
             style={{ ...field, resize: 'vertical', lineHeight: 1.9 }}
           />
+          <div style={{ marginTop: 12, padding: 12, border: `1px solid ${K.line}`, borderRadius: 12 }}>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', color: K.ink2, fontSize: 12.5 }}>
+              <input type="checkbox" checked={aiConsent} onChange={e => setAiConsent(e.target.checked)} />
+              نوافق نرسل وصف النشاط (بلا أسماء ولا أرقام ولا معلومات سرّية) لمساعد خارجي غير باش يملأ حقول الفهم. AMANZINE هو اللي يجاوب ويقرّر.
+            </label>
+            <button type="button" disabled={!aiConsent || aiBusy || draft.said.trim().length < 3}
+              onClick={requestExtraction} style={{ ...bigChoice, marginTop: 10, opacity: aiConsent ? 1 : .5 }}>
+              {aiBusy ? 'جاري فهم النشاط…' : 'ساعدني نفهم المحل والاحتياج'}
+            </button>
+            {aiError && <p role="alert" style={{ color: K.red, fontSize: 12 }}>{aiError}</p>}
+            {extracted && <div style={{ marginTop: 10, fontSize: 13, color: K.ink }}>
+              <strong>مسودة فهم — خاصك تأكدها:</strong>
+              <p>نوع المحل: {extracted.business_kind} · النشاط: {extracted.business_activity || 'غير معروف'}</p>
+              <p>شنو بغا: {extracted.visitor_need || 'خاص توضيح'}</p>
+              <p>النتيجة: {extracted.desired_result || 'خاص توضيح'} · المدينة: {extracted.location_city || 'غير محددة'}</p>
+              {extracted.questions.slice(0, 3).map((q,i) => <p key={i}>❓ {q}</p>)}
+              <button type="button" onClick={confirmExtraction} style={{ ...bigChoice, marginTop: 6 }}>أكد نوع النشاط والمدينة</button>
+              <button type="button" onClick={() => setExtracted(null)} style={{ ...linkBtn, marginInlineStart: 10 }}>رفض / صحّح كلامك</button>
+              <p style={{ color: K.ink3, fontSize: 11 }}>لم تُعتمد أي معلومة جديدة في عقل AMANZINE.</p>
+            </div>}
+          </div>
+          {draft.visitContext?.confirmed && (
+            <p style={{ fontSize: 12, color: K.green }}>✓ تمّ تأكيد فهم النشاط والحاجة والنتيجة؛ غادي يتسجلو فملف الزيارة فقط، ماشي كمعرفة عامة.</p>
+          )}
           {/* المرآةُ الحيّة: يرى الزائرُ ما فُهم قبل أن يُكمل — فيصحّح الآن */}
           {read && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 11 }}>

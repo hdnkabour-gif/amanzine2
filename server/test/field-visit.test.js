@@ -103,33 +103,38 @@ test('رمزُ الدخول يُعطى مرّةً، ويُجبِر على الت
   assert.equal(again.body.loginCode, null, 'أُصدر رمزٌ جديدٌ لحسابٍ له مالك');
 });
 
-test('أسئلةُ التسعير تُكتَب في asks — لا في ملاحظةٍ لا يقرؤها أحد', async () => {
-  // «الثمنُ على حسب نوع السيارة، واش وسخة بزاف» — هذه طريقةُ تفكير الحرفيّ.
-  // مكانُها `asks` كي يسألها المحرّكُ نيابةً عنه، لا حقلُ ملاحظاتٍ حرّ.
+test('أسئلة التسعير تُحفظ في الزيارة ولا تُنشر قبل اعتماد الأدمن', async () => {
   const c = await db.getCustomConcept('car_wash');
-  assert.ok(c, 'لم يُنشأ صفُّ إثراءٍ لـcar_wash');
-  const seek = (c.asks || {}).seek || [];
-  assert.ok(seek.includes('واش وسخة بزاف ولا شويّة؟'), `asks.seek = ${JSON.stringify(seek)}`);
+  assert.ok(!c || !((c.asks || {}).seek || []).includes('واش وسخة بزاف ولا شويّة؟'),
+    'نُشرت أسئلة تسعير دون اعتماد');
+  const visits = (await pool.query("SELECT pricing_asks FROM field_visits WHERE services_raw = $1 ORDER BY created_at DESC", [VISIT.servicesRaw])).rows;
+  assert.ok(visits.length > 0, 'لم تُحفَظ الزيارة');
+  assert.ok(visits[0].pricing_asks.includes('واش وسخة بزاف ولا شويّة؟'), 'ضاع سؤال التسعير قبل مراجعة الأدمن');
 });
 
-test('الكلمةُ الجديدة تُتعلَّم فعلًا — لا تُسجَّل وتُنسى', async () => {
+test('الكلمة المقترحة محفوظة قيد المراجعة ولا تدخل المعرفة المنشورة', async () => {
   const c = await db.getCustomConcept('car_wash');
-  assert.ok(Object.values(c.variants || {}).flat().includes('رشة ديال الما'),
-    'الكلمةُ التي قالها الحرفيّ لم تدخل المعرفة');
+  assert.ok(!c || !Object.values(c.variants || {}).flat().includes('رشة ديال الما'),
+    'نُشرت الكلمة دون مراجعة');
+  const { rows } = await pool.query("SELECT words FROM field_visits WHERE services_raw = $1 ORDER BY created_at DESC LIMIT 1", [VISIT.servicesRaw]);
+  assert.ok(rows.length, 'لم تُحفَظ الزيارة');
+  assert.ok(rows[0].words.some(w => w.term === 'رشة ديال الما' && w.status === 'pending_review'),
+    'الكلمة لم تُحفظ للمراجعة');
 });
 
-test('⛔ زيارةٌ لا تستطيع تسميم المعرفة — ولو بحسن نيّة', async () => {
-  // «سبّاك» يملكها plumber المدمج. لو مرّت لصارت مغسلةً، فينكسر فهمُ آلافٍ
-  // بسبب زيارةٍ واحدة. تُردّ موسومةً — لا تُطبَّق صامتًا ولا تُرمى صامتًا.
+test('⛔ كلمة تخصّ مهنة أخرى تبقى اقتراحًا غير منشور', async () => {
   const r = await req('POST', '/api/providers/field-visit', {
     shop: { name: 'لافاج آخر', phone: '0655000222', city: 'سلا' },
     concepts: [{ conceptId: 'car_wash', isPrimary: true }],
     words: [{ term: 'سباك', conceptId: 'car_wash' }],
   });
   assert.equal(r.status, 200, r.body?.error);
-  assert.equal(r.body.learned.words, 0, 'كلمةٌ مسروقةٌ دخلت المعرفة');
-  assert.equal(r.body.learned.needsReview, 1, 'لم يُبلَّغ الزائرُ بالتعارض');
-  assert.match(r.body.words[0].reason, /plumber/);
+  assert.equal(r.body.learned.words, 0, 'نُشرت الكلمة تلقائيًا');
+  assert.equal(r.body.learned.needsReview, 1, 'لم تُحسب الكلمة ضمن المراجعة');
+  assert.equal(r.body.words[0].status, 'pending_review');
+  const c=await db.getCustomConcept('car_wash');
+  assert.ok(!c || !Object.values(c.variants || {}).flat().includes('سباك'),
+    'تسميم المعرفة بمفهوم سباك');
 });
 
 test('رقمُ هاتفٍ غيرُ صالح يُرفَض — الهاتفُ هو الهويّة في السوق', async () => {

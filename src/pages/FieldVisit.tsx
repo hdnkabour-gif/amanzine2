@@ -97,7 +97,13 @@ export default function FieldVisit() {
         customerLines: v.golden,
         pricingAsks: lines,
         words: v.words.filter(w => w.term && w.conceptId),
-        notes: kind ? `صنف: ${kind}` : '',
+        notes: [
+          kind ? `صنف: ${kind}` : '',
+          v.visitContext?.confirmed ? `نشاط: ${v.visitContext.businessActivity.slice(0,180)}` : '',
+          v.visitContext?.confirmed ? `الحاجة: ${v.visitContext.visitorNeed.slice(0,220)}` : '',
+          v.visitContext?.confirmed ? `النتيجة المطلوبة: ${v.visitContext.desiredResult.slice(0,180)}` : '',
+          v.visitContext?.confirmed ? `المعدات الموجودة: ${v.visitContext.existingTools.slice(0,140)}` : '',
+        ].filter(Boolean).join(' | '),
         profile: {
           kind: kind || undefined,
           hours: hoursAsk ? String(v.answers[hoursAsk.id] || '') || undefined : undefined,
@@ -139,9 +145,9 @@ export default function FieldVisit() {
         )}
 
         <div style={{ padding: '13px 15px', borderRadius: 12, background: CARD, border: LINE }}>
-          <div style={{ fontSize: 13.5, fontWeight: 800, color: INK1, marginBottom: 8 }}>شنو تعلَّمنا من هاد المحلّ</div>
-          {[['خدمات مربوطة', L.concepts], ['كلمات دخلات للمعرفة', L.words],
-            ['جُمل ديال الزبناء', L.customerLines], ['أسئلة ديال الثمن', L.pricingAsks]].map(([k, v]) => (
+          <div style={{ fontSize: 13.5, fontWeight: 800, color: INK1, marginBottom: 8 }}>معلومات من الزيارة (بانتظار المراجعة)</div>
+          {[['خدمات مربوطة', L.concepts], ['كلمات معتمدة في المعرفة', L.words],
+            ['جُمل ديال الزبناء', L.customerLines], ['أسئلة الثمن المسجّلة', L.pricingAsks]].map(([k, v]) => (
             <div key={k as string} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: INK1, padding: '3px 0' }}>
               <span style={{ color: INK3 }}>{k}</span><b>{v as number}</b>
             </div>
@@ -149,7 +155,7 @@ export default function FieldVisit() {
           {L.needsReview > 0 && (
             <div style={{ marginTop: 9, padding: '9px 11px', borderRadius: 9, background: 'rgba(212,160,23,.10)', color: AMBER, fontSize: 12.5, display: 'flex', gap: 7 }}>
               <AlertTriangle size={15} />
-              <span>{L.needsReview} كلمة ما دخلاتش — كاينة عند مفهومٍ آخر. راجعها فـ«عقل AMANZINE».</span>
+              <span>{L.needsReview} معلومة جديدة تنتظر مراجعة الأدمن قبل ما تدخل لمعرفة AMANZINE.</span>
             </div>
           )}
         </div>

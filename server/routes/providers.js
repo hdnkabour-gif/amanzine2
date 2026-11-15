@@ -132,6 +132,31 @@ const knowledgeRoute = require('./knowledge');
 // وهميٍّ في ليلة، وتعني أيضًا أنّ التزكية بلا كُلفةٍ — فتصير بلا معنى.
 const VOUCH_QUOTA = 5;
 
+// AI extraction never publishes knowledge or decides services. Requires caller opt-in.
+const visitIntakeQuota = new Map();
+router.post('/field-visit/understand', auth, async (req, res) => {
+  if (!isPlatformAdmin(req)) {
+    const voucher = await db.getVoucher(req.user.id).catch(() => null);
+    if (!voucher?.is_verified || voucher.depth >= 2)
+      return res.status(403).json({ error: 'Not authorized for field visit extraction' });
+  }
+  const key=String(req.user.id),now=Date.now();
+  const prior=visitIntakeQuota.get(key);
+  const counter=!prior||now-prior.start>3600000?{start:now,count:0}:prior;
+  if(counter.count>=8)return res.status(429).json({error:'AI visit limit reached'});
+  counter.count++;
+  visitIntakeQuota.set(key,counter);
+  if(visitIntakeQuota.size>3000)for(const [k,v] of visitIntakeQuota)if(now-v.start>3600000)visitIntakeQuota.delete(k);
+  const message=String(req.body?.message||'').trim().slice(0,700);
+  if(message.length<3)return res.status(400).json({error:'Description too short'});
+  if(req.body?.allowExternalAI!==true)return res.status(400).json({error:'Explicit AI consent required'});
+  try{
+    const {understandVisit}=require('../lib/visit-intake');
+    const draft=await understandVisit(message,{allowExternalAI:true});
+    return res.json({draft,author:'AMANZINE',requiresConfirmation:true,knowledgePublished:false});
+  }catch(e){console.error('[visit-intake]',e.message);return res.status(500).json({error:'Extraction unavailable'});}
+});
+
 router.post('/field-visit', auth, async (req, res) => {
   // مَن يسجّل؟ الأدمن، أو محلٌّ معتمَدٌ يزكّي غيرَه بنفس الطريقة.
   const admin = isPlatformAdmin(req);
@@ -216,42 +241,21 @@ router.post('/field-visit', auth, async (req, res) => {
       catch (e) { console.error('[field-visit] concepts:', e.message); }
     }
 
-    // ④ الكلمات — عبر الحارس. `needs_review` ليست فشلًا بل معلومة.
+    // All discoveries remain visit-scoped proposals until explicit human review.
+    // A visitor's agreement verifies their statement, NOT the global lexicon.
     const words = [];
+    const seenTerms = new Set();
     for (const w of (Array.isArray(b.words) ? b.words.slice(0, 40) : [])) {
-      const term = String(w && w.term || '').trim();
-      const conceptId = String(w && w.conceptId || '').trim();
-      if (!term || !conceptId) continue;
-      try {
-        const existing = await db.getCustomConcept(conceptId);
-        const base = existing || { id: conceptId, category: '', concept: { ar: conceptId }, variants: {} };
-        const merged = Object.assign({}, base.variants || {});
-        merged.darija = Array.from(new Set([...(merged.darija || []), term]));
-        const c = knowledgeRoute.normalizeConcept(Object.assign({}, base, { variants: merged, status: 'published' }));
-        const errors = await knowledgeRoute.conceptConflicts(c, conceptId);
-        if (errors.length) { words.push({ term, conceptId, status: 'needs_review', reason: errors[0] }); continue; }
-        await db.upsertCustomConcept(Object.assign({}, c, { source: 'community', createdBy: req.user.id, reason: `field:${provider.id}` }));
-        words.push({ term, conceptId, status: 'learned' });
-      } catch (e) { words.push({ term, conceptId, status: 'error', reason: e.message }); }
+      const term = String(w?.term || '').trim().slice(0, 120);
+      const conceptId = String(w?.conceptId || '').trim().slice(0, 90);
+      if (!term || !conceptId || seenTerms.has(term + ':' + conceptId)) continue;
+      seenTerms.add(term + ':' + conceptId);
+      words.push({ term, conceptId, status: 'pending_review' });
+      // Counts for admin triage only. Does not publish or update a concept.
+      await db.bumpUnknownText(term);
     }
-
-    // ⑤ أسئلةُ التسعير ⇒ `asks.seek` للمفهوم الأساسيّ. هذه **طريقةُ تفكير
-    //    الحرفيّ** لا بيانات: «واش كبيرة ولا صغيرة؟» سؤالٌ يملكه هو، فنسأله
-    //    نيابةً عنه بدل أن نعرض ثمنًا نخترعه — والثمنُ عنده دالّةٌ لا رقم.
-    const primaryItem = conceptItems.find(x => x && x.isPrimary) || conceptItems[0];
-    const primary = primaryItem && (primaryItem.conceptId || primaryItem.concept_id);
-    if (primary && pricingAsks.length) {
-      try {
-        const existing = await db.getCustomConcept(primary);
-        const base = existing || { id: primary, category: '', concept: { ar: primary }, variants: {}, asks: {} };
-        const seek = Array.from(new Set([...((base.asks || {}).seek || []), ...pricingAsks]));
-        const c = knowledgeRoute.normalizeConcept(Object.assign({}, base, {
-          asks: Object.assign({}, base.asks || {}, { seek }), status: 'published' }));
-        await db.upsertCustomConcept(Object.assign({}, c, {
-          source: (existing && existing.source) || 'community', createdBy: req.user.id, reason: `field:${provider.id}` }));
-      } catch (e) { console.error('[field-visit] asks:', e.message); }
-    }
-
+    // Pricing questions and customer expressions are recorded inside field_visits,
+    // not silently written to custom_concepts. Admin may curate them separately.
     const visit = await db.createFieldVisit({
       providerId: provider.id, agentId: req.user.id, servicesRaw: String(b.servicesRaw || ''),
       concepts: linked, customerLines, pricingAsks, words, notes: String(b.notes || ''),
@@ -271,9 +275,11 @@ router.post('/field-visit', auth, async (req, res) => {
       },
       loginCode: code, email,   // يُعرَض مرّةً واحدة. null ⇒ للحساب مالكٌ من قبل.
       learned: {
+        approved: false,
+        status: 'pending_review',
         concepts: linked.length,
-        words: words.filter(w => w.status === 'learned').length,
-        needsReview: words.filter(w => w.status === 'needs_review').length,
+        words: 0,
+        needsReview: words.length + pricingAsks.length + customerLines.length,
         customerLines: customerLines.length,
         pricingAsks: pricingAsks.length,
       },

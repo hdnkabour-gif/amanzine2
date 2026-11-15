@@ -1,8 +1,8 @@
 {
- "generatedAt": "2026-08-11T23:09:13.396Z",
+ "generatedAt": "2026-11-15T15:00:00.000Z",
  "totals": {
-  "tracked": 739,
-  "code": 470,
+  "tracked": 741,
+  "code": 472,
   "orphans": 2,
   "appOnly": 107,
   "testOnly": 154,
@@ -10,7 +10,7 @@
   "deadExports": 217,
   "looseExports": 68,
   "todos": 8,
-  "lines": 89262
+  "lines": 89430
  },
  "files": [
   {
@@ -1477,6 +1477,22 @@
    "ageDays": 4
   },
   {
+   "file": "server/lib/visit-intake.js",
+   "lines": 63,
+   "bytes": 3835,
+   "imports": [],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "server",
+   "touched": 0,
+   "todos": 0,
+   "anys": 0,
+   "logs": 0,
+   "emptyCatch": 0,
+   "ageDays": 0
+  },
+  {
    "file": "server/lib/webhookAuth.js",
    "lines": 61,
    "bytes": 2618,
@@ -2218,8 +2234,8 @@
   },
   {
    "file": "server/routes/providers.js",
-   "lines": 393,
-   "bytes": 20223,
+   "lines": 399,
+   "bytes": 20222,
    "imports": [
     "server/middleware/auth.js",
     "server/middleware/validate.js",
@@ -2241,7 +2257,7 @@
    "anys": 0,
    "logs": 0,
    "emptyCatch": 1,
-   "ageDays": 1
+   "ageDays": 0
   },
   {
    "file": "server/routes/push.js",
@@ -2931,8 +2947,8 @@
   },
   {
    "file": "server/test/field-visit.test.js",
-   "lines": 276,
-   "bytes": 13338,
+   "lines": 281,
+   "bytes": 13772,
    "imports": [
     "server/database.js",
     "server/db.js",
@@ -3637,6 +3653,22 @@
    "logs": 0,
    "emptyCatch": 0,
    "ageDays": 4
+  },
+  {
+   "file": "server/test/visit-intake.test.js",
+   "lines": 24,
+   "bytes": 1005,
+   "imports": [],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 0,
+   "todos": 0,
+   "anys": 0,
+   "logs": 0,
+   "emptyCatch": 0,
+   "ageDays": 0
   },
   {
    "file": "server/test/webhook-door.test.js",
@@ -4998,8 +5030,8 @@
   },
   {
    "file": "src/components/VisitFlow.tsx",
-   "lines": 450,
-   "bytes": 20041,
+   "lines": 506,
+   "bytes": 23682,
    "imports": [
     "src/lib/akg/kb/index.ts",
     "src/lib/visitKind.ts",
@@ -5026,7 +5058,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 3
+   "ageDays": 0
   },
   {
    "file": "src/data/categoryFields.ts",
@@ -9035,8 +9067,8 @@
   },
   {
    "file": "src/pages/FieldVisit.tsx",
-   "lines": 206,
-   "bytes": 10919,
+   "lines": 212,
+   "bytes": 11402,
    "imports": [
     "src/lib/akg/kb/index.ts",
     "src/services/api.ts",
@@ -9058,7 +9090,7 @@
    "logs": 0,
    "emptyCatch": 2,
    "looseExports": [],
-   "ageDays": 3
+   "ageDays": 0
   },
   {
    "file": "src/pages/GuidePage.tsx",
@@ -10099,8 +10131,8 @@
   },
   {
    "file": "src/services/api.ts",
-   "lines": 831,
-   "bytes": 43011,
+   "lines": 839,
+   "bytes": 43526,
    "imports": [],
    "importers": [
     "src/components/AddConceptPanel.tsx",
@@ -10253,7 +10285,7 @@
     "FieldVisitInput",
     "Capability"
    ],
-   "ageDays": 3
+   "ageDays": 0
   },
   {
    "file": "src/store.tsx",
