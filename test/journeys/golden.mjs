@@ -694,7 +694,82 @@ async function J13() {
   record({ id: 'J13', title: 'استرجاعُ كلمة المرور بالكود لا برابطٍ وهميّ', cells, pass, why });
 }
 
-for (const j of [J1, J2, J3, J4, J5, J6, J7, J8, J9, J10, J11, J12, J13]) {
+// ── ⑭ رحلة الهاتف: زر الزيارة فوق شريط التنقّل، قابل للنقر فعلياً ─────
+async function J14() {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: 'ar-MA' });
+  const page = await ctx.newPage();
+  const cells = {}; let pass = false, why = '';
+  try {
+    cells['المدخل'] = '390×844 /field-visit · تسجيل أدمن اختبار';
+    await land(page, '/login');
+    const login = await page.evaluate(async ({ base, email, password }) => {
+      const res = await fetch(base + '/api/auth/login', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data?.token) {
+        localStorage.setItem('ai_commerce_token', data.token);
+        // The UI authorizes platform pages from /auth/me, not from the raw JWT.
+        // A test that saves only the token is not an authenticated UI session.
+        const meResponse = await fetch(base + '/api/auth/me', {
+          headers: { authorization: 'Bearer ' + data.token }
+        });
+        const me = await meResponse.json().catch(() => ({}));
+        if (me.user) localStorage.setItem('ai_commerce_user', JSON.stringify(me.user));
+        return { status: res.status, hasToken: true, platformAdmin: !!me.user?.isPlatformAdmin,
+                 userStatus: meResponse.status };
+      }
+      return { status: res.status, hasToken: false, platformAdmin: false };
+    }, { base: BASE, email: process.env.ADMIN_EMAIL || 'admin@ci.local',
+         password: process.env.ADMIN_PASSWORD || 'CiDisposable!2026' });
+    if (!login.hasToken || !login.platformAdmin)
+      throw new Error('CI account cannot open field visits: ' + JSON.stringify(login));
+    await page.goto(BASE + '/field-visit', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1700);
+    await skipIntro(page);
+    // First-login onboarding can route back home; finish it before opening
+    // the actual visit screen, or this would test the wrong page.
+    await skipOnboarding(page);
+    await dismissTour(page);
+    if (!page.url().endsWith('/field-visit')) {
+      await page.goto(BASE + '/field-visit', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1600);
+    }
+    const input = page.locator('textarea[placeholder*="لافاج"]').first();
+    try {
+      await input.waitFor({ state: 'visible', timeout: 12000 });
+    } catch (e) {
+      throw new Error('Field visit textarea absent at ' + page.url() + ': ' +
+        (await text(page)).slice(0, 260) + '; ' + String(e).slice(0, 110));
+    }
+    await input.fill('عندي محل لافاج كنغسل الطوموبيلات');
+    const next = page.getByRole('button', { name: 'كمّل' }).last();
+    await next.waitFor({ state: 'visible' });
+    const geometry = await page.evaluate(() => {
+      const bar = document.querySelector('.field-visit-action-bar');
+      const nav = document.querySelector('.mobile-bottom-nav');
+      const btn = [...document.querySelectorAll('.field-visit-action-bar button')].find(x => x.textContent?.includes('كمّل'));
+      if (!bar || !nav || !btn) return null;
+      const a=bar.getBoundingClientRect(), n=nav.getBoundingClientRect(), b=btn.getBoundingClientRect();
+      const top=document.elementFromPoint(b.left + b.width/2, b.top + b.height/2);
+      return { actionBottom: a.bottom, navTop: n.top, buttonHit: top === btn || btn.contains(top), visible: b.height > 30 };
+    });
+    cells['النتيجةُ المرئيّة'] = JSON.stringify(geometry);
+    if (!geometry?.visible || !geometry.buttonHit || geometry.actionBottom > geometry.navTop + 1)
+      throw new Error('Mobile Continue button overlaps the bottom navigation or cannot be clicked');
+    await next.click({ timeout: 7000 });
+    const step2 = await page.getByPlaceholder('اسم المحلّ ولا ديالو').isVisible();
+    cells['الوجهة'] = 'انتقال من وصف النشاط إلى الاسم والهاتف';
+    cells['تنظيفُ الحالة'] = 'سياق ومتصفح تجريبي فقط';
+    pass = step2;
+    if (!pass) why = 'Next button did not advance to identity step';
+  } catch (err) { why = String(err).slice(0, 320); }
+  finally { await ctx.close(); }
+  record({ id: 'J14', title: 'زر الزيارة على الهاتف لا يختبئ وراء التنقّل', cells, pass, why });
+}
+
+for (const j of [J1, J2, J3, J4, J5, J6, J7, J8, J9, J10, J11, J12, J13, J14]) {
   try { await j(); } catch (e) { console.log('‼ سقطت رحلةٌ خارج الحساب:', String(e).slice(0, 200)); }
 }
 await browser.close();

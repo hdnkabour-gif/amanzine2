@@ -1162,3 +1162,24 @@ button.toggle:focus-visible { outline: 2px solid var(--ember); outline-offset: 2
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) { color-scheme: light; }
 }
+
+
+/* Field visit CTA: mobile navigation occupies the bottom 72px.
+   Keep the wizard control visibly ABOVE it, including safe-area padding. */
+.field-visit-action-bar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 220;
+  background: var(--glass, rgba(11,13,20,.94));
+  border-top: 1px solid var(--border2,rgba(255,255,255,.10));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding-bottom: calc(11px + env(safe-area-inset-bottom,0px)) !important;
+}
+@media (max-width: 768px) {
+  .field-visit-action-bar {
+    bottom: calc(72px + env(safe-area-inset-bottom,0px));
+    padding-bottom: 11px !important;
+  }
+}
