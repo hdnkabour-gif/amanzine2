@@ -61,6 +61,7 @@ export interface VisitDraft {
   answers: Record<string, string | string[] | boolean>;
   words: { term: string; conceptId: string }[];
   golden: string[];
+  visitContext?: { businessActivity: string; visitorNeed: string; desiredResult: string; existingTools: string; confirmed: boolean };
 }
 
 export const EMPTY_DRAFT: VisitDraft = {
@@ -101,6 +102,13 @@ export default function VisitFlow({ draft, onChange, onSubmit, busy, error }: {
       ...draft,
       city: draft.city || extracted.location_city,
       kind: extracted.business_kind === 'unknown' ? draft.kind : extracted.business_kind,
+      visitContext: {
+        businessActivity: extracted.business_activity,
+        visitorNeed: extracted.visitor_need,
+        desiredResult: extracted.desired_result,
+        existingTools: extracted.existing_tools,
+        confirmed: true,
+      },
     });
     setExtracted(null);
   };
@@ -183,6 +191,9 @@ export default function VisitFlow({ draft, onChange, onSubmit, busy, error }: {
               <p style={{ color: K.ink3, fontSize: 11 }}>لم تُعتمد أي معلومة جديدة في عقل AMANZINE.</p>
             </div>}
           </div>
+          {draft.visitContext?.confirmed && (
+            <p style={{ fontSize: 12, color: K.green }}>✓ تمّ تأكيد فهم النشاط والحاجة والنتيجة؛ غادي يتسجلو فملف الزيارة فقط، ماشي كمعرفة عامة.</p>
+          )}
           {/* المرآةُ الحيّة: يرى الزائرُ ما فُهم قبل أن يُكمل — فيصحّح الآن */}
           {read && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 11 }}>
