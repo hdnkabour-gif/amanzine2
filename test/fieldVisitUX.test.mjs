@@ -25,3 +25,9 @@ test('field visit only writes user-confirmed concepts, never all inferred fuzzy 
   assert.match(page,/confirmedConcepts\.map\(\(id, i\)/);
   assert.doesNotMatch(page,/concepts:\s*found\.map/);
 });
+
+test('field-visit shop delivery is not confused with craft mobility or appointments', () => {
+  const page = read('src/pages/FieldVisit.tsx');
+  assert.match(page, /kind === 'shop' \? asked\.find\(a => a\.id === 'delivery'\)/);
+  assert.doesNotMatch(page, /asked\.find\(a => a\.kind === 'yesno'\)/);
+});
