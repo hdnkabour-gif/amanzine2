@@ -29,6 +29,11 @@ import path from 'node:path';
 const R = process.cwd();
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'amz-sab-'));
 const HAS_DB = !!process.env.DATABASE_URL;
+// RUN_IDEM drops the entire public schema. Never permit this against an
+// arbitrary connected DB outside a disposable CI/test environment.
+if (HAS_DB && process.env.CI !== 'true' && process.env.AMANZINE_DISPOSABLE_SABOTAGE_DB !== '1') {
+  throw new Error('Sabotage database reset is allowed only in CI or with AMANZINE_DISPOSABLE_SABOTAGE_DB=1');
+}
 const only = process.argv[2];
 
 // ── المشغِّلات: كلُّ عائلةٍ تُقاس بأخصِّ اختباراتها لا بالمجموعة كلِّها ──
@@ -368,6 +373,21 @@ for (const [id, title, run, cases] of FAMILIES) {
     }
     if (r.fail > 0) { caught++; console.log(`  ✅ ${name} — ${r.fail} إخفاق`); }
     else { missed.push(`${id}/${name}`); console.log(`  ❌ ${name} — **لم يُمسَك**`); }
+  }
+}
+
+// The idempotency mutation runner recreates the public schema for each case.
+// Its LAST case may deliberately leave the unique index absent. Restore the
+// disposable database before Golden Journeys reuse this PostgreSQL service.
+if (HAS_DB) {
+  try {
+    execSync(`node -e "const p=require('${path.join(R, 'server/db.js').replace(/\\/g, '/')}');p.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public').then(()=>p.end()).catch(e=>{console.error(e.message);process.exit(1)})"`,
+      { cwd: R, stdio: 'pipe' });
+    execSync(`node "${path.join(R, 'server/migrate.js')}"`, { cwd: path.join(R, 'server'), stdio: 'pipe' });
+    console.log('✅ Disposable PostgreSQL restored after sabotage; index and migrations recreated');
+  } catch (error) {
+    console.error('‼ Failed to restore disposable PostgreSQL after sabotage:', String(error.stderr || error.message).slice(0, 500));
+    process.exitCode = 1;
   }
 }
 
