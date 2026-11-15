@@ -16,3 +16,6 @@
 2. Fault/sabotage matrix, Chromium Golden Journeys and TypeScript typecheck.
 3. Staging deployment must use precisely the approved candidate SHA; verify /api/health and smoke tests without creating real shipments or payments.
 4. Review remaining unimplemented concepts and external integrations separately; their presence in source code does not prove they work in production.
+
+## Regression found by browser tests
+The sabotage test recreates the disposable PostgreSQL schema. A browser journey exposed its missing post-test index; the runner now resets and migrates the CI-only schema before browser tests. This change does not run against any Railway database.
