@@ -6,7 +6,7 @@ const { db } = require('../database');
 
 // سجلُّ المزوّدين — يكتشفهم بمسح المجلّد. لا استيرادَ باسم شركةٍ هنا.
 const registry = require('../services/delivery/registry');
-const { missingCredentials } = require('../services/delivery/contract');
+const { missingCredentials, connectionAccepted } = require('../services/delivery/contract');
 const cityEngine = require('../lib/cityEngine');
 const pricing = require('../lib/pricingEngine');
 const { resolveDeliveryFee } = require('../lib/deliveryPricing');
@@ -102,6 +102,22 @@ router.post('/create/:orderId', auth, async (req, res) => {
     const order = await db.getOrder(req.params.orderId);
     if (!order || order.userId !== req.user.id) return res.status(404).json({ error: 'Order not found' });
 
+    // A previous submission may have succeeded at the carrier while its
+    // response omitted a reference. Never blindly submit again: duplicate
+    // COD shipments create real costs. Check carrier dashboard first.
+    if (order.deliveryStatus === 'confirmation_required') {
+      return res.status(409).json({
+        error: 'الشركة لم تؤكد إنشاء الشحنة بعد. تحقّق من لوحة الشركة قبل إعادة الإرسال لتجنب إنشاء شحنتين',
+        code: 'CARRIER_CONFIRMATION_REQUIRED',
+      });
+    }
+    if (order.providerShipmentId || order.trackingNumber) {
+      return res.status(409).json({
+        error: 'للطلب مرجع شحنة محفوظ بالفعل — لن ننشئ شحنة ثانية',
+        code: 'SHIPMENT_ALREADY_EXISTS',
+      });
+    }
+
     const providers = (await db.getDeliveryProviders(req.user.id)).filter(p => p.enabled);
     if (!providers.length) return res.status(400).json({ error: 'No delivery provider configured' });
 
@@ -110,14 +126,29 @@ router.post('/create/:orderId', auth, async (req, res) => {
     // فيُنشئ الشحنةَ لدى شركةٍ غير التي اختارها التاجر.
     const preSettings = await db.getSettings(req.user.id) || {};
     const wanted = String(req.body?.provider || req.body?.providerId || '').trim().toLowerCase();
-    const prov =
-      (wanted && providers.find(p => p.id === req.body?.providerId
-                                  || String(p.name).toLowerCase() === wanted
-                                  || String(p.apiType).toLowerCase() === wanted)) ||
-      providers.find(p => p.name === preSettings.delivery?.defaultProvider) ||
-      providers[0];
+    const requestedProvider = wanted ? providers.find(p =>
+      String(p.id).toLowerCase() === wanted ||
+      String(p.name).toLowerCase() === wanted ||
+      String(p.apiType).toLowerCase() === wanted
+    ) : null;
+    // An explicit merchant choice must not fall back to a different carrier.
+    if (wanted && !requestedProvider) return res.status(400).json({
+      error: 'شركة التوصيل المختارة غير موجودة أو غير مفعّلة. لن نرسل الطلب لشركة أخرى.',
+      code: 'CARRIER_NOT_FOUND',
+    });
+    const configuredDefault = String(preSettings.delivery?.defaultProvider || '').trim().toLowerCase();
+    const defaultProvider = configuredDefault
+      ? providers.find(p => String(p.name).toLowerCase() === configuredDefault
+        || String(p.id).toLowerCase() === configuredDefault
+        || String(p.apiType).toLowerCase() === configuredDefault)
+      : null;
+    if (!wanted && configuredDefault && !defaultProvider) return res.status(400).json({
+      error: 'شركة التوصيل الافتراضية غير مفعّلة أو تغير اسمها. راجع صفحة التوصيل أولاً.',
+      code: 'DEFAULT_CARRIER_NOT_FOUND',
+    });
+    const prov = requestedProvider || defaultProvider || providers[0];
 
-    console.log(`[Delivery] Using provider: ${prov.name} (apiType: ${prov.apiType})`);
+    console.log(`[Delivery] Selected carrier plugin: ${prov.apiType || 'unresolved'}`);
 
     const settings = preSettings;
     const steps = [{
@@ -159,6 +190,7 @@ router.post('/create/:orderId', auth, async (req, res) => {
       // إعادةٌ مجدوَلة ⇒ لا عملَ على التاجر الآن. كان كلُّ فشلٍ يُطالبه
       // بالإدخال اليدويّ ولو كان الانقطاعُ دقيقتَين.
       needsManual: !!out.needsManual, retryAt: out.retryAt || null,
+      acceptedUnconfirmed: !!out.acceptedUnconfirmed,
       apiError: out.apiError, openUrl, steps, manual: { copyText: manualCopy, openUrl },
     });
   } catch (e) { console.error('[delivery/create]', e.message); res.status(500).json({ error: 'Server error' }); }
@@ -381,9 +413,16 @@ router.post('/verify/:providerRowId', auth, async (req, res) => {
         add('auth', 'الشركة تقبل المفتاح', false, 'لا اعتمادَ كاملًا ليُجرَّب');
       } else {
         try {
-          const ok = await plugin.testConnection(row);
-          add('auth', 'الشركة تقبل المفتاح', !!ok,
-            ok ? 'ردَّت الشركةُ بالقبول' : 'رفضت الشركةُ المفتاح أو انتهت صلاحيّتُه');
+          const verdict = await plugin.testConnection(row);
+          // Providers return { success, error }, not a bare boolean.
+          // !!{success:false} is TRUE and used to certify rejected API keys.
+          // Do not mark a connection healthy unless the provider explicitly
+          // confirms acceptance; a string/object is not proof of authentication.
+          const accepted = connectionAccepted(verdict);
+          const detail = accepted
+            ? 'صادقت الشركةُ فعليًّا على المفتاح'
+            : (verdict?.error || 'رفضت الشركةُ المفتاح أو انتهت صلاحيّتُه');
+          add('auth', 'الشركة تقبل المفتاح', accepted, detail);
         } catch (e) {
           add('auth', 'الشركة تقبل المفتاح', false, e.message);
         }
@@ -464,9 +503,20 @@ router.post('/verify/:providerRowId', auth, async (req, res) => {
           : 'الشركةُ ما كتعطيش مدنها عبر API — الشحنُ كيصيفط اسم المدينة نصًّا، وهاداك هو الصحيح عندها');
     } catch { /* الخرائطُ اختياريّة */ }
 
+    // A saved API key is not evidence that the carrier accepted it. For
+    // plugins without an authentication check, at least one real read from
+    // the carrier is required; otherwise label the result UNVERIFIED.
+    const externalProof = checks.some(c => ['auth', 'data', 'tariffs'].includes(c.key) && c.ok === true);
+    if (!externalProof) {
+      add('proof', 'تأكيد الاتصال من شركة التوصيل', false,
+        'لم تُؤكّد الشركة الاعتماد بأي رد موثوق؛ نجاح حفظ الإعدادات لا يكفي لإثبات الربط');
+    }
     const failed = checks.filter(c => c.ok === false);
-    // المدنُ التي لم يفهمها المحرّك تخرج صراحةً: تُعرَض هنا لا عند أوّل شحنةٍ فاشلة.
-    res.json({ success: failed.length === 0, provider: row.name, checks, unmatched: unmatchedCities, tariffs });
+    // نجاح فحص القراءة لا يعني بعد نجاح إنشاء شحنة: ذلك يُثبت باستجابة
+    // createShipment تتضمن رقمًا صادرًا من الشركة، لا بمجرد اتصال API.
+    res.json({ success: failed.length === 0, provider: row.name,
+      verified: externalProof && failed.length === 0,
+      checks, unmatched: unmatchedCities, tariffs });
   } catch (e) {
     console.error('[delivery/verify]', e.message);
     res.status(500).json({ error: 'Server error' });

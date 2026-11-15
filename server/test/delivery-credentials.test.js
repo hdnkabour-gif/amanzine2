@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const {
-  validateProvider, readCredentials, missingCredentials,
+  validateProvider, readCredentials, missingCredentials, connectionAccepted,
 } = require('../services/delivery/contract');
 const registry = require('../services/delivery/registry');
 
@@ -103,4 +103,30 @@ test('كلُّ مزوّدٍ مسجَّلٍ يُصرّح بحقولٍ سليمة�
       }
     }
   }
+});
+
+
+// False-positive regression: a carrier rejecting a key returns an object.
+// Previously a truthy object was treated as success, even with success:false.
+test('carrier connection: explicit rejection stays REJECTED (not truthy)', () => {
+  assert.equal(connectionAccepted({ success: false, error: 'HTTP 401 Unauthorized' }), false);
+  assert.equal(connectionAccepted({ success: false, error: 'Invalid credentials' }), false);
+  assert.equal(connectionAccepted({ ok: true }), false, 'unknown response is not proof');
+  assert.equal(connectionAccepted({}), false);
+  assert.equal(connectionAccepted(null), false);
+  assert.equal(connectionAccepted(undefined), false);
+  assert.equal(connectionAccepted('HTTP 200'), false);
+  assert.equal(connectionAccepted({ success: 1 }), false);
+  assert.equal(connectionAccepted(true), true);
+  assert.equal(connectionAccepted({ success: true }), true);
+});
+test('carrier verification HTTP route uses strict connection verdict', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../routes/delivery.js'), 'utf8');
+  const from = src.indexOf("const verdict = await plugin.testConnection(row);");
+  const until = src.indexOf("add('auth', 'الشركة تقبل المفتاح', accepted", from);
+  assert.ok(from > 0 && until > from, 'carrier check disconnected from verification route');
+  assert.match(src.slice(from, until), /connectionAccepted\(verdict\)/);
+  assert.doesNotMatch(src.slice(from, until), /!!verdict|!!ok/, 'truthy object regressed into auth success');
 });

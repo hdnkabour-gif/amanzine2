@@ -172,6 +172,28 @@ export const productsAPI = {
 };
 
 // ── Orders ────────────────────────────────────────────────────
+export interface OrderTimelineEvent {
+  id: string;
+  orderId: string;
+  type: string;
+  actor?: string;
+  note?: string;
+  amountDelta: number;
+  createdAt: string;
+}
+export interface OrderTimelineResponse {
+  order: { id: string; total: number; status: string };
+  events: OrderTimelineEvent[];
+  facts: {
+    amountDue: number;
+    totalQty?: number;
+    returnedQty?: number;
+    partiallyReturned?: boolean;
+    fullyReturned?: boolean;
+    pendingRequests?: string[];
+  };
+}
+
 export const ordersAPI = {
   list:    ()            => request<any[]>('GET', '/orders'),
   create:  (data: any)   => request<any>('POST', '/orders', data),
@@ -180,6 +202,7 @@ export const ordersAPI = {
   ship:    (id: string, data?: any) => request<any>('PUT', `/orders/${id}/ship`, data),
   deliver: (id: string)  => request<any>('PUT', `/orders/${id}/deliver`),
   update:  (id: string, d: any) => request<any>('PUT', `/orders/${id}`, d),
+  timeline: (id: string) => request<OrderTimelineResponse>('GET', `/orders/${encodeURIComponent(id)}/timeline`),
 };
 
 // ── Customers ─────────────────────────────────────────────────

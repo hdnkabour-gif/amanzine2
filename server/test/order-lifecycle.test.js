@@ -117,7 +117,12 @@ test('المُسلَّمُ لا يعود قيدَ الانتظار، والمل�
   assert.equal(L.canTransition('shipped', 'delivered'), true);
   // البقاءُ في المكان مسموح: حدثٌ يُسجَّل بلا تغييرِ حالة.
   assert.equal(L.canTransition('shipped', 'shipped'), true);
-  assert.equal(L.canTransition('closed', 'delivered'), false);
+  // `closed` مفردةٌ مهجورةٌ تُترجَم إلى `delivered` — فهي **نفسُ** المكان
+  //   لا مكانٌ بعده. والعهدُ المقصود هو أنّها نهاية: لا رجوعَ منها.
+  assert.equal(L.canonicalState('closed'), 'delivered');
+  assert.equal(L.canTransition('closed', 'delivered'), true);   // بقاءٌ في المكان
+  assert.equal(L.canTransition('closed', 'pending'), false);
+  assert.equal(L.canTransition('closed', 'shipped'), false);
 });
 
 test('حدثٌ بانتقالٍ ممنوعٍ يُرفَض', () => {

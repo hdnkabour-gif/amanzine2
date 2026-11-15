@@ -104,3 +104,5 @@ import './clientState.test';
 import './destinationOwner.test';
 // RC-P6: تحليلٌ دلاليٌّ واحدٌ لكلّ فعلِ مستخدم — ٤ لكلّ ضغطةِ مفتاحٍ قبلها.
 import './semanticBudget.test';
+import './conceptClash.test';
+import './senses.test';

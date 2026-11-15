@@ -38,14 +38,13 @@ const meta = {
       help: 'لوحة البائع في promo-livraison.ma ← قسم API',
     },
     {
-      key: 'sellerId', label: 'مُعرِّف البائع (ID)', required: false,
-      placeholder: 'مثال: 277',
-      // كُتب «اختياريّ» أوّلًا لأنّ الوثيقةَ لا تذكره. ثمّ أرى المالكُ لوحتَه:
-      // **«Votre ID» معروضٌ بجانب المفتاح** لكلّ بائع. فهو معطًى حقيقيٌّ
-      // يملكه التاجر — يُرسَل إن مُلئ. وأُبقيه غيرَ إجباريٍّ لأنّ الوثيقةَ
-      // لا تشترطه: منعُ الربط بحقلٍ لا تطلبه الشركةُ صراحةً منعٌ بلا سند.
-      help: 'تجده في لوحة البائع بجانب مفتاح API — «Votre ID»',
+      key: 'testTracking', label: 'رقم تتبع قديم من حساب Promo (لاختبار الربط)', required: false,
+      placeholder: 'مثال: رقم شحنة موجودة سابقًا في لوحة Promo',
+      help: 'يُستعمل للتحقق من أن API يقرأ شحنة في حسابك فقط. لا ننشئ طلبًا أو نفرض أي رسوم أثناء الفحص.',
     },
+    // The seller dashboard may show an account ID, but the user-supplied
+    // official Add Order / Track Order contract does NOT accept seller_id.
+    // Keep the API payload limited to documented fields.
   ],
 };
 
@@ -103,7 +102,17 @@ const ENDPOINT = 'https://promo-livraison.ma/seller/api-parcels';
 /** العنوانُ من إعداد التاجر إن غيّرته الشركةُ يومًا، وإلّا الافتراضيّ. */
 const _url = (cfg) => {
   const raw = String(cfg?.apiEndpoint || '').trim() || ENDPOINT;
-  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+  // The API token belongs to Promo Livraison: never send it to an
+  // arbitrary user-entered URL, an HTTP endpoint or the login form.
+  if (url.protocol !== 'https:' ||
+      !(url.hostname === 'promo-livraison.ma' || url.hostname.endsWith('.promo-livraison.ma'))) {
+    throw new Error('رابط API غير آمن: يجب أن يكون HTTPS ضمن نطاق promo-livraison.ma');
+  }
+  if (/\/(login|register)(?:\/|$)/i.test(url.pathname)) {
+    throw new Error('رابط تسجيل الدخول ليس API للشحن: استعمل رابط API الرسمي وليس /seller/login');
+  }
+  return url.toString();
 };
 
 /**
@@ -144,12 +153,23 @@ async function _post(fields, cfg) {
   // `api_key`، والمزوّدُ لا يعنيه أيُّهما.
   const creds = readCredentials(cfg, meta.credentials);
   body.append('token', creds.token || '');
-  if (creds.sellerId) body.append('seller_id', creds.sellerId);
-  const res = await fetch(_url(cfg), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
+  // Do not send undocumented seller_id: only token is required here.
+  // Validate the destination BEFORE attempting an outbound request. Then
+  // distinguish a transport timeout from API rejection: after a timeout we
+  // cannot know if Promo created the parcel and must not retry blindly.
+  const endpoint = _url(cfg);
+  let res;
+  try {
+    res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+      signal: AbortSignal.timeout(20000),
+    });
+  } catch (err) {
+    err.promoOutcomeUnknown = true;
+    throw err;
+  }
   const data = await res.json().catch(() => ({}));
   return { res, data };
 }
@@ -208,22 +228,45 @@ async function createShipment(order, cfg) {
     });
 
     const { res, data } = await _post(fields, cfg);
-    if (!_ok(data)) return { success: false, error: _err(data, res) };
+    if (!res.ok || !_ok(data)) {
+      const error = _err(data, res);
+      const explicitRejection = data?.status === 401 || data?.status === false ||
+        /token invalide|token.*expir|unauthori[sz]ed/i.test(error);
+      // HTTP 2xx carrying HTML, an empty body, or unexpected JSON after
+      // action=add leaves an UNKNOWN carrier outcome, not a safe retry.
+      // A contradictory HTTP error with a success JSON is also ambiguous.
+      const unknown = !explicitRejection && (res.ok || _ok(data));
+      return {
+        success: false,
+        error: unknown
+          ? 'Promo Livraison لم تؤكد إنشاء الشحنة برد صالح. تحقّق من لوحة البائع قبل إعادة المحاولة.'
+          : error,
+        ...(unknown ? { acceptedUnconfirmed: true } : {}),
+      };
+    }
 
     const tracking = String(data.tracking || '').trim();
     // رقمُ التتبّع هو الأثرُ الوحيد الذي يربط طلبَنا بشحنتهم. بلا رقمٍ لا
     // نُعلن نجاحًا: التاجرُ يرى «تمّ» ولا يجد الشحنةَ عندهم — أسوأُ من فشلٍ صريح.
-    if (!tracking) return { success: false, error: 'لم تُرجع Promo Livraison رقمَ تتبّع' };
+    if (!tracking) return {
+      success: false, acceptedUnconfirmed: true,
+      error: 'Promo Livraison أعادت status=200 دون رقم تتبع: ربما أُنشئت الشحنة بالفعل. راجع لوحة البائع قبل إعادة الإرسال لمنع طلبين.',
+    };
     return { success: true, shipmentId: tracking, trackingNumber: tracking };
   } catch (e) {
-    return { success: false, error: e.message };
+    return {
+      success: false, error: String(e.message || 'فشل الاتصال'),
+      ...(e.promoOutcomeUnknown ? {
+        acceptedUnconfirmed: true,
+      } : {}),
+    };
   }
 }
 
 async function trackShipment(shipmentId, cfg) {
   try {
     const { res, data } = await _post({ action: 'track', tracking: shipmentId }, cfg);
-    if (!_ok(data)) return { success: false, error: _err(data, res) };
+    if (!res.ok || !_ok(data)) return { success: false, error: _err(data, res) };
 
     // `msg` هنا **مصفوفةُ تاريخ** لا رسالة. `pickArray` تفحص الشكلَ ولا
     // تفترضه، فلو غلّفتها الشركةُ يومًا في `data` بقي الأمرُ يعمل.
@@ -255,17 +298,34 @@ async function trackShipment(shipmentId, cfg) {
 }
 
 /**
- * فحصُ الاتّصال — لا نقطةَ مخصَّصةً عندهم، فنستعمل تتبّعًا برقمٍ لا وجودَ له.
- * الرمزُ الفاسدُ يُجيب «Token invalide» (401)، والرمزُ السليمُ يُجيب بشيءٍ
- * آخر — وهذا وحدَه يفرّق بين «المفتاح خاطئ» و«الشحنة غيرُ موجودة».
+ * اختبارٌ آمنٌ للقراءة فقط — وفق وثيقة API التي قدّمها صاحب التطبيق.
+ * لا يوجد endpoint مستقل لتجربة Token، ولا يسمح نجاح HTTP وحده بإثباته.
+ * نطلب تتبّع شحنة سابقة معروفة في حساب البائع؛ غيابها = inconclusive.
+ * لا نُنشئ طردًا ولا نختلق مرجعاً أثناء اختبار الاتصال.
  */
 async function testConnection(cfg) {
   try {
-    const { res, data } = await _post({ action: 'track', tracking: '__ping__' }, cfg);
-    const msg = _err(data, res);
-    if (data?.status === 401 || /token/i.test(msg)) {
-      return { success: false, error: msg || 'الرمز غيرُ صالحٍ أو منتهٍ' };
-    }
+    const { token, testTracking } = readCredentials(cfg, meta.credentials);
+    if (!token?.trim()) return { success: false, error: 'رمز API (Token) غير مُدخل' };
+    // A random __ping__ may return HTML, HTTP 404 or a generic JSON message
+    // even with an invalid token. None prove this seller can read shipments.
+    // Use a previously known shipment: read-only, no package creation.
+    const known = String(testTracking || '').trim();
+    if (!known) return {
+      success: false, inconclusive: true,
+      error: 'لا يمكن إثبات اتصال Promo دون رقم تتبع موجود مسبقًا في حسابك. أضفه في إعدادات الشركة ثم أعد اختبار الربط. لن ننشئ شحنة اختبارية.',
+    };
+    const { res, data } = await _post({ action: 'track', tracking: known }, cfg);
+    if (!res.ok || !_ok(data)) return {
+      success: false, error: _err(data, res),
+    };
+    const events = pickArray(data, ['msg']);
+    const confirmed = String(data?.tracking || '').trim() === known
+      || events.some(e => String(e?.code || e?.tracking || '').trim() === known);
+    if (!confirmed || !events.length) return {
+      success: false, inconclusive: true,
+      error: 'ردّ Promo لا يثبت أن رقم التتبع يخص حسابك أو لم يرجع تاريخه. راجع رقم التتبع وبيانات API.',
+    };
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };

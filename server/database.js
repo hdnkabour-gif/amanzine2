@@ -2,6 +2,15 @@
 const pool    = require('./db');
 const crypto  = require('crypto');
 const secrets = require('./lib/secrets');
+const idem    = require('./lib/idempotency');
+
+const deliveryRegistry = require('./services/delivery/registry');
+
+function mapsTokenToApiKey(apiType) {
+  return deliveryRegistry.get(apiType)?.meta.credentials?.some(field =>
+    field.key === 'token' && field.secret && field.maps === 'apiKey'
+  );
+}
 
 function uid() { return crypto.randomUUID(); }
 function now() { return new Date().toISOString(); }
@@ -189,6 +198,23 @@ function _mapDelivery(p) {
     fields:       (p.fields && typeof p.fields === 'object') ? p.fields : {},
     createdAt:    p.created_at ? new Date(p.created_at).toISOString() : now(),
   };
+}
+
+/**
+ * الإدراجُ لم يُرجع صفًّا ⇒ الفهرسُ الفريدُ منع تكرارًا. نقرأ الأصلَ
+ * ونقارن البصمة: نفسُها ⇒ هي **نفسُ المحاولة** فيُعاد الطلبُ الأوّل بلا
+ * كتابةٍ ثانية؛ مختلفةٌ ⇒ مفتاحٌ أُعيد استعمالُه لحمولةٍ أخرى فيُردّ
+ * بتعارضٍ صريح — ولا يُكتَب فوق طلبٍ قائم أبدًا.
+ */
+async function _replayOrder(userId, key, fp) {
+  if (!key) throw new Error('order insert returned no row');
+  const { rows } = await pool.query(
+    'SELECT * FROM orders WHERE user_id = $1 AND idempotency_key = $2 LIMIT 1',
+    [userId, key]
+  );
+  if (!rows[0]) throw new Error('order insert returned no row');
+  if (rows[0].idempotency_fingerprint !== fp) throw new idem.IdempotencyConflict(rows[0].id);
+  return idem.markReplay(_mapOrder(rows[0]));
 }
 
 // ── Flat DB API ───────────────────────────────────────────────
@@ -404,6 +430,26 @@ const db = {
     );
     return rows.map(_mapOrder);
   },
+  /**
+   * **تتبُّعُ الزبون — تصفيةٌ في القاعدة لا في الذاكرة.**
+   *
+   *   كان البابُ العامُّ يستدعي `getOrders(userId)` بلا حدٍّ ثمّ يُصفّي في
+   *   جافاسكربت: كلُّ طلبات التاجر (بحقل `items`) تعبر الشبكةَ وتُبنى
+   *   كائناتٍ، ثمّ يُرمى ٩٩٪ منها. هنا تُطابَق آخرُ تسعِ خاناتٍ **بنفس
+   *   التعبير المُفهرَس** (`idx_orders_phone9`)، ويُسقَف العددُ لأنّ زبونًا
+   *   واحدًا لا يتتبّع مئةَ طلبٍ دفعةً واحدة.
+   */
+  async findOrdersByPhone(userId, last9, limit = 50) {
+    const { rows } = await pool.query(
+      `SELECT * FROM orders
+        WHERE user_id = $1
+          AND right(regexp_replace(customer_phone, '\\D', '', 'g'), 9) = $2
+        ORDER BY created_at DESC
+        LIMIT $3`,
+      [userId, String(last9), Math.min(Math.max(+limit || 50, 1), 100)]
+    );
+    return rows.map(_mapOrder);
+  },
   async getOrder(id) {
     const { rows } = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
     return _mapOrder(rows[0]) || null;
@@ -416,15 +462,34 @@ const db = {
     );
     return _mapOrder(rows[0]) || null;
   },
+  // قراءةُ محاولةٍ سابقة — مسارٌ قصيرٌ يمنع الآثارَ الجانبيّة قبل الكتابة.
+  // ليس هو الحارس: الفهرسُ الفريدُ هو الحارس، وهذا يوفّر عليه العملَ فقط.
+  async findOrderByIdempotencyKey(userId, key) {
+    const k = idem.normalizeKey(key);
+    if (!k) return null;
+    const { rows } = await pool.query(
+      'SELECT * FROM orders WHERE user_id = $1 AND idempotency_key = $2 LIMIT 1', [userId, k]
+    );
+    return rows[0] ? _mapOrder(rows[0]) : null;
+  },
   async createOrder(o) {
     const id = uid();
     const customerCode = o.customerCode || crypto.randomBytes(4).toString('hex').toUpperCase();
+    // مفتاحُ المحاولة اختياريّ: غيابُه يُبقي السلوكَ القديم كما هو،
+    // ووجودُه يجعل الفهرسَ الفريدَ في القاعدة هو الحَكَم.
+    const key = idem.normalizeKey(o.idempotencyKey);
+    const fp  = key ? idem.fingerprint(o) : null;
     const { rows } = await pool.query(
       `INSERT INTO orders
         (id,user_id,customer_id,customer_name,customer_phone,city,address,
          items,total,status,source,notes,customer_code,
-         delivery_fee,cod_fee,provider_id,provider_city_id,delivery_mode)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
+         delivery_fee,cod_fee,provider_id,provider_city_id,delivery_mode,
+         idempotency_key,idempotency_fingerprint)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+       ON CONFLICT (user_id, idempotency_key)
+         WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''
+         DO NOTHING
+       RETURNING *`,
       [
         id, o.userId, o.customerId || '', o.customerName || '',
         o.customerPhone || '', o.city || '', o.address || '',
@@ -437,11 +502,21 @@ const db = {
         +o.deliveryFee || 0, +o.codFee || 0,
         o.providerId || '', o.providerCityId || '',
         o.deliveryMode || '',
+        key, fp,
       ]
     );
-    return _mapOrder(rows[0]);
+    if (rows[0]) return _mapOrder(rows[0]);
+    return _replayOrder(o.userId, key, fp);
   },
   async updateOrder(id, u) {
+    // ── **الترجمةُ عند كلّ باب، لا عند بابٍ واحد** ─────────────────
+    //   كانت في مسار الأحداث وحدَه، فكان عميلٌ يرسل `confirmed` إلى
+    //   `PUT /api/orders/:id` يُردّ بـ400 بينما يُفهَم على المسار الآخر.
+    //   عهدٌ يصدق في بابٍ ويكذب في بابٍ أسوأُ من عهدٍ لا يُعطى. وهنا مالكٌ
+    //   واحدٌ للكتابة: كلُّ مسارٍ يُحدّث حالةً يمرّ من هذا الموضع.
+    if (u && typeof u.status === 'string' && u.status) {
+      u = { ...u, status: canonicalState(u.status) };
+    }
     const map = {
       customerId:       'customer_id',      customerName:    'customer_name',
       customerPhone:    'customer_phone',   city:            'city',
@@ -487,6 +562,10 @@ const db = {
   // Atomic: find-or-create customer + create order in one transaction
   async createOrderWithCustomer(orderData, customerData) {
     const client = await pool.connect();
+    let released = false;
+    // الاتّصالُ يُردّ للبِركة **قبل** قراءةِ الأصل: عشرون محاولةً متزامنةً
+    // كلٌّ منها يمسك اتّصالًا ويطلب ثانيًا ⇒ بِركةٌ سعتُها عشرة تتجمّد.
+    const free = () => { if (!released) { released = true; client.release(); } };
     try {
       await client.query('BEGIN');
       const { rows: existing } = await client.query(
@@ -513,10 +592,16 @@ const db = {
       }
       const oid = uid();
       const cc = orderData.customerCode || crypto.randomBytes(4).toString('hex').toUpperCase();
+      const key = idem.normalizeKey(orderData.idempotencyKey);
+      const fp  = key ? idem.fingerprint(orderData) : null;
       const { rows: no } = await client.query(
         `INSERT INTO orders (id,user_id,customer_id,customer_name,customer_phone,city,address,items,total,status,source,notes,customer_code,
-                             delivery_fee,cod_fee,provider_id,provider_city_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+                             delivery_fee,cod_fee,provider_id,provider_city_id,idempotency_key,idempotency_fingerprint)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+         ON CONFLICT (user_id, idempotency_key)
+           WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''
+           DO NOTHING
+         RETURNING *`,
         [oid, orderData.userId, customer.id, orderData.customerName || '',
          orderData.customerPhone || '', orderData.city || '', orderData.address || '',
          JSON.stringify(orderData.items || []),
@@ -526,16 +611,27 @@ const db = {
          orderData.notes || '',
          cc,
          +orderData.deliveryFee || 0, +orderData.codFee || 0,
-         orderData.providerId || '', orderData.providerCityId || '']
+         orderData.providerId || '', orderData.providerCityId || '',
+         key, fp]
       );
+      // ── المحاولةُ المكرّرةُ تُلغي المعاملةَ كاملةً ──────────────────
+      //   وإلّا بقي أثرُها الجانبيّ (زبونٌ جديد، أو `last_order_date`
+      //   مُحدَّث) وكأنّ طلبًا وقع. لا صفَّ طلبٍ ⇒ لا شيءَ من الطلب.
+      if (!no[0]) {
+        await client.query('ROLLBACK');
+        free();
+        const order = await _replayOrder(orderData.userId, key, fp);
+        const cust = await db.getCustomer(order.customerId).catch(() => null);
+        return { order, customer: cust || { id: order.customerId } };
+      }
       const order = _mapOrder(no[0]);
       await client.query('COMMIT');
       return { order, customer };
     } catch (err) {
-      await client.query('ROLLBACK');
+      if (!released) { try { await client.query('ROLLBACK'); } catch { /* الاتّصالُ سقط */ } }
       throw err;
     } finally {
-      client.release();
+      free();
     }
   },
 
@@ -683,9 +779,36 @@ const db = {
     const { rows } = await pool.query(
       'SELECT * FROM delivery_providers WHERE user_id = $1 ORDER BY name', [userId]
     );
+    // One-time, tenant-scoped legacy credential migration. Old Promo rows
+    // stored fields.token as plaintext JSONB despite api_key being encrypted.
+    // Move it into the protected column before exposing providers to UI/jobs.
+    for (const row of rows) {
+      if (!mapsTokenToApiKey(row.api_type) ||
+          !row.fields || typeof row.fields !== 'object' ||
+          !Object.hasOwn(row.fields, 'token')) continue;
+      const fields = { ...row.fields };
+      const token = String(fields.token || '').trim();
+      delete fields.token;
+      const encryptedKey = token ? secrets.encrypt(token) : (row.api_key || '');
+      await pool.query(
+        'UPDATE delivery_providers SET api_key=$1, fields=$2 WHERE id=$3 AND user_id=$4',
+        [encryptedKey, JSON.stringify(fields), row.id, userId]
+      );
+      row.api_key = encryptedKey;
+      row.fields = fields;
+    }
     return rows.map(_mapDelivery);
   },
   async upsertDeliveryProvider(p) {
+    // Promo's Token is mapped to the encrypted api_key column, never to
+    // plaintext JSONB fields.token. Older clients may still submit both.
+    // Do not mutate the caller's fields object.
+    if (mapsTokenToApiKey(p.apiType)) {
+      const fields = { ...(p.fields || {}) };
+      const token = String(fields.token || '').trim();
+      delete fields.token;
+      p = { ...p, fields, apiKey: token || p.apiKey || '' };
+    }
     // ملكيّةُ الصفّ تُفحص دائمًا: بدون قيد user_id كان أيُّ تاجرٍ يستطيع تمرير
     // مُعرِّف صفِّ تاجرٍ آخر فيعيد كتابة api_endpoint/webhook_url عنده ويحوّل
     // طلباته إلى خادمه. الفحصُ هنا وفي جملة UPDATE معًا — لا في أحدهما.
@@ -1483,6 +1606,22 @@ db.topDemand = async (limit = 100) => {
 };
 
 /** حكمُ الإنسان: `approved` أو `rejected`. لا شيءَ سواهما يُقبَل. */
+/**
+ * صفُّ مجهولٍ واحدٍ بنصّه — يقرؤه بابُ الاعتماد ليعرف أيَّ مفهومٍ اقترحه
+ * الذكاء، فلا يُطالَب المشغّلُ بإعادة كتابته.
+ */
+db.getUnknownByText = async (text) => {
+  const t = String(text || '').trim().slice(0, 200);
+  if (t.length < 2) return null;
+  const { rows } = await pool.query(
+    `SELECT text, count, COALESCE(ai_suggestion,'') AS ai_suggestion,
+            COALESCE(ai_concept,'') AS ai_concept, status
+       FROM learning_unknowns WHERE text = $1 LIMIT 1`, [t]);
+  if (!rows[0]) return null;
+  const r = rows[0];
+  return { text: r.text, count: r.count, aiSuggestion: r.ai_suggestion, aiConcept: r.ai_concept, status: r.status };
+};
+
 db.judgeUnknown = async (text, status) => {
   const s = status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : '';
   if (!s) return false;
@@ -2520,7 +2659,7 @@ db.raw = (sql) => pool.query(sql);
 // الذي يُعدَّل ليس دفترًا. التصحيحُ يكون بحدثٍ مضادٍّ يُسجَّل فوقه، فيبقى
 // الأوّلُ ظاهرًا ويُقرأ **لماذا** تغيّر المبلغ لا أنّه تغيّر فقط.
 
-const { validateEvent, deriveFacts } = require('./lib/orderLifecycle');
+const { validateEvent, deriveFacts, canonicalState } = require('./lib/orderLifecycle');
 
 /** أحداثُ طلبٍ بترتيب حدوثها. */
 db.getOrderEvents = async (orderId) => {
@@ -2554,9 +2693,14 @@ db.recordOrderEvent = async (orderId, userId, ev) => {
     [orderId, userId, ev.type, ev.actor || 'system', ev.note || '',
      +ev.amountDelta || 0, JSON.stringify(ev.payload || {})]);
 
-  if (ev.status && ev.status !== order.status) {
-    await db.updateOrder(orderId, { status: ev.status });
-    order.status = ev.status;
+  // ── **الترجمةُ لها مالكٌ واحد، ولا تُكرَّر هنا** ──────────────────
+  //   كانت مكرّرةً في هذا الموضع، فلمّا صار `updateOrder` يترجم **نجا
+  //   نزعُها من هنا بلا إخفاقٍ واحد** — كشفته مصفوفةُ التخريب. ونسختان من
+  //   قاعدةٍ واحدةٍ تتباعدان يومًا ما؛ فالحالةُ تُكتَب من الباب الواحد،
+  //   **وتُقرَأ من جوابه** لا من حسابٍ موازٍ.
+  if (ev.status) {
+    const updated = await db.updateOrder(orderId, { status: ev.status });
+    if (updated?.status) order.status = updated.status;
   }
   const events = [...existing, { type: ev.type, amountDelta: +ev.amountDelta || 0, payload: ev.payload || {} }];
   return {
@@ -2603,6 +2747,13 @@ db.mergeUserMemory = async (userId, entries, source = 'client') => {
     await client.query('BEGIN');
     const result = {};
     for (const [key, incoming] of Object.entries(entries || {})) {
+      // ── **`FOR UPDATE` لا يقفل صفًّا غيرَ موجود** ────────────────
+      //   أوّلُ مزامنةٍ لمفتاحٍ جديد: لا صفَّ ⇒ لا قفل ⇒ جهازان يقرآن
+      //   العدمَ ويُدمِج كلٌّ منهما فوق العدم، فيُدرِج الأوّلُ ثمّ يكتب
+      //   الثاني فوقه ما دمجه هو وحدَه. ويضيع ما تعلّمه الأوّلُ صامتًا.
+      //   والقفلُ الاستشاريّ يقفل **الاسمَ** لا الصفَّ، فيعمل قبل الوجود.
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
+        [String(userId), String(key)]);
       const cur = await client.query(
         'SELECT value, rev FROM user_memory WHERE user_id = $1 AND key = $2 FOR UPDATE',
         [userId, key]

@@ -81,9 +81,86 @@ import { useState, useEffect } from 'react';
 import React from 'react';
 import { useStore } from '../store';
 import { Search, ChevronDown, ChevronUp, CheckCircle, XCircle, Package, AlertTriangle, Bot, Loader2, ExternalLink } from 'lucide-react';
-import { deliveryAutoAPI, type AutoShipResult } from '../services/api';
+import { deliveryAutoAPI, ordersAPI, type AutoShipResult, type OrderTimelineResponse } from '../services/api';
 
-const STATUS_AR: Record<string, string> = { pending: 'بانتظار', pending_confirmation: 'تأكيد واتساب', approved: 'موافقة', processing: 'جارٍ', shipped: 'شُحن', delivered: 'وُصّل', cancelled: 'ملغي' };
+// Existing server-side order_events ledger was not reachable from the merchant UI.
+// Read-only by design: no invented events, and no client-side mutation of audit history.
+function OrderTimelinePanel({ orderId, currency }: { orderId: string; currency: string }) {
+  const [revision, setRevision] = useState(0);
+  const [state, setState] = useState<{
+    loading: boolean; data?: OrderTimelineResponse; error?: string;
+  }>({ loading: true });
+
+  useEffect(() => {
+    let current = true;
+    setState({ loading: true });
+    ordersAPI.timeline(orderId)
+      .then(data => { if (current) setState({ loading: false, data }); })
+      .catch(err => { if (current) setState({
+        loading: false, error: err?.message || 'تعذّر قراءة سجل الطلب',
+      }); });
+    return () => { current = false; };
+  }, [orderId, revision]);
+
+  const panel = {
+    padding: 14, borderRadius: 12, background: 'var(--panel2)',
+    border: '1px solid var(--border)', display: 'flex',
+    flexDirection: 'column' as const, gap: 9,
+  };
+  return (
+    <section aria-label="سجل أحداث الطلب" style={panel}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <span style={{ fontWeight: 900, color: 'var(--ink1)', fontSize: 13 }}>🧾 سجل أحداث الطلب الحقيقي</span>
+        <button className="btn btn-ghost btn-xs" type="button" disabled={state.loading}
+          onClick={() => setRevision(n => n + 1)}>تحديث</button>
+      </div>
+      {state.loading && <div style={{ color: 'var(--ink3)', fontSize: 12 }} role="status">جاري تحميل أحداث الطلب…</div>}
+      {state.error && <div role="alert" style={{ color: '#f87171', fontSize: 12 }}>
+        {state.error} — حاول تحديث السجل.</div>}
+      {state.data && (
+        <>
+          <div style={{ color: 'var(--ink1)', fontSize: 12.5 }}>
+            المبلغ الواجب حسب الدفتر: <strong>{Number(state.data.facts.amountDue || 0).toLocaleString('ar-MA')} {currency}</strong>
+            {state.data.facts.partiallyReturned && <span style={{ marginInlineStart: 8, color: '#fbbf24' }}>
+              ↩ مرجوع جزئي ({state.data.facts.returnedQty}/{state.data.facts.totalQty})
+            </span>}
+          </div>
+          {!!state.data.facts.pendingRequests?.length && (
+            <div style={{ color: '#fbbf24', fontSize: 11.5 }}>
+              طلبات مفتوحة: {state.data.facts.pendingRequests.join('، ')}
+            </div>
+          )}
+          {state.data.events.length === 0
+            ? <div style={{ color: 'var(--ink3)', fontSize: 11.5 }}>
+                لا توجد أحداث مسجلة لهذا الطلب. حالته الحالية معروضة أعلاه؛ لا نختلق تاريخًا سابقًا.
+              </div>
+            : (
+              <ol style={{ margin: 0, paddingInlineStart: 22, color: 'var(--ink2)' }}>
+                {state.data.events.map(ev => (
+                  <li key={ev.id} style={{ marginBottom: 9, fontSize: 12, lineHeight: 1.6 }}>
+                    <span style={{ fontWeight: 800, direction: 'ltr', display: 'inline-block' }}>{ev.type}</span>
+                    {ev.note && <span> — {ev.note}</span>}
+                    {Number(ev.amountDelta) !== 0 && (
+                      <span style={{ marginInlineStart: 7, color: ev.amountDelta < 0 ? '#fbbf24' : '#34d399' }}>
+                        {ev.amountDelta > 0 ? '+' : ''}{ev.amountDelta.toLocaleString('ar-MA')} {currency}
+                      </span>
+                    )}
+                    <div style={{ fontSize: 10.5, color: 'var(--ink3)' }}>
+                      {new Date(ev.createdAt).toLocaleString('ar-MA')}
+                      {ev.actor && <span> · {ev.actor}</span>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+        </>
+      )}
+    </section>
+  );
+}
+
+
+const STATUS_AR: Record<string, string> = { pending: 'بانتظار', approved: 'موافقة', processing: 'جارٍ', shipped: 'شُحن', delivered: 'وُصّل', cancelled: 'ملغي' };
 // تبويباتُ التصفية تشتقُّ أسماءَها من الحالات — لا قائمةَ ثانيةً تتباعد عنها.
 const FILTER_AR: Record<string, string> = { all: 'الكل', ...STATUS_AR };
 const FILTER_KEYS = Object.keys(FILTER_AR);
@@ -244,7 +321,7 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [view, setView] = useState<'list' | 'kanban'>('list');
-  const [autoShipState, setAutoShipState] = useState<{id: string, step: number, msg: string, steps?: {label:string; ok:boolean; detail?:string; error?:string}[], real?: boolean, /** إعادةٌ مجدوَلة: لا عملَ يدويًّا على التاجر الآن. */ retrying?: boolean} | null>(null);
+  const [autoShipState, setAutoShipState] = useState<{id: string, step: number, msg: string, steps?: {label:string; ok:boolean; detail?:string; error?:string}[], real?: boolean, /** إعادةٌ مجدوَلة: لا عملَ يدويًّا على التاجر الآن. */ retrying?: boolean, acceptedUnconfirmed?: boolean} | null>(null);
   const [manualTrk, setManualTrk] = useState('');
   // نتيجةُ أتمتة موقع الشركة — البابُ الذي لم يكن (انظر `runUrlRecipe`).
   const [autoRecipe, setAutoRecipe] = useState<{ id: string; busy: boolean; r?: AutoShipResult } | null>(null);
@@ -295,6 +372,10 @@ export default function OrdersPage() {
     if (r.real) {
       setAutoShipState({ id: order.id, step: 4, real: true, steps: r.steps,
         msg: `✅ شحنة حقيقية لدى ${r.provider} — رقم التتبع من الشركة: ${r.tracking}` });
+    } else if (r.acceptedUnconfirmed) {
+      setAutoShipState({ id: order.id, step: 4, real: false,
+        acceptedUnconfirmed: true, steps: r.steps,
+        msg: '⚠️ الشركة تلقت طلب الربط لكنها لم تؤكّد إنشاء شحنة. افحص لوحة الشركة برقم الطلب قبل أي إعادة إرسال لتجنب التكرار.' });
     } else if (r.retryAt) {
       // عطبٌ عابرٌ لدى الشركة — لا عملَ على التاجر. كان كلُّ فشلٍ يُطالبه
       // بالإدخال اليدويّ ولو كان الانقطاعُ دقيقتَين، فيتحوّل عطبُ الشركة
@@ -370,7 +451,6 @@ export default function OrdersPage() {
 
   const colDefs = [
     { key: 'pending', label: 'بانتظار', color: '#fbbf24', bg: 'rgba(245,158,11,0.1)' },
-    { key: 'pending_confirmation', label: 'تأكيد واتساب', color: '#a855f7', bg: 'rgba(168,85,247,0.1)' },
     { key: 'approved', label: 'موافقة', color: '#818cf8', bg: 'rgba(99,102,241,0.1)' },
     { key: 'processing', label: 'جارٍ', color: '#a78bfa', bg: 'rgba(139,92,246,0.1)' },
     { key: 'shipped', label: 'شُحن', color: '#22d3ee', bg: 'rgba(6,182,212,0.1)' },
@@ -494,7 +574,7 @@ export default function OrdersPage() {
         {/* Orders List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filtered.map(order => (
-            <div key={order.id} className={`order-row ${order.status === 'pending' || order.status === 'pending_confirmation' ? 'pending' : ''} ${expanded === order.id ? 'expanded' : ''}`}>
+            <div key={order.id} className={`order-row ${order.status === 'pending' ? 'pending' : ''} ${expanded === order.id ? 'expanded' : ''}`}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} onClick={() => setExpanded(expanded === order.id ? null : order.id)}>
                 <span className={`status status-${order.status}`} style={{ flexShrink: 0 }}>{STATUS_AR[order.status]}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -521,6 +601,7 @@ export default function OrdersPage() {
 
               {expanded === order.id && (
                 <div className="anim-fade-in" style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--clr-border)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <OrderTimelinePanel orderId={order.id} currency={currency} />
                   
                   {/* 🚚 معالج الشحن الصادق — خطوات حقيقية من الخادم، لا تمثيل */}
                   {autoShipState?.id === order.id && (
@@ -554,13 +635,31 @@ export default function OrdersPage() {
                       ولا يُعرَض حين تكون إعادةُ المحاولة مجدوَلة: الطلبُ في الطابور
                       وسيُرسَل وحدَه، وعرضُ العمل اليدويّ هنا يدفع التاجرَ لتسجيلِ
                       الشحنة مرّتين — مرّةً بيده ومرّةً بالإعادة. */}
-                  {(order.status === 'approved' || (autoShipState?.id === order.id && autoShipState.real === false))
-                    && !(autoShipState?.id === order.id && autoShipState.retrying) && (
+                  {(order.status === 'approved' || (order as any).deliveryStatus === 'confirmation_required'
+                    || (autoShipState?.id === order.id && autoShipState.real === false))
+                    && !(autoShipState?.id === order.id && autoShipState.retrying)
+                    && (order as any).deliveryStatus !== 'retry_scheduled'
+                    && (
                     <div style={{ padding: 14, borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px dashed var(--clr-border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--txt-1)' }}>📋 الإدخال اليدوي لدى شركة بدون ربط API</p>
-                      <p style={{ fontSize: 11.5, color: 'var(--txt-3)', lineHeight: 1.7 }}>انسخ بيانات الشحنة، أدخلها في موقع شركة التوصيل بنفسك، ثم ألصق هنا <b>رقم التتبع الحقيقي</b> الذي أعطتك إياه الشركة — يُحفظ في الطلب ويظهر للزبون في صفحة التتبع.</p>
+                      {(order as any).deliveryStatus === 'confirmation_required' ? (
+                        <>
+                          <p style={{ fontSize: 12, fontWeight: 800, color: '#fbbf24' }}>⚠️ الشحنة تنتظر تأكيد الشركة</p>
+                          <p style={{ fontSize: 11.5, color: 'var(--txt-3)', lineHeight: 1.7 }}>
+                            افحص لوحة الشركة بالرجوع إلى رقم الطلب أولًا. <b>لا تنشئ شحنة ثانية.</b>
+                            إذا وجدت الشحنة، ألصق رقم التتبع الحقيقي الذي أصدرته الشركة أدناه.
+                            وإن لم تجدها، راجع إعداد الاتصال والرد قبل إعادة المحاولة.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--txt-1)' }}>📋 الإدخال اليدوي لدى شركة بدون ربط API</p>
+                          <p style={{ fontSize: 11.5, color: 'var(--txt-3)', lineHeight: 1.7 }}>انسخ بيانات الشحنة، أدخلها في موقع شركة التوصيل بنفسك، ثم ألصق هنا <b>رقم التتبع الحقيقي</b> الذي أعطتك إياه الشركة — يُحفظ في الطلب ويظهر للزبون في صفحة التتبع.</p>
+                        </>
+                      )}
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button onClick={() => copyShipmentData(order)} className="btn btn-ghost btn-sm" style={{ flex: 1, minWidth: 150, justifyContent: 'center' }}>📋 نسخ بيانات الشحنة</button>
+                        {(order as any).deliveryStatus !== 'confirmation_required' && (
+                          <button onClick={() => copyShipmentData(order)} className="btn btn-ghost btn-sm" style={{ flex: 1, minWidth: 150, justifyContent: 'center' }}>📋 نسخ بيانات الشحنة</button>
+                        )}
                         <input
                           value={expanded === order.id ? manualTrk : ''}
                           onChange={e => setManualTrk(e.target.value)}
@@ -673,11 +772,6 @@ export default function OrdersPage() {
 
                   {/* Actions */}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {order.status === 'pending_confirmation' && (
-                      <button onClick={() => { approveOrder(order.id); setExpanded(null); }} className="btn btn-accent" style={{ flex: 1, justifyContent: 'center' }}>
-                        <CheckCircle size={15} /> تأكيد موافقة الزبون (جاءت عبر واتساب)
-                      </button>
-                    )}
                     {order.status === 'pending' && (<>
                       <button onClick={() => { approveOrder(order.id); setExpanded(null); }} className="btn btn-success" style={{ flex: 1, justifyContent: 'center', minWidth: 0 }}>
                         <CheckCircle size={15} /> موافقة مباشرة

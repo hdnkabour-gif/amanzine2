@@ -23,54 +23,57 @@
  * الحالاتُ الستّ — «أين الطلبُ في طريقه»، لا «ما جرى له».
  * `closed` نهائيّةٌ: لا حدثَ ماليٌّ بعدها.
  */
-const STATES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled', 'closed'];
+const STATES = ['pending', 'approved', 'processing', 'shipped', 'delivered', 'cancelled'];
 
 /**
  * الانتقالاتُ المسموحة. الطلبُ المُسلَّم لا يعود «قيد الانتظار»، والملغى لا
  * يُشحَن. بلا هذا الجدول كان أيُّ نداءٍ يكتب أيَّ حالةٍ فوق أيّ حالة.
  */
 const TRANSITIONS = {
-  pending:   ['confirmed', 'cancelled'],
-  confirmed: ['shipped', 'cancelled'],
-  shipped:   ['delivered', 'cancelled'],
-  delivered: ['closed'],
-  cancelled: ['closed'],
-  closed:    [],
+  pending:    ['approved', 'cancelled'],
+  approved:   ['processing', 'shipped', 'cancelled'],
+  processing: ['shipped', 'cancelled'],
+  shipped:    ['delivered', 'cancelled'],
+  delivered:  [],
+  cancelled:  [],
 };
 
 /**
- * **مفرداتُ العميل — أسماءٌ أخرى لنفس المواضع، لا مواضعُ جديدة.**
+ * **الحالاتُ الستُّ القانونيّةُ هي ما يكتبه النظامُ فعلًا.**
  *
- *   قِيس فوُجدت مفردتان لشيءٍ واحد. العميلُ (`src/types.ts`) يعرف
- *   `pending_confirmation · approved · processing`، وهذا الملفُّ لا يعرف
- *   منها شيئًا. والأثرُ ليس تسميةً:
+ *   قِيست الكَتَبةُ فتبيّن أنّ المفردةَ التي كانت مُعلَنةً هنا هي التي **لا
+ *   يكتبها أحد**: `confirmed` و`closed` صفرُ كاتبٍ في المشروع كلِّه، و
+ *   `pending_confirmation` تُعرَض في الواجهة ولا تُكتَب من أيّ مسارِ خادم
+ *   (تدخل نسخةَ العميل عبر الاستيراد وحدَه، ولا تبلغ القاعدة).
  *
- *       `PUT /api/orders/:id/approve` ⇒ `status = 'approved'`
+ *   والنظامُ يكتب: `pending` عند الإنشاء · `approved` عند الموافقة ·
+ *   `processing` من `shipmentAttempt` · `shipped` · `delivered` · `cancelled`.
+ *   فصارت هذه هي المفردةَ القانونيّة — قرارُ منتَجٍ اتُّخذ صراحةً، لا أثرًا
+ *   جانبيًّا لإعادة تسمية.
  *
- *   وهو الفعلُ الأوّلُ الذي يفعله التاجرُ بكلّ طلب. و`approved` ليست في
- *   `TRANSITIONS`، فـ`TRANSITIONS['approved']` تُقرأ `undefined` ⇒ `[]`:
+ *   ── ولماذا لم تُسمَّ `approved` باسم `confirmed` ──
+ *   زرُّ «🚚 إنشاء الشحنة» مشروطٌ حرفيًّا بـ`status === 'approved'` في
+ *   `OrdersPage`. فإعادةُ التسمية تُخفي الزرَّ ويعجز التاجرُ عن شحن ما وافق
+ *   عليه — نفسُ عطبِ التجميد بشكلٍ آخر.
+ */
+
+/**
+ * **أسماءٌ قديمةٌ تُقرأ ولا تُكتَب.**
  *
- *       approved → shipped   ✘        approved → cancelled ✘
- *       approved → closed    ✘        **لا مخرجَ إطلاقًا**
+ *   تبقى للقراءة وحدَها: صفٌّ قديمٌ أو ملفُّ استيرادٍ يحمل أحدَها يُفهَم ولا
+ *   يُجمَّد. ولا يجوز أن يُكتَب أيٌّ منها في العمود — يحرس ذلك قيدُ القاعدة
+ *   واختبارُ انحدارٍ صريح.
  *
- *   أي أنّ كلَّ طلبٍ يوافق عليه التاجرُ **يتجمّد إلى الأبد**: لا يُشحَن ولا
- *   يُلغى ولا يُغلَق. قِيست الحالاتُ الثلاثُ فكانت كلُّها مجمَّدة.
- *
- *   ── والعلاجُ ترجمةٌ لا حالةٌ سابعة ──
- *   `approved` **هي** `confirmed` بلسانٍ آخر. فتُترجَم عند القراءة، ويبقى
- *   عددُ المواضع ستًّا. وإضافتُها حالةً مستقلّةً كانت ستُدخل جدولَ انتقالاتٍ
- *   موازيًا يتباعد عن الأوّل — وهو العطبُ نفسُه بشكلٍ أكبر.
- *
- *   وتوحيدُ المفردتَين في مصدرٍ واحدٍ قرارُ منتَجٍ يُتَّخذ صراحةً؛ وهذه
- *   الترجمةُ تمنع التجميدَ الآن بلا أن تختار عن أحد.
+ *   و`closed` تبقى **لسانَ محاسبةٍ** في دفتر الأحداث (`order.closed`) لا
+ *   حالةَ عمود، فتُقرأ هنا إلى `delivered` حين تَرِد في صفٍّ قديم.
  */
 const ALIASES = {
   pending_confirmation: 'pending',
-  approved: 'confirmed',
-  processing: 'confirmed',
+  confirmed: 'approved',
+  closed: 'delivered',
 };
 
-/** يُرجع الموضعَ القانونيَّ لأيّ اسمٍ من المفردتَين. */
+/** يُرجع الموضعَ القانونيَّ لأيّ اسمٍ — قانونيًّا كان أو قديمًا. */
 function canonicalState(s) {
   const k = String(s || '');
   return Object.prototype.hasOwnProperty.call(ALIASES, k) ? ALIASES[k] : k;

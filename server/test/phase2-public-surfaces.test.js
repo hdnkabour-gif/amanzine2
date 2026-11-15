@@ -49,6 +49,7 @@ before(async () => {
   const app = express();
   app.use(express.json());
   app.use('/api/customers', require('../routes/customers'));
+  app.use('/api/auth', require('../routes/auth'));
   srv = app.listen(0);
   base = `http://127.0.0.1:${srv.address().port}`;
 });
@@ -136,4 +137,38 @@ test('**والحدُّ يُطبَّق فعلًا على المسار** — SOURC
     for (let i = 0; i < 6; i++) codes.push((await hit()).status);
     assert.ok(codes.includes(429), `لا حدَّ فعليًّا — الرموز: ${codes.join(',')}`);
   } finally { s2.close(); }
+});
+
+
+test('**استرجاع كلمة المرور لا يكشف وجود البريد — HTTP حقيقي**', async () => {
+  const forgot = async (email) => {
+    const r = await fetch(base + '/api/auth/forgot-password', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    return { status: r.status, body: await r.json() };
+  };
+  const exists = await forgot('p2-merchant@test.local');
+  const absent = await forgot('not-registered-p2-qa@test.local');
+  assert.equal(exists.status, 200);
+  assert.equal(absent.status, 200);
+  assert.deepEqual(exists.body, absent.body, 'جواب استعادة كلمة السر يكشف هل الحساب موجود');
+  assert.deepEqual(exists.body, { sent: true });
+});
+
+test('**أتمتة التوصيل لا تختلق مرجعَ شحنة** — SOURCE_SHAPE', () => {
+  const fs = require('fs'), path = require('path');
+  const source = fs.readFileSync(path.join(__dirname, '../routes/delivery-auto.js'), 'utf8');
+  assert.doesNotMatch(source, /let tracking = 'TRK-'/, 'رقم تتبّع مختلق بقي في المسار');
+  assert.match(source, /method: 'puppeteer-unconfirmed'/, 'لم يعد يحذّر عند غياب تأكيد المزوّد');
+  assert.match(source, /real: false, needsManual: true/, 'تحويل غير مثبت إلى شحنة حقيقية');
+});
+
+test('**الموافقة ليست تسليمًا في لوحة المحفظة** — SOURCE_SHAPE', () => {
+  const fs = require('fs'), path = require('path');
+  const source = fs.readFileSync(path.join(__dirname, '../../src/pages/WalletPage.tsx'), 'utf8');
+  assert.doesNotMatch(source, /o\.status === 'delivered' \|\| o\.status === 'approved'/,
+    'لا يجوز احتساب approved كطلبات مسلّمة');
+  assert.match(source, /o\.status === 'pending' \|\| o\.status === 'approved'/);
+  assert.match(source, /ليس إثبات تحصيل/);
 });

@@ -79,8 +79,14 @@ test('تطبيعٌ متين: صيغٌ مختلفة لنفس الخدمة ⇒ ن�
 });
 
 test('مفاهيم جديدة من الملفّ: حدّاد/خرّاز/طبيب أسنان', () => {
-  assert.equal(svc('بغيت حداد'), 'blacksmith');
-  assert.equal(svc('بغيت خراز'), 'shoemaker');
+  // المعرّفان تغيّرا بفضِّ التنازع، والجوابُ لم يتغيّر: «حداد» كان يملكه
+  //   `blacksmith` و`blacksmith_welder` معًا، و«خراز» يملكه `shoemaker`
+  //   و`cobbler_shoe_repair` معًا — فأيُّهما يُجيب كان يحكمه ترتيبُ
+  //   الفهرس لا المعنى. فصار لكلِّ لفظٍ مالكٌ واحد: الأغنى خدماتٍ
+  //   وألفاظًا (`blacksmith_welder` يَلحم أيضًا، و`cobbler_shoe_repair`
+  //   يُصلح الصبّاط). والحرفةُ المقروءةُ هي هي.
+  assert.equal(svc('بغيت حداد'), 'blacksmith_welder');
+  assert.equal(svc('بغيت خراز'), 'cobbler_shoe_repair');
   assert.equal(svc('بغيت طبيب أسنان'), 'dentist');
 });
 

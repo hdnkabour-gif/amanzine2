@@ -3,6 +3,7 @@ import { readHuman, type HumanIntent } from './humanIntent';
 import { normLoose } from './normalize';
 import { readAmount } from './money';
 import { resolveConcept } from './akg/kb/knowledge';
+import { readSense, senseGap, type SharedWord } from './akg/kb/senses';
 // الفعلُ الإداريُّ يُقرأ هنا كي لا يُسأل مَن يدير حسابَه سؤالَ سوق (٩٫٦).
 import { readAction, describeAction } from './akg/kb/actions';
 // عنوانُ الفعل الإداريّ يُقال بالدارجة من الكتالوج، لا يُخترَع هنا (القانون ١٠).
@@ -877,6 +878,63 @@ function buildNeedObject(r: NeedResult, raw: string, ctx: NeedContext): NeedObje
   return o;
 }
 
+// ── سؤالُ اللفظ المشترك ───────────────────────────────────────
+//
+//   **لا يُحسَم لفظٌ مشترك بالتخمين.** «سكانير» و«الثوب» و«حمام» تعني
+//   أشياءَ عدّة، ويتحدّد معناها بتمامِ الجملة. فإن لم تكتمل، يُسأل سؤالٌ
+//   **خاصٌّ باللفظ** لا سؤالًا عامًّا — والفرقُ هو الفرقُ بين «شنو بالضبط؟»
+//   و«سكانير ديال شنو؟».
+//
+//   واليقينُ ينزل تلقائيًّا: `confidenceOf` تُرجع ٠٫٥ لأيِّ نتيجةٍ فيها
+//   خطوة، وهي دون عتبةِ التأكيد — فتعمل سكّةُ `clarify` القائمة بلا طبقةٍ
+//   جديدة. وهذا **قلبٌ** للسلوك السابق: اللفظُ المشترك كان يُعطي ٠٨٦ و٠٩٠.
+//
+//   والحاسّةُ **بلا مفهومٍ تقول الصدق**: «ما عندناش هاد المجال بعد» — ولا
+//   تُرسِل صاحبَها إلى مفهومٍ آخر. فالفهمُ يُلتقَط والجوابُ لا يُفتَرى.
+function sharedWordStep(w: SharedWord): NeedResult {
+  return {
+    intent: 'find_pro',
+    label: 'نوضّحو',
+    color: 'var(--info,#3B82F6)',
+    tags: [],
+    open: 'هاد الكلمة كاتجي بزاف معاني 🤔 باقي نفهم شنو قصدك بالضبط:',
+    next: 'جاوب وغادي نكملو من فين وقفنا.',
+    steps: [{
+      q: w.question,
+      clarifyId: `sense:${w.term}`,
+      options: w.senses.map(sn => ({
+        id: sn.id,
+        label: sn.label,
+        url: sn.concept ? `${MARKET}?q=${encodeURIComponent(sn.concept)}` : undefined,
+        next: sn.concept
+          ? 'فهمت — نوصلوك بالمختصّ المناسب.'
+          : 'فهمت قصدك، ولكن هاد المجال مازال ما كاينش عندنا. غادي نسجّلو ونتعلّمو منّو.',
+      })),
+    }],
+  };
+}
+
+// ── حاسّةٌ فُهِمت ولا مفهومَ لها ⇒ يُقال الصدق ──────────────────
+//
+//   **ولا سؤالٌ عامٌّ بعد فهمٍ خاصّ.** قِيس: «سكانير ديال التحاليل» صار
+//   يُفهَم طبّيًّا ولا يُجاب بميكانيكيّ — ثمّ يسأل «المشكل مع شنو؟». وهو
+//   الذنبُ الذي يسمّيه هذا الملفُّ نفسُه: سؤالٌ نعرف جوابَه. فالفهمُ
+//   يُقال، والنقصُ يُعترَف به، والنصُّ يُسجَّل للتعلّم.
+//
+//   و`intent: 'unknown'` ليست استسلامًا: هي ما يُشغِّل `reportUnknown`
+//   في `journey.ts` ⇒ `/api/ai/report-unknown` ⇒ حلقةُ التعلّم. فالمجالُ
+//   الناقصُ يصل إلى صاحب المشروع بنصِّ صاحبه وعددِ مرّاته.
+function senseGapResult(label: string): NeedResult {
+  return {
+    intent: 'unknown',
+    label: 'مجالٌ جديد',
+    color: 'var(--ink3,#7E877F)',
+    tags: [],
+    open: `فهمت قصدك — ${label} 🙏 ولكن هاد المجال مازال ما كاينش عندنا.`,
+    next: 'سجّلتو باش نزيدوه. إلى بغيت شي حاجة أخرى، كتب ليا شنو محتاج.',
+  };
+}
+
 // درجة اليقين: تحدّد متى يُوجّه المحرّك مباشرة، ومتى يسأل توضيحًا.
 function confidenceOf(r: NeedResult): number {
   if (r.steps && r.steps.length) return 0.5;   // يحتاج جوابًا واحدًا قبل الحسم (أولويّة)
@@ -1050,6 +1108,42 @@ export function parseNeed(raw: string, ctx: NeedContext = {}): NeedResult {
     if (hr.object) { hr.object.confidence = hr.confidence; hr.object.reason = human.reason; }
     return hr;
   }
+  // **اللفظُ المشترك: يُسأل عنه قبل أن يُجاب عنه.**
+  //
+  //   وحارساه مقيسان لا مفترضان. قِيس أنّ السؤالَ هنا **خطأٌ** في حالتين:
+  //     «الما كيقطر فالحمام»   ⇒ `urgent` بيقين ٠٩٧ — طارئُ سباكة، ومن
+  //                               ينزف ماؤه لا يُسأل عن قاموس
+  //     «عندي مشكل فالحمام»    ⇒ الطبقةُ الإنسانيّةُ قرأت `HELP` — فلها
+  //                               سؤالُها، وسؤالان في نفَسٍ واحدٍ إهانة
+  //   فلا يُسأل إلّا حين تصمت الطبقةُ الإنسانيّةُ ولا يكون الأمرُ طارئًا.
+  //
+  //   وما بقي من الحالات الملتبسة («بغيت نصلح الحمام») يحميه **مخرجٌ في
+  //   كلِّ سؤال** («شي حاجة أخرى») — فأسوأُ ما يقع نقرةٌ واحدة، لا جوابٌ
+  //   خاطئٌ بثقةٍ ٠٨٦.
+  //   و«تكلّمت الطبقةُ الإنسانيّة» تُقاس بـ`human.intent` لا بـ`hr`: قِيس أنّ
+  //   «عندي مشكل فالحمام» تُقرأ `HELP` ثمّ **يُسكِتها** حارسُ «لا تسأل سؤالًا
+  //   تعرف جوابه» أعلاه (لأنّ المجالَ معلوم) — فلو قرأتُ `hr` لرأيتُها صامتةً
+  //   وسألتُ «بلدي ولا رومي؟» لمن عنده مشكلٌ في بيت الماء.
+  const gap = senseGap(raw);
+  if (gap) {
+    const gr = senseGapResult(gap.sense.label.replace(/^\S+\s/, ''));
+    gr.confidence = confidenceOf(gr);
+    gr.stance = stance;
+    gr.object = buildNeedObject(gr, raw, ctx);
+    if (gr.object) gr.object.confidence = gr.confidence;
+    return gr;
+  }
+
+  const sense = human.intent === 'NONE' ? readSense(raw) : null;
+  if (sense && !sense.decided && coreParse(raw).intent !== 'urgent') {
+    const sr = sharedWordStep(sense.word);
+    sr.confidence = confidenceOf(sr);
+    sr.stance = stance;
+    sr.object = buildNeedObject(sr, raw, ctx);
+    if (sr.object) sr.object.confidence = sr.confidence;
+    return sr;
+  }
+
   const r = enrich(coreParse(raw), normalize(raw), ctx);
   r.confidence = confidenceOf(r);
   // **مَن أخبر عن حاجةِ حياةٍ طلبَ ولم يَعرض.** «عندي مولود جديد» تبدأ بـ«عندي»

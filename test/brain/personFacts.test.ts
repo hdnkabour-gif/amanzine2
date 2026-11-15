@@ -17,7 +17,12 @@ const clear = () => { try { localStorage.clear(); } catch { /* noop */ } };
 
 // ── ① التصريحُ يُلتقَط ────────────────────────────────────────
 test('التصريحُ بالحرفة يُقرأ', () => {
-  assert.equal(readPersonFacts('أنا خضار').find(f => f.kind === 'trade')?.value, 'vegetable_fruit_seller');
+  // **وكان هذان السطران يَشهدان على العطبِ نفسِه الذي يحرسانه الآن:**
+  //   «أنا خضار» تُعطي `vegetable_fruit_seller` و«عندي محل ديال الخضرة»
+  //   تُعطي `greengrocer` — حرفةٌ واحدةٌ ومعرّفان، فصاحبُ المحلِّ الواحدِ
+  //   يُخزَّن مرّتين ولا يُطابِق نفسَه. وبفضِّ التنازع صار «خضار» لمالكٍ
+  //   واحدٍ هو الأغنى (٧ ألفاظٍ و٥ خدماتٍ مقابل ٥ و٢).
+  assert.equal(readPersonFacts('أنا خضار').find(f => f.kind === 'trade')?.value, 'greengrocer');
   assert.equal(readPersonFacts('عندي محل ديال الخضرة').find(f => f.kind === 'trade')?.value, 'greengrocer');
   assert.equal(readPersonFacts('كنصايب الحلويات').find(f => f.kind === 'trade')?.value, 'pastry_chef');
 });

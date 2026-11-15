@@ -184,6 +184,43 @@ async function migrate() {
     await soft('orders.provider_shipment_id', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_shipment_id TEXT DEFAULT ''`);
     // إعادةُ المحاولة بعد عطبٍ عابرٍ لدى شركة التوصيل. الحالةُ في الطلب لا
     // في جدولٍ موازٍ: الشحنةُ صفةٌ للطلب، وجدولٌ ثانٍ يعني حقيقتَين تتباعدان.
+    // ── **مفتاحُ محاولةِ الإنشاء — حارسُ الطلب المزدوج** ──────────
+    //
+    //   قِيس في التهيئة: عشرون نداءَ إنشاءٍ متزامنًا ⇒ **عشرون صفًّا**. وهو
+    //   صحيحٌ بلا مفتاح — لكنّه يعني أنّ نقرةً مزدوجةً من تاجرٍ أو إعادةَ
+    //   إرسالٍ من الشبكة تُنشئ طلبَين، فيُشحَن الثاني ويُحاسَب عليه زبونٌ لم
+    //   يطلبه.
+    //
+    //   ولا يُنزَع التكرارُ بالهاتف ولا بالمبلغ ولا بالوقت: زبونٌ قد يطلب
+    //   نفسَ السلّة مرّتين في دقيقةٍ **عمدًا**، وحذفُ الثاني خسارةُ بيعٍ لا
+    //   حمايةٌ من خطأ. فالمُميِّزُ هو **المحاولة** لا محتواها.
+    //
+    //   والفرادةُ تُحرَس في القاعدة لا في الذاكرة: قفلٌ في العمليّة لا يمنع
+    //   شيئًا حين تعمل نسختان من الخادم — وهو ما يقع في كلّ نشرٍ متدرّج.
+    //   وهي **جزئيّة**: الطلباتُ القديمةُ والمساراتُ التي لا ترسل مفتاحًا
+    //   تبقى بلا قيدٍ ولا تتصادم.
+    await soft('orders.idempotency_key',
+      `ALTER TABLE orders ADD COLUMN IF NOT EXISTS idempotency_key TEXT`);
+    await soft('orders.idempotency_fingerprint',
+      `ALTER TABLE orders ADD COLUMN IF NOT EXISTS idempotency_fingerprint TEXT`);
+    await soft('uniq_orders_idempotency',
+      `CREATE UNIQUE INDEX IF NOT EXISTS uniq_orders_idempotency
+         ON orders(user_id, idempotency_key)
+         WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`);
+
+    // ── **تتبُّعُ الزبون: فهرسٌ لِما يُبحَث به فعلًا** ──────────────
+    //   `GET /api/orders/track/:phone` بابٌ **عامٌّ بلا مصادقة**، وكان
+    //   يُحمّل كلَّ طلبات التاجر إلى الذاكرة ثمّ يُصفّي في جافاسكربت. تاجرٌ
+    //   بعشرين ألفَ طلبٍ ⇒ عشرون ألفَ صفٍّ (بحقل `items` من نوع JSONB) في
+    //   كلّ نداءٍ من أيّ زائر. والحدُّ العامُّ ٦٠٠ نداءٍ لكلّ ربع ساعة ⇒
+    //   اثنا عشر مليونَ صفٍّ من عنوانٍ واحد. هذا بابُ إغراقٍ لا ميزةُ تتبّع.
+    //
+    //   والمطابقةُ بآخر تسع خاناتٍ لأنّ «0655…» و«+212655…» رقمٌ واحد —
+    //   فيُفهرَس **التعبيرُ نفسُه** الذي يُبحَث به، وإلّا بقي الفحصُ كاملًا.
+    await soft('idx_orders_phone9',
+      `CREATE INDEX IF NOT EXISTS idx_orders_phone9
+         ON orders (user_id, right(regexp_replace(customer_phone, '\\D', '', 'g'), 9))`);
+
     await soft('orders.delivery_retry_at', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_retry_at TIMESTAMPTZ`);
     await soft('orders.delivery_attempts', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_attempts INTEGER DEFAULT 0`);
     // فهرسٌ جزئيّ: المُعيدُ يسأل كلَّ خمس دقائق عن صفوفٍ قليلةٍ جدًّا.
@@ -1008,8 +1045,12 @@ async function migrate() {
     //   **اتّحادَهما** فيرفض المخترَع وحدَه. وتوحيدُ المفردتَين قرارُ منتَجٍ
     //   يُتَّخذ صراحةً، لا أثرًا جانبيًّا لقيدٍ في ترحيل.
     // ============================================================
-    const ORDER_STATES = ['pending', 'pending_confirmation', 'approved', 'confirmed',
-      'processing', 'shipped', 'delivered', 'cancelled', 'closed'];
+    // **المفردةُ القانونيّةُ الواحدة** — قرارُ منتَجٍ اتُّخذ صراحةً. وهي ما
+    //   يكتبه النظامُ فعلًا. و`confirmed`/`closed`/`pending_confirmation`
+    //   صفرُ كاتب، فلا تُقبَل في العمود. والقيدُ `NOT VALID`، فصفوفُ الماضي
+    //   الحاملةُ لها تبقى وتُعدّ ولا تُسقط الإقلاع.
+    const ORDER_STATES = ['pending', 'approved', 'processing',
+      'shipped', 'delivered', 'cancelled'];
     const LIST = ORDER_STATES.map(s => `'${s}'`).join(',');
 
     /**
@@ -1036,11 +1077,16 @@ async function migrate() {
     //   القيدُ `NOT VALID` يُغلق البابَ ولا يقول ما خلفه. فيُعدّ المخالفُ
     //   ويُقال — عددًا فقط، لا بياناتِ زبناء. وبلا هذا يبقى «نظّفوا الماضي»
     //   جملةً في تعليقٍ لا أحدَ يعرف حجمَها.
+    //
+    //   و**لكلّ قيدٍ عدّاد**: كانت القيودُ خمسةً والعدّاداتُ أربعة، فيبقى
+    //   مخالفُ `products.status` غيرَ مرئيٍّ حتّى لحظة `VALIDATE` — أي يُنظَّف
+    //   الماضي على أربعِ فئاتٍ ثمّ تسقط الخامسةُ فجأة. قِيس في بيئة التهيئة.
     for (const [what, sql] of [
       ['orders.status', `SELECT count(*)::int n FROM orders WHERE NOT (status = ANY(ARRAY[${LIST}]))`],
       ['orders.total < 0', `SELECT count(*)::int n FROM orders WHERE total < 0`],
       ['products.price < 0', `SELECT count(*)::int n FROM products WHERE price < 0`],
       ['products.stock < 0', `SELECT count(*)::int n FROM products WHERE stock < 0`],
+      ['products.status', `SELECT count(*)::int n FROM products WHERE status NOT IN ('draft','published','archived')`],
     ]) {
       try {
         const { rows } = await client.query(sql);

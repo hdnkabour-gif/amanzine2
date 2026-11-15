@@ -166,15 +166,57 @@ test('**والقيدُ يحرس التعديلَ لا الإدخالَ وحدَ�
   await rejects(`UPDATE orders SET total = -1 WHERE id = $1`, ['o3-' + U], 'chk_orders_total');
 });
 
-test('**ومفرداتُ العميل مقبولةٌ** — لا يُكسَر ما يعمل اليوم', async () => {
-  // القيدُ يرفض المخترَعَ لا المألوف: العميلُ يكتب `approved` منذ اليوم الأوّل،
-  //   وقيدٌ يرفضه يُسقط كلَّ موافقةٍ على طلب.
-  for (const s of ['pending', 'pending_confirmation', 'approved', 'confirmed',
-    'processing', 'shipped', 'delivered', 'cancelled', 'closed']) {
+test('**المفرداتُ المعتمَدةُ ستٌّ — وما عداها يُرفَض في العمود**', async () => {
+  // القرارُ المعماريّ: العمودُ يحمل ستَّ مفرداتٍ لا تسعًا. و`confirmed`
+  //   و`closed` و`pending_confirmation` أسماءُ مرحلةٍ ومحاسبةٍ تُترجَم عند
+  //   الباب، **ولا تُخزَّن**. مفردتان لنفس المعنى في عمودٍ واحد تعني تقريرَين
+  //   مختلفَين عن نفس اليوم — وهذا ما يُقاس هنا: أنّ القاعدةَ تمنعه.
+  for (const s of ['pending', 'approved', 'processing', 'shipped', 'delivered', 'cancelled']) {
     await pool.query(`UPDATE orders SET status = $2 WHERE id = $1`, ['o3-' + U, s]);
   }
   const { rows } = await pool.query(`SELECT status FROM orders WHERE id = $1`, ['o3-' + U]);
-  assert.equal(rows[0].status, 'closed');
+  assert.equal(rows[0].status, 'cancelled');
+
+  await pool.query(`UPDATE orders SET status = 'pending' WHERE id = $1`, ['o3-' + U]);
+  for (const legacy of ['pending_confirmation', 'confirmed', 'closed']) {
+    await rejects(`UPDATE orders SET status = '${legacy}' WHERE id = $1`, ['o3-' + U], 'chk_orders_status');
+  }
+});
+
+test('**والمفردةُ المهجورةُ تُترجَم قبل أن تُكتَب** — لا تُردّ في وجه العميل', () => {
+  // عميلٌ قديمٌ يرسل `confirmed`: المعنى مفهوم، والعمودُ لا يحمله. فالترجمةُ
+  //   تقع في `canonicalState` قبل الكتابة — ولولاها لمرّ الحدثُ صحيحًا ثمّ
+  //   انكسر عند القيد بجوابِ «خطأِ خادم» عن طلبٍ سليم.
+  assert.equal(L.canonicalState('confirmed'), 'approved');
+  assert.equal(L.canonicalState('closed'), 'delivered');
+  assert.equal(L.canonicalState('pending_confirmation'), 'pending');
+  for (const legacy of ['confirmed', 'closed', 'pending_confirmation']) {
+    assert.ok(L.STATES.includes(L.canonicalState(legacy)),
+      `«${legacy}» يُترجَم إلى ما ليس في العمود`);
+    assert.ok(!L.STATES.includes(legacy), `«${legacy}» صار مفردةً مُخزَّنة`);
+  }
+});
+
+test('**والترجمةُ تقع عند كلّ بابٍ يكتب** — لا بابٍ واحدٍ يفهم وآخرَ يردّ', async () => {
+  // كشفته الرحلةُ J12: مسارُ الأحداث كان يترجم `confirmed`، و
+  //   `PUT /api/orders/:id` يمرّرها خامًا فتصطدم بالقيد ⇒ **400 لحالةٍ
+  //   مشروعة**. وعهدٌ يصدق في بابٍ ويكذب في بابٍ أسوأُ من عهدٍ لا يُعطى.
+  //   والمالكُ الواحدُ للكتابة هو `updateOrder` — كلُّ مسارٍ يمرّ منه.
+  const { db } = require('../database');
+  const u = await db.getUserByEmail('p5@test.ma')
+    || await db.createUser({ name: 'P5U', email: 'p5@test.ma', password: 'x', role: 'user' });
+  const o = await db.createOrder({ userId: u.id, customerName: 'ز', total: 10, status: 'pending', items: [] });
+
+  for (const [legacy, canon] of [['confirmed', 'approved'], ['closed', 'delivered'],
+    ['pending_confirmation', 'pending']]) {
+    const r = await db.updateOrder(o.id, { status: legacy });
+    assert.equal(r.status, canon, `«${legacy}» لم تُترجَم عند بابِ التحديث`);
+  }
+  // والمخترَعُ يبقى مرفوضًا: الترجمةُ لا تفتح البابَ لكلّ نصّ.
+  await assert.rejects(() => db.updateOrder(o.id, { status: 'حالةٌ مخترَعةٌ تمامًا' }),
+    e => { assert.match(e.message, /chk_orders_status/); return true; },
+    '**قُبلت حالةٌ مخترَعةٌ عبر بابِ التحديث**');
+  await pool.query('DELETE FROM orders WHERE id=$1', [o.id]);
 });
 
 // ── ④ الطلبُ المُوافَقُ عليه لا يتجمّد ──────────────────────────
