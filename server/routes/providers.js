@@ -132,6 +132,18 @@ const knowledgeRoute = require('./knowledge');
 // وهميٍّ في ليلة، وتعني أيضًا أنّ التزكية بلا كُلفةٍ — فتصير بلا معنى.
 const VOUCH_QUOTA = 5;
 
+// AI extraction never publishes knowledge or decides services. Requires caller opt-in.
+router.post('/field-visit/understand', auth, async (req, res) => {
+  const message=String(req.body?.message||'').trim().slice(0,700);
+  if(message.length<3)return res.status(400).json({error:'Description too short'});
+  if(req.body?.allowExternalAI!==true)return res.status(400).json({error:'Explicit AI consent required'});
+  try{
+    const {understandVisit}=require('../lib/visit-intake');
+    const draft=await understandVisit(message,{allowExternalAI:true});
+    return res.json({draft,author:'AMANZINE',requiresConfirmation:true,knowledgePublished:false});
+  }catch(e){console.error('[visit-intake]',e.message);return res.status(500).json({error:'Extraction unavailable'});}
+});
+
 router.post('/field-visit', auth, async (req, res) => {
   // مَن يسجّل؟ الأدمن، أو محلٌّ معتمَدٌ يزكّي غيرَه بنفس الطريقة.
   const admin = isPlatformAdmin(req);
