@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-15T15:11:38.542Z",
+ "generatedAt": "2026-11-15T15:26:58.593Z",
  "totals": {
   "tracked": 755,
   "code": 484,
@@ -10,7 +10,7 @@
   "deadExports": 221,
   "looseExports": 70,
   "todos": 8,
-  "lines": 93362
+  "lines": 93382
  },
  "files": [
   {
@@ -316,17 +316,17 @@
   },
   {
    "file": "scripts/sabotage.mjs",
-   "lines": 383,
-   "bytes": 22720,
+   "lines": 403,
+   "bytes": 23982,
    "imports": [],
    "importers": [],
    "exports": [],
    "deadExports": [],
    "reach": "script",
-   "touched": 1794755172,
+   "touched": 1794756392,
    "todos": 0,
    "anys": 0,
-   "logs": 11,
+   "logs": 12,
    "emptyCatch": 0,
    "ageDays": 0
   },
@@ -9586,7 +9586,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 148
+   "ageDays": 149
   },
   {
    "file": "src/pages/Landing/index.tsx",
@@ -9678,7 +9678,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 99
+   "ageDays": 100
   },
   {
    "file": "src/pages/Landing/sections/Footer.tsx",
@@ -9730,7 +9730,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 99
+   "ageDays": 100
   },
   {
    "file": "src/pages/Landing/sections/HowItWorks.tsx",
@@ -9784,7 +9784,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 99
+   "ageDays": 100
   },
   {
    "file": "src/pages/Landing/sections/NeedFirst.tsx",
@@ -9848,7 +9848,7 @@
    "logs": 0,
    "emptyCatch": 0,
    "looseExports": [],
-   "ageDays": 99
+   "ageDays": 100
   },
   {
    "file": "src/pages/Landing/theme.ts",
