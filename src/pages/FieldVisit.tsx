@@ -97,7 +97,13 @@ export default function FieldVisit() {
         customerLines: v.golden,
         pricingAsks: lines,
         words: v.words.filter(w => w.term && w.conceptId),
-        notes: kind ? `صنف: ${kind}` : '',
+        notes: [
+          kind ? `صنف: ${kind}` : '',
+          v.visitContext?.confirmed ? `نشاط: ${v.visitContext.businessActivity.slice(0,180)}` : '',
+          v.visitContext?.confirmed ? `الحاجة: ${v.visitContext.visitorNeed.slice(0,220)}` : '',
+          v.visitContext?.confirmed ? `النتيجة المطلوبة: ${v.visitContext.desiredResult.slice(0,180)}` : '',
+          v.visitContext?.confirmed ? `المعدات الموجودة: ${v.visitContext.existingTools.slice(0,140)}` : '',
+        ].filter(Boolean).join(' | '),
         profile: {
           kind: kind || undefined,
           hours: hoursAsk ? String(v.answers[hoursAsk.id] || '') || undefined : undefined,
