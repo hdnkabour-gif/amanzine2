@@ -728,8 +728,14 @@ async function J14() {
     await page.goto(BASE + '/field-visit', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1700);
     await skipIntro(page);
+    // First-login onboarding can route back home; finish it before opening
+    // the actual visit screen, or this would test the wrong page.
     await skipOnboarding(page);
     await dismissTour(page);
+    if (!page.url().endsWith('/field-visit')) {
+      await page.goto(BASE + '/field-visit', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1600);
+    }
     const input = page.locator('textarea[placeholder*="لافاج"]').first();
     try {
       await input.waitFor({ state: 'visible', timeout: 12000 });
