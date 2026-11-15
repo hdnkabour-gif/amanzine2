@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-15T21:19:14.445Z",
+ "generatedAt": "2026-11-15T21:22:00.746Z",
  "totals": {
   "tracked": 756,
   "code": 485,
@@ -10,7 +10,7 @@
   "deadExports": 221,
   "looseExports": 70,
   "todos": 8,
-  "lines": 93528
+  "lines": 93534
  },
  "files": [
   {
@@ -12896,14 +12896,14 @@
   },
   {
    "file": "test/journeys/golden.mjs",
-   "lines": 776,
-   "bytes": 40835,
+   "lines": 782,
+   "bytes": 41152,
    "imports": [],
    "importers": [],
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1794777534,
+   "touched": 1794777696,
    "todos": 0,
    "anys": 0,
    "logs": 8,
