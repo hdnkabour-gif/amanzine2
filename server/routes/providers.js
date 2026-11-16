@@ -125,7 +125,7 @@ router.put('/:id/concepts', auth, async (req, res) => {
 //   صاحب حسابٍ حين تكون القائمةُ فارغة، بلا حتّى شرط البيئة الذي كان في
 //   الحارس المركزيّ. فنسخةٌ ثانيةٌ من نفس القرار انحرفت عن أصلها وصارت أضعفَ
 //   منه، وهذا هو ثمنُ تعدُّد المُلّاك: يُشدَّد الأصلُ فتبقى النسخةُ مفتوحة.
-const { isPlatformAdmin } = require('../middleware/platformAdmin');
+const { isPlatformAdmin, platformAdmin } = require('../middleware/platformAdmin');
 const knowledgeRoute = require('./knowledge');
 
 // حصّةُ التزكية لمحلٍّ معتمَد. محدودةٌ عمدًا: «بلا حدّ» تعني ٢٠٠ محلٍّ
@@ -313,7 +313,7 @@ router.get('/by-concept/:conceptId', async (req, res) => {
 router.post('/', auth, sanitizeBody, async (req, res) => {
   try {
     if (!req.body.name) return res.status(400).json({ error: 'الاسم مطلوب' });
-    const p = await db.createProvider(req.user.id, req.body);
+    const p = await db.createProvider(req.user.id, { ...req.body, status: 'pending' });
     res.status(201).json(p);
   } catch (e) { console.error('[providers]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
@@ -322,18 +322,19 @@ router.put('/:id', auth, sanitizeBody, async (req, res) => {
   try {
     const existing = await db.getProvider(req.user.id, req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found' });
-    res.json(await db.updateProvider(req.user.id, req.params.id, req.body));
+    const { status, isVerified, adminNote, ...editable } = req.body;
+    res.json(await db.updateProvider(req.user.id, req.params.id, editable));
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
 // موافقة/رفض/تعليق (لوحة الأدمن)
-router.put('/:id/status', auth, async (req, res) => {
+router.put('/:id/status', auth, platformAdmin, async (req, res) => {
   const { status, adminNote } = req.body;
   if (!['pending', 'approved', 'rejected', 'suspended'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
   try {
-    const existing = await db.getProvider(req.user.id, req.params.id);
+    const existing = await db.getProviderForReview(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found' });
-    const p = await db.updateProvider(req.user.id, req.params.id, { status, adminNote });
+    const p = await db.updateProvider(existing.userId, req.params.id, { status, adminNote });
     await db.addLog({ userId: req.user.id, user: 'Admin', action: `Provider ${status}: ${p.name}`, details: adminNote || '', type: 'info', severity: 'info' });
     // Activity: اعتماد مقدّم خدمة → حدث عام (business.verified)
     if (status === 'approved') {

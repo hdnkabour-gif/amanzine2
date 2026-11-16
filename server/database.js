@@ -1912,6 +1912,11 @@ db.getProviders = async (userId, { status, q } = {}) => {
   const { rows } = await pool.query(`SELECT * FROM providers WHERE ${cond.join(' AND ')} ORDER BY is_verified DESC, rating_avg DESC, created_at DESC LIMIT 200`, args);
   return rows.map(_mapProvider);
 };
+// Administrative lookup; callers must enforce platformAdmin before using it.
+db.getProviderForReview = async (id) => {
+  const { rows } = await pool.query('SELECT * FROM providers WHERE id = $1', [id]);
+  return _mapProvider(rows[0]);
+};
 db.getProvider = async (userId, id) => {
   const { rows } = await pool.query('SELECT * FROM providers WHERE id = $1 AND user_id = $2', [id, userId]);
   return _mapProvider(rows[0]);
