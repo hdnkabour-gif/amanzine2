@@ -1,6 +1,7 @@
 'use strict';
 const router = require('express').Router();
 const auth   = require('../middleware/auth');
+const { platformAdmin } = require('../middleware/platformAdmin');
 const aiQuota = require('../middleware/ai-quota'); // H-5
 const https  = require('https');
 const { db } = require('../database');
@@ -832,7 +833,8 @@ router.post('/understand', async (req, res) => {
     const hasImage = typeof req.body?.image === 'string' && req.body.image.startsWith('data:');
     if (!text && !hasImage) return res.status(400).json({ error: 'text or image required' });
     let dbAi = null;
-    if (req.body?.userId) { try { const s = await db.getSettings(req.body.userId); dbAi = s?.ai || null; } catch { /* noop */ } }
+    // Public understanding must not select a merchant's credentials by an untrusted userId.
+    // Authenticated generation endpoints remain scoped to req.user.id.
     const keys = _resolveAIKeys(req.body?.ai, dbAi);
     if (!Object.values(keys).some(Boolean)) return res.json({ available: false });
     // مزوّدٌ رخيصٌ جيّدٌ بالدارجة أوّلًا (DeepSeek/Gemini)، ثمّ الباقي.
@@ -859,7 +861,7 @@ router.post('/understand', async (req, res) => {
     // تسوء الجودة نعرف **من** كان يجيب. مجهَّلٌ كبقيّة الناقل.
     try {
       require('../lib/engines/activity').emit({
-        businessId: req.body?.userId ? `store:${req.body.userId}` : null,
+        businessId: null,
         actor: 'system', type: 'ai.understood', category: 'ai', visibility: 'private',
         city: ctx.city || null,
         payload: { provider: out.provider, withImage: !!img, confidence: parsed?.confidence ?? null },
@@ -895,13 +897,13 @@ router.post('/report-misread', async (req, res) => {
     return res.json({ ok });
   } catch { return res.json({ ok: false }); }
 });
-router.get('/misread-report', auth, async (req, res) => {
+router.get('/misread-report', auth, platformAdmin, async (req, res) => {
   try {
     const rows = await db.topMisreads(Number(req.query.limit) || 100, String(req.query.status || ''));
     return res.json({ misreads: rows });
   } catch { return res.status(500).json({ error: 'report failed' }); }
 });
-router.post('/judge-misread', auth, async (req, res) => {
+router.post('/judge-misread', auth, platformAdmin, async (req, res) => {
   try {
     const ok = await db.judgeMisread(req.body?.text, req.body?.field, req.body?.status);
     return res.json({ ok });
@@ -928,13 +930,13 @@ router.post('/uncovered', async (req, res) => {
 });
 
 /** خارطةُ الطريق التي كتبها الناسُ — محميّة. */
-router.get('/demand-report', auth, async (req, res) => {
+router.get('/demand-report', auth, platformAdmin, async (req, res) => {
   try {
     return res.json({ demand: await db.topDemand(Number(req.query.limit) || 100) });
   } catch { return res.status(500).json({ error: 'report failed' }); }
 });
 
-router.get('/unknown-report', auth, async (req, res) => {
+router.get('/unknown-report', auth, platformAdmin, async (req, res) => {
   try {
     const rows = await db.topUnknownTexts(Number(req.query.limit) || 100, String(req.query.status || ''));
     return res.json({ unknowns: rows });
@@ -955,7 +957,7 @@ router.post('/suggest-unknown', async (req, res) => {
 });
 
 /** حكمُ الإنسان — محميّ. لا معرفةَ تدخل بلا اعتماد. */
-router.post('/judge-unknown', auth, async (req, res) => {
+router.post('/judge-unknown', auth, platformAdmin, async (req, res) => {
   try {
     const text = String(req.body?.text || '').trim();
     const status = req.body?.status;
