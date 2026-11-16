@@ -19,6 +19,7 @@ const { test: rawTest, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 
 const SKIP = !process.env.DATABASE_URL;
+process.env.ADMIN_EMAILS = 'demand@test.ma';
 process.env.JWT_SECRET ||= 'test-secret-for-demand-channel-only-0123456789';
 
 const test = (name, fn) => rawTest(name, { skip: SKIP && 'لا DATABASE_URL' }, fn);
@@ -68,6 +69,7 @@ after(async () => {
 
 const mine = async (text = T) => {
   const r = await get('/api/ai/demand-report?limit=500', TOKEN);
+  assert.equal(r.status, 200, 'Platform administrator can read report');
   return (r.body.demand || []).filter(d => d.text === text);
 };
 
@@ -100,6 +102,7 @@ test('**والعدّادُ هو كلُّ القيمة** — جملةٌ رأيٌ 
 test('ونفسُ النصّ في مجالٍ آخرَ سطرٌ آخر — المفتاحُ مركّب', async () => {
   await post('/api/ai/uncovered', { kind: 'other_domain', text: T });
   const r = await get('/api/ai/demand-report?limit=500', TOKEN);
+  assert.equal(r.status, 200, 'Platform administrator can read report');
   const kinds = (r.body.demand || []).filter(d => d.text === T).map(d => d.kind).sort();
   assert.deepEqual(kinds, ['other_domain', 'transport']);
 });

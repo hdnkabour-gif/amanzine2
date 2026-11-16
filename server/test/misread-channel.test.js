@@ -17,6 +17,7 @@ const { test: rawTest, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 
 const SKIP = !process.env.DATABASE_URL;
+process.env.ADMIN_EMAILS = 'misread@test.ma';
 process.env.JWT_SECRET ||= 'test-secret-for-misread-channel-only-0123456789';
 
 const test = (name, fn) => rawTest(name, { skip: SKIP && 'لا DATABASE_URL' }, fn);
@@ -68,6 +69,7 @@ after(async () => {
 
 const mine = async (text = T) => {
   const r = await get('/api/ai/misread-report?limit=200', TOKEN);
+  assert.equal(r.status, 200, 'Platform administrator can read report');
   return (r.body.misreads || []).filter(m => m.text === text);
 };
 
@@ -113,6 +115,7 @@ test('حقلان مختلفان على نفس الجملة سطران — الح
 
 test('الأشدُّ خطرًا أوّلًا في التقرير', async () => {
   const r = await get('/api/ai/misread-report?limit=200', TOKEN);
+  assert.equal(r.status, 200, 'Platform administrator can read report');
   const list = r.body.misreads || [];
   const score = m => m.count * m.confidence;
   for (let i = 1; i < list.length; i++) {
@@ -161,6 +164,7 @@ test('لا حكمَ إلّا `fixed` أو `rejected`', async () => {
 
 test('التصفيةُ بالحالة تعمل — وإلّا لا يمكن فرزُ ما عولج', async () => {
   const r = await get('/api/ai/misread-report?status=pending&limit=200', TOKEN);
+  assert.equal(r.status, 200, 'Platform administrator can read report');
   const list = r.body.misreads || [];
   assert.ok(list.length, 'صفرُ نتائجَ يجعل الحارسَ بلا معنى');
   assert.ok(list.every(m => m.status === 'pending'));
