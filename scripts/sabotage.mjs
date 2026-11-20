@@ -302,6 +302,8 @@ const FAMILIES = [
     ['كاتبٌ عامٌّ يُخرج الطلبَ من حالةٍ نهائيّة', [
       [DB, `        parts.push(\`status = CASE WHEN status IN ('cancelled', 'delivered') THEN status ELSE $\${idx++} END\`);`,
         `        parts.push(\`status = $\${idx++}\`);`]]],
+    ['ضحيّةُ الجمود لا تُعاد — 500 بدل إعادة المعاملة', [
+      [DB, `        if ((e.code === '40P01' || e.code === '40001') && attempt < attempts) {`, `        if (false) {`]]],
     ['الإلغاءُ يُعيد من السطور لا من اللقطة', [
       [DB, `        const committed = (o.stock_committed_items && typeof o.stock_committed_items === 'object') ? o.stock_committed_items : {};`,
         `        const committed = Object.fromEntries((o.items || []).map(it => [it.productId, it.quantity]));`]]],

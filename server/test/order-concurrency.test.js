@@ -12,6 +12,7 @@
 //   C5  carrier/auto-shipment status write after a cancel     ⇒ terminal state kept (never `processing`)
 //   C6  pre-migration approved/shipped orders (no snapshot)   ⇒ migration invents no quantities; cancel
 //                                                               never restocks unknown historical stock
+//   C7  the approval is chosen as a deadlock victim           ⇒ retried: 200, deducted once
 //
 // Barrier: a third connection holds a row lock; we wait until PostgreSQL itself reports the
 // expected number of backends queued behind it (pg_blocking_pids), then release it.
@@ -238,4 +239,28 @@ test('C6: pre-migration approved/shipped orders keep no invented snapshot and ar
   for (const o of legacy) assert.equal((await call('PUT', `/api/orders/${o.id}/reject`, { reason: 'TEST' })).status, 200);
   assert.equal(await stockOf(p.id), 0, 'unknown historical deductions are left for a manual review');
   for (const o of legacy) assert.equal((await row(o.id)).stock_released_at, null);
+});
+
+test('C7: a deadlock victim (e.g. a migration ALTER during traffic) is retried, never a 500 or a double deduction', async () => {
+  const p = await product(5);
+  const o = await order(p, 1);
+  // The barrier holds the product, then asks for the order the approval already holds ⇒ a
+  // real deadlock. Its long deadlock_timeout makes the APPROVAL the victim PostgreSQL aborts.
+  const c = new Client({ connectionString: process.env.DATABASE_URL });
+  await c.connect();
+  await c.query('BEGIN');
+  await c.query(`SET LOCAL deadlock_timeout = '10s'`);
+  await c.query('SELECT id FROM products WHERE id = $1 FOR UPDATE', [p.id]);
+  const L = { pid: (await c.query('SELECT pg_backend_pid() AS p')).rows[0].p };
+  const approving = call('PUT', `/api/orders/${o.id}/approve`, {});
+  await waitBlocked(L, 1);                       // approval: holds the order, waits for the product
+  await c.query('SELECT id FROM orders WHERE id = $1 FOR UPDATE', [o.id]); // granted once the victim rolls back
+  await c.query('COMMIT'); await c.end();
+  const a = await approving;
+  no5xx(a);
+  assert.equal(a.status, 200, `the retried approval must succeed, got ${a.status} ${JSON.stringify(a.body)}`);
+  const r = await row(o.id);
+  assert.equal(r.status, 'approved');
+  assert.deepEqual(r.stock_committed_items, { [p.id]: 1 });
+  assert.equal(await stockOf(p.id), 4, 'deducted exactly once despite the retry');
 });

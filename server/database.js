@@ -579,18 +579,29 @@ const db = {
     const { rows } = await client.query('SELECT * FROM orders WHERE id = $1', [id]);
     return _mapOrder(rows[0]) || null;
   },
-  /** Run fn(client) in ONE transaction; rollback on any throw. */
-  async _orderTx(fn) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const out = await fn(client);
-      await client.query('COMMIT');
-      return out;
-    } catch (e) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw e;
-    } finally { client.release(); }
+  /**
+   * Run fn(client) in ONE transaction; rollback on any throw.
+   * A deadlock (40P01) or serialization failure (40001) chosen by PostgreSQL is retried
+   * (bounded): the victim was rolled back completely and fn only touches the database, so
+   * a retry is safe. Seen when a migration's ALTER TABLE runs during live traffic.
+   */
+  async _orderTx(fn, attempts = 3) {
+    for (let attempt = 1; ; attempt++) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const out = await fn(client);
+        await client.query('COMMIT');
+        return out;
+      } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        if ((e.code === '40P01' || e.code === '40001') && attempt < attempts) {
+          await new Promise(r => setTimeout(r, 25 * attempt + Math.floor(Math.random() * 25)));
+          continue;
+        }
+        throw e;
+      } finally { client.release(); }
+    }
   },
   /**
    * PR #26 review: the ONE lock every order mutation takes first (the order row, then
