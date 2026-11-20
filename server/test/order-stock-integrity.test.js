@@ -163,3 +163,88 @@ test('A9: another merchant cannot approve the order', async () => {
   assert.equal(r.status, 404);
   assert.equal(await stockOf(p.id), 3);
 });
+
+// ── Review round (PR #26): no bypass of the guarded transitions ─────────────
+const put = (o, body, token) => call('PUT', `/api/orders/${o.id}`, body, token);
+const event = (o, body) => call('POST', `/api/orders/${o.id}/events`, body);
+
+test('A10: PUT /:id cannot change the status (approve or cancel must go through the guarded routes)', async () => {
+  const p = await product(4);
+  const o = await order([{ p, qty: 1 }]);
+  for (const status of ['approved', 'cancelled', 'shipped', 'delivered']) {
+    const r = await put(o, { status });
+    assert.equal(r.status, 409, `PUT status=${status} → ${r.status}`);
+  }
+  assert.equal((await db.getOrder(o.id)).status, 'pending');
+  assert.equal(await stockOf(p.id), 4);
+});
+
+test('A11: after approval, items/total cannot be edited, and a cancel restocks exactly what was deducted', async () => {
+  const p = await product(10);
+  const o = await order([{ p, qty: 1 }]);
+  await approve(o);
+  assert.equal(await stockOf(p.id), 9);
+  const edit = await put(o, { items: [{ productId: p.id, productName: p.name, quantity: 5, price: 129.9 }], total: 649.5 });
+  assert.equal(edit.status, 409);
+  // Even if the stored lines were changed by another path, the restock uses the deducted quantities.
+  await pool.query(`UPDATE orders SET items = $2 WHERE id = $1`, [o.id, JSON.stringify([{ productId: p.id, quantity: 5 }])]);
+  await reject(o);
+  assert.equal(await stockOf(p.id), 10, 'restock must be 1 (deducted), not 5 (edited lines)');
+});
+
+test('A12: non-financial fields of an order can still be edited', async () => {
+  const p = await product(2);
+  const o = await order([{ p, qty: 1 }]);
+  const r = await put(o, { address: 'TEST adresse corrigée', notes: 'TEST' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.address, 'TEST adresse corrigée');
+  const items = await put(o, { items: [{ productId: p.id, productName: p.name, quantity: 2, price: 129.9 }], total: 259.8 });
+  assert.equal(items.status, 200, 'a pending order (no stock committed) may still be corrected');
+});
+
+test('A13: approving/cancelling through the events route runs the same stock guards (no bare status write)', async () => {
+  const p = await product(1);
+  const big = await order([{ p, qty: 2 }]);
+  assert.equal((await event(big, { type: 'order.confirmed', status: 'confirmed' })).status, 409, 'insufficient stock via events');
+  assert.equal((await db.getOrder(big.id)).status, 'pending');
+  assert.equal(await stockOf(p.id), 1);
+  const o = await order([{ p, qty: 1 }]);
+  assert.equal((await event(o, { type: 'order.confirmed', status: 'approved' })).status, 200);
+  assert.equal(await stockOf(p.id), 0, 'approval via events deducts stock');
+  assert.equal((await event(o, { type: 'order.confirmed', status: 'approved' })).status, 409, 'no second approval');
+  assert.equal((await event(o, { type: 'order.cancelled', status: 'cancelled' })).status, 200);
+  assert.equal(await stockOf(p.id), 1, 'cancel via events restocks exactly once');
+  assert.equal((await event(o, { type: 'order.cancelled', status: 'cancelled' })).status, 409, 'no second cancel (no double restock)');
+  assert.equal(await stockOf(p.id), 1);
+});
+
+test('A14: ship and deliver follow the lifecycle (no ship before approval, no deliver before shipping, no double delivery)', async () => {
+  const p = await product(3);
+  const o = await order([{ p, qty: 1 }]);
+  assert.equal((await call('PUT', `/api/orders/${o.id}/ship`, {})).status, 409, 'ship a pending order');
+  await approve(o);
+  assert.equal((await call('PUT', `/api/orders/${o.id}/deliver`, {})).status, 409, 'deliver before shipping');
+  assert.equal((await call('PUT', `/api/orders/${o.id}/ship`, { trackingNumber: 'TEST-TRK-1' })).status, 200);
+  assert.equal((await call('PUT', `/api/orders/${o.id}/deliver`, {})).status, 200);
+  assert.equal((await call('PUT', `/api/orders/${o.id}/deliver`, {})).status, 409, 'deliver twice');
+  assert.equal(await stockOf(p.id), 2);
+});
+
+test('A15: a service (offer_type) with no stock can be approved and is never decremented', async () => {
+  const s = await db.createProduct({ userId: USER_ID, name: 'TEST retouche', price: 50, stock: 0, status: 'published', type: 'service' });
+  const o = await order([{ p: s, qty: 2 }]);
+  const r = await approve(o);
+  assert.equal(r.status, 200, `got ${r.status} ${JSON.stringify(r.body)}`);
+  assert.equal(await stockOf(s.id), 0);
+});
+
+test('A16: a line pointing to a missing or foreign product fails closed (409), nothing deducted', async () => {
+  const mine = await product(5, 'TEST mine');
+  const foreign = await db.createProduct({ userId: OTHER_ID, name: 'TEST foreign', price: 10, stock: 5, status: 'published' });
+  const o = await order([{ p: mine, qty: 1 }, { p: foreign, qty: 1 }]);
+  const r = await approve(o);
+  assert.equal(r.status, 409);
+  assert.equal(r.body.code, 'PRODUCT_NOT_FOUND');
+  assert.equal(await stockOf(mine.id), 5);
+  assert.equal(await stockOf(foreign.id), 5);
+});

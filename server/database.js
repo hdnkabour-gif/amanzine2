@@ -560,7 +560,8 @@ const db = {
    *   • every product line is locked (stable id order, so two approvals cannot deadlock)
    *     and must have enough stock (else INSUFFICIENT_STOCK) — all-or-nothing;
    *   • services/digital offers carry no stock: never blocked, never decremented;
-   *   • lines without a product of this merchant are ignored, as before.
+   *   • a line naming a product that is missing or not this merchant's ⇒ PRODUCT_NOT_FOUND
+   *     (fail closed); the deducted quantities are stored in stock_committed_items.
    * Throws { code, status } errors; nothing is written when it throws.
    */
   async approveOrderWithStock(orderId, userId) {
@@ -581,9 +582,18 @@ const db = {
       }
       const ids = [...qty.keys()].sort();
       const { rows: prods } = ids.length ? await client.query(
-        `SELECT id, stock, type FROM products WHERE id = ANY($1) AND user_id = $2 ORDER BY id FOR UPDATE`,
+        `SELECT id, stock, offer_type FROM products WHERE id = ANY($1) AND user_id = $2 ORDER BY id FOR UPDATE`,
         [ids, userId]) : { rows: [] };
-      const stocked = prods.filter(p => p.type !== 'service' && p.type !== 'digital');
+      // Fail closed (review): a line that names a product which is missing or belongs to
+      // another merchant must not complete silently as if it were sold.
+      const found = new Set(prods.map(p => p.id));
+      const missing = ids.filter(id => !found.has(id));
+      if (missing.length) {
+        throw Object.assign(new Error('Product not found'), { code: 'PRODUCT_NOT_FOUND', status: 409, productIds: missing });
+      }
+      // The kind lives in offer_type (createProduct/_mapProduct); the raw `type` column keeps its default.
+      const isStocked = (p) => p.offer_type !== 'service' && p.offer_type !== 'digital';
+      const stocked = prods.filter(isStocked);
       for (const p of stocked) {
         const want = qty.get(p.id);
         if ((+p.stock || 0) < want) {
@@ -591,17 +601,21 @@ const db = {
             code: 'INSUFFICIENT_STOCK', status: 409, productId: p.id, available: +p.stock || 0, requested: want });
         }
       }
+      const committed = {};
       for (const p of prods) {
         const n = qty.get(p.id);
-        const isStocked = p.type !== 'service' && p.type !== 'digital';
+        const stockedLine = isStocked(p);
+        if (stockedLine) committed[p.id] = n;
         await client.query(
           `UPDATE products SET stock = stock - $2, sales = COALESCE(sales,0) + $3, updated_at = NOW()
             WHERE id = $1 AND user_id = $4`,
-          [p.id, isStocked ? n : 0, n, userId]);
+          [p.id, stockedLine ? n : 0, n, userId]);
       }
+      // The exact quantities taken out of stock are recorded: a later cancellation gives back
+      // THESE, never a recomputation from lines that may have been edited since (review).
       const { rows: [updated] } = await client.query(
-        `UPDATE orders SET status = 'approved', stock_committed_at = NOW(), updated_at = NOW()
-          WHERE id = $1 AND user_id = $2 RETURNING *`, [orderId, userId]);
+        `UPDATE orders SET status = 'approved', stock_committed_at = NOW(), stock_committed_items = $3, updated_at = NOW()
+          WHERE id = $1 AND user_id = $2 RETURNING *`, [orderId, userId, JSON.stringify(committed)]);
       await client.query('COMMIT');
       return _mapOrder(updated);
     } catch (e) {
@@ -629,22 +643,19 @@ const db = {
       }
       const restock = !!o.stock_committed_at && !o.stock_released_at && (current === 'approved' || current === 'processing');
       if (restock) {
-        const qty = new Map();
-        for (const it of (Array.isArray(o.items) ? o.items : [])) {
-          if (!it || !it.productId) continue;
-          qty.set(it.productId, (qty.get(it.productId) || 0) + Math.max(1, Math.trunc(+it.quantity || 1)));
-        }
-        const ids = [...qty.keys()].sort();
+        // Give back exactly what approval recorded as deducted (stock_committed_items).
+        const committed = (o.stock_committed_items && typeof o.stock_committed_items === 'object') ? o.stock_committed_items : {};
+        const ids = Object.keys(committed).sort();
         const { rows: prods } = ids.length ? await client.query(
-          `SELECT id, type FROM products WHERE id = ANY($1) AND user_id = $2 ORDER BY id FOR UPDATE`,
+          `SELECT id FROM products WHERE id = ANY($1) AND user_id = $2 ORDER BY id FOR UPDATE`,
           [ids, userId]) : { rows: [] };
         for (const p of prods) {
-          const n = qty.get(p.id);
-          const isStocked = p.type !== 'service' && p.type !== 'digital';
+          const n = Math.max(0, Math.trunc(+committed[p.id] || 0));
+          if (!n) continue;
           await client.query(
-            `UPDATE products SET stock = stock + $2, sales = GREATEST(COALESCE(sales,0) - $3, 0), updated_at = NOW()
-              WHERE id = $1 AND user_id = $4`,
-            [p.id, isStocked ? n : 0, n, userId]);
+            `UPDATE products SET stock = stock + $2, sales = GREATEST(COALESCE(sales,0) - $2, 0), updated_at = NOW()
+              WHERE id = $1 AND user_id = $3`,
+            [p.id, n, userId]);
         }
       }
       const { rows: [updated] } = await client.query(
@@ -656,6 +667,21 @@ const db = {
       await client.query('ROLLBACK').catch(() => {});
       throw e;
     } finally { client.release(); }
+  },
+  /**
+   * Review (PR #26) — ship/deliver move the order only from an allowed state, atomically:
+   * `UPDATE … WHERE status = ANY(from)` means two concurrent deliveries cannot both win
+   * (loyalty points are granted once). Throws INVALID_TRANSITION (409) otherwise.
+   */
+  async transitionOrderStatus(orderId, userId, from, to) {
+    const { rows: [row] } = await pool.query(
+      `UPDATE orders SET status = $4, updated_at = NOW()
+        WHERE id = $1 AND user_id = $2 AND status = ANY($3) RETURNING id`,
+      [orderId, userId, from, to]);
+    if (row) return row;
+    const { rows: [cur] } = await pool.query('SELECT status FROM orders WHERE id = $1 AND user_id = $2', [orderId, userId]);
+    if (!cur) throw Object.assign(new Error('Not found'), { code: 'NOT_FOUND', status: 404 });
+    throw Object.assign(new Error('Invalid transition'), { code: 'INVALID_TRANSITION', status: 409, current: canonicalState(cur.status), to });
   },
   async deleteOrder(id, userId) {
     if (userId) await pool.query('DELETE FROM orders WHERE id = $1 AND user_id = $2', [id, userId]);

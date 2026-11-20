@@ -230,6 +230,9 @@ async function migrate() {
     // are therefore never auto-restocked (conservative; review them by hand).
     await soft('orders.stock_committed_at', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_committed_at TIMESTAMPTZ`);
     await soft('orders.stock_released_at',  `ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_released_at TIMESTAMPTZ`);
+    // Review (PR #26): the exact quantities deducted at approval, so a cancellation restocks
+    // what was really taken, even if the order lines are edited afterwards. {productId: qty}.
+    await soft('orders.stock_committed_items', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_committed_items JSONB`);
     // فهرسٌ جزئيّ: المُعيدُ يسأل كلَّ خمس دقائق عن صفوفٍ قليلةٍ جدًّا.
     await soft('idx_orders_delivery_retry', `CREATE INDEX IF NOT EXISTS idx_orders_delivery_retry
       ON orders(delivery_retry_at) WHERE delivery_retry_at IS NOT NULL`);

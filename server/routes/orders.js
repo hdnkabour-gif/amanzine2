@@ -14,6 +14,7 @@ const { runShipment } = require('../lib/shipmentAttempt');
 const { attachCosts } = require('../lib/orderCosting');
 const idem   = require('../lib/idempotency');
 const logger = require('../lib/logger');
+const { canonicalState, validateEvent } = require('../lib/orderLifecycle');
 
 let pushNotify;
 try { pushNotify = require('../routes/push').notifyUser; } catch { pushNotify = () => Promise.resolve(); }
@@ -91,7 +92,23 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const o = await db.getOrder(req.params.id);
     if (!o || o.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
-    res.json(await db.updateOrder(o.id, { ...req.body, userId: req.user.id }));
+    // Review (PR #26): a generic edit must not bypass the stock guards.
+    //   • the status only moves through the guarded routes (approve/reject/ship/deliver/events);
+    //   • lines and amounts are frozen once stock was committed (or the order left `pending`).
+    const body = req.body || {};
+    if (Object.prototype.hasOwnProperty.call(body, 'status')) {
+      return res.status(409).json({ error: 'تغيير حالة الطلب يمر عبر أزرار الموافقة/الرفض/الشحن/التسليم', code: 'STATUS_NOT_EDITABLE' });
+    }
+    const FROZEN = ['items', 'total', 'deliveryFee', 'codFee'];
+    const touchesFrozen = FROZEN.some(k => Object.prototype.hasOwnProperty.call(body, k));
+    if (touchesFrozen) {
+      const { rows: [row] } = await require('../db').query(
+        'SELECT status, stock_committed_at FROM orders WHERE id = $1 AND user_id = $2', [o.id, req.user.id]);
+      if (!row || row.stock_committed_at || canonicalState(row.status) !== 'pending') {
+        return res.status(409).json({ error: 'ما يمكنش تبديل المنتجات أو المبالغ بعد الموافقة على الطلب', code: 'ORDER_LINES_FROZEN' });
+      }
+    }
+    res.json(await db.updateOrder(o.id, { ...body, userId: req.user.id }));
   } catch (e) {
     console.error('[orders]', e.message);
     // ── **خطأُ مُدخَلٍ لا يُقدَّم خطأَ خادم** ──────────────────────
@@ -211,6 +228,9 @@ router.put('/:id/approve', auth, async (req, res) => {
       if (e.code === 'NOT_FOUND') return res.status(404).json({ error: 'Not found' });
       if (e.code === 'ORDER_NOT_PENDING') {
         return res.status(409).json({ error: 'هاد الطلب ما بقاش في الانتظار — ما يمكنش يتوافق عليه مرة أخرى', code: e.code, current: e.current });
+      }
+      if (e.code === 'PRODUCT_NOT_FOUND') {
+        return res.status(409).json({ error: 'منتج في هاد الطلب ما كاينش في المتجر — ما يمكنش يتوافق عليه', code: e.code, productIds: e.productIds });
       }
       if (e.code === 'INSUFFICIENT_STOCK') {
         return res.status(409).json({ error: 'المخزون غير كافٍ لهذا الطلب', code: e.code, productId: e.productId, available: e.available, requested: e.requested });
@@ -378,7 +398,13 @@ router.put('/:id/ship', auth, async (req, res) => {
     // بلا اسمِ شركةٍ مكتوبٍ في الكود: إن لم يُحدَّد شيءٌ نترك الحقلَ فارغًا
     // بدل نسبةِ الشحنة إلى «Amana» لتاجرٍ لا يتعامل معها أصلًا.
     const prov = req.body.provider || shipSettings.delivery?.defaultProvider || '';
-    await db.updateOrder(o.id, { userId: req.user.id, status: 'shipped', trackingNumber: tracking, deliveryProvider: prov });
+    // Review (PR #26): only an approved/processing order can ship (atomic, 409 otherwise).
+    try { await db.transitionOrderStatus(o.id, req.user.id, ['approved', 'confirmed', 'processing'], 'shipped'); }
+    catch (e) {
+      if (e.code === 'INVALID_TRANSITION') return res.status(409).json({ error: 'هاد الطلب ما يمكنش يتشحن فهاد المرحلة', code: e.code, current: e.current });
+      throw e;
+    }
+    await db.updateOrder(o.id, { userId: req.user.id, trackingNumber: tracking, deliveryProvider: prov });
     await db.addLog({ userId: req.user.id, user: 'Manager', action: `Shipped: ${o.id}`, details: tracking, type: 'delivery', severity: 'success' });
     await db.addNotification({ userId: req.user.id, type: 'success', message: `🚚 Shipped — ${tracking}` });
     const shipWaToken = shipSettings.social?.whatsapp?.accessToken;
@@ -405,7 +431,13 @@ router.put('/:id/deliver', auth, async (req, res) => {
   try {
     const o = await db.getOrder(req.params.id);
     if (!o || o.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
-    await db.updateOrder(o.id, { userId: req.user.id, status: 'delivered' });
+    // Review (PR #26): only a shipped order can be delivered, once (atomic, 409 otherwise),
+    // so loyalty points below are never granted twice.
+    try { await db.transitionOrderStatus(o.id, req.user.id, ['shipped'], 'delivered'); }
+    catch (e) {
+      if (e.code === 'INVALID_TRANSITION') return res.status(409).json({ error: 'هاد الطلب ما يمكنش يتسلم فهاد المرحلة', code: e.code, current: e.current });
+      throw e;
+    }
     await db.addLog({ userId: req.user.id, user: 'System', action: `Delivered: ${o.id}`, details: o.customerName, type: 'order', severity: 'success' });
 
     if (o.customerId && o.total > 0) {
@@ -700,12 +732,35 @@ router.get('/:id/timeline', auth, async (req, res) => {
 // POST /api/orders/:id/events — تسجيلُ حدث
 router.post('/:id/events', auth, async (req, res) => {
   try {
+    // Review (PR #26): approval and cancellation move stock. Through this route they run
+    // the SAME guarded transactions as /approve and /reject (stock check + deduction, or
+    // exact restock), never a bare status write. Refusals are 409 and write nothing.
+    const evStatus = req.body?.status ? canonicalState(String(req.body.status).trim()) : '';
+    let guarded = null;
+    if (evStatus === 'approved' || evStatus === 'cancelled') {
+      const o = await db.getOrder(req.params.id);
+      if (!o || o.userId !== req.user.id) return res.status(400).json({ error: 'الطلب غير موجود', problems: ['الطلب غير موجود'] });
+      // Validate the event itself first, so a refused event never leaves a moved order behind.
+      const probe = { type: String(req.body?.type || '').trim(), actor: 'merchant', note: String(req.body?.note || ''),
+        amountDelta: +req.body?.amountDelta || 0, status: evStatus, payload: {} };
+      const pre = validateEvent(probe, o, await db.getOrderEvents(o.id));
+      if (pre.length) return res.status(400).json({ error: pre.join(' · '), problems: pre });
+      try {
+        guarded = evStatus === 'approved'
+          ? await db.approveOrderWithStock(o.id, req.user.id)
+          : (await db.cancelOrderWithStock(o.id, req.user.id)).order;
+      } catch (e) {
+        if (e.status === 409) return res.status(409).json({ error: e.message, code: e.code, productId: e.productId, productIds: e.productIds, current: e.current });
+        throw e;
+      }
+    }
     const r = await db.recordOrderEvent(req.params.id, req.user.id, {
       type:        String(req.body?.type || '').trim(),
       actor:       String(req.body?.actor || 'merchant').slice(0, 60),
       note:        String(req.body?.note || '').slice(0, 500),
       amountDelta: +req.body?.amountDelta || 0,
-      status:      req.body?.status ? String(req.body.status).trim() : undefined,
+      // A guarded transition already moved the status above; the event only records it.
+      status:      guarded ? undefined : (req.body?.status ? String(req.body.status).trim() : undefined),
       payload:     (req.body?.payload && typeof req.body.payload === 'object') ? req.body.payload : {},
     });
     // الرفضُ يُفصح عن سببه: «مالٌ يخرج بلا مُبرّر» لا «طلبٌ غيرُ صالح».
