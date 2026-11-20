@@ -14,7 +14,7 @@ const { runShipment } = require('../lib/shipmentAttempt');
 const { attachCosts } = require('../lib/orderCosting');
 const idem   = require('../lib/idempotency');
 const logger = require('../lib/logger');
-const { canonicalState, validateEvent } = require('../lib/orderLifecycle');
+const { canonicalState, validateEvent, STATES } = require('../lib/orderLifecycle');
 
 let pushNotify;
 try { pushNotify = require('../routes/push').notifyUser; } catch { pushNotify = () => Promise.resolve(); }
@@ -97,7 +97,26 @@ router.put('/:id', auth, async (req, res) => {
     //   • lines and amounts are frozen once stock was committed (or the order left `pending`).
     const body = req.body || {};
     if (Object.prototype.hasOwnProperty.call(body, 'status')) {
-      return res.status(409).json({ error: 'تغيير حالة الطلب يمر عبر أزرار الموافقة/الرفض/الشحن/التسليم', code: 'STATUS_NOT_EDITABLE' });
+      // Unknown value ⇒ 400 (input error, as before). Approve/cancel ⇒ the SAME guarded stock
+      // transactions as /approve and /reject. Every other move (shipped, delivered…) ⇒ 409:
+      // it has its own guarded route. A status is never written by this generic edit.
+      const target = canonicalState(String(body.status || '').trim());
+      if (!STATES.includes(target)) {
+        return res.status(400).json({ error: 'قيمةٌ غيرُ مقبولة — تحقّق من حالة الطلب والمبالغ', code: 'UNKNOWN_STATUS' });
+      }
+      const rest = Object.keys(body).filter(k => k !== 'status');
+      if (rest.length || !['approved', 'cancelled'].includes(target)) {
+        return res.status(409).json({ error: 'تغيير حالة الطلب يمر عبر أزرار الموافقة/الرفض/الشحن/التسليم', code: 'STATUS_NOT_EDITABLE' });
+      }
+      try {
+        const moved = target === 'approved'
+          ? await db.approveOrderWithStock(o.id, req.user.id)
+          : (await db.cancelOrderWithStock(o.id, req.user.id)).order;
+        return res.json(moved);
+      } catch (e) {
+        if (e.status === 409) return res.status(409).json({ error: e.message, code: e.code, productId: e.productId, productIds: e.productIds, current: e.current });
+        throw e;
+      }
     }
     const FROZEN = ['items', 'total', 'deliveryFee', 'codFee'];
     const touchesFrozen = FROZEN.some(k => Object.prototype.hasOwnProperty.call(body, k));

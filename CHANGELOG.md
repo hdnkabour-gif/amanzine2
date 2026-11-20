@@ -19,7 +19,9 @@
 - اختبار `server/test/order-stock-integrity.test.js` (١٦ حالة على PostgreSQL حقيقيّة، منها التزامن).
 
 ### ملاحظات المراجعة (PR #26)
-- **`PUT /api/orders/:id`** لم يعد يتجاوز الحرّاس: تغييرُ `status` ⇒ 409 `STATUS_NOT_EDITABLE`؛ وتعديلُ
+- **`PUT /api/orders/:id`** لم يعد يكتب الحالةَ بنفسه: حالةٌ مجهولة ⇒ 400؛ `approved`/`confirmed` أو `cancelled`
+  ⇒ نفسُ المعاملتين المحروستين (خصمٌ/إرجاعٌ دقيق، 409 عند الرفض)؛ أيُّ انتقالٍ آخر أو حالةٌ مع حقولٍ أخرى ⇒
+  409 `STATUS_NOT_EDITABLE` (رحلة J12 الذهبيّة محفوظة)؛ وتعديلُ
   `items`/`total`/`deliveryFee`/`codFee` ⇒ 409 `ORDER_LINES_FROZEN` بعد الخصم أو خروجِ الطلب من `pending`.
   الحقولُ غيرُ الماليّة (العنوان، الملاحظات…) تبقى قابلةً للتعديل.
 - **`POST /api/orders/:id/events`**: حدثٌ يحمل `approved`/`confirmed` أو `cancelled` يمرّ بنفس المعاملتين المحروستين

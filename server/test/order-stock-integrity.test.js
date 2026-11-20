@@ -168,15 +168,25 @@ test('A9: another merchant cannot approve the order', async () => {
 const put = (o, body, token) => call('PUT', `/api/orders/${o.id}`, body, token);
 const event = (o, body) => call('POST', `/api/orders/${o.id}/events`, body);
 
-test('A10: PUT /:id cannot change the status (approve or cancel must go through the guarded routes)', async () => {
-  const p = await product(4);
+test('A10: PUT /:id never writes a status itself: approve/cancel run the stock guards, other moves are 409', async () => {
+  const p = await product(1);
+  const big = await order([{ p, qty: 2 }]);
+  assert.equal((await put(big, { status: 'approved' })).status, 409, 'PUT approve beyond stock');
+  assert.equal((await db.getOrder(big.id)).status, 'pending');
   const o = await order([{ p, qty: 1 }]);
-  for (const status of ['approved', 'cancelled', 'shipped', 'delivered']) {
-    const r = await put(o, { status });
-    assert.equal(r.status, 409, `PUT status=${status} → ${r.status}`);
+  for (const status of ['shipped', 'delivered', 'processing']) {
+    assert.equal((await put(o, { status })).status, 409, `PUT status=${status}`);
   }
-  assert.equal((await db.getOrder(o.id)).status, 'pending');
-  assert.equal(await stockOf(p.id), 4);
+  assert.equal((await put(o, { status: 'not-a-status' })).status, 400, 'unknown status is an input error');
+  assert.equal((await put(o, { status: 'approved', total: 1 })).status, 409, 'status cannot ride along other fields');
+  assert.equal(await stockOf(p.id), 1);
+  assert.equal((await put(o, { status: 'confirmed' })).status, 200, 'legacy alias approves through the guard');
+  assert.equal(await stockOf(p.id), 0);
+  assert.equal((await put(o, { status: 'approved' })).status, 409, 'no second approval/deduction');
+  assert.equal((await put(o, { status: 'cancelled' })).status, 200);
+  assert.equal(await stockOf(p.id), 1, 'cancel restocks exactly once');
+  assert.equal((await put(o, { status: 'cancelled' })).status, 409);
+  assert.equal(await stockOf(p.id), 1);
 });
 
 test('A11: after approval, items/total cannot be edited, and a cancel restocks exactly what was deducted', async () => {
