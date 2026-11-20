@@ -44,12 +44,17 @@ before(async () => {
   await pool.query('DELETE FROM order_events WHERE user_id=$1', [USER_ID]);
   await pool.query('DELETE FROM orders WHERE user_id=$1', [USER_ID]);
 
+  // Real (synthetic) products: since PR #26 an approval fails closed on a line whose
+  // product does not exist, so the fixture can no longer point at made-up ids.
+  await pool.query('DELETE FROM products WHERE user_id=$1', [USER_ID]);
+  const p1 = await db.createProduct({ userId: USER_ID, name: 'سروال', price: 50, stock: 5, status: 'published' });
+  const p2 = await db.createProduct({ userId: USER_ID, name: 'قاميجة', price: 50, stock: 5, status: 'published' });
   const o = await db.createOrder({
     userId: USER_ID, customerName: 'زبونة', customerPhone: '0600000000',
     city: 'طنجة', address: 'حيّ ما', total: 150, status: 'pending',
     items: [
-      { productId: 'p1', productName: 'سروال', quantity: 1, price: 50 },
-      { productId: 'p2', productName: 'قاميجة', quantity: 2, price: 50 },
+      { productId: p1.id, productName: 'سروال', quantity: 1, price: 50 },
+      { productId: p2.id, productName: 'قاميجة', quantity: 2, price: 50 },
     ],
   });
   ORDER_ID = o.id || o;
@@ -146,4 +151,26 @@ test('طلبُ مستخدمٍ آخر لا يُقرأ ولا يُكتَب علي�
     headers: { authorization: `Bearer ${other}` },
   });
   assert.equal(r.status, 404);
+});
+
+// PR #26: `confirmed` now goes through the guarded approval, so the events path's own
+// status write is exercised with a legacy alias instead: `closed` must reach the column as
+// `delivered` (one owner translates; a raw write would break the RC-P5 check constraint).
+test('اسمٌ قديمٌ عبر مسارِ الأحداث يُترجَم قبل الكتابة (closed ← delivered)', async () => {
+  const p = await db.createProduct({ userId: USER_ID, name: 'TEST alias', price: 20, stock: 3, status: 'published' });
+  const o = await db.createOrder({
+    userId: USER_ID, customerName: 'TEST', customerPhone: '0600000001', city: 'طنجة', address: 'TEST',
+    total: 20, status: 'pending', items: [{ productId: p.id, productName: 'TEST alias', quantity: 1, price: 20 }],
+  });
+  const id = o.id || o;
+  for (const e of [
+    { type: 'order.confirmed', status: 'confirmed' },
+    { type: 'shipment.created', status: 'shipped' },
+    { type: 'order.closed', status: 'closed' },
+  ]) {
+    const r = await req('POST', `/api/orders/${id}/events`, e);
+    assert.equal(r.status, 200, `${e.type}: ${r.body.error || ''}`);
+  }
+  const { rows: [row] } = await pool.query('SELECT status FROM orders WHERE id=$1', [id]);
+  assert.equal(row.status, 'delivered');
 });
