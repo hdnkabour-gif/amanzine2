@@ -399,6 +399,17 @@ const db = {
     );
     return _mapCustomer(rows[0]);
   },
+  /**
+   * PR #26 review: count an approved order in the customer's stats with ONE atomic UPDATE
+   * (no read-modify-write, so two approvals for the same customer cannot lose an increment).
+   */
+  async bumpCustomerStats(customerId, userId, total) {
+    await pool.query(
+      `UPDATE customers SET total_orders = COALESCE(total_orders, 0) + 1,
+              total_spent = COALESCE(total_spent, 0) + $3, last_order_date = $4
+        WHERE id = $1 AND user_id = $2`,
+      [customerId, userId, +total || 0, new Date().toISOString().split('T')[0]]);
+  },
   async updateCustomer(id, u) {
     const map = {
       name: 'name', phone: 'phone', email: 'email', city: 'city',
@@ -508,7 +519,8 @@ const db = {
     if (rows[0]) return _mapOrder(rows[0]);
     return _replayOrder(o.userId, key, fp);
   },
-  async updateOrder(id, u) {
+  async updateOrder(id, u, opts = {}) {
+    const q = opts.client || pool;
     // ── **الترجمةُ عند كلّ باب، لا عند بابٍ واحد** ─────────────────
     //   كانت في مسار الأحداث وحدَه، فكان عميلٌ يرسل `confirmed` إلى
     //   `PUT /api/orders/:id` يُردّ بـ400 بينما يُفهَم على المسار الآخر.
@@ -538,21 +550,73 @@ const db = {
     for (const [jsKey, pgCol] of Object.entries(map)) {
       if (u[jsKey] === undefined) continue;
       const v = u[jsKey];
+      // PR #26 review: a generic status write (carrier sync, webhook, auto-shipment, events)
+      // never moves an order OUT of a terminal state. PostgreSQL evaluates this on the row it
+      // actually updates (after any lock wait), so a cancellation that commits first wins.
+      if (pgCol === 'status') {
+        parts.push(`status = CASE WHEN status IN ('cancelled', 'delivered') THEN status ELSE $${idx++} END`);
+        vals.push(v);
+        continue;
+      }
       parts.push(`${pgCol} = $${idx++}`);
       vals.push(Array.isArray(v) || (typeof v === 'object' && v !== null) ? JSON.stringify(v) : v);
     }
-    if (!parts.length) return this.getOrder(id);
+    if (!parts.length) return opts.client ? this._getOrderTx(opts.client, id) : this.getOrder(id);
     parts.push(`updated_at = NOW()`);
     // دفاعٌ في العمق: المسارات تتحقّق من الملكيّة أصلًا، لكن حين يُمرَّر userId
     // نُقيّد الاستعلام به أيضًا (نفس نمط updateProduct). userId ليس في القائمة
     // البيضاء أعلاه ⇒ لا يُكتَب كعمود أبدًا، يُستعمل للتقييد فقط.
     if (u.userId) {
       vals.push(u.userId);
-      await pool.query(`UPDATE orders SET ${parts.join(', ')} WHERE id = $1 AND user_id = $${idx}`, vals);
+      await q.query(`UPDATE orders SET ${parts.join(', ')} WHERE id = $1 AND user_id = $${idx}`, vals);
     } else {
-      await pool.query(`UPDATE orders SET ${parts.join(', ')} WHERE id = $1`, vals);
+      await q.query(`UPDATE orders SET ${parts.join(', ')} WHERE id = $1`, vals);
     }
-    return this.getOrder(id);
+    return opts.client ? this._getOrderTx(opts.client, id) : this.getOrder(id);
+  },
+  /** Read an order inside an open transaction (sees its own uncommitted writes). */
+  async _getOrderTx(client, id) {
+    const { rows } = await client.query('SELECT * FROM orders WHERE id = $1', [id]);
+    return _mapOrder(rows[0]) || null;
+  },
+  /** Run fn(client) in ONE transaction; rollback on any throw. */
+  async _orderTx(fn) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const out = await fn(client);
+      await client.query('COMMIT');
+      return out;
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally { client.release(); }
+  },
+  /**
+   * PR #26 review: the ONE lock every order mutation takes first (the order row, then
+   * product rows in id order). Edits, approval, cancellation and event recording on the
+   * same order therefore run one after the other, and each re-reads the state it decides on.
+   */
+  async _lockOrder(client, orderId, userId) {
+    const { rows: [o] } = await client.query(
+      'SELECT * FROM orders WHERE id = $1 AND user_id = $2 FOR UPDATE', [orderId, userId]);
+    if (!o) throw Object.assign(new Error('Not found'), { code: 'NOT_FOUND', status: 404 });
+    return o;
+  },
+  /**
+   * PR #26 review (edit vs approve): change lines/amounts only while the order is still
+   * editable, decided UNDER the order lock shared with approval (pending, no stock
+   * committed). Otherwise ORDER_LINES_FROZEN (409) and nothing is written.
+   */
+  async updateOrderLines(orderId, userId, fields) {
+    return this._orderTx(async (client) => {
+      const o = await this._lockOrder(client, orderId, userId);
+      if (o.stock_committed_at || canonicalState(o.status) !== 'pending') {
+        throw Object.assign(new Error('Order lines are frozen'), { code: 'ORDER_LINES_FROZEN', status: 409, current: canonicalState(o.status) });
+      }
+      const { status: _ignored, ...rest } = fields || {};
+      return this.updateOrder(orderId, { ...rest, userId }, { client });
+    });
   },
   /**
    * Issue #25 — approve an order and deduct its stock in ONE transaction.
@@ -565,12 +629,13 @@ const db = {
    * Throws { code, status } errors; nothing is written when it throws.
    */
   async approveOrderWithStock(orderId, userId) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const { rows: [o] } = await client.query(
-        'SELECT * FROM orders WHERE id = $1 AND user_id = $2 FOR UPDATE', [orderId, userId]);
-      if (!o) throw Object.assign(new Error('Not found'), { code: 'NOT_FOUND', status: 404 });
+    return this._orderTx(async (client) =>
+      _mapOrder(await this._approveLocked(client, await this._lockOrder(client, orderId, userId), userId)));
+  },
+  /** Approval core: `o` is the order row already locked by this transaction. Returns the new row. */
+  async _approveLocked(client, o, userId) {
+    const orderId = o.id;
+    {
       const current = canonicalState(o.status);
       if (current !== 'pending') {
         throw Object.assign(new Error('Order is not pending'), { code: 'ORDER_NOT_PENDING', status: 409, current });
@@ -616,12 +681,8 @@ const db = {
       const { rows: [updated] } = await client.query(
         `UPDATE orders SET status = 'approved', stock_committed_at = NOW(), stock_committed_items = $3, updated_at = NOW()
           WHERE id = $1 AND user_id = $2 RETURNING *`, [orderId, userId, JSON.stringify(committed)]);
-      await client.query('COMMIT');
-      return _mapOrder(updated);
-    } catch (e) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw e;
-    } finally { client.release(); }
+      return updated;
+    }
   },
   /**
    * Issue #25 — cancel an order; give stock back EXACTLY ONCE, and only when this
@@ -631,12 +692,15 @@ const db = {
    * Returns { order, restocked }.
    */
   async cancelOrderWithStock(orderId, userId) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const { rows: [o] } = await client.query(
-        'SELECT * FROM orders WHERE id = $1 AND user_id = $2 FOR UPDATE', [orderId, userId]);
-      if (!o) throw Object.assign(new Error('Not found'), { code: 'NOT_FOUND', status: 404 });
+    return this._orderTx(async (client) => {
+      const r = await this._cancelLocked(client, await this._lockOrder(client, orderId, userId), userId);
+      return { order: _mapOrder(r.row), restocked: r.restocked };
+    });
+  },
+  /** Cancellation core: `o` is the order row already locked by this transaction. */
+  async _cancelLocked(client, o, userId) {
+    const orderId = o.id;
+    {
       const current = canonicalState(o.status);
       if (!['pending', 'approved', 'processing', 'shipped'].includes(current)) {
         throw Object.assign(new Error('Order cannot be cancelled'), { code: 'ORDER_NOT_CANCELLABLE', status: 409, current });
@@ -661,12 +725,8 @@ const db = {
       const { rows: [updated] } = await client.query(
         `UPDATE orders SET status = 'cancelled', updated_at = NOW()${restock ? ', stock_released_at = NOW()' : ''}
           WHERE id = $1 AND user_id = $2 RETURNING *`, [orderId, userId]);
-      await client.query('COMMIT');
-      return { order: _mapOrder(updated), restocked: restock };
-    } catch (e) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw e;
-    } finally { client.release(); }
+      return { row: updated, restocked: restock };
+    }
   },
   /**
    * Review (PR #26) — ship/deliver move the order only from an allowed state, atomically:
@@ -2814,34 +2874,59 @@ db.getOrderEvents = async (orderId) => {
  * @returns {{ok:true, event:object, facts:object} | {ok:false, problems:string[]}}
  */
 db.recordOrderEvent = async (orderId, userId, ev) => {
-  const order = await db.getOrder(orderId);
-  if (!order || order.userId !== userId) return { ok: false, problems: ['الطلب غير موجود'] };
+  // PR #26 review (cancel vs shipment event): validation, append and status transition run
+  // in ONE transaction under the order lock shared with approve/cancel/edit. Whichever
+  // commits first, the other re-reads its result: a shipment event cannot land on an order
+  // cancelled in the meantime, and an approval/cancellation carried by an event runs the
+  // same stock-guarded core as /approve and /reject.
+  return db._orderTx(async (client) => {
+    const { rows: [locked] } = await client.query(
+      'SELECT * FROM orders WHERE id = $1 AND user_id = $2 FOR UPDATE', [orderId, userId]);
+    if (!locked) return { ok: false, problems: ['الطلب غير موجود'] };
+    const order = _mapOrder(locked);
 
-  const existing = await db.getOrderEvents(orderId);
-  const problems = validateEvent(ev, order, existing);
-  if (problems.length) return { ok: false, problems };
+    const { rows: evRows } = await client.query(
+      `SELECT id, order_id, user_id, type, actor, note, amount_delta, payload, created_at
+         FROM order_events WHERE order_id=$1 ORDER BY id ASC`, [orderId]);
+    const existing = evRows.map(r => ({
+      id: String(r.id), orderId: r.order_id, userId: r.user_id, type: r.type,
+      actor: r.actor, note: r.note || '', amountDelta: +r.amount_delta || 0,
+      payload: (r.payload && typeof r.payload === 'object') ? r.payload : {},
+      createdAt: r.created_at,
+    }));
+    const problems = validateEvent(ev, order, existing);
+    if (problems.length) return { ok: false, problems };
 
-  const { rows } = await pool.query(
-    `INSERT INTO order_events (order_id, user_id, type, actor, note, amount_delta, payload)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at`,
-    [orderId, userId, ev.type, ev.actor || 'system', ev.note || '',
-     +ev.amountDelta || 0, JSON.stringify(ev.payload || {})]);
+    // Stock-moving targets go through the guarded cores (409 on refusal, rolled back).
+    const target = ev.status ? canonicalState(ev.status) : '';
+    if (target === 'approved') {
+      order.status = canonicalState((await db._approveLocked(client, locked, userId)).status);
+    } else if (target === 'cancelled') {
+      order.status = canonicalState((await db._cancelLocked(client, locked, userId)).row.status);
+    }
 
-  // ── **الترجمةُ لها مالكٌ واحد، ولا تُكرَّر هنا** ──────────────────
-  //   كانت مكرّرةً في هذا الموضع، فلمّا صار `updateOrder` يترجم **نجا
-  //   نزعُها من هنا بلا إخفاقٍ واحد** — كشفته مصفوفةُ التخريب. ونسختان من
-  //   قاعدةٍ واحدةٍ تتباعدان يومًا ما؛ فالحالةُ تُكتَب من الباب الواحد،
-  //   **وتُقرَأ من جوابه** لا من حسابٍ موازٍ.
-  if (ev.status) {
-    const updated = await db.updateOrder(orderId, { status: ev.status });
-    if (updated?.status) order.status = updated.status;
-  }
-  const events = [...existing, { type: ev.type, amountDelta: +ev.amountDelta || 0, payload: ev.payload || {} }];
-  return {
-    ok: true,
-    event: { id: String(rows[0].id), createdAt: rows[0].created_at, ...ev },
-    facts: deriveFacts(order, events),
-  };
+    const { rows } = await client.query(
+      `INSERT INTO order_events (order_id, user_id, type, actor, note, amount_delta, payload)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at`,
+      [orderId, userId, ev.type, ev.actor || 'system', ev.note || '',
+       +ev.amountDelta || 0, JSON.stringify(ev.payload || {})]);
+
+    // ── **الترجمةُ لها مالكٌ واحد، ولا تُكرَّر هنا** ──────────────────
+    //   كانت مكرّرةً في هذا الموضع، فلمّا صار `updateOrder` يترجم **نجا
+    //   نزعُها من هنا بلا إخفاقٍ واحد** — كشفته مصفوفةُ التخريب. ونسختان من
+    //   قاعدةٍ واحدةٍ تتباعدان يومًا ما؛ فالحالةُ تُكتَب من الباب الواحد،
+    //   **وتُقرَأ من جوابه** لا من حسابٍ موازٍ.
+    if (ev.status && target !== 'approved' && target !== 'cancelled') {
+      const updated = await db.updateOrder(orderId, { status: ev.status }, { client });
+      if (updated?.status) order.status = updated.status;
+    }
+    const events = [...existing, { type: ev.type, amountDelta: +ev.amountDelta || 0, payload: ev.payload || {} }];
+    return {
+      ok: true,
+      event: { id: String(rows[0].id), createdAt: rows[0].created_at, ...ev },
+      facts: deriveFacts(order, events),
+    };
+  });
 };
 
 /** الطلبُ ودفترُه ووقائعُه المستنتَجة — قراءةٌ واحدةٌ لخدمة العملاء والمحاسبة. */

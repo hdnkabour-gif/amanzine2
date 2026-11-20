@@ -101,6 +101,20 @@ const RUN_IDEM = () => {
   return count(`node --test "${path.join(R, 'server/test/order-idempotency.test.js')}"`);
 };
 
+/**
+ * PR #26 — order races measured on a clean schema with REAL connections: the concurrency
+ * suite (deterministic lock barriers) plus the sequential stock-integrity suite.
+ */
+const RUN_STOCK = () => {
+  execSync(`node -e "const p=require('${path.join(R, 'server/db.js').replace(/\\/g, '/')}');` +
+    `p.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public').then(()=>p.end()).catch(e=>{console.error(e.message);process.exit(1)})"`,
+    { cwd: R, stdio: 'pipe' });
+  try { execSync(`node "${path.join(R, 'server/migrate.js')}"`, { cwd: path.join(R, 'server'), stdio: 'pipe' }); }
+  catch { /* the migration may fall on purpose under sabotage */ }
+  return count(`node --test --test-concurrency=1 "${path.join(R, 'server/test/order-concurrency.test.js')}" ` +
+    `"${path.join(R, 'server/test/order-stock-integrity.test.js')}"`);
+};
+
 // ── العائلات ────────────────────────────────────────────────────
 const D = 'src/lib/decide.ts', LH = 'src/pages/LivingHome.tsx',
   NF = 'src/pages/Landing/sections/NeedFirst.tsx', AP = 'src/pages/AssistantPage.tsx',
@@ -241,8 +255,8 @@ const FAMILIES = [
       [MG, `  'shipped', 'delivered', 'cancelled'];`,
         `  'shipped', 'delivered', 'cancelled', 'pending_confirmation'];`]]],
     ['مسارُ الأحداث يكتب الحالةَ بيده ويتجاوز المالكَ الواحد', [
-      [DB, `    const updated = await db.updateOrder(orderId, { status: ev.status });\n    if (updated?.status) order.status = updated.status;`,
-        `    await pool.query('UPDATE orders SET status = $1 WHERE id = $2', [ev.status, orderId]);\n    order.status = ev.status;`]]],
+      [DB, `      const updated = await db.updateOrder(orderId, { status: ev.status }, { client });\n      if (updated?.status) order.status = updated.status;`,
+        `      await client.query('UPDATE orders SET status = $1 WHERE id = $2', [ev.status, orderId]);\n      order.status = ev.status;`]]],
     ['`approved` تفقد أهليّةَ الشحن', [
       [OL, `  approved:   ['processing', 'shipped', 'cancelled'],`, `  approved:   ['cancelled'],`]]],
     ['الترجمةُ تُنزَع من بابِ التحديث — بابٌ يفهم وآخرُ يردّ', [
@@ -274,6 +288,23 @@ const FAMILIES = [
     ['التفرّدُ يصير بالشبَه لا بالمحاولة', [
       [MG, `         ON orders(user_id, idempotency_key)\n         WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''\`);`,
         `         ON orders(user_id, customer_phone, total)\`);`]]],
+  ]],
+
+  // PR #26 (Astra): every order mutation serialises on the order row. Each guard below
+  //   must be caught by a real-PostgreSQL race in order-concurrency.test.js.
+  ['RC-P10', 'طلبٌ واحدٌ ⇒ قفلٌ واحد', RUN_STOCK, [
+    ['تعديلُ السطور يقرأ بلا قفلٍ ثمّ يكتب (تعديلٌ ضدّ موافقة)', [
+      [DB, `      const o = await this._lockOrder(client, orderId, userId);\n      if (o.stock_committed_at || canonicalState(o.status) !== 'pending') {`,
+        `      const { rows: [o] } = await client.query('SELECT * FROM orders WHERE id = $1 AND user_id = $2', [orderId, userId]);\n      if (o.stock_committed_at || canonicalState(o.status) !== 'pending') {`]]],
+    ['مسارُ الأحداث يتحقّق بلا قفل (شحنٌ ضدّ إلغاء)', [
+      [DB, `'SELECT * FROM orders WHERE id = $1 AND user_id = $2 FOR UPDATE', [orderId, userId]);\n    if (!locked)`,
+        `'SELECT * FROM orders WHERE id = $1 AND user_id = $2', [orderId, userId]);\n    if (!locked)`]]],
+    ['كاتبٌ عامٌّ يُخرج الطلبَ من حالةٍ نهائيّة', [
+      [DB, `        parts.push(\`status = CASE WHEN status IN ('cancelled', 'delivered') THEN status ELSE $\${idx++} END\`);`,
+        `        parts.push(\`status = $\${idx++}\`);`]]],
+    ['الإلغاءُ يُعيد من السطور لا من اللقطة', [
+      [DB, `        const committed = (o.stock_committed_items && typeof o.stock_committed_items === 'object') ? o.stock_committed_items : {};`,
+        `        const committed = Object.fromEntries((o.items || []).map(it => [it.productId, it.quantity]));`]]],
   ]],
 
   // الواجهةُ نصفُ العهد: فهرسٌ جزئيٌّ بلا مفتاحٍ لا يمنع شيئًا. ويُقاس
@@ -337,7 +368,7 @@ let caught = 0, total = 0, missed = [], skipped = 0;
 
 for (const [id, title, run, cases] of FAMILIES) {
   if (only && id !== only) continue;
-  if (run === RUN_DB && !HAS_DB) {
+  if ((run === RUN_DB || run === RUN_STOCK) && !HAS_DB) {
     console.log(`\n⏭  ${id} — ${title}: مؤجَّلةٌ (لا DATABASE_URL)`);
     skipped += cases.length;
     continue;

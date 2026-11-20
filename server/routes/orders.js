@@ -14,7 +14,7 @@ const { runShipment } = require('../lib/shipmentAttempt');
 const { attachCosts } = require('../lib/orderCosting');
 const idem   = require('../lib/idempotency');
 const logger = require('../lib/logger');
-const { canonicalState, validateEvent, STATES } = require('../lib/orderLifecycle');
+const { canonicalState, STATES } = require('../lib/orderLifecycle');
 
 let pushNotify;
 try { pushNotify = require('../routes/push').notifyUser; } catch { pushNotify = () => Promise.resolve(); }
@@ -121,10 +121,15 @@ router.put('/:id', auth, async (req, res) => {
     const FROZEN = ['items', 'total', 'deliveryFee', 'codFee'];
     const touchesFrozen = FROZEN.some(k => Object.prototype.hasOwnProperty.call(body, k));
     if (touchesFrozen) {
-      const { rows: [row] } = await require('../db').query(
-        'SELECT status, stock_committed_at FROM orders WHERE id = $1 AND user_id = $2', [o.id, req.user.id]);
-      if (!row || row.stock_committed_at || canonicalState(row.status) !== 'pending') {
-        return res.status(409).json({ error: 'ما يمكنش تبديل المنتجات أو المبالغ بعد الموافقة على الطلب', code: 'ORDER_LINES_FROZEN' });
+      // The editable check and the write happen in ONE transaction under the order lock
+      // shared with approval: an approval committing in between is seen, never overwritten.
+      try {
+        return res.json(await db.updateOrderLines(o.id, req.user.id, body));
+      } catch (e) {
+        if (e.code === 'ORDER_LINES_FROZEN') {
+          return res.status(409).json({ error: 'ما يمكنش تبديل المنتجات أو المبالغ بعد الموافقة على الطلب', code: e.code, current: e.current });
+        }
+        throw e;
       }
     }
     res.json(await db.updateOrder(o.id, { ...body, userId: req.user.id }));
@@ -241,8 +246,9 @@ router.put('/:id/approve', auth, async (req, res) => {
     // Issue #25: status transition + stock guard + deduction in ONE transaction.
     // Refusals are business errors (409) and write nothing; every side effect below
     // (customer stats, notification, auto-shipment) runs only after a real approval.
+    let approvedOrder;
     try {
-      await db.approveOrderWithStock(order.id, req.user.id);
+      approvedOrder = await db.approveOrderWithStock(order.id, req.user.id);
     } catch (e) {
       if (e.code === 'NOT_FOUND') return res.status(404).json({ error: 'Not found' });
       if (e.code === 'ORDER_NOT_PENDING') {
@@ -257,13 +263,9 @@ router.put('/:id/approve', auth, async (req, res) => {
       throw e;
     }
 
-    if (order.customerId) {
-      const customer = await db.getCustomer(order.customerId);
-      if (customer) await db.updateCustomer(order.customerId, {
-        totalOrders: (customer.totalOrders || 0) + 1,
-        totalSpent: (customer.totalSpent || 0) + (order.total || 0),
-        lastOrderDate: new Date().toISOString().split('T')[0],
-      });
+    // Stats use the order AS APPROVED (its total is frozen from here on), atomically.
+    if (approvedOrder?.customerId) {
+      await db.bumpCustomerStats(approvedOrder.customerId, req.user.id, approvedOrder.total);
     }
 
     _notifyCustomer(req.user.id, { ...order, status: 'approved' }, 'approved');
@@ -751,37 +753,23 @@ router.get('/:id/timeline', auth, async (req, res) => {
 // POST /api/orders/:id/events — تسجيلُ حدث
 router.post('/:id/events', auth, async (req, res) => {
   try {
-    // Review (PR #26): approval and cancellation move stock. Through this route they run
-    // the SAME guarded transactions as /approve and /reject (stock check + deduction, or
-    // exact restock), never a bare status write. Refusals are 409 and write nothing.
-    const evStatus = req.body?.status ? canonicalState(String(req.body.status).trim()) : '';
-    let guarded = null;
-    if (evStatus === 'approved' || evStatus === 'cancelled') {
-      const o = await db.getOrder(req.params.id);
-      if (!o || o.userId !== req.user.id) return res.status(400).json({ error: 'الطلب غير موجود', problems: ['الطلب غير موجود'] });
-      // Validate the event itself first, so a refused event never leaves a moved order behind.
-      const probe = { type: String(req.body?.type || '').trim(), actor: 'merchant', note: String(req.body?.note || ''),
-        amountDelta: +req.body?.amountDelta || 0, status: evStatus, payload: {} };
-      const pre = validateEvent(probe, o, await db.getOrderEvents(o.id));
-      if (pre.length) return res.status(400).json({ error: pre.join(' · '), problems: pre });
-      try {
-        guarded = evStatus === 'approved'
-          ? await db.approveOrderWithStock(o.id, req.user.id)
-          : (await db.cancelOrderWithStock(o.id, req.user.id)).order;
-      } catch (e) {
-        if (e.status === 409) return res.status(409).json({ error: e.message, code: e.code, productId: e.productId, productIds: e.productIds, current: e.current });
-        throw e;
-      }
-    }
-    const r = await db.recordOrderEvent(req.params.id, req.user.id, {
+    // Review (PR #26): validation, append and transition are ONE locked transaction in
+    // db.recordOrderEvent. Approval/cancellation carried by an event run the same stock-guarded
+    // cores as /approve and /reject; a refusal (409) writes nothing, not even the event.
+    let r;
+    try {
+      r = await db.recordOrderEvent(req.params.id, req.user.id, {
       type:        String(req.body?.type || '').trim(),
       actor:       String(req.body?.actor || 'merchant').slice(0, 60),
       note:        String(req.body?.note || '').slice(0, 500),
       amountDelta: +req.body?.amountDelta || 0,
-      // A guarded transition already moved the status above; the event only records it.
-      status:      guarded ? undefined : (req.body?.status ? String(req.body.status).trim() : undefined),
+      status:      req.body?.status ? String(req.body.status).trim() : undefined,
       payload:     (req.body?.payload && typeof req.body.payload === 'object') ? req.body.payload : {},
     });
+    } catch (e) {
+      if (e.status === 409) return res.status(409).json({ error: e.message, code: e.code, productId: e.productId, productIds: e.productIds, current: e.current });
+      throw e;
+    }
     // الرفضُ يُفصح عن سببه: «مالٌ يخرج بلا مُبرّر» لا «طلبٌ غيرُ صالح».
     if (!r.ok) return res.status(400).json({ error: r.problems.join(' · '), problems: r.problems });
     res.json(r);

@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-11-20T14:06:54.043Z",
+ "generatedAt": "2026-11-20T18:23:30.192Z",
  "totals": {
-  "tracked": 757,
-  "code": 486,
+  "tracked": 758,
+  "code": 487,
   "orphans": 2,
   "appOnly": 107,
-  "testOnly": 164,
-  "untested": 132,
+  "testOnly": 165,
+  "untested": 131,
   "deadExports": 221,
   "looseExports": 70,
   "todos": 8,
-  "lines": 93897
+  "lines": 94473
  },
  "files": [
   {
@@ -316,8 +316,8 @@
   },
   {
    "file": "scripts/sabotage.mjs",
-   "lines": 403,
-   "bytes": 23982,
+   "lines": 434,
+   "bytes": 26357,
    "imports": [],
    "importers": [],
    "exports": [],
@@ -350,8 +350,8 @@
   },
   {
    "file": "server/database.js",
-   "lines": 2902,
-   "bytes": 131466,
+   "lines": 3013,
+   "bytes": 137834,
    "imports": [
     "server/db.js",
     "server/lib/secrets.js",
@@ -411,6 +411,7 @@
     "server/test/memory-sync.test.js",
     "server/test/misread-channel.test.js",
     "server/test/notification.test.js",
+    "server/test/order-concurrency.test.js",
     "server/test/order-events.test.js",
     "server/test/order-idempotency.test.js",
     "server/test/order-stock-integrity.test.js",
@@ -430,7 +431,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "script+server+test",
-   "touched": 1795164144,
+   "touched": 1795188878,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -456,6 +457,7 @@
     "server/test/learning-loop.test.js",
     "server/test/memory-sync.test.js",
     "server/test/misread-channel.test.js",
+    "server/test/order-concurrency.test.js",
     "server/test/order-events.test.js",
     "server/test/order-idempotency.test.js",
     "server/test/order-stock-integrity.test.js",
@@ -690,6 +692,7 @@
     "server/test/learning-loop.test.js",
     "server/test/memory-sync.test.js",
     "server/test/misread-channel.test.js",
+    "server/test/order-concurrency.test.js",
     "server/test/order-events.test.js",
     "server/test/order-idempotency.test.js",
     "server/test/order-stock-integrity.test.js"
@@ -1215,6 +1218,7 @@
    "imports": [],
    "importers": [
     "server/database.js",
+    "server/routes/orders.js",
     "server/test/order-lifecycle.test.js",
     "server/test/phase5-db-invariants.test.js"
    ],
@@ -1728,18 +1732,19 @@
   },
   {
    "file": "server/migrate.js",
-   "lines": 1160,
-   "bytes": 58920,
+   "lines": 1163,
+   "bytes": 59232,
    "imports": [
     "server/db.js"
    ],
    "importers": [
-    "server/index.js"
+    "server/index.js",
+    "server/test/order-concurrency.test.js"
    ],
    "exports": [],
    "deadExports": [],
-   "reach": "server",
-   "touched": 1795164144,
+   "reach": "server+test",
+   "touched": 1795188878,
    "todos": 0,
    "anys": 0,
    "logs": 1,
@@ -2246,8 +2251,8 @@
   },
   {
    "file": "server/routes/orders.js",
-   "lines": 721,
-   "bytes": 39246,
+   "lines": 783,
+   "bytes": 42958,
    "imports": [
     "server/middleware/validate.js",
     "server/middleware/auth.js",
@@ -2261,6 +2266,7 @@
     "server/lib/orderCosting.js",
     "server/lib/idempotency.js",
     "server/lib/logger.js",
+    "server/lib/orderLifecycle.js",
     "server/routes/push.js",
     "server/lib/engines/activity.js"
    ],
@@ -2268,6 +2274,7 @@
     "server/index.js",
     "server/test/captcha-wall.test.js",
     "server/test/full-walk.test.js",
+    "server/test/order-concurrency.test.js",
     "server/test/order-events.test.js",
     "server/test/order-idempotency.test.js",
     "server/test/order-stock-integrity.test.js",
@@ -2276,7 +2283,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "server+test",
-   "touched": 1795164144,
+   "touched": 1795190951,
    "todos": 0,
    "anys": 0,
    "logs": 2,
@@ -3288,6 +3295,28 @@
    "ageDays": 4
   },
   {
+   "file": "server/test/order-concurrency.test.js",
+   "lines": 242,
+   "bytes": 12533,
+   "imports": [
+    "server/database.js",
+    "server/db.js",
+    "server/lib/config.js",
+    "server/routes/orders.js",
+    "server/migrate.js"
+   ],
+   "importers": [],
+   "exports": [],
+   "deadExports": [],
+   "reach": "test",
+   "touched": 0,
+   "todos": 0,
+   "anys": 0,
+   "logs": 0,
+   "emptyCatch": 0,
+   "ageDays": 20778
+  },
+  {
    "file": "server/test/order-costing.test.js",
    "lines": 92,
    "bytes": 4025,
@@ -3307,8 +3336,8 @@
   },
   {
    "file": "server/test/order-events.test.js",
-   "lines": 150,
-   "bytes": 6514,
+   "lines": 177,
+   "bytes": 8205,
    "imports": [
     "server/database.js",
     "server/db.js",
@@ -3319,12 +3348,12 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1794863848,
+   "touched": 1795188878,
    "todos": 0,
    "anys": 0,
    "logs": 0,
    "emptyCatch": 0,
-   "ageDays": 4
+   "ageDays": 0
   },
   {
    "file": "server/test/order-idempotency.test.js",
@@ -3368,8 +3397,8 @@
   },
   {
    "file": "server/test/order-stock-integrity.test.js",
-   "lines": 166,
-   "bytes": 7527,
+   "lines": 261,
+   "bytes": 13312,
    "imports": [
     "server/database.js",
     "server/db.js",
@@ -3380,7 +3409,7 @@
    "exports": [],
    "deadExports": [],
    "reach": "test",
-   "touched": 1795164144,
+   "touched": 1795190951,
    "todos": 0,
    "anys": 0,
    "logs": 0,
@@ -3531,8 +3560,8 @@
   },
   {
    "file": "server/test/phase5-db-invariants.test.js",
-   "lines": 245,
-   "bytes": 12962,
+   "lines": 250,
+   "bytes": 13430,
    "imports": [
     "server/db.js",
     "server/lib/orderLifecycle.js",
