@@ -202,7 +202,21 @@ router.put('/:id/approve', auth, async (req, res) => {
     const order = await db.getOrder(req.params.id);
     if (!order || order.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
 
-    await db.updateOrder(order.id, { userId: req.user.id, status: 'approved' });
+    // Issue #25: status transition + stock guard + deduction in ONE transaction.
+    // Refusals are business errors (409) and write nothing; every side effect below
+    // (customer stats, notification, auto-shipment) runs only after a real approval.
+    try {
+      await db.approveOrderWithStock(order.id, req.user.id);
+    } catch (e) {
+      if (e.code === 'NOT_FOUND') return res.status(404).json({ error: 'Not found' });
+      if (e.code === 'ORDER_NOT_PENDING') {
+        return res.status(409).json({ error: 'هاد الطلب ما بقاش في الانتظار — ما يمكنش يتوافق عليه مرة أخرى', code: e.code, current: e.current });
+      }
+      if (e.code === 'INSUFFICIENT_STOCK') {
+        return res.status(409).json({ error: 'المخزون غير كافٍ لهذا الطلب', code: e.code, productId: e.productId, available: e.available, requested: e.requested });
+      }
+      throw e;
+    }
 
     if (order.customerId) {
       const customer = await db.getCustomer(order.customerId);
@@ -210,15 +224,6 @@ router.put('/:id/approve', auth, async (req, res) => {
         totalOrders: (customer.totalOrders || 0) + 1,
         totalSpent: (customer.totalSpent || 0) + (order.total || 0),
         lastOrderDate: new Date().toISOString().split('T')[0],
-      });
-    }
-
-    for (const item of (order.items || [])) {
-      if (!item.productId) continue;
-      const p = await db.getProduct(item.productId);
-      if (p && p.userId === req.user.id) await db.updateProduct(p.id, {
-        stock: Math.max(0, (p.stock || 0) - (item.quantity || 1)),
-        sales: (p.sales || 0) + (item.quantity || 1),
       });
     }
 
@@ -346,8 +351,18 @@ router.put('/:id/reject', auth, async (req, res) => {
   try {
     const o = await db.getOrder(req.params.id);
     if (!o || o.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
-    await db.updateOrder(o.id, { userId: req.user.id, status: 'cancelled' });
-    await db.addLog({ userId: req.user.id, user: 'Manager', action: `Rejected order: ${o.id}`, details: req.body.reason || '', type: 'order', severity: 'error' });
+    // Issue #25: cancel and give stock back exactly once, only if this order deducted it.
+    let cancel;
+    try {
+      cancel = await db.cancelOrderWithStock(o.id, req.user.id);
+    } catch (e) {
+      if (e.code === 'NOT_FOUND') return res.status(404).json({ error: 'Not found' });
+      if (e.code === 'ORDER_NOT_CANCELLABLE') {
+        return res.status(409).json({ error: 'هاد الطلب ما يمكنش يتلغى فهاد الحالة', code: e.code, current: e.current });
+      }
+      throw e;
+    }
+    await db.addLog({ userId: req.user.id, user: 'Manager', action: `Rejected order: ${o.id}`, details: `${req.body.reason || ''}${cancel.restocked ? ' [stock restored once]' : ''}`, type: 'order', severity: 'error' });
     const updated = await db.getOrder(o.id);
     req.app.get('broadcast')?.(req.user.id, { event: 'order_updated', data: updated });
     res.json(updated);

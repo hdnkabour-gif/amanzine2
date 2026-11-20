@@ -554,6 +554,109 @@ const db = {
     }
     return this.getOrder(id);
   },
+  /**
+   * Issue #25 — approve an order and deduct its stock in ONE transaction.
+   *   • the order row is locked and must still be `pending` (else ORDER_NOT_PENDING);
+   *   • every product line is locked (stable id order, so two approvals cannot deadlock)
+   *     and must have enough stock (else INSUFFICIENT_STOCK) — all-or-nothing;
+   *   • services/digital offers carry no stock: never blocked, never decremented;
+   *   • lines without a product of this merchant are ignored, as before.
+   * Throws { code, status } errors; nothing is written when it throws.
+   */
+  async approveOrderWithStock(orderId, userId) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows: [o] } = await client.query(
+        'SELECT * FROM orders WHERE id = $1 AND user_id = $2 FOR UPDATE', [orderId, userId]);
+      if (!o) throw Object.assign(new Error('Not found'), { code: 'NOT_FOUND', status: 404 });
+      const current = canonicalState(o.status);
+      if (current !== 'pending') {
+        throw Object.assign(new Error('Order is not pending'), { code: 'ORDER_NOT_PENDING', status: 409, current });
+      }
+      const qty = new Map();
+      for (const it of (Array.isArray(o.items) ? o.items : [])) {
+        if (!it || !it.productId) continue;
+        qty.set(it.productId, (qty.get(it.productId) || 0) + Math.max(1, Math.trunc(+it.quantity || 1)));
+      }
+      const ids = [...qty.keys()].sort();
+      const { rows: prods } = ids.length ? await client.query(
+        `SELECT id, stock, type FROM products WHERE id = ANY($1) AND user_id = $2 ORDER BY id FOR UPDATE`,
+        [ids, userId]) : { rows: [] };
+      const stocked = prods.filter(p => p.type !== 'service' && p.type !== 'digital');
+      for (const p of stocked) {
+        const want = qty.get(p.id);
+        if ((+p.stock || 0) < want) {
+          throw Object.assign(new Error('Insufficient stock'), {
+            code: 'INSUFFICIENT_STOCK', status: 409, productId: p.id, available: +p.stock || 0, requested: want });
+        }
+      }
+      for (const p of prods) {
+        const n = qty.get(p.id);
+        const isStocked = p.type !== 'service' && p.type !== 'digital';
+        await client.query(
+          `UPDATE products SET stock = stock - $2, sales = COALESCE(sales,0) + $3, updated_at = NOW()
+            WHERE id = $1 AND user_id = $4`,
+          [p.id, isStocked ? n : 0, n, userId]);
+      }
+      const { rows: [updated] } = await client.query(
+        `UPDATE orders SET status = 'approved', stock_committed_at = NOW(), updated_at = NOW()
+          WHERE id = $1 AND user_id = $2 RETURNING *`, [orderId, userId]);
+      await client.query('COMMIT');
+      return _mapOrder(updated);
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally { client.release(); }
+  },
+  /**
+   * Issue #25 — cancel an order; give stock back EXACTLY ONCE, and only when this
+   * order deducted it (stock_committed_at set, stock_released_at not yet set) and the
+   * goods have not left (approved/processing). Shipped orders are cancelled without
+   * automatic restock: the goods need a recorded return. Delivered/cancelled ⇒ 409.
+   * Returns { order, restocked }.
+   */
+  async cancelOrderWithStock(orderId, userId) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows: [o] } = await client.query(
+        'SELECT * FROM orders WHERE id = $1 AND user_id = $2 FOR UPDATE', [orderId, userId]);
+      if (!o) throw Object.assign(new Error('Not found'), { code: 'NOT_FOUND', status: 404 });
+      const current = canonicalState(o.status);
+      if (!['pending', 'approved', 'processing', 'shipped'].includes(current)) {
+        throw Object.assign(new Error('Order cannot be cancelled'), { code: 'ORDER_NOT_CANCELLABLE', status: 409, current });
+      }
+      const restock = !!o.stock_committed_at && !o.stock_released_at && (current === 'approved' || current === 'processing');
+      if (restock) {
+        const qty = new Map();
+        for (const it of (Array.isArray(o.items) ? o.items : [])) {
+          if (!it || !it.productId) continue;
+          qty.set(it.productId, (qty.get(it.productId) || 0) + Math.max(1, Math.trunc(+it.quantity || 1)));
+        }
+        const ids = [...qty.keys()].sort();
+        const { rows: prods } = ids.length ? await client.query(
+          `SELECT id, type FROM products WHERE id = ANY($1) AND user_id = $2 ORDER BY id FOR UPDATE`,
+          [ids, userId]) : { rows: [] };
+        for (const p of prods) {
+          const n = qty.get(p.id);
+          const isStocked = p.type !== 'service' && p.type !== 'digital';
+          await client.query(
+            `UPDATE products SET stock = stock + $2, sales = GREATEST(COALESCE(sales,0) - $3, 0), updated_at = NOW()
+              WHERE id = $1 AND user_id = $4`,
+            [p.id, isStocked ? n : 0, n, userId]);
+        }
+      }
+      const { rows: [updated] } = await client.query(
+        `UPDATE orders SET status = 'cancelled', updated_at = NOW()${restock ? ', stock_released_at = NOW()' : ''}
+          WHERE id = $1 AND user_id = $2 RETURNING *`, [orderId, userId]);
+      await client.query('COMMIT');
+      return { order: _mapOrder(updated), restocked: restock };
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally { client.release(); }
+  },
   async deleteOrder(id, userId) {
     if (userId) await pool.query('DELETE FROM orders WHERE id = $1 AND user_id = $2', [id, userId]);
     else await pool.query('DELETE FROM orders WHERE id = $1', [id]);

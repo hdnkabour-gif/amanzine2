@@ -223,6 +223,13 @@ async function migrate() {
 
     await soft('orders.delivery_retry_at', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_retry_at TIMESTAMPTZ`);
     await soft('orders.delivery_attempts', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_attempts INTEGER DEFAULT 0`);
+    // Issue #25: stock is deducted once on approval and given back at most once on
+    // cancellation. These two stamps make "was stock deducted / already released?"
+    // a recorded fact instead of a guess from the status (which PUT /:id can change).
+    // Additive and nullable: orders approved before this column existed have NULL and
+    // are therefore never auto-restocked (conservative; review them by hand).
+    await soft('orders.stock_committed_at', `ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_committed_at TIMESTAMPTZ`);
+    await soft('orders.stock_released_at',  `ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_released_at TIMESTAMPTZ`);
     // فهرسٌ جزئيّ: المُعيدُ يسأل كلَّ خمس دقائق عن صفوفٍ قليلةٍ جدًّا.
     await soft('idx_orders_delivery_retry', `CREATE INDEX IF NOT EXISTS idx_orders_delivery_retry
       ON orders(delivery_retry_at) WHERE delivery_retry_at IS NOT NULL`);
