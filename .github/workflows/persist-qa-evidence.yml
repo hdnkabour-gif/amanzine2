@@ -1,0 +1,47 @@
+name: Persist verified AMANZINE QA evidence
+# One-time branch-scoped archival job; carries no production credentials and never deploys.
+on:
+  push:
+    branches: ["audit/amanzine-full-feature-map-20261113"]
+    paths: [".github/workflows/persist-qa-evidence.yml"]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Retrieve exact previous live smoke artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 43500545608 -R "${{ github.repository }}" -n amanzine-operational-staging-smoke -D /tmp/amanzine-qa
+          node - <<'NODE'
+          const fs = require('fs');
+          const d = JSON.parse(fs.readFileSync('/tmp/amanzine-qa/staging-audit-smoke.json','utf8'));
+          if (d.base !== 'https://triumphant-courage-staging.up.railway.app') throw Error('Unexpected target');
+          if (d.summary.pass !== 58 || d.summary.fail !== 1) throw Error('Unexpected evidence totals');
+          if (d.checks.filter(x => x.status === 'FAIL')[0].name !== 'Public phone lookup must not disclose order line items without proof') throw Error('Unexpected failing case');
+          if (fs.readdirSync('/tmp/amanzine-qa/screens').filter(x => x.endsWith('.png')).length < 5) throw Error('Missing page screenshots');
+          console.log('Verified archived evidence: 58 passes, 1 known privacy failure, five screenshots');
+          NODE
+      - name: Store screenshots and structured results inside GitHub, not an expiring artifact only
+        run: |
+          mkdir -p AUDIT/evidence/live-2026-11-13
+          cp /tmp/amanzine-qa/staging-audit-smoke.json AUDIT/evidence/live-2026-11-13/
+          cp /tmp/amanzine-qa/staging-browser-last-page.png AUDIT/evidence/live-2026-11-13/
+          cp /tmp/amanzine-qa/screens/*.png AUDIT/evidence/live-2026-11-13/
+          git add AUDIT/evidence/live-2026-11-13/
+          node scripts/audit.mjs
+          git add REPORTS/audit.json REPORTS/REPO_AUDIT.md
+          git -c user.name="amanzine-audit-bot" -c user.email="audit-bot@users.noreply.github.com" \
+            commit -m "docs(audit): preserve 58-check live Chromium evidence permanently"
+          git push origin HEAD:refs/heads/audit/amanzine-full-feature-map-20261113
