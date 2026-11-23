@@ -399,6 +399,17 @@ const db = {
     );
     return _mapCustomer(rows[0]);
   },
+  /**
+   * PR #26 review: count an approved order in the customer's stats with ONE atomic UPDATE
+   * (no read-modify-write, so two approvals for the same customer cannot lose an increment).
+   */
+  async bumpCustomerStats(customerId, userId, total) {
+    await pool.query(
+      `UPDATE customers SET total_orders = COALESCE(total_orders, 0) + 1,
+              total_spent = COALESCE(total_spent, 0) + $3, last_order_date = $4
+        WHERE id = $1 AND user_id = $2`,
+      [customerId, userId, +total || 0, new Date().toISOString().split('T')[0]]);
+  },
   async updateCustomer(id, u) {
     const map = {
       name: 'name', phone: 'phone', email: 'email', city: 'city',
@@ -508,7 +519,8 @@ const db = {
     if (rows[0]) return _mapOrder(rows[0]);
     return _replayOrder(o.userId, key, fp);
   },
-  async updateOrder(id, u) {
+  async updateOrder(id, u, opts = {}) {
+    const q = opts.client || pool;
     // ── **الترجمةُ عند كلّ باب، لا عند بابٍ واحد** ─────────────────
     //   كانت في مسار الأحداث وحدَه، فكان عميلٌ يرسل `confirmed` إلى
     //   `PUT /api/orders/:id` يُردّ بـ400 بينما يُفهَم على المسار الآخر.
@@ -538,21 +550,209 @@ const db = {
     for (const [jsKey, pgCol] of Object.entries(map)) {
       if (u[jsKey] === undefined) continue;
       const v = u[jsKey];
+      // PR #26 review: a generic status write (carrier sync, webhook, auto-shipment, events)
+      // never moves an order OUT of a terminal state. PostgreSQL evaluates this on the row it
+      // actually updates (after any lock wait), so a cancellation that commits first wins.
+      if (pgCol === 'status') {
+        parts.push(`status = CASE WHEN status IN ('cancelled', 'delivered') THEN status ELSE $${idx++} END`);
+        vals.push(v);
+        continue;
+      }
       parts.push(`${pgCol} = $${idx++}`);
       vals.push(Array.isArray(v) || (typeof v === 'object' && v !== null) ? JSON.stringify(v) : v);
     }
-    if (!parts.length) return this.getOrder(id);
+    if (!parts.length) return opts.client ? this._getOrderTx(opts.client, id) : this.getOrder(id);
     parts.push(`updated_at = NOW()`);
     // دفاعٌ في العمق: المسارات تتحقّق من الملكيّة أصلًا، لكن حين يُمرَّر userId
     // نُقيّد الاستعلام به أيضًا (نفس نمط updateProduct). userId ليس في القائمة
     // البيضاء أعلاه ⇒ لا يُكتَب كعمود أبدًا، يُستعمل للتقييد فقط.
     if (u.userId) {
       vals.push(u.userId);
-      await pool.query(`UPDATE orders SET ${parts.join(', ')} WHERE id = $1 AND user_id = $${idx}`, vals);
+      await q.query(`UPDATE orders SET ${parts.join(', ')} WHERE id = $1 AND user_id = $${idx}`, vals);
     } else {
-      await pool.query(`UPDATE orders SET ${parts.join(', ')} WHERE id = $1`, vals);
+      await q.query(`UPDATE orders SET ${parts.join(', ')} WHERE id = $1`, vals);
     }
-    return this.getOrder(id);
+    return opts.client ? this._getOrderTx(opts.client, id) : this.getOrder(id);
+  },
+  /** Read an order inside an open transaction (sees its own uncommitted writes). */
+  async _getOrderTx(client, id) {
+    const { rows } = await client.query('SELECT * FROM orders WHERE id = $1', [id]);
+    return _mapOrder(rows[0]) || null;
+  },
+  /**
+   * Run fn(client) in ONE transaction; rollback on any throw.
+   * A deadlock (40P01) or serialization failure (40001) chosen by PostgreSQL is retried
+   * (bounded): the victim was rolled back completely and fn only touches the database, so
+   * a retry is safe. Seen when a migration's ALTER TABLE runs during live traffic.
+   */
+  async _orderTx(fn, attempts = 3) {
+    for (let attempt = 1; ; attempt++) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const out = await fn(client);
+        await client.query('COMMIT');
+        return out;
+      } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        if ((e.code === '40P01' || e.code === '40001') && attempt < attempts) {
+          await new Promise(r => setTimeout(r, 25 * attempt + Math.floor(Math.random() * 25)));
+          continue;
+        }
+        throw e;
+      } finally { client.release(); }
+    }
+  },
+  /**
+   * PR #26 review: the ONE lock every order mutation takes first (the order row, then
+   * product rows in id order). Edits, approval, cancellation and event recording on the
+   * same order therefore run one after the other, and each re-reads the state it decides on.
+   */
+  async _lockOrder(client, orderId, userId) {
+    const { rows: [o] } = await client.query(
+      'SELECT * FROM orders WHERE id = $1 AND user_id = $2 FOR UPDATE', [orderId, userId]);
+    if (!o) throw Object.assign(new Error('Not found'), { code: 'NOT_FOUND', status: 404 });
+    return o;
+  },
+  /**
+   * PR #26 review (edit vs approve): change lines/amounts only while the order is still
+   * editable, decided UNDER the order lock shared with approval (pending, no stock
+   * committed). Otherwise ORDER_LINES_FROZEN (409) and nothing is written.
+   */
+  async updateOrderLines(orderId, userId, fields) {
+    return this._orderTx(async (client) => {
+      const o = await this._lockOrder(client, orderId, userId);
+      if (o.stock_committed_at || canonicalState(o.status) !== 'pending') {
+        throw Object.assign(new Error('Order lines are frozen'), { code: 'ORDER_LINES_FROZEN', status: 409, current: canonicalState(o.status) });
+      }
+      const { status: _ignored, ...rest } = fields || {};
+      return this.updateOrder(orderId, { ...rest, userId }, { client });
+    });
+  },
+  /**
+   * Issue #25 — approve an order and deduct its stock in ONE transaction.
+   *   • the order row is locked and must still be `pending` (else ORDER_NOT_PENDING);
+   *   • every product line is locked (stable id order, so two approvals cannot deadlock)
+   *     and must have enough stock (else INSUFFICIENT_STOCK) — all-or-nothing;
+   *   • services/digital offers carry no stock: never blocked, never decremented;
+   *   • a line naming a product that is missing or not this merchant's ⇒ PRODUCT_NOT_FOUND
+   *     (fail closed); the deducted quantities are stored in stock_committed_items.
+   * Throws { code, status } errors; nothing is written when it throws.
+   */
+  async approveOrderWithStock(orderId, userId) {
+    return this._orderTx(async (client) =>
+      _mapOrder(await this._approveLocked(client, await this._lockOrder(client, orderId, userId), userId)));
+  },
+  /** Approval core: `o` is the order row already locked by this transaction. Returns the new row. */
+  async _approveLocked(client, o, userId) {
+    const orderId = o.id;
+    {
+      const current = canonicalState(o.status);
+      if (current !== 'pending') {
+        throw Object.assign(new Error('Order is not pending'), { code: 'ORDER_NOT_PENDING', status: 409, current });
+      }
+      const qty = new Map();
+      for (const it of (Array.isArray(o.items) ? o.items : [])) {
+        if (!it || !it.productId) continue;
+        qty.set(it.productId, (qty.get(it.productId) || 0) + Math.max(1, Math.trunc(+it.quantity || 1)));
+      }
+      const ids = [...qty.keys()].sort();
+      const { rows: prods } = ids.length ? await client.query(
+        `SELECT id, stock, offer_type FROM products WHERE id = ANY($1) AND user_id = $2 ORDER BY id FOR UPDATE`,
+        [ids, userId]) : { rows: [] };
+      // Fail closed (review): a line that names a product which is missing or belongs to
+      // another merchant must not complete silently as if it were sold.
+      const found = new Set(prods.map(p => p.id));
+      const missing = ids.filter(id => !found.has(id));
+      if (missing.length) {
+        throw Object.assign(new Error('Product not found'), { code: 'PRODUCT_NOT_FOUND', status: 409, productIds: missing });
+      }
+      // The kind lives in offer_type (createProduct/_mapProduct); the raw `type` column keeps its default.
+      const isStocked = (p) => p.offer_type !== 'service' && p.offer_type !== 'digital';
+      const stocked = prods.filter(isStocked);
+      for (const p of stocked) {
+        const want = qty.get(p.id);
+        if ((+p.stock || 0) < want) {
+          throw Object.assign(new Error('Insufficient stock'), {
+            code: 'INSUFFICIENT_STOCK', status: 409, productId: p.id, available: +p.stock || 0, requested: want });
+        }
+      }
+      const committed = {};
+      for (const p of prods) {
+        const n = qty.get(p.id);
+        const stockedLine = isStocked(p);
+        if (stockedLine) committed[p.id] = n;
+        await client.query(
+          `UPDATE products SET stock = stock - $2, sales = COALESCE(sales,0) + $3, updated_at = NOW()
+            WHERE id = $1 AND user_id = $4`,
+          [p.id, stockedLine ? n : 0, n, userId]);
+      }
+      // The exact quantities taken out of stock are recorded: a later cancellation gives back
+      // THESE, never a recomputation from lines that may have been edited since (review).
+      const { rows: [updated] } = await client.query(
+        `UPDATE orders SET status = 'approved', stock_committed_at = NOW(), stock_committed_items = $3, updated_at = NOW()
+          WHERE id = $1 AND user_id = $2 RETURNING *`, [orderId, userId, JSON.stringify(committed)]);
+      return updated;
+    }
+  },
+  /**
+   * Issue #25 — cancel an order; give stock back EXACTLY ONCE, and only when this
+   * order deducted it (stock_committed_at set, stock_released_at not yet set) and the
+   * goods have not left (approved/processing). Shipped orders are cancelled without
+   * automatic restock: the goods need a recorded return. Delivered/cancelled ⇒ 409.
+   * Returns { order, restocked }.
+   */
+  async cancelOrderWithStock(orderId, userId) {
+    return this._orderTx(async (client) => {
+      const r = await this._cancelLocked(client, await this._lockOrder(client, orderId, userId), userId);
+      return { order: _mapOrder(r.row), restocked: r.restocked };
+    });
+  },
+  /** Cancellation core: `o` is the order row already locked by this transaction. */
+  async _cancelLocked(client, o, userId) {
+    const orderId = o.id;
+    {
+      const current = canonicalState(o.status);
+      if (!['pending', 'approved', 'processing', 'shipped'].includes(current)) {
+        throw Object.assign(new Error('Order cannot be cancelled'), { code: 'ORDER_NOT_CANCELLABLE', status: 409, current });
+      }
+      const restock = !!o.stock_committed_at && !o.stock_released_at && (current === 'approved' || current === 'processing');
+      if (restock) {
+        // Give back exactly what approval recorded as deducted (stock_committed_items).
+        const committed = (o.stock_committed_items && typeof o.stock_committed_items === 'object') ? o.stock_committed_items : {};
+        const ids = Object.keys(committed).sort();
+        const { rows: prods } = ids.length ? await client.query(
+          `SELECT id FROM products WHERE id = ANY($1) AND user_id = $2 ORDER BY id FOR UPDATE`,
+          [ids, userId]) : { rows: [] };
+        for (const p of prods) {
+          const n = Math.max(0, Math.trunc(+committed[p.id] || 0));
+          if (!n) continue;
+          await client.query(
+            `UPDATE products SET stock = stock + $2, sales = GREATEST(COALESCE(sales,0) - $2, 0), updated_at = NOW()
+              WHERE id = $1 AND user_id = $3`,
+            [p.id, n, userId]);
+        }
+      }
+      const { rows: [updated] } = await client.query(
+        `UPDATE orders SET status = 'cancelled', updated_at = NOW()${restock ? ', stock_released_at = NOW()' : ''}
+          WHERE id = $1 AND user_id = $2 RETURNING *`, [orderId, userId]);
+      return { row: updated, restocked: restock };
+    }
+  },
+  /**
+   * Review (PR #26) — ship/deliver move the order only from an allowed state, atomically:
+   * `UPDATE … WHERE status = ANY(from)` means two concurrent deliveries cannot both win
+   * (loyalty points are granted once). Throws INVALID_TRANSITION (409) otherwise.
+   */
+  async transitionOrderStatus(orderId, userId, from, to) {
+    const { rows: [row] } = await pool.query(
+      `UPDATE orders SET status = $4, updated_at = NOW()
+        WHERE id = $1 AND user_id = $2 AND status = ANY($3) RETURNING id`,
+      [orderId, userId, from, to]);
+    if (row) return row;
+    const { rows: [cur] } = await pool.query('SELECT status FROM orders WHERE id = $1 AND user_id = $2', [orderId, userId]);
+    if (!cur) throw Object.assign(new Error('Not found'), { code: 'NOT_FOUND', status: 404 });
+    throw Object.assign(new Error('Invalid transition'), { code: 'INVALID_TRANSITION', status: 409, current: canonicalState(cur.status), to });
   },
   async deleteOrder(id, userId) {
     if (userId) await pool.query('DELETE FROM orders WHERE id = $1 AND user_id = $2', [id, userId]);
@@ -2685,34 +2885,59 @@ db.getOrderEvents = async (orderId) => {
  * @returns {{ok:true, event:object, facts:object} | {ok:false, problems:string[]}}
  */
 db.recordOrderEvent = async (orderId, userId, ev) => {
-  const order = await db.getOrder(orderId);
-  if (!order || order.userId !== userId) return { ok: false, problems: ['الطلب غير موجود'] };
+  // PR #26 review (cancel vs shipment event): validation, append and status transition run
+  // in ONE transaction under the order lock shared with approve/cancel/edit. Whichever
+  // commits first, the other re-reads its result: a shipment event cannot land on an order
+  // cancelled in the meantime, and an approval/cancellation carried by an event runs the
+  // same stock-guarded core as /approve and /reject.
+  return db._orderTx(async (client) => {
+    const { rows: [locked] } = await client.query(
+      'SELECT * FROM orders WHERE id = $1 AND user_id = $2 FOR UPDATE', [orderId, userId]);
+    if (!locked) return { ok: false, problems: ['الطلب غير موجود'] };
+    const order = _mapOrder(locked);
 
-  const existing = await db.getOrderEvents(orderId);
-  const problems = validateEvent(ev, order, existing);
-  if (problems.length) return { ok: false, problems };
+    const { rows: evRows } = await client.query(
+      `SELECT id, order_id, user_id, type, actor, note, amount_delta, payload, created_at
+         FROM order_events WHERE order_id=$1 ORDER BY id ASC`, [orderId]);
+    const existing = evRows.map(r => ({
+      id: String(r.id), orderId: r.order_id, userId: r.user_id, type: r.type,
+      actor: r.actor, note: r.note || '', amountDelta: +r.amount_delta || 0,
+      payload: (r.payload && typeof r.payload === 'object') ? r.payload : {},
+      createdAt: r.created_at,
+    }));
+    const problems = validateEvent(ev, order, existing);
+    if (problems.length) return { ok: false, problems };
 
-  const { rows } = await pool.query(
-    `INSERT INTO order_events (order_id, user_id, type, actor, note, amount_delta, payload)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at`,
-    [orderId, userId, ev.type, ev.actor || 'system', ev.note || '',
-     +ev.amountDelta || 0, JSON.stringify(ev.payload || {})]);
+    // Stock-moving targets go through the guarded cores (409 on refusal, rolled back).
+    const target = ev.status ? canonicalState(ev.status) : '';
+    if (target === 'approved') {
+      order.status = canonicalState((await db._approveLocked(client, locked, userId)).status);
+    } else if (target === 'cancelled') {
+      order.status = canonicalState((await db._cancelLocked(client, locked, userId)).row.status);
+    }
 
-  // ── **الترجمةُ لها مالكٌ واحد، ولا تُكرَّر هنا** ──────────────────
-  //   كانت مكرّرةً في هذا الموضع، فلمّا صار `updateOrder` يترجم **نجا
-  //   نزعُها من هنا بلا إخفاقٍ واحد** — كشفته مصفوفةُ التخريب. ونسختان من
-  //   قاعدةٍ واحدةٍ تتباعدان يومًا ما؛ فالحالةُ تُكتَب من الباب الواحد،
-  //   **وتُقرَأ من جوابه** لا من حسابٍ موازٍ.
-  if (ev.status) {
-    const updated = await db.updateOrder(orderId, { status: ev.status });
-    if (updated?.status) order.status = updated.status;
-  }
-  const events = [...existing, { type: ev.type, amountDelta: +ev.amountDelta || 0, payload: ev.payload || {} }];
-  return {
-    ok: true,
-    event: { id: String(rows[0].id), createdAt: rows[0].created_at, ...ev },
-    facts: deriveFacts(order, events),
-  };
+    const { rows } = await client.query(
+      `INSERT INTO order_events (order_id, user_id, type, actor, note, amount_delta, payload)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at`,
+      [orderId, userId, ev.type, ev.actor || 'system', ev.note || '',
+       +ev.amountDelta || 0, JSON.stringify(ev.payload || {})]);
+
+    // ── **الترجمةُ لها مالكٌ واحد، ولا تُكرَّر هنا** ──────────────────
+    //   كانت مكرّرةً في هذا الموضع، فلمّا صار `updateOrder` يترجم **نجا
+    //   نزعُها من هنا بلا إخفاقٍ واحد** — كشفته مصفوفةُ التخريب. ونسختان من
+    //   قاعدةٍ واحدةٍ تتباعدان يومًا ما؛ فالحالةُ تُكتَب من الباب الواحد،
+    //   **وتُقرَأ من جوابه** لا من حسابٍ موازٍ.
+    if (ev.status && target !== 'approved' && target !== 'cancelled') {
+      const updated = await db.updateOrder(orderId, { status: ev.status }, { client });
+      if (updated?.status) order.status = updated.status;
+    }
+    const events = [...existing, { type: ev.type, amountDelta: +ev.amountDelta || 0, payload: ev.payload || {} }];
+    return {
+      ok: true,
+      event: { id: String(rows[0].id), createdAt: rows[0].created_at, ...ev },
+      facts: deriveFacts(order, events),
+    };
+  });
 };
 
 /** الطلبُ ودفترُه ووقائعُه المستنتَجة — قراءةٌ واحدةٌ لخدمة العملاء والمحاسبة. */

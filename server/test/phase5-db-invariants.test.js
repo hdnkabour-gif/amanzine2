@@ -207,8 +207,9 @@ test('**والترجمةُ تقع عند كلّ بابٍ يكتب** — لا ب�
     || await db.createUser({ name: 'P5U', email: 'p5@test.ma', password: 'x', role: 'user' });
   const o = await db.createOrder({ userId: u.id, customerName: 'ز', total: 10, status: 'pending', items: [] });
 
-  for (const [legacy, canon] of [['confirmed', 'approved'], ['closed', 'delivered'],
-    ['pending_confirmation', 'pending']]) {
+  // PR #26: the writer never moves an order OUT of a terminal state (delivered/cancelled),
+  //   so the terminal alias is measured last, after the invented-status check.
+  for (const [legacy, canon] of [['pending_confirmation', 'pending'], ['confirmed', 'approved']]) {
     const r = await db.updateOrder(o.id, { status: legacy });
     assert.equal(r.status, canon, `«${legacy}» لم تُترجَم عند بابِ التحديث`);
   }
@@ -216,6 +217,10 @@ test('**والترجمةُ تقع عند كلّ بابٍ يكتب** — لا ب�
   await assert.rejects(() => db.updateOrder(o.id, { status: 'حالةٌ مخترَعةٌ تمامًا' }),
     e => { assert.match(e.message, /chk_orders_status/); return true; },
     '**قُبلت حالةٌ مخترَعةٌ عبر بابِ التحديث**');
+  const closed = await db.updateOrder(o.id, { status: 'closed' });
+  assert.equal(closed.status, 'delivered', '«closed» لم تُترجَم عند بابِ التحديث');
+  // …and a terminal order stays terminal for any later (stale) writer.
+  assert.equal((await db.updateOrder(o.id, { status: 'pending_confirmation' })).status, 'delivered');
   await pool.query('DELETE FROM orders WHERE id=$1', [o.id]);
 });
 
